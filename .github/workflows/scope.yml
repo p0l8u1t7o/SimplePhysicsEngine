@@ -1,0 +1,31 @@
+name: Scope check
+
+# 分支名稱是 <專案>/…、core/…、tools/…、studio/… 時，PR 只能改該範圍（另可改 core/REQUESTS.md、PENDING.md）。
+# 專案名稱用小寫、空白換成 -（shutter assembly → shutter-assembly/…）。其他分支名稱不限制。
+# 規則見根目錄 AGENTS.md「範圍」；判定邏輯與 pre-commit 共用 core/tools/check-scope.mjs。
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  scope:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Scope check
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: node core/tools/check-scope.mjs --range "origin/$BASE_REF...HEAD" --branch "$HEAD_REF"

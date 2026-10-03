@@ -4,11 +4,14 @@ name: Check and publish 3D demos
 # PR 與推送都先跑快速檢查；推送到 main 且檢查通過才建置並發布到 GitHub Pages。
 # 網址配置與本機 node core/tools/serve.mjs 相同（/、/core/、/<專案>/）。
 # Pages 設定：Settings → Pages → Source 選 GitHub Actions。
+# 只改 studio/（3D 動畫生成應用程式）時不跑：網站內容不受影響。範圍檢查在 scope.yml。
 
 on:
   push:
     branches: [main]
+    paths-ignore: ['studio/**']
   pull_request:
+    paths-ignore: ['studio/**']
   workflow_dispatch:
 
 permissions:

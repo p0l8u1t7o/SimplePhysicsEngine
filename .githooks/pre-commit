@@ -1,0 +1,4 @@
+#!/bin/sh
+# 範圍檢查：在子專案資料夾內執行 git commit 時，只能提交該專案的檔案（規則見 AGENTS.md「範圍」）。
+# 安裝：node core/tools/install-hooks.mjs（setup.ps1 會自動執行）
+exec node core/tools/check-scope.mjs --staged

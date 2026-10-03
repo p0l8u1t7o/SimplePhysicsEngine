@@ -70,3 +70,14 @@ Node 端由 `core/tools/loader.mjs` 解析相同的三種名稱，檢查程式�
   - 範本改為標準版面（viewer-workspace、look／extent、floor、標籤 priority），並修掉範本原本的靜態相撞（龍門 offset 300→400）；new-project 依檔案類型跳脫標題；`createTimeline` 補上 `stationStart`。
   - 桌面截圖：各站與第四輪前的 HEAD 逐張比對，差異 0；刻意改動只有 WPM 工件跟拍（原本同一格先跳播再切視角會空白）與 MGPC 手臂取景說明文字（原本壓在影像資訊框上，改到影像左下角）。
   - 收尾：精簡版面打開側欄或電控面板時，viewer-workspace 以 `camera.setViewOffset` 把 3D 畫面中心移到沒被遮住的區域（直向往上、橫向往左），手機看電盤視角時機櫃不再被面板蓋住；桌面不受影響（截圖差異 0）。
+- 2026-10-04 子專案規則（使用者選：依提交位置判定、PR 依分支名稱限定、各站拍板紀錄搬進各站、這次就做寫檔關卡）：
+  - 規則檔：根目錄 `AGENTS.md`（共通規則，Claude Code 與 Codex 共用；`CLAUDE.md` 以 `@AGENTS.md` 引用並另加 Claude Code 專屬說明）、各站 `AGENTS.md`／`CLAUDE.md`（範圍、規格摘要、已拍板事項）；範本一併帶出。
+  - 範圍檢查：`core/tools/check-scope.mjs`（pre-commit 依 `GIT_PREFIX`、PR CI 依分支名稱）、`.githooks/pre-commit`＋`core/tools/install-hooks.mjs`（setup.ps1 自動安裝）、`.github/workflows/scope.yml`；`pages.yml` 只改 `studio/` 時不跑。
+  - 寫檔關卡：各站 `.claude/settings.json` 的 PreToolUse 呼叫 `core/tools/scope-guard.mjs`。
+  - core 需求登記 `core/REQUESTS.md`；版本號 `core/VERSION` 定為 1.0.0，各站 `project.json` 加 `coreVersion`。網頁與檢查行為不變。
+
+## 版本
+
+| 版本 | 日期 | 內容 |
+|---|---|---|
+| 1.0.0 | 2026-10-04 | 開始編號：搬庫後、第四輪統一完成時的 core |

@@ -2,6 +2,7 @@
   "title": "__TITLE__",
   "summary": "__SUMMARY__",
   "order": 50,
+  "coreVersion": "1.0.0",
   "checks": {
     "quick": ["tools/verify.mjs"],
     "full": []

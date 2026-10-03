@@ -33,3 +33,5 @@ node ../core/tools/check.mjs "__ID__" --quick  # 部署前快速檢查
 | `web/js/project.js` | 建立場景（地面用 `floor()`）、站別、時間軸、`apply(t)`、空間檢核、全場檢查設定（網頁與檢查共用） |
 | `web/js/main.js` | 舞台（`look`／`extent`）、`createViewerWorkspace`、視角、站別按鈕、3D 標籤、播放列、面板、`exposeSim` |
 | `tools/verify.mjs` | 本專案的製程規則檢查 |
+| `AGENTS.md`／`CLAUDE.md` | 本站規則：範圍、規格摘要、已拍板事項（`CLAUDE.md` 以 `@AGENTS.md` 引用） |
+| `.claude/settings.json` | 寫檔關卡：從本資料夾啟動的 Claude Code 只能改本站 |

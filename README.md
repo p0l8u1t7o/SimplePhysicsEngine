@@ -1,4 +1,4 @@
-# TestCode 專案展示與研究
+# SimplePhysicsEngine 專案展示與研究
 
 每個子專案的程式、模型、資料與說明均放在自己的資料夾。
 
@@ -28,5 +28,6 @@ node core/tools/new-project.mjs <名稱> "<標題>"  # 由範本建立新專案
 - `TEMP/`、`LOGS/`（不分大小寫）、`*.log` 與快取不納入版控。影片輸出位於 `TEMP/videos/`，不隨網站發布。
 - CardServer、Bin 已退役並移出版控。本機暫存封存位於 `TEMP/retired-projects/`。
 - 3D 專案只需 Node.js 22 以上與 Chrome／Edge，不需 npm 套件；選用工具的 Python 套件與 ffmpeg 等見 [REQUIREMENTS.md](REQUIREMENTS.md)。
-- [CLAUDE.md](CLAUDE.md)：給 Claude Code 的專案記憶（合作方式、框架慣例、檢查流程、踩坑紀錄、各站拍板與待辦）。
+- [AGENTS.md](AGENTS.md)：給 Claude Code 與 Codex 的共通規則（合作方式、範圍、框架慣例、檢查流程、踩坑紀錄）；[CLAUDE.md](CLAUDE.md) 以 `@AGENTS.md` 引用。各站規則與拍板紀錄在各站的 `AGENTS.md`，待辦事項在 [PENDING.md](PENDING.md)。
+- 範圍檢查：從子專案資料夾啟動的代理只能改該站（pre-commit、PR 的 `scope.yml`、各站 `.claude/settings.json` 寫檔關卡）；clone 後執行 `setup.ps1` 或 `node core/tools/install-hooks.mjs` 安裝 hook。
 - [tools/migrate](tools/migrate/README.md)：從原 Python 庫搬成獨立庫的腳本與說明。

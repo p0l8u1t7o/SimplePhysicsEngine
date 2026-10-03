@@ -1,6 +1,6 @@
 ﻿<#
   環境設定：clone 之後執行一次（Windows PowerShell 5.1 以上）。
-    powershell -ExecutionPolicy Bypass -File setup.ps1            # 檢查 Node／瀏覽器／Git，跑快速檢查
+    powershell -ExecutionPolicy Bypass -File setup.ps1            # 檢查 Node／瀏覽器／Git，安裝 git hook，跑快速檢查
     powershell -ExecutionPolicy Bypass -File setup.ps1 -All       # 另外建立 Python 環境、下載 ffmpeg
   選項：
     -Python        建立 .venv（Python 3.12）並安裝 requirements.txt
@@ -51,6 +51,13 @@ if ($browsers) { Ok ($browsers | Select-Object -First 1) } else { $problems += '
 # ---------------------------------------------------------------- Git
 Step 'Git'
 if (Get-Command git -ErrorAction SilentlyContinue) { Ok ((& git --version).Trim()) } else { $problems += 'Git'; Warn '找不到 git。安裝：winget install Git.Git' }
+
+# ---------------------------------------------------------------- git hook（範圍檢查）
+if ($node -and -not ($problems -contains 'Git')) {
+  Step 'git hook（pre-commit 範圍檢查）'
+  & node core/tools/install-hooks.mjs
+  if ($LASTEXITCODE -ne 0) { $problems += 'git hook'; Warn '安裝 git hook 失敗，請看上方訊息。' } else { Ok '.githooks' }
+}
 
 # ---------------------------------------------------------------- Python（選用）
 if ($Python) {

@@ -17,7 +17,8 @@ TestCode 底下每個有 `web/index.html` 的資料夾都是一個展示專案�
 | `ui/` | `stage.js`（renderer／場景／相機／燈光／3D 標籤／視角轉場／畫面迴圈／`exposeSim`）、`player.js`（標準播放列）、`viewer-workspace`（相機視窗與焦點追隨，所有專案共用）、`vision-overlay` |
 | `verify/` | 統一檢查：`scene.mjs`（全場干涉＋重合面閃爍）、`determinism.mjs`（倒序一致）、`run.mjs`（執行入口）、`dom-stub.mjs` |
 | `template/` | 新專案範本（`tools/new-project.mjs` 複製） |
-| `tools/` | 伺服器、檢查執行器、截圖比對、Pages 建置、建立新專案（不發布） |
+| `tools/` | 伺服器、檢查執行器、截圖比對、Pages 建置、建立新專案、範圍檢查（`check-scope.mjs`、`scope-guard.mjs`、`install-hooks.mjs`）（不發布） |
+| `VERSION`、`REQUESTS.md` | core 版本號（語意化版本，改版紀錄在 `MIGRATION.md`）；子專案提出的 core 需求登記 |
 
 ## 新專案
 
@@ -26,6 +27,8 @@ node core/tools/new-project.mjs MyStation "我的工作站" "首頁卡片上的�
 ```
 
 範本已經接好標準版面（含手機／平板精簡版面與相機視窗）、舞台（`look`＋`extent`、`floor()`）、播放列、時間軸、`project.js` 與一支自有檢查，建好就能開啟、檢查，推送後自動出現在 Pages 首頁。之後在 `project.js` 建模型與時間軸，在 `main.js` 加視角與面板。
+
+範本也帶出子專案規則：`AGENTS.md`（範圍、規格摘要、已拍板事項；建好後填入規格摘要）、`CLAUDE.md`（`@AGENTS.md`）、`.claude/settings.json`（寫檔關卡：從這個資料夾啟動的 Claude Code 只能改本站）。範圍規則見根目錄 `AGENTS.md`「範圍」。
 
 ## 引用方式
 
@@ -70,6 +73,7 @@ node core/tools/serve.mjs Chemical        # 直接開某專案（名稱可只打
   "title": "200L 化學桶自動清洗線",
   "summary": "首頁卡片上的一句說明",
   "order": 2,
+  "coreVersion": "1.0.0",
   "checks": { "quick": ["tools/verify.mjs"], "full": ["tools/verify-gripper.mjs"] },
   "core": { "skip": [], "quick": [] },
   "shots": { "views": ["iso", "robot"], "skip": ["follow"] }
