@@ -1,6 +1,6 @@
 # 自動化設備 3D 展示 — 專案記憶
 
-這個庫原本是 `Python` 庫底下的 `TestCode/`，2026-10 搬成獨立庫（從頭開始，舊歷史留在原庫）。以下是之前累積、新 session 需要知道的事。框架細節以 `core/README.md` 為準，改版紀錄在 `core/MIGRATION.md`。
+這個庫原本是 `Python` 庫底下的 `TestCode/`，2026-10 搬成獨立庫（從頭開始，舊歷史留在原庫）。以下是之前累積、新 session 需要知道的事。框架細節以 `core/README.md` 為準，改版紀錄在 `core/MIGRATION.md`，待辦事項在 `PENDING.md`。
 
 ## 與使用者合作的方式
 
@@ -10,6 +10,7 @@
 - **不進版控**：各專案 `docs/`（使用者給的圖面、照片、影片、規劃與成本資料）、`TEMP/`、`question_log.txt`、ffmpeg 執行檔。新專案的 `docs/` 也要加進 `.gitignore`。
 - **使用者自己也會改檔、提交**：改檔前先看 `git status`。有未提交改動的檔案**絕對不要** `git checkout`／`restore`／`stash`（曾經這樣弄丟過工作，只能事後重做）。
 - 使用者要求「先討論不改」時，只討論、不動檔案。
+- **待辦事項一律記在根目錄的 `PENDING.md`**（進版控），包括規劃中的工作、待使用者提供或待現場確認的事。完成就打勾或刪掉。CLAUDE.md 只記已經拍板的事和慣例，不放待辦。
 
 ## 環境
 
@@ -95,48 +96,23 @@ node --import ./core/tools/register.mjs tools/verify-cable-routing.mjs   # 也�
 ## 各站的使用者拍板紀錄
 
 - **PCB-CopperAssembly**
-  - S1、S3 改成完全懸臂，配置不變。相機與 S2 Y 軌的間隙只剩 1.75 mm，待實機確認。
+  - S1、S3 改成完全懸臂，配置不變。相機與 S2 Y 軌的間隙只剩 1.75 mm。
   - 全部孔都放。以配方驅動：長圓 138 孔＋圓孔 72 孔，其中圓孔為假設值。
   - 雙龍門每頭 4 吸嘴，節拍約 54 s。
 - **MilitaryGradePC**
   - 全部修，可以加步驟、可以調站位：S3 移到 x 1150，週期從 329.75 s 變成 347.75 s。
   - 選型：DENSO VM-60B1＋RC8A、Keyence KV-X、IDS GigE 相機。
-  - 待用 DENSO CAD 核對關節零點與尺寸。
 - **ChemicalTankWashing**
   - 穿梭車密集架、龍門翻轉、自動開蓋、FANUC R-2000iC/165F 沖洗。
   - 約 24 桶／h，週期 753.1 s。
-  - 西牆捲門待現場確認。
 - **RobotArmPressSSD**
   - 標準是 8 頭整排壓墊（SSD 用快拆單點）、全局相機、DENSO VS-068。
   - 其他機種用假設值。
-- **shutter assembly**：DENSO HSR065 SCARA、吸塑盤雙抽屜、上視補正，23.8 s／顆。待使用者提供葉片圖面。
+- **shutter assembly**：DENSO HSR065 SCARA、吸塑盤雙抽屜、上視補正，23.8 s／顆。
 - **AutomaticAcid-BaseTitration**：COBOTTA PRO 900、Metrohm tiamo 主案、5 mL 移液模組、單一滴定頭，整批約 93 分。
 - **WorkpieceMeasurement**
   - 照規格書做半自動；只做殼體 A／B／C。
-  - 與規格書不同的地方已列在 README。規格 A 底孔、規格 C 口部依圖面判讀，待原始圖檔確認。
+  - 與規格書不同的地方已列在 README。規格 A 底孔、規格 C 口部依圖面判讀。
 - **框架**
   - 4 輪統一：P0～P7、第二輪、精進輪、第四輪。第四輪內容是到位閘門、小螢幕、look 加地面、ui-check、favicon。
   - `extent` 推算的燈位對不上各站手調的值，所以各站只用 `look` 省掉配色設定。
-
-## 待辦與規劃
-
-1. **子專案開發規則（搬庫後要做，動工前先用選項對話確認範圍）**
-   - 規則檔：`AGENTS.md`（`CLAUDE.md` 以 `@AGENTS.md` 引用），以及範本產生的子專案 `CLAUDE.md`。
-   - 子專案代理只能改自己的資料夾。core 缺功能時，先本地暫代並登記在 `core/REQUESTS.md`，再由單一的 core 維護 session 實作（基準截圖＋全專案檢查）。
-   - 工具：`core/tools/check-scope.mjs`、`install-hooks`（pre-commit）、PR CI 的範圍檢查；選用 Claude Code 的 PreToolUse 寫檔關卡。
-   - 開發 DAG：規格 → new-project → 盤點 core → project.js → 排程 → main.js 與 verify（可平行）→ check → 截圖 → commit → PR → Pages。
-2. **3D 動畫生成應用程式**：計畫書在本機 `TEMP/3d-app-plan.md`（不進版控）。
-   - 已拍板：
-     - 給公司內部同事用，Claude Code 與 Codex 並行，Electron 外殼，第一版就含電控與相機。
-     - 依角色指定模型（plan、build、render、review、fix），並有獨立的渲染與細節補強流程。
-     - 上傳檔只留本機；成品可匯出網站壓縮檔、MP4、內部 Pages、單一 HTML。
-     - core 自動升級並自動驗證；同事之間用專案交接包。
-     - P2 驗收重做 MGPC 與快門，再加 1 個新案。
-     - STEP 輸入排進 P4，Python＋OCP 做成選用元件；效能預算採中等；審查角色每段自動執行。
-     - 應用程式程式碼放在本庫的 `studio/`（獨立範圍；CI 用路徑篩選，只改 `studio/` 時不觸發 Pages）。
-     - 一般工作區的每個專案各自一個 git 庫。
-     - 寫入隔離採多層防護：CLI 關卡＋唯讀屬性、每輪雜湊比對＋`check-scope`、偵測到越界就自動還原。
-     - 庫模式：有本庫權限的人可以直接開啟庫內專案，代理在使用者的工作目錄改檔。app 不得執行 `checkout`／`restore`／`stash`／`reset --hard`／`clean`，改用逐檔寫回；遇到併改就停下提問；只提交該專案的路徑。
-     - 單一 HTML 超過 15 MB 時，提示改用壓縮檔或內部發布。
-   - 順序：~~搬庫~~（已完成）→ 子專案規則 → 命令列原型（雙 CLI 轉接、品質迴圈、寫入隔離、提問機制、角色指派）→ P2 驗收 → Electron 外殼（含庫模式）與第二段能力 → 內部安裝與更新。
-   - 仍待提供：P2 新案的規格、內部 Pages 的發布目標（P4 前定）、STEP 選用元件的安裝來源。
