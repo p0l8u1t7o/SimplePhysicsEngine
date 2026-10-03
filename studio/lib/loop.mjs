@@ -159,12 +159,15 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
           break;
         }
         case 'check': {
+          const record = c => {
+            log(`  ${c.ok ? '✓' : '✗'} ${failureSummary(c).split('\n')[0]}（${c.seconds} s）`);
+            appendJsonl(J.rounds, { check: c.quick ? 'quick' : 'full', at: now(), ok: c.ok, seconds: c.seconds, failures: c.failures.map(f => `${f.check}：${f.note}`) });
+          };
           log('\n▶ 快速檢查');
           let c = await runChecks(ws, id, { quick: true });
-          if (c.ok && full) { log(`  ✓ 快速檢查通過（${c.seconds} s）`); log('▶ 完整檢查（含 ui 四尺寸）'); c = await runChecks(ws, id, { quick: false }); }
-          log(`  ${c.ok ? '✓' : '✗'} ${failureSummary(c).split('\n')[0]}（${c.seconds} s）`);
+          record(c);
+          if (c.ok && full) { log('▶ 完整檢查（含 ui 四尺寸）'); c = await runChecks(ws, id, { quick: false }); record(c); }
           state.lastCheck = { quick: c.quick, ok: c.ok, rows: c.rows.length, failures: c.failures };
-          appendJsonl(J.rounds, { check: c.quick ? 'quick' : 'full', at: now(), ok: c.ok, seconds: c.seconds, failures: c.failures.map(f => `${f.check}：${f.note}`) });
           if (c.ok) {
             if (wantShots) { log('▶ 截圖'); const s = await takeShots(ws, id, join(J.temp, `shots-r${state.round}`)); state.shots = s.ok ? s.dir : null; }
             state.stage = 'done';

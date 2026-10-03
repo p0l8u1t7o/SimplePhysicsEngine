@@ -72,6 +72,23 @@ new → 規劃（配置提案＋問題）⇄ 使用者回答 → 確認提案 �
 - Claude Code：`claude -p --output-format stream-json --verbose`，提示從 stdin 傳入；`result` 事件有 `session_id`、`num_turns`、`total_cost_usd`、`usage`；另有 `rate_limit_event`。`.claude/settings.json` 只從啟動資料夾讀取，寫檔關卡改用 `--settings <JSON>` 傳入，不必在專案裡放設定檔。Windows 上 Bash 工具的寫入攔不到，靠第 2、3 層。
 - Codex：`codex exec --json -`；續接 `codex exec resume <id> -` 沒有 `-s`，改用 `-c sandbox_mode="workspace-write"`。Windows 原生沙箱**會擋下**工作目錄以外的寫入（PowerShell 回「拒絕存取」），但預設允許寫系統暫存目錄。Codex 只從 git 根目錄（專案）往下找 `AGENTS.md`，工作區規則由 app 放進提示。頂層的 `error` 事件多半是重新連線，只有 `turn.failed` 才算失敗。
 
+## P1 實測（2026-10-04）
+
+需求：「皮帶輸送帶把 100×100×50 mm 工件送到取放位，兩軸龍門用真空吸盤移到出料台，節拍約 10 秒，不需要電控與相機」。各角色用中階模型，代理的問題與提案確認都選建議選項。
+
+| | Claude Code（sonnet） | Codex（帳號預設模型） |
+|---|---|---|
+| 規劃 | 5.2 分，問 2 題（循環方式、吸盤外觀） | 2.8 分，問 3 題（出料側、循環與清空、工件吸附條件） |
+| 回答後續接規劃 | 39 s | 70 s |
+| 開發第一段 | 17.8 分（97 turns） | 6.6 分 |
+| 檢查 | 快速＋完整（ui 四尺寸）第一次就全過 | 同左 |
+| 成品 | 沿用範本的滾筒輸送線與夾爪（依回答）；範本的相機子畫面沒拿掉 | 自建皮帶輸送帶（含馬達）、Ø40 吸盤、出料台；假設值都標「示意」；拿掉相機子畫面 |
+| 越界 | 0 | 0 |
+
+- 兩邊都第一次就通過檢查，**修正迴圈沒有在實測中跑到**（只用假代理測過）；P2 再觀察。
+- 隔離自我測試：兩種代理都依規則**拒絕**用 shell 越界；`--simulate` 在真實工作區驗證了偵測與還原（core、其他專案自動還原，工作區根目錄的新檔只記錄）。
+- 實測中修掉的問題：`--cli` 沒有保存（resume 換成另一個 CLI）、複合 Bash 指令被擋、同一工作區併行會互相還原（加執行鎖）。
+
 ## 測試
 
 ```powershell
