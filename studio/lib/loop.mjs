@@ -5,7 +5,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { adapterFor, runAgent } from './adapters/index.mjs';
 import { resolveRole, loadRoleContext } from './roles.mjs';
-import { paths, projectPaths } from './workspace.mjs';
+import { paths, projectPaths, acquireLock } from './workspace.mjs';
 import { snapshot, verifyAndRestore } from './isolation.mjs';
 import { loadQuestions, askInteractive, writeAppQuestion, readAnswer, printQuestion } from './questions.mjs';
 import { runChecks, takeShots, failureSummary } from './checks.mjs';
@@ -22,6 +22,8 @@ export const loadState = J => readJson(J.state, { stage: 'plan', round: 0, sessi
 export async function runProject(ws, id, { interactive = false, override = {}, maxRounds = 24, timeoutMin = 60, full = true, shots: wantShots = true, log = console.log } = {}) {
   const P = paths(ws), J = projectPaths(ws, id);
   if (!existsSync(J.dir)) throw new Error(`找不到專案：${J.dir}`);
+  let release;
+  try { release = acquireLock(ws, id); } catch (e) { log(`■ ${e.message}`); return { status: 'stopped', message: e.message }; }
   const state = loadState(J);
   const save = () => writeJson(J.state, state);
   const roleCtx = () => loadRoleContext(P.settings, J.studioJson, override);
@@ -34,6 +36,7 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
     if (state.round >= maxRounds) throw new Error(`已達 ${maxRounds} 輪上限（--max-rounds 可調整）`);
     const rc = resolveRole(role, roleCtx()), adapter = adapterFor(rc.cli);
     const prev = state.sessions[role], sessionId = resume && prev?.cli === rc.cli ? prev.sessionId : null;
+    if (resume && prev && prev.cli !== rc.cli) log(`  ! ${role} 上次用 ${prev.cli}，這次指派為 ${rc.cli}：無法續接，改開新的工作階段`);
     if (git(J.dir, ['status', '--porcelain']).trim()) { git(J.dir, ['add', '-A']); git(J.dir, [...GIT_ID, 'commit', '-qm', `Changes before round ${state.round + 1}`]); }
     const startHead = git(J.dir, ['rev-parse', 'HEAD']).trim(), snap = snapshot(ws, id), scope = roleScope(role, J);
     const n = ++state.round, t0 = now();
@@ -199,7 +202,7 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
     save();
     if (e instanceof Stop) { log(`\n■ ${e.message}`); return { status: 'stopped', message: e.message }; }
     throw e;
-  } finally { process.off('SIGINT', onInt); }
+  } finally { process.off('SIGINT', onInt); release(); }
 
   function askStreak(stuck) {
     const names = stuck.map(([k, v]) => `${k}（${v - 1} 次）`).join('、');

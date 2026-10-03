@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, writeFileSync, appendFileSync, chmodSync, existsSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { spawn } from 'node:child_process';
 import { ADAPTERS } from '../lib/adapters/index.mjs';
 import { claude } from '../lib/adapters/claude.mjs';
 import { initWorkspace, createProject, projectPaths, paths, setReadOnly } from '../lib/workspace.mjs';
@@ -90,6 +91,15 @@ test('完整流程（假代理）：提問 → 回答 → 提案確認 → 開�
     assert.doesNotMatch(readFileSync(J.agents, 'utf8'), /偷改/);
     assert.ok(git(J.dir, ['log', '--oneline']).trim().split('\n').length >= 4);
   } finally { delete process.env.FAKE_ESCAPE; }
+});
+
+test('執行鎖：工作區有別的 vs3d 在跑時不開始', async () => {
+  const child = spawn(process.execPath, ['-e', 'setTimeout(()=>{},30000)']);
+  try {
+    writeFileSync(join(ws, '.studio', 'run.lock'), JSON.stringify({ pid: child.pid, project: 'Other', at: 'now' }));
+    const r = await runProject(ws, 'Beta', { override: { cli: 'fake', roles: {} }, log: () => {} });
+    assert.equal(r.status, 'stopped'); assert.match(r.message, /Other/);
+  } finally { child.kill(); rmSync(join(ws, '.studio', 'run.lock'), { force: true }); }
 });
 
 test('同一項檢查連續失敗會轉成提問', async () => {

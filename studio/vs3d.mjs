@@ -64,7 +64,7 @@ switch (cmd) {
     const prompt = o['prompt-file'] ? readText(resolve(o['prompt-file'])) : (o.prompt || '');
     if (!prompt.trim() && !o.files.length) fail('請用 --prompt 或 --files 提供需求');
     for (const f of o.files) if (!existsSync(f)) fail(`找不到檔案：${f}`);
-    const J = await createProject(ws, { id: name, title: o.title || name, summary: o.summary || '', prompt, files: o.files });
+    const J = await createProject(ws, { id: name, title: o.title || name, summary: o.summary || '', prompt, files: o.files, cli: o.cli });
     console.log(`已建立專案：${J.dir}`);
     if (!o['create-only']) report(await runProject(ws, name, runOpts()));
     break;

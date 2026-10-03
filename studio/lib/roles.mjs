@@ -38,13 +38,14 @@ export function parseRoleOverrides(s = '') {
 }
 
 export function resolveRole(role, { workspaceSettings = {}, studioJson = {}, override = {} } = {}) {
-  const layers = [workspaceSettings.roles?.[role], studioJson.roles?.[role], override.roles?.[role]].filter(Boolean);
-  const cli = override.roles?.[role]?.cli || override.cli || [...layers].reverse().find(l => l.cli)?.cli || workspaceSettings.defaultCli || 'claude';
+  // 預設 CLI：專案 studio.json 的 defaultCli（vs3d new --cli 會寫入）＞ 工作區設定 ＞ claude
+  const wsCli = workspaceSettings.defaultCli || 'claude', projCli = studioJson.defaultCli || wsCli;
+  const layers = [[workspaceSettings.roles?.[role], wsCli], [studioJson.roles?.[role], projCli], [override.roles?.[role], null]].filter(([l]) => l);
+  const cli = override.roles?.[role]?.cli || override.cli || [...layers].reverse().find(([l]) => l.cli)?.[0].cli || projCli;
   const r = { cli, model: PRESETS[cli]?.[role] ?? '', effort: '' };
-  // 只套用同一個 CLI 的層（沒寫 cli 的層視為預設 CLI）；不同 CLI 的模型名稱不通用
-  const base = workspaceSettings.defaultCli || 'claude';
-  for (const l of layers) {
-    if ((l.cli || (l === override.roles?.[role] ? cli : base)) !== cli) continue;
+  // 只套用同一個 CLI 的層：沒寫 cli 的層屬於該層的預設 CLI（單次指定的層跟著這次的 CLI）；不同 CLI 的模型名稱不通用
+  for (const [l, layerCli] of layers) {
+    if ((l.cli || layerCli || cli) !== cli) continue;
     if (l.model != null) r.model = l.model;
     if (l.effort != null) r.effort = l.effort;
   }

@@ -12,6 +12,8 @@ export const ALLOWED_TOOLS = [
   'Read', 'Write', 'Edit', 'MultiEdit', 'Glob', 'Grep', 'TodoWrite', 'NotebookEdit',
   'Bash(node:*)', 'Bash(git status:*)', 'Bash(git diff:*)', 'Bash(git log:*)', 'Bash(git show:*)',
   'Bash(ls:*)', 'Bash(cat:*)', 'Bash(head:*)', 'Bash(tail:*)', 'Bash(wc:*)', 'Bash(find:*)', 'Bash(grep:*)', 'Bash(mkdir:*)',
+  // 複合指令（cd …; grep …）的每一段都要在清單內才會放行
+  'Bash(cd:*)', 'Bash(echo:*)', 'Bash(pwd:*)', 'Bash(sort:*)', 'Bash(uniq:*)',
 ];
 export const DISALLOWED_TOOLS = [
   'WebFetch', 'WebSearch',

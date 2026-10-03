@@ -65,6 +65,8 @@ test('角色指派的優先順序', () => {
   // 單次指定 --cli codex：所有角色改用 codex，模型名稱不沿用 claude 的
   assert.deepEqual(resolveRole('plan', { workspaceSettings: ws, studioJson: sj, override: { cli: 'codex', roles: {} } }), { cli: 'codex', model: '', effort: '' });
   assert.deepEqual(resolveRole('plan', { workspaceSettings: ws, override: { roles: parseRoleOverrides('plan=haiku') } }).model, 'haiku');
+  // 專案 studio.json 的 defaultCli（vs3d new --cli codex）：resume 沒帶 --cli 也沿用
+  assert.deepEqual(resolveRole('plan', { workspaceSettings: ws, studioJson: { defaultCli: 'codex' } }), { cli: 'codex', model: '', effort: '' });
   assert.deepEqual(parseRoleOverrides('render=codex:gpt-5'), { render: { cli: 'codex', model: 'gpt-5' } });
   assert.throws(() => parseRoleOverrides('foo=x'));
 });

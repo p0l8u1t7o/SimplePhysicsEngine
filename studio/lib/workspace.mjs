@@ -23,6 +23,16 @@ export const projectPaths = (ws, id) => {
 const coreVersion = core => readFileSync(join(core, 'VERSION'), 'utf8').trim();
 const SKIP_CORE = r => /^review(\/|$)/.test(r);      // core/review 是本庫 models 檢查的結果，工作區用不到
 
+// 工作區執行鎖：同一個工作區一次只跑一個 vs3d。
+// 雜湊比對會把其他專案的變更當成越界並還原，兩個專案同時跑會互相毀掉對方的工作。
+const alive = pid => { try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; } };
+export function acquireLock(ws, id) {
+  const f = join(ws, '.studio', 'run.lock'), cur = readJson(f, null);
+  if (cur && cur.pid !== process.pid && alive(cur.pid)) throw new Error(`工作區正在執行專案 ${cur.project}（pid ${cur.pid}，${cur.at} 開始）；一個工作區一次只能跑一個專案`);
+  writeJson(f, { pid: process.pid, project: id, at: now() });
+  return () => { if (readJson(f, null)?.pid === process.pid) rmSync(f, { force: true }); };
+}
+
 export function setReadOnly(dir, readOnly = true) {
   for (const r of walk(dir)) try { chmodSync(join(dir, r), readOnly ? 0o444 : 0o644); } catch { /* 略過 */ }
 }
@@ -49,7 +59,7 @@ export function initWorkspace(ws, { log = console.log } = {}) {
 }
 
 // 由 core 範本建立專案，換成 studio 用的規則檔，複製上傳檔，git init
-export async function createProject(ws, { id, title, summary = '', prompt = '', files = [] }) {
+export async function createProject(ws, { id, title, summary = '', prompt = '', files = [], cli }) {
   const P = paths(ws), J = projectPaths(ws, id);
   if (existsSync(J.dir)) throw new Error(`專案已存在：${J.dir}`);
   const r = await run(process.execPath, [join(P.core, 'tools', 'new-project.mjs'), id, title, summary || title], { cwd: ws });
@@ -65,7 +75,7 @@ export async function createProject(ws, { id, title, summary = '', prompt = '', 
     .replace('{{files}}', copied.length ? copied.map(f => `- \`docs/${f}\``).join('\n') : '- （沒有）'));
   writeText(join(J.dir, 'CLAUDE.md'), '@AGENTS.md\n');
   writeText(join(J.dir, '.gitignore'), '# 使用者上傳檔只留本機；TEMP 與 app 狀態不進版控\ndocs/\nTEMP/\n.studio/\n');
-  writeJson(J.studioJson, DEFAULT_STUDIO_JSON);
+  writeJson(J.studioJson, { ...(cli ? { defaultCli: cli } : {}), ...DEFAULT_STUDIO_JSON });
 
   git(J.dir, ['init', '-q']);
   // 不做換行轉換：還原後的檔案要和開工前逐位元相同（雜湊比對）
