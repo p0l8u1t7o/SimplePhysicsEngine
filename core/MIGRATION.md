@@ -75,9 +75,13 @@ Node 端由 `core/tools/loader.mjs` 解析相同的三種名稱，檢查程式�
   - 範圍檢查：`core/tools/check-scope.mjs`（pre-commit 依 `GIT_PREFIX`、PR CI 依分支名稱）、`.githooks/pre-commit`＋`core/tools/install-hooks.mjs`（setup.ps1 自動安裝）、`.github/workflows/scope.yml`；`pages.yml` 只改 `studio/` 時不跑。
   - 寫檔關卡：各站 `.claude/settings.json` 的 PreToolUse 呼叫 `core/tools/scope-guard.mjs`。
   - core 需求登記 `core/REQUESTS.md`；版本號 `core/VERSION` 定為 1.0.0，各站 `project.json` 加 `coreVersion`。網頁與檢查行為不變。
+- 2026-10-04 core 1.1.0（3D 動畫生成應用程式 P1 需要）：
+  - 工作區模式：`core/tools/projects.mjs` 看到 core 旁邊有 `studio-workspace.json` 時，專案改從 `<工作區>/projects/` 找（`WORKSPACE`、`ROOT`），網址配置不變；`check.mjs` 在工作區模式只檢查單一專案時，結果寫到該專案的 `TEMP/`。本庫沒有標記檔，行為不變。
+  - `new-project.mjs`：從範本複製出的檔案一律改成可寫（工作區的 core 是唯讀屬性）。
 
 ## 版本
 
 | 版本 | 日期 | 內容 |
 |---|---|---|
+| 1.1.0 | 2026-10-04 | 工作區模式（studio）；new-project 複製後設為可寫 |
 | 1.0.0 | 2026-10-04 | 開始編號：搬庫後、第四輪統一完成時的 core |

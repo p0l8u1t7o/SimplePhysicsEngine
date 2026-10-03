@@ -1,0 +1,55 @@
+# 3D 設備動畫工作區 — 共通規則
+
+本工作區由 3D 動畫生成應用程式（vs3d）管理。你是代理，在 `projects/<專案>/`（你的工作目錄）裡建立或修改一個 3D 設備動畫專案。本檔與 `core/` 都是唯讀的。
+
+## 工作方式
+
+- 說明、標籤與程式註解一律用繁體中文（台灣用語）；程式碼、變數、檔名用英文。
+- **只改自己的專案資料夾**。`core/`、本檔、其他專案都是唯讀；app 每輪結束都會比對，越界的修改會被還原並記為違規。
+- **不要執行** `git commit`／`checkout`／`reset`／`restore`／`stash`／`clean`。版本控制由 app 負責，每輪前後會自動 commit。
+- **不要上網、不要安裝套件**。three.js 與所有共用模組都在 `core/`，網頁不使用 npm。
+- **設計取捨不可以自己猜**：站位、設備選型、節拍、規格不清楚、會影響之後很多工作的決定，寫問題檔（格式見下），然後結束這一輪。app 會問使用者，回答後讓你接著做。
+- 有合理預設值的小事自己決定，在結束訊息中說明。
+- 規格沒寫的尺寸、型號、時間用合理的假設值，並在面板或標籤上標註「示意」。
+- 結束前一定要跑快速檢查並修到通過：`node ../../core/tools/check.mjs "<專案資料夾名稱>" --quick`。app 也會自己跑檢查，以 app 的結果為準。
+- 結束訊息用幾行條列：做了什麼、做了哪些假設、還有什麼沒做。
+
+## 問題檔
+
+寫到 `.studio/questions/<id>.json`（`id` 用英數與 `-`，同一個問題不要換 id 重問）：
+
+```json
+{
+  "id": "layout-1",
+  "header": "站位配置",
+  "question": "完整的問題，結尾用問號？",
+  "options": [
+    { "label": "選項名稱（1～5 個詞）", "description": "這個選項的意思與影響：節拍、成本、工時、之後的限制" },
+    { "label": "另一個選項", "description": "…" }
+  ],
+  "recommended": 0,
+  "multiSelect": false
+}
+```
+
+- 一輪最多 4 題，每題 2～4 個選項；建議的選項放第一個，`recommended` 填它的索引。使用者也可以不選，改寫自己的說明。
+- `header` 最多 12 個字。選項要互斥（`multiSelect` 為 true 時除外）。
+- 已經回答過的問題在 `.studio/answers/`，也會寫進專案 `AGENTS.md` 的「已拍板事項」；不要重問。
+
+## 框架
+
+- 先讀 `../../core/README.md`：目錄、引用方式、`project.json`、`project.js` 介面、舞台、統一寫法、檢查。
+- 共用模型在 `../../core/models/`（手臂、AGV、輸送線、龍門、標準件…），能用就用；用法看各模型的 `meta`。
+- 專案結構沿用範本：
+  - `web/index.html` 的版面骨架（`#topbar`、`#side`、`#bottombar`）不要拿掉，手機與平板的精簡版面靠它。
+  - `web/js/project.js` 是網頁與檢查共用的場景，匯出 `createProject({ scene, ...params })`，回傳 `{ total, apply(t), layoutChecks?, verify }`。
+  - `web/js/main.js` 負責舞台、視角、面板、播放列。
+  - `tools/verify.mjs` 是本專案的製程規則檢查。
+- 狀態只由時間決定（`apply(t)`）：倒序或跳播都要得到相同畫面（determinism 檢查）。
+- `export { X } from '…'` 不會建立本地綁定；本檔要用的話，先 import 再 export。
+
+## 檢查
+
+- `check.mjs` 內建：`imports`（import 路徑）、`determinism`（倒序一致）、`layout`（`layoutChecks()` 空間檢核）、`scene`（全場干涉＋重合面閃爍）。完整檢查另有 `ui`（桌面、手機直向、手機橫向、觸控平板四種尺寸），由 app 執行。
+- `verify.allow` 規則必須窄，而且要寫原因；不能用 allow 蓋掉真的干涉。
+- 閃爍的根因通常是兩個面重合，要改幾何（錯開或縮小），不要靠深度緩衝設定。

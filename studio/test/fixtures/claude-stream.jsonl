@@ -1,0 +1,8 @@
+{"type":"system","subtype":"init","session_id":"a2218387-e098-4621-b846-f12402864aa4","model":"claude-haiku-4-5-20251001","cwd":"<project>"}
+{"type":"assistant","session_id":"a2218387-e098-4621-b846-f12402864aa4","message":{"content":[{"type":"thinking","thinking":""}]}}
+{"type":"assistant","session_id":"a2218387-e098-4621-b846-f12402864aa4","message":{"content":[{"type":"tool_use","id":"toolu_013pazoQBmLNUC1aoGxAC23R","name":"Write","input":{"file_path":"<project>/hello.txt","content":"hi"},"caller":{"type":"direct"}}]}}
+{"type":"user","session_id":"a2218387-e098-4621-b846-f12402864aa4","message":{"content":[{"type":"tool_result","tool_use_id":"toolu_013pazoQBmLNUC1aoGxAC23R","content":"File created successfully at: <project>/hello.txt","is_error":false}]}}
+{"type":"rate_limit_event","rate_limit_info":{"status":"allowed"}}
+{"type":"assistant","session_id":"a2218387-e098-4621-b846-f12402864aa4","message":{"content":[{"type":"thinking","thinking":""}]}}
+{"type":"assistant","session_id":"a2218387-e098-4621-b846-f12402864aa4","message":{"content":[{"type":"text","text":"DONE"}]}}
+{"type":"result","subtype":"success","is_error":false,"result":"DONE","session_id":"a2218387-e098-4621-b846-f12402864aa4","num_turns":2,"duration_ms":5227,"total_cost_usd":0.0902874,"usage":{"input_tokens":18,"output_tokens":324}}

@@ -17,7 +17,7 @@
 // project.json 的 "core" 可覆寫：{ "skip": ["scene"], "quick": ["scene"] }
 import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { pickProjects, ROOT, CORE } from './projects.mjs';
+import { pickProjects, ROOT, CORE, WORKSPACE } from './projects.mjs';
 import { runScript } from './run.mjs';
 import { checkProject as checkImports } from './check-imports.mjs';
 
@@ -71,7 +71,9 @@ for (const p of projects) {
   }
 }
 const failed = results.filter(r => !r.ok);
-mkdirSync(join(ROOT, 'TEMP'), { recursive: true });
-writeFileSync(join(ROOT, 'TEMP', quick ? 'check-quick.json' : 'check-full.json'), JSON.stringify({ at: new Date().toISOString(), quick, results }, null, 2));
+// 工作區模式只檢查單一專案時，結果寫在該專案的 TEMP/（代理的沙箱只能寫自己的專案資料夾）
+const tempDir = WORKSPACE && projects.length === 1 ? join(projects[0].dir, 'TEMP') : join(ROOT, 'TEMP');
+mkdirSync(tempDir, { recursive: true });
+writeFileSync(join(tempDir, quick ? 'check-quick.json' : 'check-full.json'), JSON.stringify({ at: new Date().toISOString(), quick, results }, null, 2));
 console.log(`\n${results.length - failed.length}/${results.length} 通過${failed.length ? '；失敗：' + failed.map(f => `${f.project} · ${f.check}`).join('、') : ''}`);
 process.exit(failed.length ? 1 : 0);

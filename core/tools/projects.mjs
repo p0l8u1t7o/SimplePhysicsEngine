@@ -1,10 +1,13 @@
-// 專案清單：TestCode 底下有 web/index.html 的資料夾即為一個 3D 動畫專案，說明寫在 project.json。
+// 專案清單：根目錄底下有 web/index.html 的資料夾即為一個 3D 動畫專案，說明寫在 project.json。
+// 工作區模式（3D 動畫生成應用程式 studio/ 建立的工作區）：core 旁邊有 studio-workspace.json 時，
+// 專案放在 <工作區>/projects/ 底下；網址配置不變（/core/、/<專案>/）。
 import { readdirSync, existsSync, readFileSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const CORE = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-export const ROOT = resolve(CORE, '..');
+export const WORKSPACE = existsSync(resolve(CORE, '..', 'studio-workspace.json')) ? resolve(CORE, '..') : null;
+export const ROOT = WORKSPACE ? join(WORKSPACE, 'projects') : resolve(CORE, '..');
 
 export function listProjects() {
   return readdirSync(ROOT, { withFileTypes: true })
