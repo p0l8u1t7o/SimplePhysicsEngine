@@ -15,8 +15,13 @@ const cwd = process.cwd(), w = (f, s) => { mkdirSync(join(f, '..'), { recursive:
 const log = process.env.FAKE_LOG; if (log) appendFileSync(log, prompt.split('\n')[0] + '\n');
 
 let text = 'DONE';
-const reviewN = /任務：審查(?:第一段|第二段（[^）]*）)成品（第 (\d+) 次）/.exec(prompt)?.[1];
-if (/任務：第二段規劃/.test(prompt)) {
+const reviewN = /任務：審查(?:第一段|修改後的|第二段（[^）]*）)成品（第 (\d+) 次）/.exec(prompt)?.[1];
+if (/任務：依使用者的要求修改/.test(prompt)) {
+  // 修改指令：在專案裡加一個檔，並改一個既有檔
+  w(join(cwd, 'web/change.txt'), 'changed');
+  const readme = join(cwd, 'README.md'); appendFileSync(readme, '\n修改紀錄：假代理\n'); tool('Edit', readme);
+  text = '修改完成';
+} else if (/任務：第二段規劃/.test(prompt)) {
   // 第二段規劃：寫提案與元件表，並列出一個用戶名稱（測試名單同步）
   w(join(cwd, '.studio/plan/segment2.md'), '# 第二段提案\n\n電盤放東側\n');
   w(join(cwd, '.studio/plan/segment2.json'), JSON.stringify({ cabinet: { center: [1600, 450, -500], size: [600, 900, 400] }, components: [], cameras: [] }));

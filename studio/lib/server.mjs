@@ -39,7 +39,8 @@ function findFfmpeg() {
   return spawnSync('ffmpeg', ['-version'], { windowsHide: true }).status === 0 ? 'ffmpeg' : null;
 }
 
-export async function startUi(ws, { port = 8780, log = console.log } = {}) {
+// repo：本庫根目錄（本庫模式，計畫書 4.10）；給了就同時列出 project-site/ 的各站，專案代號用 @<名稱>
+export async function startUi(ws, { port = 8780, log = console.log, repo = null } = {}) {
   if (!existsSync(paths(ws).marker)) initWorkspace(ws, { log });
   const P = paths(ws), ffmpeg = findFfmpeg(), dist = join(STUDIO, 'ui', 'dist');
   const clients = new Set();
@@ -53,11 +54,18 @@ export async function startUi(ws, { port = 8780, log = console.log } = {}) {
   const previewPort = await freePort();
   const preview = spawn(process.execPath, [join(P.core, 'tools', 'serve.mjs'), '--port', String(previewPort), '--no-open'], { cwd: ws, windowsHide: true, stdio: 'ignore' });
 
-  const projectIds = () => existsSync(P.projects) ? readdirSync(P.projects).filter(n => existsSync(join(P.projects, n, 'studio.json'))) : [];
+  // 本庫的站另開一個預覽伺服器（本庫 core 的 serve.mjs 從 project-site/ 找專案）
+  const repoPort = repo ? await freePort() : 0;
+  const repoPreview = repo ? spawn(process.execPath, [join(repo, 'core', 'tools', 'serve.mjs'), '--port', String(repoPort), '--no-open'], { cwd: repo, windowsHide: true, stdio: 'ignore' }) : null;
+  const loc = raw => raw.startsWith('@') ? { root: repo, name: raw.slice(1), repo: true } : { root: ws, name: raw, repo: false };
+  const Jof = raw => { const l = loc(raw); return projectPaths(l.root, l.name); };
+  const start = (cmd, raw, args = []) => { const l = loc(raw); return runner.start(cmd, raw, args, { name: l.name, root: l.root }); };
+  const repoIds = () => repo && existsSync(join(repo, 'project-site')) ? readdirSync(join(repo, 'project-site')).filter(n => existsSync(join(repo, 'project-site', n, 'project.json'))).map(n => '@' + n) : [];
+  const projectIds = () => [...(existsSync(P.projects) ? readdirSync(P.projects).filter(n => existsSync(join(P.projects, n, 'studio.json'))) : []), ...repoIds()];
   const summary = id => {
-    const J = projectPaths(ws, id), s = loadState(J), pj = readJson(join(J.dir, 'project.json'), {}), pending = loadQuestions(J).list.filter(q => !q.answered);
+    const J = Jof(id), s = loadState(J), pj = readJson(join(J.dir, 'project.json'), {}), pending = loadQuestions(J).list.filter(q => !q.answered);
     let updated = 0; try { updated = statSync(J.state).mtimeMs; } catch { updated = statSync(J.dir).mtimeMs; }
-    return { id, title: pj.title || id, summary: pj.summary || '', stage: s.stage, segment: s.segment || 1, round: s.round, pending: pending.length, lastCheck: s.lastCheck && { ok: s.lastCheck.ok, quick: s.lastCheck.quick },
+    return { id, name: loc(id).name, repo: loc(id).repo, branch: s.branch || null, flowActive: !!s.flowActive, title: pj.title || id, summary: pj.summary || '', stage: s.stage, segment: s.segment || 1, round: s.round, pending: pending.length, lastCheck: s.lastCheck && { ok: s.lastCheck.ok, quick: s.lastCheck.quick },
       render: s.render?.result || null, reviews: s.reviews || 0, updated, running: runner.current?.id === id };
   };
   // 匯出的成品：TEMP/exports/ 底下的壓縮檔、HTML、影片（影片在子資料夾）
@@ -70,9 +78,9 @@ export async function startUi(ws, { port = 8780, log = console.log } = {}) {
     return out.sort((x, y) => y.at - x.at);
   };
   const detail = id => {
-    const J = projectPaths(ws, id), s = loadState(J), qs = loadQuestions(J);
+    const J = Jof(id), s = loadState(J), qs = loadQuestions(J);
     const rounds = existsSync(J.rounds) ? readFileSync(J.rounds, 'utf8').trim().split('\n').filter(Boolean).map(l => JSON.parse(l)) : [];
-    const shotDir = s.shots && join(s.shots, id), shots = shotDir && existsSync(shotDir) ? readdirSync(shotDir).filter(f => f.endsWith('.png') && !f.endsWith('.diff.png')).sort() : [];
+    const shotDir = s.shots && join(s.shots, loc(id).name), shots = shotDir && existsSync(shotDir) ? readdirSync(shotDir).filter(f => f.endsWith('.png') && !f.endsWith('.diff.png')).sort() : [];
     const rel = f => f.slice(J.dir.length + 1).replace(/\\/g, '/');
     return {
       ...summary(id), state: s, rounds, questions: qs.list, invalid: qs.invalid,
@@ -80,10 +88,10 @@ export async function startUi(ws, { port = 8780, log = console.log } = {}) {
       // Office 抽取資料夾列出它的 text.md（資料夾本身不能開）
       docs: existsSync(J.docs) ? readdirSync(J.docs).map(f => f.endsWith('.extract') && existsSync(join(J.docs, f, 'text.md')) ? `${f}/text.md` : f) : [], shots: shots.map(f => rel(join(shotDir, f))),
       compare: existsSync(join(J.temp, 'render-compare', 'index.html')) ? 'TEMP/render-compare/index.html' : null,
-      exports: listExports(J), log: runner.history(id), previewUrl: `http://127.0.0.1:${previewPort}/${encodeURIComponent(id)}/`,
+      exports: listExports(J), log: runner.history(id), previewUrl: `http://127.0.0.1:${loc(id).repo ? repoPort : previewPort}/${encodeURIComponent(loc(id).name)}/`,
     };
   };
-  const resumeIfReady = id => { const J = projectPaths(ws, id); if (!runner.current && !loadQuestions(J).list.some(q => !q.answered)) runner.start('resume', id); };
+  const resumeIfReady = id => { const J = Jof(id); if (!runner.current && !loadQuestions(J).list.some(q => !q.answered)) start('resume', id); };
 
   const server = createServer(async (req, res) => {
     const url = new URL(req.url, 'http://x'), seg = url.pathname.split('/').filter(Boolean).map(decodeURIComponent);
@@ -98,7 +106,7 @@ export async function startUi(ws, { port = 8780, log = console.log } = {}) {
           res.write(`event: hello\ndata: ${JSON.stringify({ running: runner.current })}\n\n`);
           clients.add(res); req.on('close', () => clients.delete(res)); return;
         }
-        if (a === 'info') return json(200, { ws, running: runner.current, ffmpeg: !!ffmpeg, previewPort, roles: ROLES });
+        if (a === 'info') return json(200, { ws, repo, running: runner.current, ffmpeg: !!ffmpeg, previewPort, roles: ROLES });
         if (a === 'doctor') return json(200, Object.values(ADAPTERS).filter(x => x.name !== 'fake').map(x => ({ name: x.name, label: x.label, models: x.listModels(), ...x.detect() })));
         if (a === 'settings') {
           if (req.method === 'PUT') { const v = await jbody(); writeJson(P.settings, { defaultCli: v.defaultCli || 'claude', roles: v.roles || {} }); }
@@ -154,7 +162,7 @@ export async function startUi(ws, { port = 8780, log = console.log } = {}) {
           if (!projectIds().includes(id)) return json(404, { error: `找不到專案：${id}` });
           if (!b) return json(200, detail(id));
           if (b === 'answer' && req.method === 'POST') {
-            const v = await jbody(), J = projectPaths(ws, id), q = loadQuestions(J).list.find(x => x.id === v.qid);
+            const v = await jbody(), J = Jof(id), q = loadQuestions(J).list.find(x => x.id === v.qid);
             if (!q) return json(404, { error: `找不到問題 ${v.qid}` });
             const parsed = v.text ? { choices: [], text: v.text } : parseChoice(q, (v.choices || []).map(i => i + 1).join(','));
             recordAnswer(J, q, { ...parsed, note: v.note || '' });
@@ -162,17 +170,20 @@ export async function startUi(ws, { port = 8780, log = console.log } = {}) {
             return json(200, { ok: true, running: runner.current });
           }
           if (b === 'run' && req.method === 'POST') {
-            const v = await jbody(), cmd = ['resume', 'review', 'render', 'stage2', 'export', 'handoff'].includes(v.cmd) ? v.cmd : 'resume';
+            const v = await jbody(), cmd = ['resume', 'review', 'render', 'stage2', 'export', 'handoff', 'change', 'check', 'push'].includes(v.cmd) ? v.cmd : 'resume';
+            if (cmd === 'change' && !String(v.text || '').trim()) return json(400, { error: '請輸入要修改的內容' });
             const args = cmd === 'export' ? (v.formats || ['zip', 'html']).filter(f => ['zip', 'html', 'mp4'].includes(f)).map(f => '--' + f)
+              : cmd === 'change' ? ['--text', String(v.text).trim(), ...(v.keepTiming ? ['--keep-timing'] : [])]
+              : cmd === 'check' ? (v.full ? ['--full'] : [])
               : [...(v.pick ? ['--pick'] : []), ...(v.focus ? ['--focus', v.focus] : [])];
-            runner.start(cmd, id, args);
+            start(cmd, id, args);
             return json(200, { started: true });
           }
         }
         return json(404, { error: '未知的 API' });
       }
       if (seg[0] === 'files' && seg[1]) {
-        const J = projectPaths(ws, seg[1]), relPath = seg.slice(2).join('/');
+        const J = Jof(seg[1]), relPath = seg.slice(2).join('/');
         const file = normalize(join(J.dir, relPath));
         if (!FILE_AREAS.test(relPath) || !inside(J.dir, file) || !existsSync(file) || statSync(file).isDirectory()) { res.writeHead(404); res.end('404'); return; }
         res.writeHead(200, { 'Content-Type': MIME[extname(file).toLowerCase()] || 'application/octet-stream', 'Cache-Control': 'no-store' });
@@ -187,7 +198,7 @@ export async function startUi(ws, { port = 8780, log = console.log } = {}) {
     } catch (e) { json(500, { error: String(e.message || e) }); }
   });
   await new Promise((ok, fail) => server.listen(port, '127.0.0.1', ok).on('error', fail));
-  log(`vs3d 介面：http://127.0.0.1:${port}/（工作區 ${ws}；預覽 port ${previewPort}；ffmpeg ${ffmpeg ? '可用' : '找不到，影片不會擷取影格'}）`);
-  const close = () => { preview.kill(); runner.stop(); for (const c of clients) c.end(); server.close(); };
+  log(`vs3d 介面：http://127.0.0.1:${port}/（工作區 ${ws}${repo ? `；本庫 ${repo}（預覽 port ${repoPort}）` : ''}；預覽 port ${previewPort}；ffmpeg ${ffmpeg ? '可用' : '找不到，影片不會擷取影格'}）`);
+  const close = () => { preview.kill(); repoPreview?.kill(); runner.stop(); for (const c of clients) c.end(); server.close(); };
   return { server, port, previewPort, close, runner };
 }

@@ -9,11 +9,12 @@ export function createRunner(ws, { onLine = () => {}, onExit = () => {} } = {}) 
   const history = new Map();          // 專案 → 最近 400 行輸出（介面重新整理後補回）
   const push = (id, line) => { const h = history.get(id) || []; h.push(line); if (h.length > 400) h.splice(0, h.length - 400); history.set(id, h); onLine(id, line); };
 
-  function start(cmd, id, args = []) {
+  // id：介面用的專案代號（本庫的站是 @<名稱>，當作輸出記錄的鍵）；name／root：實際傳給 vs3d 的專案名稱與工作區（或本庫）
+  function start(cmd, id, args = [], { name = id, root = ws } = {}) {
     if (current) throw new Error(`工作區正在執行 ${current.id}（${current.cmd}），請等它結束`);
-    const child = spawn(process.execPath, [join(STUDIO, 'vs3d.mjs'), cmd, id, '--no-wait', '--workspace', ws, ...args], { cwd: STUDIO, windowsHide: true, env: process.env });
+    const child = spawn(process.execPath, [join(STUDIO, 'vs3d.mjs'), cmd, name, '--no-wait', '--workspace', root, ...args], { cwd: STUDIO, windowsHide: true, env: process.env });
     current = { id, cmd, child, started: Date.now() };
-    push(id, `$ vs3d ${cmd} ${id} ${args.join(' ')}`.trim());
+    push(id, `$ vs3d ${cmd} ${name} ${args.join(' ')}`.trim());
     let buf = '';
     const feed = d => { buf += d; let i; while ((i = buf.indexOf('\n')) >= 0) { push(id, buf.slice(0, i).replace(/\r$/, '')); buf = buf.slice(i + 1); } };
     child.stdout.on('data', feed); child.stderr.on('data', feed);

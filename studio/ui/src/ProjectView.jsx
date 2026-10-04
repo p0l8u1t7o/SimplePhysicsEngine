@@ -13,6 +13,7 @@ export function ProjectView({ id, tick, running, onChange }) {
   const [error, setError] = useState('');
   const [zoom, setZoom] = useState(null);
   const [focus, setFocus] = useState('');
+  const [change, setChange] = useState(''), [keepTiming, setKeepTiming] = useState(true);
   const logRef = useRef(null);
   // 剛建立的專案資料夾可能還沒出現（404）：先顯示「建立中」並持續重試，成功後清掉錯誤
   const load = useCallback(() => api.project(id).then(d => { setP(d); setError(''); }).catch(e => setError(e.message)), [id]);
@@ -47,8 +48,19 @@ export function ProjectView({ id, tick, running, onChange }) {
         <button disabled={busy} title="首頁＋本站＋core，附 open-demo.cmd，解壓後雙擊即可離線開啟" onClick={() => act(() => api.run(id, { cmd: 'export', formats: ['zip'] }))}>網站壓縮檔</button>
         <button disabled={busy} title="全部內嵌成一個檔案，雙擊就能開（超過 15 MB 建議改用壓縮檔）" onClick={() => act(() => api.run(id, { cmd: 'export', formats: ['html'] }))}>單一 HTML</button>
         <button disabled={busy} title="Chrome＋ffmpeg 自動錄製 1080p" onClick={() => act(() => api.run(id, { cmd: 'export', formats: ['mp4'] }))}>錄影 MP4</button>
-        <button disabled={busy} title="git 歷史、上傳檔、提問與紀錄、不得顯示的名稱；給接手的同事匯入" onClick={() => act(() => api.run(id, { cmd: 'handoff' }))}>交接包</button>
+        {!p.repo && <button disabled={busy} title="git 歷史、上傳檔、提問與紀錄、不得顯示的名稱；給接手的同事匯入" onClick={() => act(() => api.run(id, { cmd: 'handoff' }))}>交接包</button>}
+        <button disabled={busy} title="快速檢查（imports、names、determinism、layout、scene、electrical 與本站檢查）" onClick={() => act(() => api.run(id, { cmd: 'check' }))}>檢查</button>
       </div>
+      {p.repo && <div className="card">
+        <b>本庫的站：修改指令</b>
+        <div className="mute">開工時本站不能有未提交的改動；app 會開本機分支 <code>{p.name.toLowerCase().replace(/\s+/g, '-')}/vs3d-…</code>，每輪只提交本站的路徑，不會 checkout／reset／stash 你的工作目錄。{p.branch && <> 這次的分支：<code>{p.branch}</code>{p.flowActive ? '（進行中）' : ''}</>}</div>
+        <textarea rows={3} value={change} onChange={e => setChange(e.target.value)} placeholder="要改什麼，例如「出料台改成兩層，第二層放 NG 品」或「手臂換成 VS-087，夾爪改兩指」" style={{ width: '100%', marginTop: 6 }} />
+        <div className="bar">
+          <label><input type="checkbox" checked={keepTiming} onChange={e => setKeepTiming(e.target.checked)} /> 不能改節拍與動作（比對排程指紋）</label>
+          <button className="primary" disabled={busy || !change.trim() || p.stage !== 'done'} onClick={() => act(() => api.run(id, { cmd: 'change', text: change, keepTiming }))}>送出修改指令</button>
+          <button disabled={busy || !p.branch || p.flowActive} title="推送這次的 vs3d 分支到 GitHub，之後開 PR" onClick={() => act(() => api.run(id, { cmd: 'push' }))}>推送分支</button>
+        </div>
+      </div>}
       {p.exports?.length > 0 && <div className="card"><b>已匯出</b>{p.exports.map(x => <div key={x.path}><a href={fileUrl(id, x.path)} download>{x.path.split('/').pop()}</a> <span className="mute">{(x.size / 1048576).toFixed(1)} MB · {new Date(x.at).toLocaleString()}</span></div>)}</div>}
       {error && <div className="bad">{error}</div>}
       <div className="tabs">{TABS.map(([k, label]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{label}{k === 'questions' && pending.length ? `（${pending.length}）` : ''}</button>)}</div>

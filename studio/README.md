@@ -112,6 +112,27 @@ new → 規劃（配置提案＋問題）⇄ 使用者回答 → 確認提案 �
 
 角色指派的優先順序：app 預設（`lib/roles.mjs`）＜ 工作區 `.studio/settings.json` ＜ 專案 `studio.json` ＜ 命令列。正式預設（2026-10-04 拍板）：規劃、開發、修正、審查用 Claude `opus`；渲染與細節補強用 Codex `gpt-6-astra` 高推理（`lib/roles.mjs` 的 `ROLE_DEFAULTS`）。這是使用者的實務分工：opus 做規劃與主體實作，gpt-6 補強渲染、電盤、電線與細節；P4 第二段的電控與配線也預設交給 gpt-6。命令列 `--cli` 會讓所有角色改用同一種 CLI。`new` 時指定的 `--cli`、`--model`、`--effort`、`--role` 會寫進專案 `studio.json`，之後 `resume` 沿用。
 
+## 本庫模式（2026-10-04）
+
+從本庫啟動介面（`scripts\start.cmd -Studio` 或 `node studio/vs3d.mjs ui`）時，清單分成「工作區」與「本庫 project-site」兩區，可以直接對本庫的站下指令（計畫書 4.10）；`--no-repo` 只看工作區。命令列用 `--repo`（或 `--workspace` 指到本庫根目錄）：
+
+```powershell
+node studio/vs3d.mjs status --repo                                        # 本庫各站的狀態
+node studio/vs3d.mjs review RecycleSorter --repo                          # 審查＋補強（沒有 vs3d 截圖時先檢查、截圖）
+node studio/vs3d.mjs change RecycleSorter --repo --text "出料台改成兩層" --keep-timing   # 修改指令：開發 → 檢查 → 審查
+node studio/vs3d.mjs stage2 ChemicalTankWashing --repo                    # 第二段（電控、配線、相機）
+node studio/vs3d.mjs check RecycleSorter --repo ；export RecycleSorter --repo --zip
+node studio/vs3d.mjs push RecycleSorter --repo                            # 推送這次的 vs3d 分支（之後在 GitHub 開 PR）
+```
+
+- **開工檢查**：該站有未提交的改動就拒絕開始（`docs/`、`TEMP/`、`.studio/` 不算）。其他路徑有未提交改動沒關係，app 不會碰。
+- **分支**：每次指令從目前的 HEAD 開一個本機分支 `<範圍>/vs3d-<指令>-<月日-時分>`（不改任何檔案）；已經在本站的 vs3d 分支上就沿用。流程進行中切到別的分支時，續跑會拒絕，app 不會替你切換分支。
+- **提交**：每輪只 `git add`／`commit` 該站的路徑（pathspec），review JSON 只有時間變動的寫回原內容不提交。推送只在你按「推送分支」或執行 `vs3d push` 時做。
+- **絕不執行** `checkout`／`restore`／`stash`／`reset --hard`／`clean`。角色越界與補強的「整批還原」都用逐檔寫回（`git show <commit>:<路徑>`）；整批還原只寫回代理改過、而且你之後沒再改的檔案，你改過的會列出來不動。
+- **專案外的變動**只警告、不還原（分不出是你同時在改還是代理越界；代理已經被寫檔關卡與 Codex 沙箱擋在本站內）。
+- 代理的規則是本庫根目錄的 `AGENTS.md`＋本站的 `AGENTS.md`，提示另外寫明「不要自己 commit／checkout」；回答的問題照樣寫進本站 `AGENTS.md` 的「已拍板事項」。app 狀態在各站的 `.studio/`（不進版控），鎖與設定在本庫 `TEMP/studio/`，用戶名稱名單用本庫的 `.private/client-names.txt`。
+- 還沒做：代理執行中同一個檔案被你和代理都改過的「併改偵測」（目前開工時要求本站乾淨，執行中改到本站的檔案會被當成代理的改動一起提交）。
+
 ## 匯出與交接（2026-10-04）
 
 - **成品**：`vs3d export`（介面「匯出成品」列）呼叫工作區 core 的 `tools/export.mjs`，輸出到專案 `TEMP/exports/`，介面列出已匯出的檔案可以下載。

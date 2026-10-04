@@ -4,19 +4,25 @@
 //     core/                   內附的 core（唯讀屬性）；.studio/core-pristine/ 是還原用的副本
 //     AGENTS.md、CLAUDE.md    共通規則（唯讀）
 //     projects/<專案>/         每個專案一個 git 庫；docs/、TEMP/、.studio/ 不進版控
+// 本庫模式（計畫書 4.10）：ws 也可以是本庫根目錄（有 core/ 與 project-site/、沒有工作區標記），專案就是 project-site/<專案>/，
+//   用本庫的 git（只動該專案路徑）、本庫目前的 core 與規則；app 自己的狀態放在 TEMP/studio/（鎖、設定、上傳）與各專案的 .studio/。
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync, chmodSync, copyFileSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import { basename, join, dirname } from 'node:path';
 import { SOURCE_CORE, STUDIO, git, readJson, writeJson, writeText, walk, now, run } from './util.mjs';
 import { DEFAULT_STUDIO_JSON } from './roles.mjs';
 import { extractUploads } from './office.mjs';
 
-export const paths = ws => ({
-  ws, marker: join(ws, 'studio-workspace.json'), core: join(ws, 'core'), pristine: join(ws, '.studio', 'core-pristine'),
-  rules: [join(ws, 'AGENTS.md'), join(ws, 'CLAUDE.md')], projects: join(ws, 'projects'), settings: join(ws, '.studio', 'settings.json'),
-});
+export const isRepo = ws => !existsSync(join(ws, 'studio-workspace.json')) && existsSync(join(ws, 'core', 'VERSION')) && existsSync(join(ws, 'project-site'));
+export const paths = ws => {
+  const repo = isRepo(ws), app = repo ? join(ws, 'TEMP', 'studio') : join(ws, '.studio');
+  return {
+    ws, repo, app, marker: join(ws, repo ? 'core/VERSION' : 'studio-workspace.json'), core: join(ws, 'core'), pristine: join(app, 'core-pristine'),
+    rules: [join(ws, 'AGENTS.md'), join(ws, 'CLAUDE.md')], projects: join(ws, repo ? 'project-site' : 'projects'), settings: join(app, 'settings.json'),
+  };
+};
 export const projectPaths = (ws, id) => {
-  const dir = join(ws, 'projects', id), st = join(dir, '.studio');
-  return { id, dir, docs: join(dir, 'docs'), studio: st, state: join(st, 'state.json'), rounds: join(st, 'rounds.jsonl'), logs: join(st, 'logs'),
+  const repo = isRepo(ws), dir = join(ws, repo ? 'project-site' : 'projects', id), st = join(dir, '.studio');
+  return { id, dir, repo, ws, docs: join(dir, 'docs'), studio: st, state: join(st, 'state.json'), rounds: join(st, 'rounds.jsonl'), logs: join(st, 'logs'),
     questions: join(st, 'questions'), answers: join(st, 'answers'), plan: join(st, 'plan'), handoff: join(st, 'handoff'),
     agents: join(dir, 'AGENTS.md'), studioJson: join(dir, 'studio.json'), temp: join(dir, 'TEMP') };
 };
@@ -28,7 +34,7 @@ const SKIP_CORE = r => /^review(\/|$)/.test(r);      // core/review 是本庫 mo
 // 雜湊比對會把其他專案的變更當成越界並還原，兩個專案同時跑會互相毀掉對方的工作。
 const alive = pid => { try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; } };
 export function acquireLock(ws, id) {
-  const f = join(ws, '.studio', 'run.lock'), cur = readJson(f, null);
+  const f = join(paths(ws).app, 'run.lock'), cur = readJson(f, null);
   if (cur && cur.pid !== process.pid && alive(cur.pid)) throw new Error(`工作區正在執行專案 ${cur.project}（pid ${cur.pid}，${cur.at} 開始）；一個工作區一次只能跑一個專案`);
   writeJson(f, { pid: process.pid, project: id, at: now() });
   return () => { if (readJson(f, null)?.pid === process.pid) rmSync(f, { force: true }); };
@@ -65,11 +71,11 @@ export function initWorkspace(ws, { log = console.log, refreshCore = false } = {
 }
 
 // 用戶名稱名單（不得出現在任何產出；core/tools/check-names.mjs 讀同一個檔）：<工作區>/.studio/client-names.txt，一行一個
-export const namesFile = ws => join(ws, '.studio', 'client-names.txt');
+export const namesFile = ws => isRepo(ws) ? join(ws, '.private', 'client-names.txt') : join(ws, '.studio', 'client-names.txt');   // 本庫用 .private/（不進版控）
 export const readClientNames = ws => existsSync(namesFile(ws)) ? readFileSync(namesFile(ws), 'utf8').split(/\r?\n/).map(s => s.trim()).filter(s => s && !s.startsWith('#')) : [];
 export function addClientNames(ws, names = []) {
   const cur = readClientNames(ws), add = names.map(s => String(s).trim()).filter(s => s && !s.startsWith('#') && !cur.includes(s));
-  if (add.length) { mkdirSync(join(ws, '.studio'), { recursive: true }); writeFileSync(namesFile(ws), ['# 用戶名稱：不得出現在任何產出（vs3d 與 check.mjs 的 names 檢查使用）', ...cur, ...add].join('\n') + '\n'); }
+  if (add.length) { mkdirSync(dirname(namesFile(ws)), { recursive: true }); writeFileSync(namesFile(ws), ['# 用戶名稱：不得出現在任何產出（vs3d 與 check.mjs 的 names 檢查使用）', ...cur, ...add].join('\n') + '\n'); }
   return add;
 }
 // 專案自己的名單（<專案>/.studio/client-names.txt）：交接包靠它把名稱保護帶給接手的人

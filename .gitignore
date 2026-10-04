@@ -40,3 +40,6 @@ studio/ui/dist/
 
 # 用戶名稱名單（不得出現在任何子專案；名單本身也不能公開）
 /.private/
+
+# vs3d 本庫模式的 app 狀態（提問、回答、每輪紀錄、代理記錄）只留本機
+/project-site/*/.studio/

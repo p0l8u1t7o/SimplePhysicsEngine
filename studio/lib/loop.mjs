@@ -16,6 +16,7 @@ import { loadQuestions, askInteractive, writeAppQuestion, readAnswer, printQuest
 import { runChecks, takeShots, failureSummary, runFingerprint, compareRenderFingerprint, runPerf, comparePerf } from './checks.mjs';
 import { rolePrompt, answersPrompt, fixAgainPrompt, invalidQuestionsPrompt, mustFixPrompt, renderGuardPrompt, renderRevisePrompt } from './prompts.mjs';
 import { writeComparePage } from './compare.mjs';
+import * as repoGit from './repo.mjs';
 import { readJson, writeJson, appendJsonl, git, now, readText, rel } from './util.mjs';
 import { readdirSync } from 'node:fs';
 
@@ -34,7 +35,7 @@ const STREAK_LIMIT = 3;
 const GIT_ID = ['-c', 'user.name=vs3d', '-c', 'user.email=vs3d@localhost'];
 const short = (s, n = 160) => (s = String(s ?? '').replace(/\s+/g, ' ').trim()).length > n ? s.slice(0, n) + '…' : s;
 
-export const loadState = J => readJson(J.state, { stage: 'plan', round: 0, sessions: {}, streak: {}, waiting: null, lastCheck: null, violations: [] });
+export const loadState = J => readJson(J.state, { stage: J.repo ? 'done' : 'plan', round: 0, sessions: {}, streak: {}, waiting: null, lastCheck: null, violations: [] });   // 本庫的站沒有 vs3d 狀態時視為已完成
 
 // full：快速檢查通過後是否再跑完整檢查（含 ui）；shots：通過後是否截圖；perf：補強前後是否量效能（測試時可關掉以節省時間）
 // stage2：第一段完成後是否出卡片問要不要開始第二段
@@ -47,6 +48,11 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
   try { release = acquireLock(ws, id); } catch (e) { log(`■ ${e.message}`); return { status: 'stopped', message: e.message }; }
   const state = loadState(J);
   const save = () => writeJson(J.state, state);
+  if (J.repo && state.flowActive && state.branch && repoGit.branch(J) !== state.branch) {
+    release();
+    const msg = `本庫的 ${id} 有進行中的 vs3d 流程在分支 ${state.branch}，目前是 ${repoGit.branch(J)}；請切回該分支再續跑（app 不會替你切換分支）`;
+    log(`■ ${msg}`); return { status: 'stopped', message: msg };
+  }
   const roleCtx = () => loadRoleContext(P.settings, J.studioJson, override);
   // 段落：工作階段與角色指派分段（第二段的開發不續接第一段的工作階段）
   const seg = () => state.segment || 1, sk = role => seg() === 2 ? role + '@2' : role, resolve = role => resolveRole(role, roleCtx(), seg());
@@ -60,8 +66,8 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
     const rc = resolve(role), adapter = adapterFor(rc.cli);
     const prev = state.sessions[sk(role)], sessionId = resume && prev?.cli === rc.cli ? prev.sessionId : null;
     if (resume && prev && prev.cli !== rc.cli) log(`  ! ${role} 上次用 ${prev.cli}，這次指派為 ${rc.cli}：無法續接，改開新的工作階段`);
-    if (git(J.dir, ['status', '--porcelain']).trim()) { git(J.dir, ['add', '-A']); git(J.dir, [...GIT_ID, 'commit', '-qm', `Changes before round ${state.round + 1}`]); }
-    const startHead = git(J.dir, ['rev-parse', 'HEAD']).trim(), snap = snapshot(ws, id), scope = roleScope(role, J);
+    commitAll(`Changes before round ${state.round + 1}`);
+    const startHead = git(J.dir, ['rev-parse', 'HEAD']).trim(), snap = J.repo ? repoGit.snapshotOutside(J) : snapshot(ws, id), scope = roleScope(role, J);
     const n = ++state.round, t0 = now();
     state.lastRole = role;
     log(`\n▶ 第 ${n} 輪 ${role}${seg() === 2 ? '（第二段）' : ''}（${adapter.label}${rc.model ? ' ' + rc.model : ''}${rc.effort ? ` effort=${rc.effort}` : ''}${sessionId ? '，續接' : ''}）`);
@@ -71,16 +77,13 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
       readDirs: [P.core], allowWrite: scope.allow, denyWrite: scope.deny, images,
       logFile: join(J.logs, `round-${String(n).padStart(2, '0')}-${role}${seg() === 2 ? '-s2' : ''}.jsonl`), timeoutMs: timeoutMin * 60000, signal: abort.signal,
     }, e => printEvent(e, log));
-    const iso = verifyAndRestore(ws, id, snap), roleViol = enforceRoleScope(role, J, startHead);
+    // 本庫模式：專案外的變動只警告（可能是使用者同時在改；代理已被寫檔關卡與沙箱擋在專案外），不自動還原
+    const iso = J.repo ? { violations: [], warnings: repoGit.diffOutside(J, snap) } : verifyAndRestore(ws, id, snap), roleViol = enforceRoleScope(role, J, startHead);
+    for (const w of iso.warnings || []) log(`  ! 專案外有變動：${w.path}（${w.change}）；可能是你同時在改，app 沒有動它，請自行確認`);
     const violations = [...iso.violations, ...roleViol];
     if (role === 'plan') syncClientNames();
     for (const v of violations) log(`  ⚠ 越界：${v.area} ${v.path}（${v.change}）${v.restored ? '→ 已還原' : '→ 未能自動還原，請檢查'}`);
-    let commit = null;
-    if (git(J.dir, ['status', '--porcelain']).trim()) {
-      git(J.dir, ['add', '-A']);
-      git(J.dir, [...GIT_ID, 'commit', '-qm', `Round ${n} (${role}): ${short(res.text.split('\n').find(l => l.trim()) || 'no summary', 60)}`]);
-      commit = git(J.dir, ['rev-parse', '--short', 'HEAD']).trim();
-    }
+    const commit = commitAll(`${J.repo ? 'vs3d ' : ''}Round ${n} (${role}): ${short(res.text.split('\n').find(l => l.trim()) || 'no summary', 60)}`);
     if (res.sessionId) state.sessions[sk(role)] = { cli: rc.cli, model: rc.model, sessionId: res.sessionId };
     state.violations = violations;
     appendJsonl(J.rounds, { round: n, role, segment: seg(), cli: rc.cli, model: rc.model, effort: rc.effort, sessionId: res.sessionId, resumed: !!sessionId, startedAt: t0, seconds: res.seconds,
@@ -92,6 +95,13 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
       throw new Stop(`代理執行失敗（${res.timedOut ? `超過 ${timeoutMin} 分鐘` : `exit ${res.code}`}）：${short(res.stderr || res.text, 300)}\n之後可用 vs3d resume 重試。`);
     }
     return res;
+  }
+  // 提交：工作區＝專案自己的 git 全部提交；本庫＝只提交該專案路徑（review JSON 只有時間變動的不提交）
+  function commitAll(message) {
+    if (J.repo) return repoGit.commitProject(J, message);
+    if (!git(J.dir, ['status', '--porcelain']).trim()) return null;
+    git(J.dir, ['add', '-A']); git(J.dir, [...GIT_ID, 'commit', '-qm', message]);
+    return git(J.dir, ['rev-parse', '--short', 'HEAD']).trim();
   }
   // 規劃角色列出的用戶名稱併進工作區名單，專案 AGENTS.md（app 寫的需求原文、拍板事項）裡的名稱換成「（用戶）」
   function syncClientNames() {
@@ -139,9 +149,11 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
       if (!stuck && c === 0 && !a.text) { state.render = { ...state.render, result: 'accepted' }; state.stage = 'done'; }
       else if ((!stuck && (c === 1 || a.text)) || (stuck && c === 0)) { state.renderRevise = text || '請依守門檢查的結果修正'; state.renderTries = 0; state.stage = 'render-revise'; }
       else if ((!stuck && c === 2) || (stuck && c === 1)) {
-        git(J.dir, ['reset', '-q', '--hard', state.renderBase.commit]); git(J.dir, ['clean', '-fdq']);
+        if (J.repo) {   // 本庫不能 reset：逐檔寫回補強前的內容，再提交一個還原 commit；使用者之後又改過的檔案不動
+          const r = repoGit.revertToCommit(J, state.renderBase.commit, 'vs3d: revert render');
+          log(`  ↺ 已寫回補強前的內容（${r.files} 個檔案${r.commit ? `，commit ${r.commit}` : ''}）${r.skipped.length ? `；你之後改過的 ${r.skipped.join('、')} 沒有動` : ''}`);
+        } else { git(J.dir, ['reset', '-q', '--hard', state.renderBase.commit]); git(J.dir, ['clean', '-fdq']); log(`  ↺ 已還原到補強前（${state.renderBase.commit.slice(0, 7)}）`); }
         state.render = { ...state.render, result: 'reverted' }; state.stage = 'done';
-        log(`  ↺ 已還原到補強前（${state.renderBase.commit.slice(0, 7)}）`);
       } else { state.render = { ...state.render, result: 'accepted-with-failures' }; state.stage = 'done'; }
     }
     save();
@@ -205,11 +217,22 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
           await round('plan', planSession ? `你還沒有寫出 \`.studio/plan/${pfile}\`。請完成提案（需要拍板的事寫問題檔）。` : rolePrompt('plan', ctxFor({ role: 'plan' })) + note, { resume: !!planSession });
           break;
         }
+        case 'change': {   // 修改指令（本庫的站與完成的專案）：開發角色照使用者的要求改，之後檢查 → 審查
+          if (state.lockSchedule && !state.segBase) {
+            commitAll('Before change');
+            const fp = await runFingerprint(ws, id);
+            if (!fp.ok) throw new Stop(`無法產生排程指紋：${fp.error}`);
+            writeJson(join(J.studio, 'segment2', 'base-fingerprint.json'), fp); state.segBase = { commit: git(J.dir, ['rev-parse', 'HEAD']).trim() };
+          }
+          await round('build', rolePrompt('change', ctxFor({ role: 'build', request: state.changeRequest, lockSchedule: !!state.lockSchedule })));
+          state.stage = 'check';
+          break;
+        }
         case 'build': {
           // 上次開發中斷（額度、逾時）時續接同一個工作階段
           const again = !!state.sessions[sk('build')] && state.buildStarted;
           if (seg() === 2 && !state.segBase) {   // 第二段不能改第一段的排程與動作：先記下指紋
-            if (git(J.dir, ['status', '--porcelain']).trim()) { git(J.dir, ['add', '-A']); git(J.dir, [...GIT_ID, 'commit', '-qm', 'Before segment 2']); }
+            commitAll('Before segment 2');
             const fp = await runFingerprint(ws, id);
             if (!fp.ok) throw new Stop(`無法產生排程指紋，不能開始第二段：${fp.error}`);
             writeJson(join(J.studio, 'segment2', 'base-fingerprint.json'), fp); state.segBase = { commit: git(J.dir, ['rev-parse', 'HEAD']).trim() };
@@ -228,9 +251,9 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
           let c = await runChecks(ws, id, { quick: true });
           record(c);
           if (c.ok && full) { log('▶ 完整檢查（含 ui 四尺寸）'); c = await runChecks(ws, id, { quick: false }); record(c); }
-          if (c.ok && seg() === 2 && state.segBase) {
+          if (c.ok && state.segBase && (seg() === 2 || state.lockSchedule)) {
             const fails = compareRenderFingerprint(readJson(join(J.studio, 'segment2', 'base-fingerprint.json')), await runFingerprint(ws, id));
-            if (fails.length) { c = { ...c, ok: false, failures: [...c.failures, { check: 'fingerprint', note: '第二段改到第一段的排程或動作（排程指紋不同）', detail: fails.slice(0, 25) }] }; log(`  ✗ 排程指紋：${short(fails.join('；'), 200)}`); }
+            if (fails.length) { c = { ...c, ok: false, failures: [...c.failures, { check: 'fingerprint', note: state.lockSchedule ? '修改改到了原本的排程或動作（排程指紋不同）' : '第二段改到第一段的排程或動作（排程指紋不同）', detail: fails.slice(0, 25) }] }; log(`  ✗ 排程指紋：${short(fails.join('；'), 200)}`); }
             else log('  ✓ 排程指紋與第一段相同');
           }
           state.lastCheck = { quick: c.quick, ok: c.ok, rows: c.rows.length, failures: c.failures };
@@ -243,7 +266,7 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
         case 'review': {
           const n = (state.reviews || 0) + 1, shotList = pngs(state.shots && join(state.shots, id)), refs = refImages(J);
           state.reviews = n; save();
-          await round('review', rolePrompt('review', ctxFor({ role: 'review', round: n, shots: shotList.map(f => rel(J.dir, f)), refs: refs.map(f => rel(J.dir, f)) })), { images: [...shotList, ...refs] });
+          await round('review', rolePrompt('review', ctxFor({ role: 'review', round: n, request: state.flow === 'change' ? state.changeRequest : '', shots: shotList.map(f => rel(J.dir, f)), refs: refs.map(f => rel(J.dir, f)) })), { images: [...shotList, ...refs] });
           const rv = readJson(join(J.studio, 'reviews', `review-${n}.json`), null);
           if (!rv) { log('  ! 審查角色沒有寫出審查結果，略過審查'); state.reviewData = { must: [], suggest: [] }; state.stage = wantRender ? 'render' : 'done'; break; }
           state.reviewData = { n, must: rv.must || [], suggest: (rv.suggest || []).sort((a, b) => (a.priority ?? 2) - (b.priority ?? 2)), summary: rv.summary || '' };
@@ -254,7 +277,7 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
           else {
             if (state.reviewData.must.length && !wantReviewFix) log(`  ! 只審查（--no-fix）：${state.reviewData.must.length} 項必修沒有送修正`);
             else if (state.reviewData.must.length) log(`  ! 審查 ${n} 次後仍有 ${state.reviewData.must.length} 項必修，先繼續；請在最後的對照中確認`);
-            state.stage = wantRender ? 'render' : 'done';
+            state.stage = wantRender && state.flow !== 'change' ? 'render' : 'done';
           }
           break;
         }
@@ -265,7 +288,7 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
         case 'render': {
           if (!state.renderBase) {
             log('\n▶ 補強前基準：排程指紋與空間檢核' + (wantPerf ? '、效能' : ''));
-            if (git(J.dir, ['status', '--porcelain']).trim()) { git(J.dir, ['add', '-A']); git(J.dir, [...GIT_ID, 'commit', '-qm', 'Before render']); }
+            commitAll('Before render');
             const fp = await runFingerprint(ws, id);
             if (!fp.ok) throw new Stop(`無法產生排程指紋，不能開始補強：${fp.error}`);
             writeJson(join(J.studio, 'render', 'base-fingerprint.json'), fp);
@@ -359,7 +382,8 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
           state.stage = 'check'; save();
           return { status: 'paused' };
         case 'done':
-          if (seg() === 1 && wantStage2 && !state.stage2Asked) {
+          if (J.repo && state.flowActive) { state.flowActive = false; log(`\n本庫：成果在本機分支 ${state.branch}（只提交了 ${id} 的路徑）；要推送與開 PR 用 vs3d push "${id}" 或介面的按鈕`); }
+          if (seg() === 1 && wantStage2 && !state.stage2Asked && !J.repo) {
             state.stage2Asked = true;
             const qid = `vs3d-stage2-r${state.round}`, b = resolve('build');
             writeAppQuestion(J, { id: qid, header: '第二段', question: '第一段完成了，要開始第二段（電控、電盤、配線、相機子畫面、視覺疊圖）嗎？',
@@ -429,13 +453,14 @@ export function roleScope(role, J) {
 
 // 用 git 檢查這一輪追蹤中的變更；不在角色範圍內的檔案退回開工前的版本（工作區的專案由 app 管理，可以直接還原）
 function enforceRoleScope(role, J, startHead) {
-  const changed = git(J.dir, ['status', '--porcelain', '-z', '--untracked-files=all']).split('\0').filter(Boolean).map(l => ({ code: l.slice(0, 2), path: l.slice(3) }));
+  const changed = J.repo ? repoGit.changes(J) : git(J.dir, ['status', '--porcelain', '-z', '--untracked-files=all']).split('\0').filter(Boolean).map(l => ({ code: l.slice(0, 2), path: l.slice(3) }));
   const bad = changed.filter(c => role === 'plan' || role === 'review' || ['AGENTS.md', 'CLAUDE.md', 'studio.json', '.gitignore'].includes(c.path));
   const out = [];
   for (const c of bad) {
     let restored = false;
     try {
-      if (c.code.includes('?')) git(J.dir, ['clean', '-fq', '--', c.path]);
+      if (J.repo) repoGit.writeBack(J, startHead, c.path);     // 本庫不用 clean／checkout
+      else if (c.code.includes('?')) git(J.dir, ['clean', '-fq', '--', c.path]);
       else git(J.dir, ['checkout', '-q', startHead, '--', c.path]);
       restored = true;
     } catch { /* 留給使用者 */ }

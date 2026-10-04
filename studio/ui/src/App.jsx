@@ -38,17 +38,21 @@ export function App() {
           <button onClick={() => go({ view: 'settings' })}>⚙ 設定</button>
         </div>
         <div className="list">
-          {projects.map(p => (
+          {/* 兩個分區：工作區的專案、本庫 project-site/ 的站（本庫模式） */}
+          {[['工作區', projects.filter(p => !p.repo)], ['本庫 project-site', projects.filter(p => p.repo).sort((a, b) => a.name.localeCompare(b.name))]].filter(([, list]) => list.length).map(([label, list]) => <div key={label}>
+          <div className="mute" style={{ padding: '8px 8px 2px', fontSize: 12 }}>{label}</div>
+          {list.map(p => (
             <button key={p.id} className={`item ${route.id === p.id ? 'on' : ''}`} onClick={() => go({ view: 'project', id: p.id })}>
               <div className="t">{p.title}</div>
               <div className="m">
                 <span className={`chip ${p.running ? 'run' : p.stage === 'done' ? 'ok' : ''}`}>{p.running ? '執行中' : (p.segment === 2 ? '第二段 · ' : '') + (STAGE[p.stage] || p.stage)}</span>
                 {p.pending > 0 && <span className="chip warn">{p.pending} 個問題</span>}
                 {p.render && <span className="chip">補強{p.render === 'accepted' ? '已接受' : p.render === 'reverted' ? '已還原' : ''}</span>}
-                <span>{p.round} 輪</span>
+                {p.repo ? (p.branch && p.flowActive ? <span className="chip">{p.branch}</span> : null) : <span>{p.round} 輪</span>}
               </div>
             </button>
           ))}
+          </div>)}
           {!projects.length && <p className="mute" style={{ padding: 8 }}>還沒有專案，按「＋ 新建」開始。</p>}
         </div>
       </aside>

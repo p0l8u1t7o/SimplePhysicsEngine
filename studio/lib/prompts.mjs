@@ -3,12 +3,22 @@ import { join } from 'node:path';
 import { readText, rel } from './util.mjs';
 import { formatAnswers } from './questions.mjs';
 
-const ROLE_TITLE = { plan: '規劃（配置提案）', build: '開發（第一段）', fix: '修正', review: '審查', render: '渲染與細節補強' };
+const ROLE_TITLE = { change: '依要求修改', plan: '規劃（配置提案）', build: '開發（第一段）', fix: '修正', review: '審查', render: '渲染與細節補強' };
 const ROLE_TITLE2 = { plan: '第二段規劃（電控、電盤、配線、相機）', build: '開發（第二段）', fix: '修正（第二段）', review: '審查（第二段）', render: '渲染與細節補強 B（第二段）' };
 
 export function header({ ws, J, role, adapter, scope, segment = 1 }) {
+  const title = `# vs3d 任務：${(segment === 2 ? ROLE_TITLE2 : ROLE_TITLE)[role] || role}`;
+  // 本庫模式：本庫既有的站，規則是根目錄 AGENTS.md＋本站 AGENTS.md（Claude Code 與 Codex 都會從 git 根目錄讀到）
+  if (J.repo) return [title, '',
+    `- 專案資料夾（你的工作目錄）：\`${J.dir}\`，本庫的站 \`${J.id}\``,
+    `- 本庫：\`${ws}\`；core 在 \`${join(ws, 'core')}\`（不要修改：core 由主 session 負責，缺功能就在本站暫代並登記到 \`core/REQUESTS.md\`）`,
+    `- 規則：本站的 \`AGENTS.md\`（規格與已拍板事項），以及本庫根目錄的 \`AGENTS.md\`（必讀；你是從本站資料夾啟動的子專案代理，只能改本站）`,
+    `- 這一輪可以寫的範圍：${scope}`,
+    `- **不要執行 git commit、checkout、restore、stash、reset、clean、switch**：使用者也在這個工作目錄工作，版本控制由 app 負責，每輪結束只提交本站的路徑`,
+    `- 快速檢查：\`node ../../core/tools/check.mjs "${J.id}" --quick\``,
+  ].join('\n');
   const lines = [
-    `# vs3d 任務：${(segment === 2 ? ROLE_TITLE2 : ROLE_TITLE)[role] || role}`,
+    title,
     '',
     `- 專案資料夾（你的工作目錄）：\`${J.dir}\`，專案名稱 \`${J.id}\``,
     `- 工作區：\`${ws}\`；core 在 \`${join(ws, 'core')}\`（唯讀，框架說明在 \`core/README.md\`）`,
@@ -118,7 +128,21 @@ ${check ? failureText(check) : '（沒有檢查結果）'}
 };
 
 // 審查：看截圖、對照拍板事項與規則，輸出必修與建議補強
-TASK.review = ({ shots = [], refs = [], round = 1, segment = 1 }) => `## 任務：審查${segment === 2 ? '第二段（電控、電盤、配線、相機）' : '第一段'}成品（第 ${round} 次）
+// 修改指令：使用者對已完成的專案（含本庫既有的站）下的一段要求
+TASK.change = ({ request = '', lockSchedule = false }) => `## 任務：依使用者的要求修改
+
+這個專案已經完成，使用者要求修改：
+
+${request.split('\n').map(l => '> ' + l).join('\n')}
+
+先讀 \`AGENTS.md\`（規格與已拍板事項）、\`README.md\` 與 \`web/js/\`，了解現在的做法，再照要求修改：
+
+- 只改要求的部分，其他設備、動作、視角、面板維持原樣；要求和已拍板事項衝突時，寫問題檔問使用者，不要自己決定。
+${lockSchedule ? '- **不能改節拍與動作**：時間軸總長、事件、\`apply(t)\` 原有的狀態、會動物件的軌跡都要和修改前相同（可以新增欄位與會動的細節）；app 會比對排程指紋，不同就退回。\n' : '- 可以改節拍與動作；改了的話同步更新側欄說明、\`layoutChecks()\` 與本站的 \`tools/verify.mjs\`。\n'}- 新的幾何不能撞到東西、不能和既有的面重合（scene 干涉、閃爍維持 0）；用得到 core 的模型與元件就用。
+- 完成後跑快速檢查並修到通過；結束訊息列出改了哪些檔案、做了哪些假設。`;
+
+TASK.review = ({ shots = [], refs = [], round = 1, segment = 1, request = '' }) => `## 任務：審查${request ? '修改後的' : segment === 2 ? '第二段（電控、電盤、配線、相機）' : '第一段'}成品（第 ${round} 次）
+${request ? `\n這次審查的是依使用者要求修改後的結果。使用者的要求：\n\n${request.split('\n').map(l => '> ' + l).join('\n')}\n\n必修另外看：有沒有照要求做到、有沒有改到要求以外的東西。\n` : ''}
 
 你是審查者，不是開發者：**不要修改任何專案檔案**，只寫審查結果。
 

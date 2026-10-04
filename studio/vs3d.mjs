@@ -14,6 +14,10 @@
 //   node studio/vs3d.mjs export <名稱> [--zip] [--html] [--mp4]   匯出成品到專案 TEMP/exports/（不指定時輸出網站壓縮檔＋單一 HTML）
 //   node studio/vs3d.mjs handoff <名稱> [--out 檔案]              匯出交接包（git 歷史、上傳檔、提問與紀錄、不得顯示的名稱）
 //   node studio/vs3d.mjs import <交接包.zip> [--name 新名稱]       匯入交接包，之後用 resume 續跑
+//   node studio/vs3d.mjs change <名稱> --text "要改的內容" [--keep-timing]   修改指令：開發角色照做 → 檢查 → 審查（--keep-timing 不能改節拍與動作）
+//   node studio/vs3d.mjs push <名稱>                              本庫模式：推送這次的 vs3d 分支（之後在 GitHub 開 PR）
+// 本庫模式：--repo（或 --workspace 指到本庫根目錄）就能對 project-site/ 的站下 review／render／stage2／change／check／export；
+//   開工時該站不能有未提交的改動，每次指令開一個本機分支 <範圍>/vs3d-…，只提交該站的路徑，不會 checkout／reset／stash。
 //   node studio/vs3d.mjs probe <名稱> [--cli …] [--other <專案>] [--simulate]   寫入隔離自我測試（--simulate：app 另外模擬越界寫入）
 //   node studio/vs3d.mjs models                                   各 CLI 可用的模型與各角色目前的指派
 //   node studio/vs3d.mjs ui [--port 8780] [--no-open]             開啟網頁介面（http://127.0.0.1:8780/）
@@ -27,7 +31,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
 import { ADAPTERS, adapterFor } from './lib/adapters/index.mjs';
-import { initWorkspace, createProject, paths, projectPaths } from './lib/workspace.mjs';
+import { initWorkspace, createProject, paths, projectPaths, isRepo } from './lib/workspace.mjs';
 import { runProject, loadState, beginSegment2 } from './lib/loop.mjs';
 import { loadQuestions, parseChoice, recordAnswer, printQuestion } from './lib/questions.mjs';
 import { runChecks, failureSummary } from './lib/checks.mjs';
@@ -35,8 +39,10 @@ import { ROLES, resolveRole, loadRoleContext, parseRoleOverrides } from './lib/r
 import { isolationProbe } from './lib/probe.mjs';
 import { defaultWorkspace, readText, readJson, writeJson } from './lib/util.mjs';
 import { exportHandoff, importHandoff } from './lib/handoff.mjs';
+import * as repoGit from './lib/repo.mjs';
+import { REPO, git } from './lib/util.mjs';
 
-const VALUE = new Set(['--workspace', '--private', '--prompt', '--prompt-file', '--title', '--summary', '--cli', '--model', '--role', '--effort', '--note', '--max-rounds', '--timeout', '--other', '--focus', '--port', '--out', '--name']);
+const VALUE = new Set(['--text', '--text-file', '--workspace', '--private', '--prompt', '--prompt-file', '--title', '--summary', '--cli', '--model', '--role', '--effort', '--note', '--max-rounds', '--timeout', '--other', '--focus', '--port', '--out', '--name']);
 
 // 測試用：VS3D_EXTRA_ADAPTERS 指向一個匯出 { adapters: { 名稱: adapter } } 的模組（例如假代理），讓介面的端對端測試走真正的命令列
 if (process.env.VS3D_EXTRA_ADAPTERS) Object.assign(ADAPTERS, (await import(pathToFileURL(resolve(process.env.VS3D_EXTRA_ADAPTERS)).href)).adapters);
@@ -53,12 +59,17 @@ function parseArgs(argv) {
 }
 
 const o = parseArgs(process.argv.slice(2)), [cmd, name, ...rest] = o._;
-const ws = resolve(o.workspace || defaultWorkspace());
+const ws = resolve(o.repo ? REPO : o.workspace || defaultWorkspace());
 const override = { cli: o.cli, model: o.model, roles: parseRoleOverrides(o.role || ''), autoApprove: !!o['auto-approve'], pick: !!o.pick, focus: o.focus || '' };
 if (o.effort) for (const r of Object.keys(ROLES)) override.roles[r] = { ...override.roles[r], effort: o.effort };
 if (o.cli && !ADAPTERS[o.cli]) fail(`--cli 只能是 ${Object.keys(ADAPTERS).join('、')}`);
 const runOpts = () => ({ interactive: !!process.stdin.isTTY && !o['no-wait'], override, maxRounds: +(o['max-rounds'] || 40), timeoutMin: +(o.timeout || 90),
   review: !o['no-review'], reviewFix: !o['no-fix'], render: !o['no-render'], perf: !o['no-perf'], stage2: !o['no-stage2'] });
+// 本庫模式的指令：先做開工檢查並開本機分支（目前已經在本站的 vs3d 分支上就沿用）
+function beginRepoFlow(J, s, label) {
+  if (!J.repo) return;
+  try { s.branch = repoGit.beginFlow(J, label); s.flowActive = true; console.log(`本庫：在分支 ${s.branch} 上進行（只提交 ${J.id} 的路徑）`); } catch (e) { fail(e.message); }
+}
 const needWs = () => { if (!existsSync(paths(ws).marker)) fail(`工作區還沒建立：${ws}（先執行 vs3d init，或用 --workspace 指定）`); };
 const needProject = () => { needWs(); if (!name) fail('請指定專案名稱'); if (!existsSync(projectPaths(ws, name).dir)) fail(`找不到專案：${name}`); return projectPaths(ws, name); };
 function fail(msg) { console.error(msg); process.exit(2); }
@@ -98,8 +109,10 @@ switch (cmd) {
   case 'render': {
     const J = needProject(), s = loadState(J);
     if (!['done', 'review', 'render', 'render-guard', 'render-revise'].includes(s.stage)) fail(`專案目前在「${s.stage}」階段，第一段完成後才能${cmd === 'review' ? '審查' : '補強'}`);
-    Object.assign(s, { stage: cmd, waiting: null, renderBase: null, renderPicked: false, renderItems: null, renderTries: 0 });
+    Object.assign(s, { stage: cmd, waiting: null, renderBase: null, renderPicked: false, renderItems: null, renderTries: 0, flow: cmd });
     if (cmd === 'review') s.reviews = 0;
+    if (cmd === 'review' && !s.shots) s.stage = 'check';      // 本庫的站還沒有 vs3d 截圖：先檢查、截圖，再審查
+    beginRepoFlow(J, s, cmd);
     writeJson(J.state, s);
     report(await runProject(ws, name, runOpts()));
     break;
@@ -109,7 +122,7 @@ switch (cmd) {
     const tool = join(paths(ws).core, 'tools', 'export.mjs');
     if (!existsSync(tool)) fail('工作區的 core 太舊，沒有匯出工具：先執行 vs3d init --refresh-core');
     const formats = ['zip', 'html', 'mp4'].filter(f => o[f]).map(f => '--' + f);
-    const child = spawn(process.execPath, [tool, name, ...formats], { cwd: ws, stdio: 'inherit', windowsHide: true });
+    const child = spawn(process.execPath, [tool, name, ...formats, '--out', projectPaths(ws, name).temp + '/exports'], { cwd: ws, stdio: 'inherit', windowsHide: true });
     process.exitCode = await new Promise(r => child.on('close', r));
     break;
   }
@@ -124,11 +137,32 @@ switch (cmd) {
     try { await importHandoff(ws, resolve(name), { id: o.name }); } catch (e) { fail(e.message); }
     break;
   }
+  case 'change': {
+    const J = needProject(), s = loadState(J), text = (o['text-file'] ? readText(resolve(o['text-file'])) : o.text || '').trim();
+    if (!text) fail('用法：vs3d change <名稱> --text "要改的內容" [--keep-timing]');
+    if (s.stage !== 'done') fail(`專案目前在「${s.stage}」階段，完成後才能下修改指令（續跑用 vs3d resume）`);
+    Object.assign(s, { stage: 'change', flow: 'change', changeRequest: text, lockSchedule: !!o['keep-timing'], segBase: null, waiting: null, reviews: 0, reviewData: null, streak: {}, renderBase: null });
+    beginRepoFlow(J, s, 'change');
+    writeJson(J.state, s);
+    report(await runProject(ws, name, { ...runOpts(), render: false, stage2: false }));
+    break;
+  }
+  case 'push': {
+    const J = needProject(), s = loadState(J);
+    if (!J.repo) fail('push 只用於本庫模式（工作區的專案用 export／handoff 交付）');
+    const br = repoGit.branch(J);
+    if (!br.startsWith(`${repoGit.slugOf(J.id)}/vs3d-`)) fail(`目前在 ${br}，不是 ${J.id} 的 vs3d 分支${s.branch ? `（上次是 ${s.branch}）` : ''}；請先切到要推送的分支`);
+    try { console.log(git(J.dir, ['push', '-u', 'origin', br])); } catch (e) { fail(String(e.stderr || e.message)); }
+    const url = git(J.dir, ['remote', 'get-url', 'origin']).trim().replace(/\.git$/, '').replace(/^git@github\.com:/, 'https://github.com/');
+    console.log(`已推送 ${br}。開 PR：${url}/compare/main...${encodeURIComponent(br).replace(/%2F/g, '/')}?expand=1`);
+    break;
+  }
   case 'stage2': {
     const J = needProject(), s = loadState(J);
     if ((s.segment || 1) === 2) fail(`專案已經在第二段（階段 ${s.stage}）；續跑用 vs3d resume`);
     if (s.stage !== 'done') fail(`專案目前在「${s.stage}」階段，第一段完成後才能開始第二段`);
-    writeJson(J.state, beginSegment2(s));
+    beginSegment2(s); beginRepoFlow(J, s, 'stage2');
+    writeJson(J.state, s);
     report(await runProject(ws, name, runOpts()));
     break;
   }
@@ -147,7 +181,7 @@ switch (cmd) {
   }
   case 'status': {
     needWs();
-    const ids = name ? [name] : readdirSync(paths(ws).projects).filter(n => existsSync(join(paths(ws).projects, n, '.studio', 'state.json')));
+    const ids = name ? [name] : readdirSync(paths(ws).projects).filter(n => existsSync(join(paths(ws).projects, n, paths(ws).repo ? 'project.json' : '.studio/state.json')));
     for (const id of ids) {
       const J = projectPaths(ws, id), s = loadState(J), pending = loadQuestions(J).list.filter(q => !q.answered);
       console.log(`\n${id}：${(s.segment || 1) === 2 ? '第二段，' : ''}階段 ${s.stage}，${s.round} 輪${s.lastCheck ? `，最近檢查 ${s.lastCheck.ok ? '通過' : `${s.lastCheck.failures.length} 項失敗`}` : ''}`);
@@ -179,7 +213,9 @@ switch (cmd) {
   }
   case 'ui': {
     const { startUi } = await import('./lib/server.mjs');
-    const ui = await startUi(ws, { port: +(o.port || 8780) });
+    // 從本庫執行時同時列出 project-site/ 的各站（本庫模式）；--no-repo 只看工作區
+    const repoRoot = o['no-repo'] ? null : isRepo(REPO) ? REPO : null;
+    const ui = await startUi(o.repo ? defaultWorkspace() : ws, { port: +(o.port || 8780), repo: repoRoot });
     if (!o['no-open'] && process.platform === 'win32') spawn('cmd', ['/c', 'start', '', `http://127.0.0.1:${ui.port}/`], { windowsHide: true, detached: true, stdio: 'ignore' }).unref();
     process.on('SIGINT', () => { ui.close(); process.exit(0); });
     break;
