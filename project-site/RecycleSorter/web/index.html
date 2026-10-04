@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="../core/favicon.svg" type="image/svg+xml">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>回收物自動分揀展示機 — 3D 設備模擬</title>
+<link rel="stylesheet" href="css/style.css">
+<!-- 共用版面（精簡版面、相機視窗、工具列）的樣式 core/ui/viewer-workspace.css 由 createViewerWorkspace 自動載入 -->
+<script type="importmap">
+{ "imports": {
+    "three": "../core/vendor/three.module.js",
+    "three/addons/": "../core/vendor/addons/",
+    "@core/": "../core/"
+} }
+</script>
+</head>
+<body>
+<!-- 標準骨架（core/README.md「小螢幕與觸控」）：#topbar（.brand、#stations、.views）、#side、#bottombar（.ctl、.stepRow、#timeline、#clock）；
+     窄螢幕與觸控裝置的精簡版面由 createViewerWorkspace 處理，style.css 只寫桌面版面 -->
+<div id="app">
+  <canvas id="c"></canvas>
+
+  <header id="topbar">
+    <div class="brand">
+      <div class="title">回收物自動分揀展示機</div>
+      <div class="sub">雙視覺立體影像分類 ＋ DENSO HSR065 SCARA 吸盤分揀 ／ 同類連抓 1.4 s／混合料流約 1.5 s</div>
+    </div>
+    <nav id="stations" aria-label="站別"></nav>
+    <div class="views">
+      <button data-view="overview">全景</button>
+      <button data-view="top">俯視</button>
+      <button data-view="infeed">入料</button>
+      <button data-view="vision">取像</button>
+      <button data-view="pick">取放</button>
+      <button data-view="outfeed">出料</button>
+    </div>
+  </header>
+
+  <aside id="side">
+    <section class="card">
+      <h3>目前動作 <span class="hint" id="stationName"></span></h3>
+      <div id="action" class="action">待命</div>
+      <div id="substep" class="substep"></div>
+      <div id="chapterNote" class="substep"></div>
+    </section>
+    <section class="card">
+      <h3>分揀統計 <span class="hint" id="alarm"></span></h3>
+      <ul id="stats" class="checks"></ul>
+    </section>
+    <section class="card">
+      <h3>空間檢核 <span class="hint" id="checkCount"></span></h3>
+      <ul id="checks" class="checks"></ul>
+    </section>
+    <section class="card">
+      <h3>假設與註記</h3>
+      <ul id="notes" class="notes"></ul>
+    </section>
+  </aside>
+
+  <!-- 相機子畫面屬第二段：showPip 預設不勾選，createViewerWorkspace 的版面功能照常使用 -->
+  <input id="showPip" type="checkbox" hidden>
+
+  <footer id="bottombar">
+    <div class="ctl">
+      <button id="playBtn" class="primary">⏸ 暫停</button>
+      <button id="restartBtn">↺ 重播</button>
+      <label>速度 <input id="speed" type="range" aria-label="播放速度"><span id="speedVal">1×</span></label>
+      <label class="chk"><input id="loop" type="checkbox" checked> 循環播放</label>
+    </div>
+    <div class="stepRow"><button id="previous" aria-label="上一步">‹</button><select id="stepSelect" aria-label="動作步驟"></select><button id="next" aria-label="下一步">›</button><span id="cycleTime"></span></div>
+    <input id="timeline" aria-label="流程時間" type="range">
+    <div id="clock" class="clock">00:00.0</div>
+  </footer>
+
+  <div id="loading">載入 3D 場景中…</div>
+</div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

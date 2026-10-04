@@ -6,7 +6,7 @@ import {sampleTimes,meshBounds,separatingGap} from './geometry-clearance.mjs';
 import {checkFeedthroughs} from './check-feedthroughs.mjs';
 globalThis.document={createElement:()=>({getContext:()=>({fillRect(){},fillText(){}})})};
 const project=process.argv[2],interval=Number(process.env.CABLE_INTERVAL||.1);
-const base=new URL('../'+project+'/web/js/',import.meta.url),imp=name=>import(new URL(name+'.js',base));
+const base=new URL('../project-site/'+project+'/web/js/',import.meta.url),imp=name=>import(new URL(name+'.js',base));
 const {carrier,routeIntersectsBox,cable}=await import('@core/electrical/cable-routing.js');
 // Independent controls: a route's empty bounding-box interior is clear, its
 // material span is blocked, and the carrier endpoints obey an absolute stroke.
@@ -100,6 +100,6 @@ for(const sc of scenarios) {
   assert(routes.length>=5,'Routing missing');report.push({scenario:sc.name,samples,routes:routes.filter(g=>!g.userData.support).length,supports:routes.filter(g=>g.userData.support).length,carriers,feedthroughs:entries});
 }
 const out={project,interval,method:'constant carrier length/radius; cable and support segments vs expanded selected rigid mesh bounds; cable end seating 10 mm; support seating only at contacting endpoints, max(10 mm, diameter); tabletop service bores',report,failures:[...failures.values()]};
-const dir=new URL('../'+project+'/review/',import.meta.url);mkdirSync(dir,{recursive:true});writeFileSync(new URL('cables.json',dir),JSON.stringify(out,null,2));
+const dir=new URL('../project-site/'+project+'/review/',import.meta.url);mkdirSync(dir,{recursive:true});writeFileSync(new URL('cables.json',dir),JSON.stringify(out,null,2));
 console.log(JSON.stringify({...out,failures:out.failures.slice(0,35)},null,2));
 if(out.failures.length)process.exitCode=1;

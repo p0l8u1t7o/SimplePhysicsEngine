@@ -26,7 +26,7 @@
 | 位置 | 內容 |
 |---|---|
 | `core/` | 共用框架（以 importmap `@core/` 引用）：geom（形狀、材質、五金、地面）、models（12 個參數化模型＋目錄頁）、anim（時間軸、步驟序列、到位閘門）、ui（stage、player、viewer-workspace）、electrical、movie、verify、template、tools；版本號在 `core/VERSION`，core 需求登記在 `core/REQUESTS.md` |
-| `<專案>/` | `web/`（網站；`web/js/project.js` 是網頁與檢查共用的場景）、`project.json`（首頁說明、`coreVersion`、`checks.quick`／`checks.full`、`variants`、`ui`）、`tools/`（專案自有檢查）、`review/`（檢查結果，進版控）、`docs/`（只留本機）、`AGENTS.md`／`CLAUDE.md`（該站規則）、`.claude/settings.json`（寫檔關卡） |
+| `project-site/<專案>/` | 所有展示專案（之後新增的也放這裡）。`web/`（網站；`web/js/project.js` 是網頁與檢查共用的場景）、`project.json`（首頁說明、`coreVersion`、`checks.quick`／`checks.full`、`variants`、`ui`）、`tools/`（專案自有檢查）、`review/`（檢查結果，進版控）、`docs/`（只留本機）、`AGENTS.md`／`CLAUDE.md`（該站規則）、`.claude/settings.json`（寫檔關卡） |
 | `tools/` | 跨專案工具：配線、電盤、干涉回歸、電路圖、錄影輸出 |
 | `scripts/` | 腳本：`setup.ps1`（環境設定）、`start`／`stop`（`.ps1`＋可點兩下的 `.cmd`，網頁啟動與停止，PID 與輸出在 `logs/`）、`migrate/`（搬庫腳本） |
 | `studio/` | 3D 動畫生成應用程式：目前是 P1 命令列原型 `node studio/vs3d.mjs`（說明見 `studio/README.md`，測試 `node --test "studio/test/*.test.mjs"`）；計畫書在本機 `TEMP/3d-app-plan.md` |
@@ -34,7 +34,9 @@
 | `.github/workflows/` | `pages.yml`：PR 跑快速檢查；推送到 `main` 時快速檢查、建置、發布 Pages（只改 `studio/` 時不跑）。`scope.yml`：PR 範圍檢查 |
 | `PENDING.md` | 待辦事項 |
 
-7 個專案：AutomaticAcid-BaseTitration（酸鹼滴定）、ChemicalTankWashing（200L 化學桶清洗線）、MilitaryGradePC（軍規筆電 QC 線）、PCB-CopperAssembly（散熱銅片植入）、RobotArmPressSSD（USB 接頭壓合）、shutter assembly（快門葉片組裝，資料夾名稱有空白）、WorkpieceMeasurement（杯體 AOI＋共焦量測）。
+8 個專案（都在 `project-site/`）：AutomaticAcid-BaseTitration（酸鹼滴定）、ChemicalTankWashing（200L 化學桶清洗線）、MilitaryGradePC（軍規筆電 QC 線）、PCB-CopperAssembly（散熱銅片植入）、RobotArmPressSSD（USB 接頭壓合）、shutter assembly（快門葉片組裝，資料夾名稱有空白）、WorkpieceMeasurement（杯體 AOI＋共焦量測）、RecycleSorter（回收物分揀，vs3d 產生後匯入）。
+
+**新專案一律放在 `project-site/<專案>/`**（`new-project.mjs` 會自動放在這裡）。專案裡的 Node 工具往庫根目錄要寫 `../../core`、`../../tools`；網頁的 importmap 是網址相對路徑（`../core/`），不用改。
 
 ## 常用指令
 
@@ -52,17 +54,17 @@ node --import ./core/tools/register.mjs tools/verify-cable-routing.mjs   # 也�
 
 ## 範圍（子專案規則）
 
-- **範圍**：各專案資料夾、`core/`、根目錄 `tools/`、`studio/`，其餘根目錄檔案算 root。共用檔 `core/REQUESTS.md`、`PENDING.md` 任何範圍都可以改。
+- **範圍**：各專案資料夾（`project-site/<專案>/`）、`core/`、根目錄 `tools/`、`studio/`，其餘根目錄檔案算 root。共用檔 `core/REQUESTS.md`、`PENDING.md` 任何範圍都可以改。
 - **主 session**（從根目錄啟動）可以跨範圍；改 core 照「檢查與回歸的做法」。
-- **子專案 session**（從 `<專案>/` 啟動的 Claude Code 或 Codex）只改自己的資料夾，加上根目錄 `TEMP/` 的暫存。
+- **子專案 session**（從 `project-site/<專案>/` 啟動的 Claude Code 或 Codex）只改自己的資料夾，加上根目錄 `TEMP/` 的暫存。
   - core 缺功能時，先在專案內暫代，並登記到 `core/REQUESTS.md`；由主 session 實作（基準截圖＋全專案檢查），再讓各站改用。
   - 要開 PR 時，分支名稱用 `<範圍>/<說明>`。專案名稱用小寫、空白換成 `-`，例如 `shutter-assembly/blade-detail`。
 - **強制機制**（防誤改，不是防惡意；判定邏輯都在 `core/tools/check-scope.mjs`）：
-  - **pre-commit**：在 `<範圍>/` 內執行 `git commit` 時，只能提交該範圍的檔案；在根目錄提交不限制。
+  - **pre-commit**：在範圍資料夾（`project-site/<專案>/`、`core/`、`tools/`、`studio/`）內執行 `git commit` 時，只能提交該範圍的檔案；在根目錄提交不限制。
   - **PR CI**（`scope.yml`）：分支名稱是 `<範圍>/…` 時，只能改該範圍；其他分支名稱不限制。
-  - **Claude Code 寫檔關卡**：各專案 `.claude/settings.json` 的 PreToolUse 呼叫 `core/tools/scope-guard.mjs`，擋下寫到範圍外的 Write／Edit／MultiEdit／NotebookEdit。shell 指令擋不到，靠前兩項。
+  - **Claude Code 寫檔關卡**：各專案 `.claude/settings.json`（`node "$CLAUDE_PROJECT_DIR/../../core/tools/scope-guard.mjs"`） 的 PreToolUse 呼叫 `core/tools/scope-guard.mjs`，擋下寫到範圍外的 Write／Edit／MultiEdit／NotebookEdit。shell 指令擋不到，靠前兩項。
   - **Codex**：從專案資料夾啟動並用 `--sandbox workspace-write`。沙箱擋住共用檔時，把 core 需求或待辦寫在回報裡，由主 session 登記。
-- **各站規則**：規格摘要與已拍板事項放在 `<專案>/AGENTS.md`（`<專案>/CLAUDE.md` 只有 `@AGENTS.md`）。新專案由 `new-project.mjs` 從範本帶出這些檔案。
+- **各站規則**：規格摘要與已拍板事項放在 `project-site/<專案>/AGENTS.md`（同資料夾的 `CLAUDE.md` 只有 `@AGENTS.md`）。新專案由 `new-project.mjs` 從範本帶出這些檔案。
 - **開發流程**：規格 → new-project → 盤點 core → project.js → 排程 → main.js 與 verify（可平行）→ check → 截圖 → commit → PR → Pages。
 - **core 版本**：`core/VERSION` 用語意化版本；各專案 `project.json` 的 `coreVersion` 記錄最後一次驗證通過的 core 版本。core 有 API 或外觀改變時升版、記進 `core/MIGRATION.md`，各站驗證通過後再更新 `coreVersion`。
 

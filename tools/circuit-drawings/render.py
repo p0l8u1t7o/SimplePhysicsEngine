@@ -45,7 +45,7 @@ def wrap(s, limit, size=12):
 class Drawing:
     def __init__(self, data):
         self.d = data
-        self.docs = ROOT / data['project'] / 'docs'
+        self.docs = ROOT / 'project-site' / data['project'] / 'docs'
         self.out = self.docs / 'electrical'
         self.pdf = canvas.Canvas(str(self.docs / 'circuit-diagrams.pdf'), pagesize=(W, H), pageCompression=1)
         self.pdf.setTitle(data['title'] + ' - 電路圖 ' + data['revision'])
@@ -329,12 +329,12 @@ def workstation(g):
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('projects',nargs='*');args=parser.parse_args()
-    files=[ROOT/p/'docs/electrical/circuit-data.json' for p in args.projects] if args.projects else sorted(ROOT.glob('*/docs/electrical/circuit-data.json'))
+    files=[ROOT/'project-site'/p/'docs/electrical/circuit-data.json' for p in args.projects] if args.projects else sorted(ROOT.glob('project-site/*/docs/electrical/circuit-data.json'))
     for f in files:
         d=json.loads(f.read_text(encoding='utf-8'));g=Drawing(d)
         if d['code']=='WPM':
             import importlib.util
-            spec=importlib.util.spec_from_file_location('wpm_circuit',ROOT/'WorkpieceMeasurement/tools/circuit_sheets.py')
+            spec=importlib.util.spec_from_file_location('wpm_circuit',ROOT/'project-site/WorkpieceMeasurement/tools/circuit_sheets.py')
             module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);module.build(g)
         elif d['code']=='DEP':workstation_layout(g);workstation(g)
         else:panel_layout(g);cad_power(g);interfaces(g);safety(g);typical_io(g);point_wiring(g);drive_wiring(g);schedules(g);register(g)

@@ -4,22 +4,22 @@ import {readFile,readdir,mkdir,writeFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {join} from 'node:path';
-const root=fileURLToPath(new URL('../',import.meta.url));
+const root=fileURLToPath(new URL('../',import.meta.url)),site=join(root,'project-site');   // 各站在 project-site/
 const projects=['AutomaticAcid-BaseTitration','MilitaryGradePC','PCB-CopperAssembly','RobotArmPressSSD','shutter assembly'];
 // 共用線材模組只有 core/electrical 一份，不再需要同步比對
 async function hash(project) {
   const h=createHash('sha256');
-  for(const dir of [join(root,project,'web/js'),join(root,'core/electrical')])for(const name of (await readdir(dir)).filter(n=>n.endsWith('.js')).sort())h.update(name).update(await readFile(join(dir,name)));
+  for(const dir of [join(site,project,'web/js'),join(root,'core/electrical')])for(const name of (await readdir(dir)).filter(n=>n.endsWith('.js')).sort())h.update(name).update(await readFile(join(dir,name)));
   h.update(await readFile(join(root,'tools/verify-cables.mjs')));h.update(await readFile(join(root,'tools/check-feedthroughs.mjs')));return h.digest('hex');
 }
 const startedAt=new Date().toISOString();
 const results=await Promise.all(projects.map(async project=>{
   const before=await hash(project),start=Date.now();
   const code=await new Promise(resolve=>{
-    const child=spawn(process.execPath,['--no-warnings','--import',REGISTER,'../tools/verify-cables.mjs',project],{cwd:join(root,project),windowsHide:true,env:{...process.env,CABLE_INTERVAL:'.05'},stdio:['ignore','pipe','pipe']});
+    const child=spawn(process.execPath,['--no-warnings','--import',REGISTER,'../../tools/verify-cables.mjs',project],{cwd:join(site,project),windowsHide:true,env:{...process.env,CABLE_INTERVAL:'.05'},stdio:['ignore','pipe','pipe']});
     let output='';child.stdout.on('data',b=>output+=b);child.stderr.on('data',b=>output+=b);
     child.on('error',e=>{output+=e.message;});
-    child.on('close',async code=>{await mkdir(join(root,project,'review/checks'),{recursive:true});await writeFile(join(root,project,'review/checks/cables.log'),output);resolve(code);});
+    child.on('close',async code=>{await mkdir(join(site,project,'review/checks'),{recursive:true});await writeFile(join(site,project,'review/checks/cables.log'),output);resolve(code);});
   });
   const sourceHash=await hash(project),passed=code===0&&before===sourceHash;
   console.log((passed?'PASS ':'FAIL ')+project+' cable routing');

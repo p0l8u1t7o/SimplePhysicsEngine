@@ -10,7 +10,7 @@ parser.add_argument('--output',default='TEMP/videos')
 parser.add_argument('--project')
 args=parser.parse_args()
 OUT=ROOT/args.output
-BIN=ROOT/'MilitaryGradePC/tools/bin'
+BIN=ROOT/'project-site/MilitaryGradePC/tools/bin'
 def temporal_audit(film):
     """Detect one-frame global flashes/black frames; retain metrics for review.
 

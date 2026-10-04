@@ -6,7 +6,7 @@ from urllib.parse import unquote
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'TEMP' / 'videos'
 SITE = ROOT / 'TEMP' / 'movie-site'
-FFMPEG = ROOT / 'MilitaryGradePC' / 'tools' / 'bin' / 'ffmpeg.exe'
+FFMPEG = ROOT / 'project-site' / 'MilitaryGradePC' / 'tools' / 'bin' / 'ffmpeg.exe'
 PORT = 8782
 ENCODER = 'h264_nvenc'
 JOBS = {}

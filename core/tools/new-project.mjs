@@ -3,7 +3,7 @@
 // 建好後就能用 serve.mjs 開啟、check.mjs 檢查，推送後自動出現在 GitHub Pages 首頁。
 import { cpSync, existsSync, readdirSync, readFileSync, writeFileSync, statSync, chmodSync } from 'node:fs';
 import { join } from 'node:path';
-import { CORE, ROOT } from './projects.mjs';
+import { CORE, ROOT, PROJECTS_DIR } from './projects.mjs';
 import { slug } from './check-scope.mjs';
 
 const [id, title, summary = ''] = process.argv.slice(2);
@@ -22,5 +22,5 @@ walk(dest);
 console.log(`已建立 ${dest}
   開啟：node core/tools/serve.mjs "${id}"
   檢查：node core/tools/check.mjs "${id}"
-  規則：${id}/AGENTS.md 填入規格摘要；從這個資料夾啟動的代理只能改本站（.claude/settings.json 寫檔關卡、pre-commit）
-  記得把 /${id}/docs/ 加進根目錄 .gitignore（使用者提供的圖面與規劃文件只留本機）`);
+  規則：${PROJECTS_DIR}/${id}/AGENTS.md 填入規格摘要；從這個資料夾啟動的代理只能改本站（.claude/settings.json 寫檔關卡、pre-commit）
+  記得把 /${PROJECTS_DIR}/${id}/docs/ 加進根目錄 .gitignore（使用者提供的圖面與規劃文件只留本機）`);

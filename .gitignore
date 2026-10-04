@@ -1,11 +1,12 @@
 # 各專案 docs（用戶提供的圖面、照片、影片與規劃文件）不納入版控
-/AutomaticAcid-BaseTitration/docs/
-/ChemicalTankWashing/docs/
-/MilitaryGradePC/docs/
-/PCB-CopperAssembly/docs/
-/RobotArmPressSSD/docs/
-/shutter assembly/docs/
-/WorkpieceMeasurement/docs/
+/project-site/AutomaticAcid-BaseTitration/docs/
+/project-site/ChemicalTankWashing/docs/
+/project-site/MilitaryGradePC/docs/
+/project-site/PCB-CopperAssembly/docs/
+/project-site/RobotArmPressSSD/docs/
+/project-site/shutter assembly/docs/
+/project-site/WorkpieceMeasurement/docs/
+/project-site/RecycleSorter/docs/
 
 # Local generated data (all case variants, at any project depth)
 [Tt][Ee][Mm][Pp]/
@@ -28,7 +29,7 @@ _site/
 node_modules/
 
 # 錄影用 ffmpeg／ffprobe（setup.ps1 -Ffmpeg 下載，不進版控）
-/MilitaryGradePC/tools/bin/
+/project-site/MilitaryGradePC/tools/bin/
 
 # 本機筆記與個人設定
 question_log.txt

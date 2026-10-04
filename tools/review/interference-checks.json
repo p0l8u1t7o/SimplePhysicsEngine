@@ -1,12 +1,12 @@
 {
-  "startedAt": "2026-10-03T07:20:18.772Z",
-  "finishedAt": "2026-10-03T07:22:28.301Z",
+  "startedAt": "2026-10-04T06:32:40.648Z",
+  "finishedAt": "2026-10-04T06:34:11.995Z",
   "scope": "sampled animation geometry, kinematics and camera regression; not real-machine collision certification",
   "passed": true,
   "results": [
     {
       "project": "AutomaticAcid-BaseTitration",
-      "sourceHash": "09ce6b28e4e62083da52b68625904d93f3a328116dac9f3829d55896769a5b18",
+      "sourceHash": "b57a3d35a5855d191c3fa489af8faf0e8dd85233d9bbb44608acbc57ec14a1f5",
       "sourceChangedDuringRun": false,
       "passed": true,
       "checks": [
@@ -14,35 +14,35 @@
           "script": "verify.mjs",
           "passed": true,
           "exitCode": 0,
-          "seconds": 15.38,
-          "log": "AutomaticAcid-BaseTitration/review/checks/verify.log"
+          "seconds": 12.153,
+          "log": "project-site/AutomaticAcid-BaseTitration/review/checks/verify.log"
         },
         {
           "script": "verify-clearance.mjs",
           "passed": true,
           "exitCode": 0,
-          "seconds": 0.542,
-          "log": "AutomaticAcid-BaseTitration/review/checks/verify-clearance.log"
+          "seconds": 0.538,
+          "log": "project-site/AutomaticAcid-BaseTitration/review/checks/verify-clearance.log"
         },
         {
           "script": "verify-self-clearance.mjs",
           "passed": true,
           "exitCode": 0,
-          "seconds": 16.004,
-          "log": "AutomaticAcid-BaseTitration/review/checks/verify-self-clearance.log"
+          "seconds": 13.939,
+          "log": "project-site/AutomaticAcid-BaseTitration/review/checks/verify-self-clearance.log"
         },
         {
           "script": "verify-render.mjs",
           "passed": true,
           "exitCode": 0,
-          "seconds": 0.64,
-          "log": "AutomaticAcid-BaseTitration/review/checks/verify-render.log"
+          "seconds": 0.62,
+          "log": "project-site/AutomaticAcid-BaseTitration/review/checks/verify-render.log"
         }
       ]
     },
     {
       "project": "MilitaryGradePC",
-      "sourceHash": "bc0d584f846fcd6563dc257191cbf78b28dba1d98ffdaa44c03fc074ff44786e",
+      "sourceHash": "f25babcb8abc27961e268eeb0926250da92f972bb092b226c067f432dd45593d",
       "sourceChangedDuringRun": false,
       "passed": true,
       "checks": [
@@ -50,35 +50,35 @@
           "script": "verify.mjs",
           "passed": true,
           "exitCode": 0,
-          "seconds": 31.432,
-          "log": "MilitaryGradePC/review/checks/verify.log"
+          "seconds": 23.934,
+          "log": "project-site/MilitaryGradePC/review/checks/verify.log"
         },
         {
           "script": "verify-clearance.mjs",
           "passed": true,
           "exitCode": 0,
-          "seconds": 0.211,
-          "log": "MilitaryGradePC/review/checks/verify-clearance.log"
+          "seconds": 0.213,
+          "log": "project-site/MilitaryGradePC/review/checks/verify-clearance.log"
         },
         {
           "script": "verify-self-clearance.mjs",
           "passed": true,
           "exitCode": 0,
-          "seconds": 41.48,
-          "log": "MilitaryGradePC/review/checks/verify-self-clearance.log"
+          "seconds": 25.779,
+          "log": "project-site/MilitaryGradePC/review/checks/verify-self-clearance.log"
         },
         {
           "script": "verify-camera.mjs",
           "passed": true,
           "exitCode": 0,
-          "seconds": 1.199,
-          "log": "MilitaryGradePC/review/checks/verify-camera.log"
+          "seconds": 1.15,
+          "log": "project-site/MilitaryGradePC/review/checks/verify-camera.log"
         }
       ]
     },
     {
       "project": "PCB-CopperAssembly",
-      "sourceHash": "b3c6eda075a0622b02c0bcd50801dbc0bf539245ac33a0e1f9c559964b546618",
+      "sourceHash": "0ad52dcc16f28e713b58e6dea0d6ef14799aa211eaffc0c54d13282fe8b8dd97",
       "sourceChangedDuringRun": false,
       "passed": true,
       "checks": [
@@ -86,28 +86,28 @@
           "script": "verify.mjs",
           "passed": true,
           "exitCode": 0,
-          "seconds": 0.738,
-          "log": "PCB-CopperAssembly/review/checks/verify.log"
+          "seconds": 0.708,
+          "log": "project-site/PCB-CopperAssembly/review/checks/verify.log"
         },
         {
           "script": "verify-clearance.mjs",
           "passed": true,
           "exitCode": 0,
-          "seconds": 128.357,
-          "log": "PCB-CopperAssembly/review/checks/verify-clearance.log"
+          "seconds": 90.248,
+          "log": "project-site/PCB-CopperAssembly/review/checks/verify-clearance.log"
         },
         {
           "script": "verify-geometry.mjs",
           "passed": true,
           "exitCode": 0,
-          "seconds": 0.417,
-          "log": "PCB-CopperAssembly/review/checks/verify-geometry.log"
+          "seconds": 0.382,
+          "log": "project-site/PCB-CopperAssembly/review/checks/verify-geometry.log"
         }
       ]
     },
     {
       "project": "RobotArmPressSSD",
-      "sourceHash": "38c2dacbb4c66d267fef7f91ee37ceaf13a4870f1b9bf1c5fbaddf3788bf3134",
+      "sourceHash": "9c6195431dcfea119b8b114d897d057d5a1605badb7239672ef7e3322a03679f",
       "sourceChangedDuringRun": false,
       "passed": true,
       "checks": [
@@ -115,36 +115,36 @@
           "script": "verify.mjs",
           "passed": true,
           "exitCode": 0,
-          "seconds": 14.15,
-          "log": "RobotArmPressSSD/review/checks/verify.log"
+          "seconds": 11.133,
+          "log": "project-site/RobotArmPressSSD/review/checks/verify.log"
         },
         {
           "script": "verify-clearance.mjs",
           "passed": true,
           "exitCode": 0,
-          "seconds": 0.139,
-          "log": "RobotArmPressSSD/review/checks/verify-clearance.log"
+          "seconds": 0.141,
+          "log": "project-site/RobotArmPressSSD/review/checks/verify-clearance.log"
         },
         {
           "script": "verify-self-clearance.mjs",
           "passed": true,
           "exitCode": 0,
-          "seconds": 12.511,
-          "log": "RobotArmPressSSD/review/checks/verify-self-clearance.log"
+          "seconds": 10.098,
+          "log": "project-site/RobotArmPressSSD/review/checks/verify-self-clearance.log"
         },
         {
           "script": "verify-camera.mjs",
           "passed": true,
           "exitCode": 0,
-          "seconds": 3.559,
-          "log": "RobotArmPressSSD/review/checks/verify-camera.log"
+          "seconds": 3.334,
+          "log": "project-site/RobotArmPressSSD/review/checks/verify-camera.log"
         },
         {
           "script": "verify-vision.mjs",
           "passed": true,
           "exitCode": 0,
-          "seconds": 2.005,
-          "log": "RobotArmPressSSD/review/checks/verify-vision.log"
+          "seconds": 1.964,
+          "log": "project-site/RobotArmPressSSD/review/checks/verify-vision.log"
         }
       ]
     }

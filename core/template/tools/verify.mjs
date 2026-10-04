@@ -1,5 +1,5 @@
 // 本專案自有檢查（範例）：製程上的規則寫在這裡；通用的干涉、閃爍、倒序一致由 core 統一檢查負責。
-//   node --import ../core/tools/register.mjs tools/verify.mjs
+//   node --import ../../core/tools/register.mjs tools/verify.mjs
 import '@core/verify/dom-stub.mjs';
 import * as THREE from 'three';
 import { writeFileSync, mkdirSync } from 'node:fs';

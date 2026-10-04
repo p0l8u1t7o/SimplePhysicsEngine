@@ -29,7 +29,7 @@ async function sourceHash(project) {
       else if (/\.(?:js|mjs)$/.test(entry.name)) files.push(path);
     }
   }
-  await walk(join(root, project, 'web', 'js')); await walk(join(root, project, 'tools'));
+  await walk(join(root, 'project-site', project, 'web', 'js')); await walk(join(root, 'project-site', project, 'tools'));
   files.push(join(root, 'tools', 'geometry-clearance.mjs'),join(root,'core','vendor','three.module.js'));
   for (const path of files.sort()) hash.update(relative(root, path)).update(await readFile(path));
   return hash.digest('hex');
@@ -38,19 +38,19 @@ async function run(project, script) {
   const start = Date.now();
   const result = await new Promise(resolve => {
     const child = spawn(process.execPath, ['--no-warnings', '--import', REGISTER, './tools/' + script],
-      { cwd: join(root, project), windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+      { cwd: join(root, 'project-site', project), windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = '', stderr = '', settled = false;
     child.stdout.on('data', chunk => { stdout += chunk; }); child.stderr.on('data', chunk => { stderr += chunk; });
     child.on('error', error => { if (!settled) { settled = true; resolve({ code: null, stdout, stderr: stderr + error.message }); } });
     child.on('close', code => { if (!settled) { settled = true; resolve({ code, stdout, stderr }); } });
   });
-  const log = join(root, project, 'review', 'checks', script.replace('.mjs', '.log'));
+  const log = join(root, 'project-site', project, 'review', 'checks', script.replace('.mjs', '.log'));
   await mkdir(dirname(log), { recursive: true });
   await writeFile(log, result.stdout + (result.stderr ? '\nSTDERR:\n' + result.stderr : ''));
   const passed = result.code === 0;
   // Refresh the existing machine-readable reports only after a successful run.
   if (passed && script === 'verify.mjs' && project !== 'AutomaticAcid-BaseTitration') {
-    try { const data = JSON.parse(result.stdout); await writeFile(join(root, project, 'review', 'verification.json'), JSON.stringify(data, null, 2) + '\n'); } catch {}
+    try { const data = JSON.parse(result.stdout); await writeFile(join(root, 'project-site', project, 'review', 'verification.json'), JSON.stringify(data, null, 2) + '\n'); } catch {}
   }
   console.log(`${passed ? 'PASS' : 'FAIL'} ${project}/${script} (${((Date.now() - start) / 1000).toFixed(1)} s)`);
   if (!passed) console.error((result.stderr || result.stdout).slice(-2500));

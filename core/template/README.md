@@ -2,14 +2,14 @@
 
 __SUMMARY__
 
-由 `node core/tools/new-project.mjs` 從 `core/template` 建立。框架說明見 [core/README.md](../core/README.md)。
+由 `node core/tools/new-project.mjs` 從 `core/template` 建立。框架說明見 [core/README.md](../../core/README.md)。
 
 ## 啟動
 
 在根目錄執行 `scripts\start.cmd -Station "__ID__"`（停止：`scripts\stop.cmd`），或：
 
 ```powershell
-node ../core/tools/serve.mjs "__ID__"
+node ../../core/tools/serve.mjs "__ID__"
 ```
 
 開啟 http://127.0.0.1:8770/__URL__/。網址參數：`?pause&t=5&view=pick`、`?shadow=0`、`?cam=x,y,z,tx,ty,tz`。
@@ -19,8 +19,8 @@ node ../core/tools/serve.mjs "__ID__"
 ## 檢查
 
 ```powershell
-node ../core/tools/check.mjs "__ID__"          # 完整：import 路徑、倒序一致、空間檢核、全場干涉與閃爍、四種尺寸的介面測試（ui）、本專案檢查
-node ../core/tools/check.mjs "__ID__" --quick  # 部署前快速檢查
+node ../../core/tools/check.mjs "__ID__"          # 完整：import 路徑、倒序一致、空間檢核、全場干涉與閃爍、四種尺寸的介面測試（ui）、本專案檢查
+node ../../core/tools/check.mjs "__ID__" --quick  # 部署前快速檢查
 ```
 
 ## 檔案

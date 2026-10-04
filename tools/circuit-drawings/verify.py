@@ -71,7 +71,7 @@ def render(item):
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--render',action='store_true');args=parser.parse_args()
-    results=[check(p) for p in sorted(ROOT.glob('*/docs/electrical/circuit-data.json'))]
+    results=[check(p) for p in sorted(ROOT.glob('project-site/*/docs/electrical/circuit-data.json'))]
     if args.render:
         with ThreadPoolExecutor(max_workers=4) as pool:list(pool.map(render,results))
     for _,_,r in results:print(json.dumps(r,ensure_ascii=True))

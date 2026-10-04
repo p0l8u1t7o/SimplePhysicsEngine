@@ -32,7 +32,7 @@ const FILE_AREAS = /^(TEMP|docs|\.studio\/(plan|reviews|render))(\/|$)/;
 
 // ffmpeg：環境變數 FFMPEG_PATH ＞ 本庫 scripts/setup.ps1 下載的 ＞ PATH
 function findFfmpeg() {
-  const cands = [process.env.FFMPEG_PATH, join(REPO, 'MilitaryGradePC', 'tools', 'bin', process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg')].filter(Boolean);
+  const cands = [process.env.FFMPEG_PATH, join(REPO, 'project-site', 'MilitaryGradePC', 'tools', 'bin', process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg')].filter(Boolean);
   for (const c of cands) if (existsSync(c)) return c;
   return spawnSync('ffmpeg', ['-version'], { windowsHide: true }).status === 0 ? 'ffmpeg' : null;
 }

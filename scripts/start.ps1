@@ -68,7 +68,7 @@ if (-not (Get-Command node -ErrorAction SilentlyContinue)) { Fail '找不到 nod
 
 $stationPath = ''
 if ($Station) {
-  $all = @(Get-ChildItem -Directory $Root | Where-Object { Test-Path (Join-Path $_.FullName 'web\index.html') } | ForEach-Object { $_.Name })
+  $all = @(Get-ChildItem -Directory (Join-Path $Root 'project-site') | Where-Object { Test-Path (Join-Path $_.FullName 'web\index.html') } | ForEach-Object { $_.Name })
   $hit = $all | Where-Object { $_ -ieq $Station } | Select-Object -First 1
   if (-not $hit) { $hit = $all | Where-Object { $_ -ilike "$Station*" } | Select-Object -First 1 }
   if (-not $hit) { Fail "找不到專案「$Station」（可用：$($all -join '、')）" }

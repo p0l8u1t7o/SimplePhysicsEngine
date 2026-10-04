@@ -6,7 +6,7 @@ __SUMMARY__
 
 ## 範圍
 
-- 本站範圍是 `__ID__/`；PR 分支名稱用 `__SLUG__/<說明>`。規則見根目錄 `AGENTS.md`「範圍」。
+- 本站範圍是 `project-site/__ID__/`；PR 分支名稱用 `__SLUG__/<說明>`。規則見根目錄 `AGENTS.md`「範圍」。
 - core 缺功能：先在本站暫代，並登記到 `core/REQUESTS.md`。
 - 待辦與待確認事項記在根目錄 `PENDING.md`「各站待確認」。
 

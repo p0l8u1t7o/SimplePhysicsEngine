@@ -4,7 +4,7 @@
     powershell -ExecutionPolicy Bypass -File scripts\setup.ps1 -All       # 另外建立 Python 環境、下載 ffmpeg
   選項：
     -Python        建立 .venv（Python 3.12）並安裝 requirements.txt
-    -Ffmpeg        下載支援 NVENC 的 ffmpeg／ffprobe 到 MilitaryGradePC/tools/bin（錄影用，不進版控）
+    -Ffmpeg        下載支援 NVENC 的 ffmpeg／ffprobe 到 project-site/MilitaryGradePC/tools/bin（錄影用，不進版控）
     -FfmpegZip <p> 改用本機已下載的 zip（內含 bin/ffmpeg.exe、bin/ffprobe.exe）
     -SkipCheck     不跑 node core/tools/check.mjs --quick
   需求說明見 REQUIREMENTS.md。啟動與停止網頁：scripts\start.ps1、scripts\stop.ps1。
@@ -87,7 +87,7 @@ if ($Python) {
 # ---------------------------------------------------------------- ffmpeg（選用，錄影）
 if ($Ffmpeg -or $FfmpegZip) {
   Step 'ffmpeg／ffprobe（錄影輸出）'
-  $bin = Join-Path $Root 'MilitaryGradePC\tools\bin'
+  $bin = Join-Path $Root 'project-site\MilitaryGradePC\tools\bin'
   if ((Test-Path (Join-Path $bin 'ffmpeg.exe')) -and (Test-Path (Join-Path $bin 'ffprobe.exe'))) {
     Ok "已存在：$bin"
   } else {

@@ -1,6 +1,6 @@
 """比對兩組 review/*.json（遷移前後）：忽略時間、耗時、雜湊等每次都會變的欄位，只列出結果不同處。
 
-    python core/tools/compare-review.py <基準資料夾>    # 基準資料夾結構：<專案>/<檔名>.json
+    python core/tools/compare-review.py <基準資料夾>    # 基準資料夾結構：<專案>/<檔名>.json（對照 project-site/<專案>/review/；core、tools 對照根目錄的 review/）
 """
 import json, os, re, sys
 from pathlib import Path
@@ -26,7 +26,8 @@ def main():
     changed = 0
     for f in sorted(base.rglob('*.json')):
         rel = f.relative_to(base)
-        cur = ROOT / rel.parent / 'review' / rel.name
+        top = rel.parts[0]                                                # core／tools 在根目錄，各站在 project-site/
+        cur = (ROOT if top in ('core', 'tools') else ROOT / 'project-site') / rel.parent / 'review' / rel.name
         if not cur.exists():
             print('缺少', cur.relative_to(ROOT)); changed += 1; continue
         out = []

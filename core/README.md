@@ -1,6 +1,6 @@
 # core：3D 自動化動畫共用框架
 
-TestCode 底下每個有 `web/index.html` 的資料夾都是一個展示專案。共用的程式、three.js、檢查工具與建置都放在這裡，各專案直接引用，不複製。
+本庫 `project-site/` 底下每個有 `web/index.html` 的資料夾都是一個展示專案（studio 工作區則是 `projects/`）。共用的程式、three.js、檢查工具與建置都放在這裡，各專案直接引用，不複製。
 
 ## 目錄
 

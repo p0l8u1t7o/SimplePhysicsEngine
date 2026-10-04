@@ -3,9 +3,9 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { ROOT } from './projects.mjs';
+import { REPO } from './projects.mjs';
 
-if (!existsSync(join(ROOT, '.githooks', 'pre-commit'))) throw new Error('找不到 .githooks/pre-commit');
-execFileSync('git', ['config', 'core.hooksPath', '.githooks'], { cwd: ROOT });
-const now = execFileSync('git', ['config', '--get', 'core.hooksPath'], { cwd: ROOT, encoding: 'utf8' }).trim();
+if (!existsSync(join(REPO, '.githooks', 'pre-commit'))) throw new Error('找不到 .githooks/pre-commit');
+execFileSync('git', ['config', 'core.hooksPath', '.githooks'], { cwd: REPO });
+const now = execFileSync('git', ['config', '--get', 'core.hooksPath'], { cwd: REPO, encoding: 'utf8' }).trim();
 console.log(`已安裝 git hook：core.hooksPath = ${now}（pre-commit 範圍檢查）`);

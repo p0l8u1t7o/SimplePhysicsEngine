@@ -7,7 +7,7 @@ const projects=['AutomaticAcid-BaseTitration','MilitaryGradePC','PCB-CopperAssem
 const report=[];
 function segmentHits(a,b,box){let lo=0,hi=1;for(const k of ['x','y','z']){const d=b[k]-a[k];if(Math.abs(d)<1e-8){if(a[k]<box.min[k]||a[k]>box.max[k])return false;}else{let x=(box.min[k]-a[k])/d,y=(box.max[k]-a[k])/d;if(x>y)[x,y]=[y,x];lo=Math.max(lo,x);hi=Math.min(hi,y);if(lo>hi)return false;}}return true;}
 for(const project of projects){
- const scene=new THREE.Scene(),base=new URL('../'+project+'/web/js/',import.meta.url),imp=n=>import(new URL(n+'.js',base));
+ const scene=new THREE.Scene(),base=new URL('../project-site/'+project+'/web/js/',import.meta.url),imp=n=>import(new URL(n+'.js',base));
  if(project==='AutomaticAcid-BaseTitration'||project==='PCB-CopperAssembly'){const {createSim}=await imp('sim');createSim(scene).apply(0);}
  else if(project==='MilitaryGradePC'){const {createCell}=await imp('cell');createCell(scene);}
  else {const {createStation}=await imp('station');if(project==='RobotArmPressSSD'){const {RECIPES}=await imp('recipes');createStation(scene,Object.values(RECIPES)[0],'bar');}else createStation(scene,{ng:false});}

@@ -83,11 +83,18 @@ Node 端由 `core/tools/loader.mjs` 解析相同的三種名稱，檢查程式�
   - `core/tools/perf-check.mjs`：各視角 `renderer.info`（三角面、draw call、貼圖、幾何）與手機直向（CPU 降速 4 倍）幀率；`createStage` 把舞台登記到 `globalThis.__coreStages` 供量測讀取。
   - `viewNames` 從 `shots.mjs` 搬到 `core/tools/views.mjs`（shots 仍匯出）。7 站桌面截圖與改前 HEAD 比對 0 張超過門檻。
   - 現有各站的量測基準（無頭瀏覽器）：快門 572 萬三角面／4457 draw call／手機 11.7 fps，MGPC 134 萬／28172／5 fps，可作為之後最佳化的參考。
+- 2026-10-04 core 1.3.0（專案搬進 `project-site/`）：
+  - 7 站與 RecycleSorter 從庫根目錄搬到 `project-site/<專案>/`，之後的新專案也放在這裡；網址配置不變（`/<專案>/`、`/core/`），網頁 importmap 的 `../core/` 不用改。
+  - `core/tools/projects.mjs` 新增 `REPO`（庫根目錄）與 `PROJECTS_DIR`（`project-site`，工作區模式為 `projects`）；`ROOT` 改指 `project-site/`。兩種配置的專案都在 core 往上兩層，專案的 Node 工具往根目錄一律寫 `../../core`、`../../tools`（工具檔在 `tools/` 底下時是 `../../../`）。
+  - `check-scope.mjs` 新增 `scopeOf()`：`project-site/<專案>/…` 判為該專案，`core/`、`tools/`、`studio/` 判為固定範圍，其餘是 root；pre-commit、`scope.yml` 的分支名稱規則不變。`scope-guard.mjs` 與各站 `.claude/settings.json` 的 hook 改成 `$CLAUDE_PROJECT_DIR/../../core/tools/scope-guard.mjs`。
+  - `new-project.mjs` 建在 `project-site/`；`check.mjs`、`install-hooks.mjs`、`compare-review.py` 改用 `REPO`。根目錄 `tools/`、`scripts/`、`.gitignore`（`docs/`、ffmpeg）同步改路徑。
+  - 7 站桌面截圖與搬移前 HEAD 比對 0 張超過門檻，review JSON 內容不變。
 
 ## 版本
 
 | 版本 | 日期 | 內容 |
 |---|---|---|
+| 1.3.0 | 2026-10-04 | 專案搬進 `project-site/`；`REPO`、`PROJECTS_DIR`、`scopeOf` |
 | 1.2.0 | 2026-10-04 | 排程指紋、效能量測、舞台登記 |
 | 1.1.0 | 2026-10-04 | 工作區模式（studio）；new-project 複製後設為可寫 |
 | 1.0.0 | 2026-10-04 | 開始編號：搬庫後、第四輪統一完成時的 core |

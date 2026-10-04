@@ -47,6 +47,7 @@
 - [x] P3 網頁介面 `vs3d ui`（含 P4c 補強勾選與前後對照），端對端測試通過（2026-10-04）。
 - [ ] 用 Electron 把網頁介面包成桌面程式（原生檔案對話框、拖放取得路徑）；安裝檔在 P5。
 - [ ] 上傳 pptx／xlsx／docx 時自動抽出文字與圖片（這次新案是手動用 python-pptx 抽的；代理讀不了 Office 檔）。
+- [x] 7 站與 RecycleSorter 搬進 `project-site/`，新案已匯入本庫（`project-site/RecycleSorter/`，2026-10-04，core 1.3.0）；之後的新專案都放在 `project-site/`。
 - [x] P2 新案：回收物分揀展示機（`TEMP/demo`），用正式預設跑完：opus 開發 3 輪、審查抓到 2 項違反拍板的必修並自動修正、gpt-6 補強兩次都通過守門檢查（2026-10-04）。依使用者拍板偏離客戶規格三處：抓取寬 280 mm（規格 600）、混合料流 1.5～1.6 s（規格 1.4）、機台寬 1460 mm（規格 1300），對客戶說明時要提。
 - [ ] 觀察修正迴圈的實際表現：P1、P2 共 8 次實測都第一次就通過檢查，修正迴圈只用假代理測過。
 - [ ] P1、P2 實測的工作區（`%USERPROFILE%\Documents\3D-Studio-P1test`、`3D-Studio-P1test-codex`、`3D-Studio-P2-claude`、`3D-Studio-P2-codex`）看完後可以刪除（core 是唯讀屬性，要先解除）。

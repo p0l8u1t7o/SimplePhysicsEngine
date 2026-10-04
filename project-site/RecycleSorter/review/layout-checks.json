@@ -1,0 +1,141 @@
+{
+  "variant": "預設",
+  "params": {},
+  "ok": true,
+  "count": 22,
+  "failures": [],
+  "rows": [
+    {
+      "group": "可達性",
+      "name": "抓放全程在動作半徑內",
+      "ok": true,
+      "value": "最遠 570 / 630 mm"
+    },
+    {
+      "group": "可達性",
+      "name": "不進入最小迴轉半徑",
+      "ok": true,
+      "value": "最近 351 mm"
+    },
+    {
+      "group": "可達性",
+      "name": "J2 避開基座干涉區（≤125°）",
+      "ok": true,
+      "value": "115°"
+    },
+    {
+      "group": "可達性",
+      "name": "J4 在 ±360° 內",
+      "ok": true,
+      "value": "303°"
+    },
+    {
+      "group": "可達性",
+      "name": "逆解全程有效",
+      "ok": true,
+      "value": "12 趟"
+    },
+    {
+      "group": "淨空",
+      "name": "搬運工件對帶上最高物件 ≥100 mm",
+      "ok": true,
+      "value": "127 mm"
+    },
+    {
+      "group": "淨空",
+      "name": "手臂最高點在框架橫樑下",
+      "ok": true,
+      "value": "1731 / 1735 mm"
+    },
+    {
+      "group": "淨空",
+      "name": "分流帶對手臂架台間隙 ≥50 mm",
+      "ok": true,
+      "value": "65 mm"
+    },
+    {
+      "group": "淨空",
+      "name": "工具掃掠在機台框架平面內",
+      "ok": true,
+      "value": "Z ≤689 / 700、X -419…675"
+    },
+    {
+      "group": "淨空",
+      "name": "固定設備在框架平面 1800 × 1460 × 1800 內",
+      "ok": true,
+      "value": "取像架台 X -880…-520、Z -756…135"
+    },
+    {
+      "group": "取像",
+      "name": "相機視野涵蓋帶寬 600 mm",
+      "ok": true,
+      "value": "620 / 600 mm"
+    },
+    {
+      "group": "取像",
+      "name": "取像架台在手臂動作半徑外",
+      "ok": true,
+      "value": "X -520 < -500"
+    },
+    {
+      "group": "取像",
+      "name": "取像到抓取的飛行時間 > 視覺鏈路 0.29 s",
+      "ok": true,
+      "value": "4.25 s"
+    },
+    {
+      "group": "節拍",
+      "name": "連續運轉段節拍 1.40 s（≥6 連抓）",
+      "ok": true,
+      "value": "7 連抓 × 1.40 s"
+    },
+    {
+      "group": "節拍",
+      "name": "最短取放間隔不小於 CT",
+      "ok": true,
+      "value": "1.40 s"
+    },
+    {
+      "group": "節拍",
+      "name": "跨帶（B）單趟節拍 ≤2.0 s",
+      "ok": true,
+      "value": "1.66 s"
+    },
+    {
+      "group": "節拍",
+      "name": "同類連抓節拍＝規格 1.40 s",
+      "ok": true,
+      "value": "AA 1.40 s"
+    },
+    {
+      "group": "節拍",
+      "name": "混合料流加權節拍 ≤1.8 s（示意）",
+      "ok": true,
+      "value": "1.51 s · 約 2026 瓶/小時"
+    },
+    {
+      "group": "軸速（示意）",
+      "name": "J1 峰值 ≤700°/s",
+      "ok": true,
+      "value": "699°/s"
+    },
+    {
+      "group": "軸速（示意）",
+      "name": "J2 峰值 ≤700°/s",
+      "ok": true,
+      "value": "281°/s"
+    },
+    {
+      "group": "軸速（示意）",
+      "name": "J4 峰值 ≤1400°/s",
+      "ok": true,
+      "value": "952°/s"
+    },
+    {
+      "group": "軸速（示意）",
+      "name": "Z 軸峰值 ≤2200 mm/s",
+      "ok": true,
+      "value": "1616 mm/s"
+    }
+  ]
+}
