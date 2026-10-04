@@ -1,4 +1,4 @@
-// 安裝本庫的 git hook：把 core.hooksPath 指向 .githooks（clone 後執行一次；setup.ps1 會自動執行）。
+// 安裝本庫的 git hook：把 core.hooksPath 指向 .githooks（clone 後執行一次；scripts/setup.ps1 會自動執行）。
 //   node core/tools/install-hooks.mjs
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';

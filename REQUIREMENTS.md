@@ -3,8 +3,8 @@
 clone 之後執行一次：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File setup.ps1          # 檢查必要環境＋快速檢查
-powershell -ExecutionPolicy Bypass -File setup.ps1 -All     # 另外建立 Python 環境、下載 ffmpeg
+powershell -ExecutionPolicy Bypass -File scripts\setup.ps1          # 檢查必要環境＋快速檢查
+powershell -ExecutionPolicy Bypass -File scripts\setup.ps1 -All     # 另外建立 Python 環境、下載 ffmpeg
 ```
 
 ## 必要（3D 展示、開發、檢查）
@@ -41,7 +41,8 @@ three.js 已放在 `core/vendor/`，不需要網路或套件管理器。
 
 | port | 用途 |
 |---|---|
-| 8770 | `node core/tools/serve.mjs`（本機展示首頁，各專案 `run.bat` 也用它） |
+| 8770 | `node core/tools/serve.mjs`（本機展示首頁；`scripts\start.ps1` 也用它） |
+| 8780 | `node studio/vs3d.mjs ui`（vs3d 網頁介面；`scripts\start.ps1` 也用它） |
 | 8771 | `check.mjs` 的 `ui` 檢查（`UI_PORT`） |
 | 8790 | `shots.mjs` 預設（`--port` 可改） |
 | 8782／8783 | 錄影輸出伺服器（`tools/movie-export`） |
@@ -50,4 +51,4 @@ three.js 已放在 `core/vendor/`，不需要網路或套件管理器。
 
 - **各專案的 `docs/`**：使用者提供的圖面、照片、影片、規劃與成本資料，只留本機。新專案也要把 `docs/` 加進 `.gitignore`。
 - **`TEMP/`、`LOGS/`、`*.log`、`.venv/`、`_site/`**：本機產物。
-- **ffmpeg 執行檔**：由 `setup.ps1 -Ffmpeg` 下載。
+- **ffmpeg 執行檔**：由 `scripts\setup.ps1 -Ffmpeg` 下載。

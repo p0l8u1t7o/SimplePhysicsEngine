@@ -14,7 +14,8 @@
 
 ## 環境
 
-- 安裝：`powershell -ExecutionPolicy Bypass -File setup.ps1 [-All]`（會一併安裝 git hook），需求見 `REQUIREMENTS.md`。
+- 安裝：`powershell -ExecutionPolicy Bypass -File scripts\setup.ps1 [-All]`（會一併安裝 git hook），需求見 `REQUIREMENTS.md`。
+- 啟動網頁：`scripts\start.cmd`（展示網站 8770＋vs3d 介面 8780；`-Site`、`-Studio`、`-Station <名稱>`），停止：`scripts\stop.cmd`。腳本一律放在 `scripts/`，`.ps1` 存成 UTF-8 BOM。
 - **3D 專案只需要 Node.js 22 以上**（開發機 24.21），沒有 npm 套件；three.js 放在 `core/vendor/`。瀏覽器檢查用 Chrome 或 Edge（可設 `CHROME_PATH`）。
 - Python 3.12 ＋ `requirements.txt` 只給選用工具用（錄影稽核、電路圖、成本表）。
 - Node 端跑 core 模組要加 `--import ./core/tools/register.mjs`（解析 `three` 與 `@core/`）。`core/tools/run.mjs` 會自動加上。
@@ -26,7 +27,8 @@
 |---|---|
 | `core/` | 共用框架（以 importmap `@core/` 引用）：geom（形狀、材質、五金、地面）、models（12 個參數化模型＋目錄頁）、anim（時間軸、步驟序列、到位閘門）、ui（stage、player、viewer-workspace）、electrical、movie、verify、template、tools；版本號在 `core/VERSION`，core 需求登記在 `core/REQUESTS.md` |
 | `<專案>/` | `web/`（網站；`web/js/project.js` 是網頁與檢查共用的場景）、`project.json`（首頁說明、`coreVersion`、`checks.quick`／`checks.full`、`variants`、`ui`）、`tools/`（專案自有檢查）、`review/`（檢查結果，進版控）、`docs/`（只留本機）、`AGENTS.md`／`CLAUDE.md`（該站規則）、`.claude/settings.json`（寫檔關卡） |
-| `tools/` | 跨專案工具：配線、電盤、干涉回歸、電路圖、錄影輸出、搬庫腳本 |
+| `tools/` | 跨專案工具：配線、電盤、干涉回歸、電路圖、錄影輸出 |
+| `scripts/` | 腳本：`setup.ps1`（環境設定）、`start`／`stop`（`.ps1`＋可點兩下的 `.cmd`，網頁啟動與停止，PID 與輸出在 `logs/`）、`migrate/`（搬庫腳本） |
 | `studio/` | 3D 動畫生成應用程式：目前是 P1 命令列原型 `node studio/vs3d.mjs`（說明見 `studio/README.md`，測試 `node --test "studio/test/*.test.mjs"`）；計畫書在本機 `TEMP/3d-app-plan.md` |
 | `.githooks/` | pre-commit 範圍檢查 |
 | `.github/workflows/` | `pages.yml`：PR 跑快速檢查；推送到 `main` 時快速檢查、建置、發布 Pages（只改 `studio/` 時不跑）。`scope.yml`：PR 範圍檢查 |

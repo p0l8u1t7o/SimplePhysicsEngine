@@ -1,13 +1,13 @@
 ﻿<#
   環境設定：clone 之後執行一次（Windows PowerShell 5.1 以上）。
-    powershell -ExecutionPolicy Bypass -File setup.ps1            # 檢查 Node／瀏覽器／Git，安裝 git hook，跑快速檢查
-    powershell -ExecutionPolicy Bypass -File setup.ps1 -All       # 另外建立 Python 環境、下載 ffmpeg
+    powershell -ExecutionPolicy Bypass -File scripts\setup.ps1            # 檢查 Node／瀏覽器／Git，安裝 git hook，跑快速檢查
+    powershell -ExecutionPolicy Bypass -File scripts\setup.ps1 -All       # 另外建立 Python 環境、下載 ffmpeg
   選項：
     -Python        建立 .venv（Python 3.12）並安裝 requirements.txt
     -Ffmpeg        下載支援 NVENC 的 ffmpeg／ffprobe 到 MilitaryGradePC/tools/bin（錄影用，不進版控）
     -FfmpegZip <p> 改用本機已下載的 zip（內含 bin/ffmpeg.exe、bin/ffprobe.exe）
     -SkipCheck     不跑 node core/tools/check.mjs --quick
-  需求說明見 REQUIREMENTS.md。
+  需求說明見 REQUIREMENTS.md。啟動與停止網頁：scripts\start.ps1、scripts\stop.ps1。
 #>
 param(
   [switch]$All,
@@ -18,7 +18,7 @@ param(
   [switch]$SkipCheck
 )
 $ErrorActionPreference = 'Stop'
-$Root = Split-Path -Parent $MyInvocation.MyCommand.Path
+$Root = Split-Path -Parent $PSScriptRoot      # 本檔在 scripts\，專案根目錄在上一層
 Set-Location $Root
 if ($All) { $Python = $true; $Ffmpeg = $true }
 $problems = @()
@@ -127,4 +127,4 @@ if ($problems.Count) {
   Write-Host ("未完成：" + ($problems -join '、')) -ForegroundColor Yellow
   exit 1
 }
-Write-Host '環境就緒。本機展示：node core/tools/serve.mjs → http://127.0.0.1:8770/' -ForegroundColor Green
+Write-Host '環境就緒。啟動網頁：scripts\start.cmd（或 .\scripts\start.ps1）→ 展示網站 http://127.0.0.1:8770/、vs3d 介面 http://127.0.0.1:8780/；停止：scripts\stop.cmd' -ForegroundColor Green

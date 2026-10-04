@@ -64,7 +64,7 @@ node core/tools/serve.mjs                 # http://127.0.0.1:8770/  首頁
 node core/tools/serve.mjs Chemical        # 直接開某專案（名稱可只打開頭）
 ```
 
-各專案的 `run.bat` 就是呼叫它。
+根目錄的 `scripts\start.ps1`（`-Station <名稱>` 直接開某一站）也是用它，停止用 `scripts\stop.ps1`。
 
 ## project.json
 

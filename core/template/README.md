@@ -6,7 +6,7 @@ __SUMMARY__
 
 ## 啟動
 
-雙擊 `run.bat`，或：
+在根目錄執行 `scripts\start.cmd -Station "__ID__"`（停止：`scripts\stop.cmd`），或：
 
 ```powershell
 node ../core/tools/serve.mjs "__ID__"

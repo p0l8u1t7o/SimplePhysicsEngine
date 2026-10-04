@@ -7,7 +7,7 @@
     3. 把 Markdown 裡舊的 Pages 網址 https://p0l8u1t7o.github.io/Python/ 換成 https://<Owner>.github.io/<RepoName>/
     4. git init -b main、建立初始 commit、設定 origin（https://github.com/<Owner>/<RepoName>.git 或 -Remote）
     5. -Push：推送到 origin（GitHub 上要先建立空的新庫）
-  搬完的後續步驟見 tools/migrate/README.md。
+  搬完的後續步驟見 scripts/migrate/README.md。
 #>
 param(
   [Parameter(Mandatory = $true)][string]$Target,
@@ -94,6 +94,6 @@ Write-Host ''
 Write-Host '接下來：' -ForegroundColor Cyan
 if (-not $Push) { Write-Host "  1. 在 GitHub 建立空的新庫 $Owner/$RepoName，然後：cd `"$Target`"; git push -u origin main" }
 Write-Host '  2. GitHub → Settings → Pages → Source 選 GitHub Actions（推送後 Actions 會跑檢查並發布）'
-Write-Host "  3. cd `"$Target`"; powershell -ExecutionPolicy Bypass -File setup.ps1 -All"
+Write-Host "  3. cd `"$Target`"; powershell -ExecutionPolicy Bypass -File scripts\setup.ps1 -All"
 Write-Host "  4. 網站：$NewPages"
 Write-Host '  5. 確認新庫正常後，再決定要不要從原 Python 庫移除 TestCode 與根目錄的 .github/workflows/static.yml'

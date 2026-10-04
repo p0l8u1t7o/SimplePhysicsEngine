@@ -30,4 +30,4 @@
 
 不發布 docs、成本表、原始照片、影片與驗證報告。這只控制 Pages 網站內容，不會改變儲存庫本身的公開／私有設定。
 
-動畫與相機模擬在瀏覽器運行。MP4 錄影輸出要在本機跑 `tools/movie-export`（需要 `setup.ps1 -Ffmpeg`）。
+動畫與相機模擬在瀏覽器運行。MP4 錄影輸出要在本機跑 `tools/movie-export`（需要 `scripts\setup.ps1 -Ffmpeg`）。

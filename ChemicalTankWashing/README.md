@@ -65,7 +65,7 @@
 node ../core/tools/serve.mjs ChemicalTankWashing            # http://127.0.0.1:8770/ChemicalTankWashing/
 ```
 
-或雙擊 `run.bat`。
+或在根目錄執行 `scripts\start.cmd -Station ChemicalTankWashing`（停止：`scripts\stop.cmd`）。
 
 ## 操作
 

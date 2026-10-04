@@ -30,7 +30,7 @@ const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; cha
 const VIDEO = /\.(mp4|mov|avi|mkv|m4v|webm)$/i;
 const FILE_AREAS = /^(TEMP|docs|\.studio\/(plan|reviews|render))(\/|$)/;
 
-// ffmpeg：環境變數 FFMPEG_PATH ＞ 本庫 setup.ps1 下載的 ＞ PATH
+// ffmpeg：環境變數 FFMPEG_PATH ＞ 本庫 scripts/setup.ps1 下載的 ＞ PATH
 function findFfmpeg() {
   const cands = [process.env.FFMPEG_PATH, join(REPO, 'MilitaryGradePC', 'tools', 'bin', process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg')].filter(Boolean);
   for (const c of cands) if (existsSync(c)) return c;

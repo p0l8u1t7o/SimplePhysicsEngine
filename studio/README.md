@@ -12,6 +12,8 @@ npm --prefix studio/ui run build      # 建置到 studio/ui/dist（不進版控�
 node studio/vs3d.mjs ui               # 開啟 http://127.0.0.1:8780/（--port、--no-open、--workspace）
 ```
 
+也可以用根目錄的腳本在背景啟動與停止（第一次會自動安裝並建置前端）：`scripts\start.cmd -Studio [-Workspace <資料夾>]`、`scripts\stop.cmd -Studio`。
+
 - 專案清單、新建（拖放規格、圖面、照片、影片；影片自動每 5 秒擷取影格）、即時進度、提問卡片（補強項目是勾選清單）、提案、審查結果、3D 預覽、截圖、補強前後對照、設定（兩種 CLI 的狀態與各角色的 CLI＋模型）。
 - 介面用子程序執行 `vs3d` 命令列，流程和終端機完全相同；回答完全部問題會自動續跑。伺服器只聽 127.0.0.1，`/files/` 只開放專案的 `TEMP/`、`docs/`、`.studio/plan|reviews|render/`。
 - 開發時 `npm --prefix studio/ui run dev`（Vite 5173，`/api` 轉給 8780 的 `vs3d ui`）。

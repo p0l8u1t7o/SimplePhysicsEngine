@@ -15,8 +15,10 @@
 所有 3D 專案共用 [core](core/README.md)：three.js、基本形狀、手臂與模型庫、時間軸、渲染舞台、播放列、錄影程式、統一檢查與 Pages 建置都只有一份，各專案以 `@core/` 直接引用。
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File setup.ps1 [-All]   # clone 後執行一次：檢查環境（-All 另建 Python 環境、下載 ffmpeg）
-node core/tools/serve.mjs                     # 本機首頁 http://127.0.0.1:8770/（各專案 run.bat 也是它）
+powershell -ExecutionPolicy Bypass -File scripts\setup.ps1 [-All]   # clone 後執行一次：檢查環境（-All 另建 Python 環境、下載 ffmpeg）
+scripts\start.cmd                             # 啟動展示網站（8770）＋ vs3d 介面（8780）；-Site／-Studio 只開一個，-Station <名稱> 開某一站
+scripts\stop.cmd                              # 停止
+node core/tools/serve.mjs                     # 只開展示網站（前景執行），首頁 http://127.0.0.1:8770/
 node core/tools/check.mjs                     # 全部專案完整檢查（干涉、閃爍、倒序一致、空間檢核、各專案自有檢查）
 node core/tools/new-project.mjs <名稱> "<標題>"  # 由範本建立新專案
 ```
@@ -29,5 +31,5 @@ node core/tools/new-project.mjs <名稱> "<標題>"  # 由範本建立新專案
 - CardServer、Bin 已退役並移出版控。本機暫存封存位於 `TEMP/retired-projects/`。
 - 3D 專案只需 Node.js 22 以上與 Chrome／Edge，不需 npm 套件；選用工具的 Python 套件與 ffmpeg 等見 [REQUIREMENTS.md](REQUIREMENTS.md)。
 - [AGENTS.md](AGENTS.md)：給 Claude Code 與 Codex 的共通規則（合作方式、範圍、框架慣例、檢查流程、踩坑紀錄）；[CLAUDE.md](CLAUDE.md) 以 `@AGENTS.md` 引用。各站規則與拍板紀錄在各站的 `AGENTS.md`，待辦事項在 [PENDING.md](PENDING.md)。
-- 範圍檢查：從子專案資料夾啟動的代理只能改該站（pre-commit、PR 的 `scope.yml`、各站 `.claude/settings.json` 寫檔關卡）；clone 後執行 `setup.ps1` 或 `node core/tools/install-hooks.mjs` 安裝 hook。
-- [tools/migrate](tools/migrate/README.md)：從原 Python 庫搬成獨立庫的腳本與說明。
+- 範圍檢查：從子專案資料夾啟動的代理只能改該站（pre-commit、PR 的 `scope.yml`、各站 `.claude/settings.json` 寫檔關卡）；clone 後執行 `scripts\setup.ps1` 或 `node core/tools/install-hooks.mjs` 安裝 hook。
+- [scripts](scripts/)：環境設定（`setup.ps1`）、網頁啟動與停止（`start`／`stop`，`.cmd` 可以點兩下）、[搬庫腳本](scripts/migrate/README.md)。

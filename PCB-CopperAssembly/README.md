@@ -33,7 +33,7 @@ node ../core/tools/serve.mjs PCB-CopperAssembly
 node ../core/tools/serve.mjs PCB-CopperAssembly --no-open
 ```
 
-開啟 [本地模擬](http://127.0.0.1:8770/PCB-CopperAssembly/)，也可雙擊 `run.bat`（所有專案共用 `core/tools/serve.mjs`，首頁 http://127.0.0.1:8770/ 列出全部專案）。ES module 需 HTTP，請勿直接用 `file://` 開啟 HTML。
+開啟 [本地模擬](http://127.0.0.1:8770/PCB-CopperAssembly/)，也可在根目錄執行 `scripts\start.cmd -Station PCB-CopperAssembly`（點兩下 `scripts\start.cmd` 會同時開展示網站與 vs3d 介面；所有專案共用 `core/tools/serve.mjs`，首頁 http://127.0.0.1:8770/ 列出全部專案）。ES module 需 HTTP，請勿直接用 `file://` 開啟 HTML。
 
 ## 操作
 
