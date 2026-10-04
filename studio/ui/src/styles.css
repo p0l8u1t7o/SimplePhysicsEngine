@@ -65,7 +65,9 @@ input[type=checkbox], input[type=radio] { accent-color: var(--accent); width: 16
 .grow { flex: 1; }
 .hint { margin: 0 0 10px; font-size: 13px; }
 small { display: block; font-size: 12.5px; }
-.notice { border: 1px solid currentColor; border-radius: 8px; padding: 8px 12px; margin: 8px 0; background: var(--panel); }
+.notice { border: 1px solid currentColor; border-radius: 8px; padding: 8px 12px; margin: 8px 0 14px; background: var(--panel); }
+.notice b, .notice .files-list { color: var(--fg); }
+.files-list { margin: 6px 0 0; padding-left: 18px; font-size: 13px; columns: 2 260px; }
 
 /* 卡片與動作群組 */
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 16px 18px; margin-bottom: 14px; box-shadow: var(--shadow); }

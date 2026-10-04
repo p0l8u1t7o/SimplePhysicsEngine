@@ -2,7 +2,7 @@
 //   開本機分支、只提交該站路徑、站外未提交的改動不被碰、該站有未提交改動時拒絕開工、整批還原用逐檔寫回。
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, cpSync, writeFileSync, readFileSync, existsSync, rmSync, appendFileSync } from 'node:fs';
+import { mkdtempSync, cpSync, writeFileSync, readFileSync, existsSync, rmSync, appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
@@ -18,7 +18,7 @@ before(() => {
   root = mkdtempSync(join(tmpdir(), 'vs3d-repo-'));
   cpSync(join(REPO, 'core'), join(root, 'core'), { recursive: true, filter: s => !/[\\/]review([\\/]|$)/.test(s.slice(REPO.length)) });
   writeFileSync(join(root, 'AGENTS.md'), '# 測試庫\n');
-  writeFileSync(join(root, '.gitignore'), 'TEMP/\n/project-site/*/.studio/\n/project-site/*/TEMP/\n');
+  writeFileSync(join(root, '.gitignore'), 'TEMP/\n/project-site/*/docs/\n/project-site/*/.studio/\n/project-site/*/TEMP/\n');
   git(root, ['init', '-q', '-b', 'main']); git(root, ['config', 'core.autocrlf', 'false']);
   const r = spawnSync(process.execPath, [join(root, 'core', 'tools', 'new-project.mjs'), 'Demo', '示範站'], { cwd: root, encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
@@ -51,6 +51,9 @@ test('本庫模式：該站有未提交改動時拒絕開工；不在流程分�
   appendFileSync(join(J.dir, 'README.md'), '使用者還沒提交的改動\n');
   const r = vs3d('change', 'Demo', '--text', '再改一次');
   assert.equal(r.status, 2); assert.match(r.stderr, /未提交的改動/);
+  // 介面清單的「N 個未提交」：只算該站路徑，app 自己的 .studio/、TEMP/ 不算
+  mkdirSync(join(J.dir, 'TEMP'), { recursive: true }); writeFileSync(join(J.dir, 'TEMP', 'x.txt'), 'x');
+  assert.deepEqual(repoGit.stationChanges(root), { Demo: ['README.md'] });
   writeFileSync(join(J.dir, 'README.md'), git(J.dir, ['show', 'HEAD:project-site/Demo/README.md']));   // 測試自己清掉
   // 流程進行中卻不在該分支：resume 要拒絕
   const s = loadState(J); Object.assign(s, { flowActive: true, stage: 'check', branch: 'demo/vs3d-other-0000-0000' });

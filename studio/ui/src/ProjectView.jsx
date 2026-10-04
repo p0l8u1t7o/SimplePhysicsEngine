@@ -31,6 +31,8 @@ export function ProjectView({ id, tick, running, onChange }) {
   const agentRounds = p.rounds.filter(r => r.role);
 
   const done = p.stage === 'done', blocked = busy || pending.length > 0;
+  // 本庫的站有未提交的改動（多半是別的工具改的）：vs3d 開工會拒絕，開分支的指令先停用
+  const dirty = p.repo ? p.dirty || [] : [], flowBlocked = blocked || dirty.length > 0;
   const exportBtn = (fmt, label, title) => <button disabled={busy} title={title} onClick={() => act(() => api.run(id, { cmd: 'export', formats: [fmt] }))}>{label}</button>;
 
   return (
@@ -50,13 +52,18 @@ export function ProjectView({ id, tick, running, onChange }) {
         <a className="btn" href={p.previewUrl} target="_blank" rel="noreferrer">↗ 在新分頁開啟預覽</a>
       </div>
 
+      {dirty.length > 0 && !isRunning && <div className="notice warn">
+        <b>本站有 {dirty.length} 個未提交的改動</b>（可能是 Claude Code、Codex 桌面版或其他工具改的）。vs3d 只在乾淨的站上開工，避免把別人的改動當成代理的成果提交；先提交或處理這些檔案，審查、補強、第二段與修改指令才能用。檢查與匯出不受影響。
+        <ul className="files-list">{dirty.slice(0, 12).map(f => <li key={f}><code>{f}</code></li>)}{dirty.length > 12 && <li className="mute">…另外 {dirty.length - 12} 個</li>}</ul>
+      </div>}
+
       <div className="acts">
         <section className="group">
           <h4>流程</h4>
           <div className="bar">
             {isRunning ? <button className="danger" onClick={() => act(api.stop)}>■ 停止</button>
               : !done ? <button className="primary" disabled={blocked} onClick={() => act(() => api.run(id, { cmd: 'resume' }))}>▶ 續跑</button>
-              : p.segment !== 2 ? <button className="primary" disabled={blocked} title="電控、電盤、配線、相機" onClick={() => act(() => api.run(id, { cmd: 'stage2' }))}>開始第二段</button>
+              : p.segment !== 2 ? <button className="primary" disabled={flowBlocked} title="電控、電盤、配線、相機" onClick={() => act(() => api.run(id, { cmd: 'stage2' }))}>開始第二段</button>
               : <span className="ok">✓ 第二段已完成</span>}
           </div>
           {!isRunning && pending.length > 0 && <small className="warn">先到「問題」分頁回答，才能繼續。</small>}
@@ -67,11 +74,11 @@ export function ProjectView({ id, tick, running, onChange }) {
           <h4>審查與補強</h4>
           {done ? <>
             <div className="bar">
-              <button disabled={blocked} onClick={() => act(() => api.run(id, { cmd: 'review' }))}>重新審查</button>
+              <button disabled={flowBlocked} onClick={() => act(() => api.run(id, { cmd: 'review' }))}>重新審查</button>
             </div>
             <div className="bar">
               <Select value={focus} onChange={setFocus} options={RENDER_FOCUS} title="補強範圍" />
-              <button disabled={blocked} onClick={() => act(() => api.run(id, { cmd: 'render', pick: true, focus }))}>重新補強（挑項目）</button>
+              <button disabled={flowBlocked} onClick={() => act(() => api.run(id, { cmd: 'render', pick: true, focus }))}>重新補強（挑項目）</button>
             </div>
           </> : <small className="mute">完成後可以重新審查、補強。</small>}
         </section>
@@ -97,7 +104,7 @@ export function ProjectView({ id, tick, running, onChange }) {
           <label className="check"><input type="checkbox" checked={keepTiming} onChange={e => setKeepTiming(e.target.checked)} /> 不能改節拍與動作（比對排程指紋）</label>
           <span className="grow" />
           {p.repo && <button disabled={busy || !p.branch || p.flowActive} title="推送這次的 vs3d 分支到 GitHub，之後開 PR" onClick={() => act(() => api.run(id, { cmd: 'push' }))}>推送分支</button>}
-          <button className="primary" disabled={blocked || !change.trim() || !done} onClick={() => act(() => api.run(id, { cmd: 'change', text: change, keepTiming }))}>送出修改指令</button>
+          <button className="primary" disabled={flowBlocked || !change.trim() || !done} onClick={() => act(() => api.run(id, { cmd: 'change', text: change, keepTiming }))}>送出修改指令</button>
         </div>
       </section>}
       {error && <div className="notice bad">{error}</div>}

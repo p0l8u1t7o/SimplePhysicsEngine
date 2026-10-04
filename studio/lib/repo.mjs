@@ -23,6 +23,18 @@ export function changes(J) {
     .map(c => ({ ...c, path: c.path.slice(pre.length) })).filter(c => !APP_AREA.test(c.path));
 }
 
+// 本庫所有站的未提交改動（介面清單用，一次 git status）：{ 站名: [相對於該站的路徑] }；別的工具（Claude Code、Codex 桌面版等）改過但還沒提交的會列在這裡
+export function stationChanges(repoRoot, dir = 'project-site') {
+  const out = {}, rows = git(repoRoot, ['status', '--porcelain=v1', '-z', '--untracked-files=all', '--', dir]).split('\0');
+  for (let i = 0; i < rows.length; i++) {
+    const l = rows[i]; if (!l) continue;
+    if (/^[RC]/.test(l)) i++;                       // 改名／複製：-z 格式下一筆是原路徑，略過
+    const m = l.slice(3).match(new RegExp(`^${dir}/([^/]+)/(.+)$`));
+    if (m && !APP_AREA.test(m[2])) (out[m[1]] ||= []).push(m[2]);
+  }
+  return out;
+}
+
 // 開工檢查＋開分支：目前已經在本專案的 vs3d 分支上就沿用
 export function beginFlow(J, label) {
   const dirty = changes(J);
@@ -38,7 +50,7 @@ export function beginFlow(J, label) {
 // review JSON 只有時間或耗時變動的，寫回 HEAD 的內容（本庫慣例：不提交）
 const VOLATILE = new Set(['date', 'at', 'startedAt', 'finishedAt', 'generated', 'seconds', 'sourceHash']);
 const strip = v => Array.isArray(v) ? v.map(strip) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).filter(([k]) => !VOLATILE.has(k)).map(([k, x]) => [k, strip(x)])) : v;
-function revertTimestampOnly(J) {
+export function revertTimestampOnly(J) {
   const pre = prefix(J);
   for (const c of changes(J)) {
     if (!/^review\/.+\.json$/.test(c.path) || c.code.includes('?')) continue;

@@ -43,10 +43,11 @@ export function App() {
           <div className="sec">{label}<span>{list.length}</span></div>
           {list.map(p => (
             <button key={p.id} className={`item ${route.id === p.id ? 'on' : ''}`} onClick={() => go({ view: 'project', id: p.id })}>
-              <div className="t"><span className={`dot ${p.running ? 'run' : p.pending > 0 ? 'warn' : p.stage === 'done' ? 'ok' : ''}`} />{p.title}</div>
+              <div className="t"><span className={`dot ${p.running ? 'run' : p.pending > 0 || p.dirty?.length > 0 ? 'warn' : p.stage === 'done' ? 'ok' : ''}`} />{p.title}</div>
               <div className="m">
                 <span className={`chip ${p.running ? 'run' : p.stage === 'done' ? 'ok' : ''}`}>{p.running ? '執行中' : (p.segment === 2 ? '第二段 · ' : '') + (STAGE[p.stage] || p.stage)}</span>
                 {p.pending > 0 && <span className="chip warn">{p.pending} 個問題</span>}
+                {p.dirty?.length > 0 && <span className="chip warn" title={`別的工具改過、還沒提交：\n${p.dirty.slice(0, 10).join('\n')}`}>{p.dirty.length} 個未提交</span>}
                 {p.render && <span className="chip">補強{p.render === 'accepted' ? '已接受' : p.render === 'reverted' ? '已還原' : ''}</span>}
                 {p.repo ? (p.branch && p.flowActive ? <span className="chip">{p.branch}</span> : null) : <span>{p.round} 輪</span>}
               </div>

@@ -258,6 +258,8 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
           }
           state.lastCheck = { quick: c.quick, ok: c.ok, rows: c.rows.length, failures: c.failures };
           if (c.ok) {
+            // 本庫的站：檢查寫出的 review 結果跟著流程分支提交（只有時間變動的寫回原內容），否則下次開工會被當成未提交的改動
+            if (J.repo) { const h = commitAll(`vs3d check results (round ${state.round})`); if (h) log(`  已提交檢查結果 ${h}`); }
             if (wantShots) { log('▶ 截圖'); const s = await takeShots(ws, id, join(J.temp, `shots-r${state.round}`)); state.shots = s.ok ? s.dir : null; }
             state.stage = wantReview ? 'review' : wantRender ? 'render' : 'done';
           } else state.stage = 'fix';

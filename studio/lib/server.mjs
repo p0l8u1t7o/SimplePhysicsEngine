@@ -25,6 +25,7 @@ import { ROLES, resolveRole, loadRoleContext } from './roles.mjs';
 import { createRunner } from './runner.mjs';
 import { OFFICE, OLD_OFFICE } from './office.mjs';
 import { importHandoff } from './handoff.mjs';
+import { stationChanges } from './repo.mjs';
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp',
@@ -62,11 +63,14 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null 
   const start = (cmd, raw, args = []) => { const l = loc(raw); return runner.start(cmd, raw, args, { name: l.name, root: l.root }); };
   const repoIds = () => repo && existsSync(join(repo, 'project-site')) ? readdirSync(join(repo, 'project-site')).filter(n => existsSync(join(repo, 'project-site', n, 'project.json'))).map(n => '@' + n) : [];
   const projectIds = () => [...(existsSync(P.projects) ? readdirSync(P.projects).filter(n => existsSync(join(P.projects, n, 'studio.json'))) : []), ...repoIds()];
-  const summary = id => {
+  // 本庫的站：別的工具改過、還沒提交的檔案（清單一次算完；vs3d 執行中的站不算，那是代理正在改）
+  const repoDirty = () => { try { return repo ? stationChanges(repo) : {}; } catch { return {}; } };
+  const summary = (id, dirtyMap) => {
     const J = Jof(id), s = loadState(J), pj = readJson(join(J.dir, 'project.json'), {}), pending = loadQuestions(J).list.filter(q => !q.answered);
     let updated = 0; try { updated = statSync(J.state).mtimeMs; } catch { updated = statSync(J.dir).mtimeMs; }
     return { id, name: loc(id).name, repo: loc(id).repo, branch: s.branch || null, flowActive: !!s.flowActive, title: pj.title || id, summary: pj.summary || '', stage: s.stage, segment: s.segment || 1, round: s.round, pending: pending.length, lastCheck: s.lastCheck && { ok: s.lastCheck.ok, quick: s.lastCheck.quick },
-      render: s.render?.result || null, reviews: s.reviews || 0, updated, running: runner.current?.id === id };
+      render: s.render?.result || null, reviews: s.reviews || 0, updated, running: runner.current?.id === id,
+      dirty: loc(id).repo && runner.current?.id !== id ? ((dirtyMap || repoDirty())[loc(id).name] || []) : [] };
   };
   // 匯出的成品：TEMP/exports/ 底下的壓縮檔、HTML、影片（影片在子資料夾）
   const listExports = J => {
@@ -157,7 +161,7 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null 
             runner.start('new', v.id, args);
             return json(200, { started: true });
           }
-          return json(200, { projects: projectIds().map(summary).sort((x, y) => y.updated - x.updated), running: runner.current });
+          return json(200, { projects: (d => projectIds().map(id => summary(id, d)))(repoDirty()).sort((x, y) => y.updated - x.updated), running: runner.current });
         }
         if (a === 'projects' && id) {
           if (!projectIds().includes(id)) return json(404, { error: `找不到專案：${id}` });

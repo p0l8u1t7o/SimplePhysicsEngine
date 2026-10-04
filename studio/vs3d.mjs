@@ -191,8 +191,8 @@ switch (cmd) {
     break;
   }
   case 'check': {
-    needProject();
-    const c = await runChecks(ws, name, { quick: !o.full });
+    const J = needProject(), c = await runChecks(ws, name, { quick: !o.full });
+    if (J.repo) repoGit.revertTimestampOnly(J);      // 本庫慣例：只有時間變動的 review 寫回原內容；有實質變化的留給使用者提交
     console.log(failureSummary(c));
     process.exitCode = c.ok ? 0 : 1;
     break;
