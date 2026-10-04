@@ -34,6 +34,11 @@ for (const v of variants) {
   else if (check === 'fingerprint') r = { ok: true, ...fingerprint(project, scene), layout: (project.layoutChecks?.() || []).map(x => [x.group || '', x.name, !!x.ok, x.value ?? null]) };
   else { console.log('未知檢查：' + check); process.exit(2); }
   runs.push({ variant: v.name, params: v.params, ...r });
+  // 配線檢查的額外情境（verify.cables.variants）：只在預設情境宣告一次，各自建場景、只跑配線取樣
+  if (check === 'electrical' && v === variants[0]) for (const cv of project.verify?.cables?.variants || []) {
+    const s2 = new THREE.Scene(), p2 = await createProject({ scene: s2, headless: true, ...cv.params });
+    runs.push({ variant: '配線 ' + cv.name, params: cv.params, ...verifyElectrical(p2, s2, { interval: opts.dt, name: cv.name, cablesOnly: true }) });
+  }
 }
 const result = variants.length === 1 ? runs[0] : { ok: runs.every(r => r.ok), variants: runs };
 // 排程指紋只印一行 JSON 給 studio 比對，不寫 review（避免每次跑都產生 git 差異）
@@ -55,7 +60,7 @@ for (const r of runs) {
     for (const z of r.zfight.slice(0, 40)) console.log(tag + 'ZF ', z.area + 'mm²', 't=' + z.t, z.a, '<>', z.b);
   } else if (check === 'electrical') {
     if (!r.applicable) { console.log(`${tag}略過：場景沒有電控元件、電盤，也沒有宣告 verify.cables`); continue; }
-    console.log(tag + JSON.stringify({ ok: r.ok, devices: r.devices, connections: r.connections, glands: r.feedthroughs.glands, routes: r.cables?.report[0]?.routes ?? null, times: r.cables?.report[0]?.samples ?? null }));
+    console.log(tag + JSON.stringify(r.cablesOnly ? { ok: r.ok, routes: r.cables.report[0].routes, times: r.cables.report[0].samples } : { ok: r.ok, devices: r.devices, connections: r.connections, glands: r.feedthroughs.glands, routes: r.cables?.report[0]?.routes ?? null, times: r.cables?.report[0]?.samples ?? null }));
     for (const f of r.failures.slice(0, 30)) console.log(tag + '  ✗ ' + f);
   } else if (check === 'determinism') {
     console.log(`${tag}${r.ok ? '一致' : '不一致'}：${r.objects} 個物件、${r.samples} 個時間點`);

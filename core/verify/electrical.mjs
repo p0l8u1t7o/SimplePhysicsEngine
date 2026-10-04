@@ -48,20 +48,38 @@ export function checkElectricalPlan(scene) {
 }
 
 // run.mjs 的 electrical 檢查：專案場景的電控配置＋（有宣告時）配線動態取樣。
-// project.verify.cables = { obstacles: scene => [Mesh…]（會動的機構與要讓開的固定件，不含線材本身）, interval?: 0.1, times?: [秒…], minRoutes?: 1 }
+// project.verify.cables = {
+//   obstacles: (scene, project) => [Mesh…]   會動的機構與要讓開的固定件（不含線材本身）
+//   interval?: 0.1                            取樣間隔（秒）；另外一律加上排程事件的起訖時間
+//   times?: [秒…] 或 project => [秒…]         自訂取樣時間（取代預設）
+//   apply?: (t, project) => void             套用時間（預設 project.apply(t)；需要額外同步時用）
+//   minRoutes?: 1                             至少要有幾條線路（避免檢查空轉）
+//   variants?: [{ name, params }]             只給配線檢查的額外情境（配方、SKU…），各自用 createProject(params) 建場景
+// }
 // 場景沒有電控元件、電盤，也沒有宣告 cables 時回傳 applicable: false（不寫 review）。
-export function verifyElectrical(project, scene, { interval } = {}) {
+export function cableTimes(project, spec, interval) {
+  if (typeof spec.times === 'function') return spec.times(project);
+  if (Array.isArray(spec.times)) return spec.times;
+  const set = new Set(sampleTimes(0, project.total, spec.interval ?? interval ?? .1));
+  const events = project.events || project.timeline?.events || project.sequence?.events || [];
+  for (const e of events) for (const t of [e.start, e.start + (e.dur ?? 0)]) if (Number.isFinite(t) && t >= 0 && t <= project.total) set.add(t);
+  return [...set].sort((x, y) => x - y);
+}
+const cableFailures = c => (c?.failures || []).map(f => `Cable ${f.key}${f.time != null ? ` @${f.time}s` : ''}（${f.method}${f.detail ? '：' + f.detail : ''}）`);
+
+export function verifyElectrical(project, scene, { interval, name = 'cables', cablesOnly = false } = {}) {
   project.apply?.(0); scene.updateMatrixWorld(true);
   const plan = checkElectricalPlan(scene), spec = project.verify?.cables;
   if (!plan.devices && !plan.enclosures && !spec) return { ok: true, applicable: false, failures: [] };
   let cables = null;
   if (spec) {
-    const times = spec.times || sampleTimes(0, project.total, spec.interval ?? interval ?? .1);
-    const obstacles = typeof spec.obstacles === 'function' ? spec.obstacles(scene) : spec.obstacles || [];
-    cables = checkCableScenarios([{ name: 'cables', scene, apply: t => project.apply(t), times, obstacles }], { minRoutes: spec.minRoutes ?? 1 });
+    const obstacles = typeof spec.obstacles === 'function' ? spec.obstacles(scene, project) : spec.obstacles || [];
+    const apply = spec.apply ? t => spec.apply(t, project) : t => project.apply(t);
+    cables = checkCableScenarios([{ name, scene, apply, times: cableTimes(project, spec, interval), obstacles }], { minRoutes: spec.minRoutes ?? 1 });
     project.apply(0);
   }
-  const failures = [...plan.failures, ...(cables?.failures || []).map(f => `Cable ${f.key}${f.time != null ? ` @${f.time}s` : ''}（${f.method}${f.detail ? '：' + f.detail : ''}）`)];
+  if (cablesOnly) { const failures = cableFailures(cables); return { ok: !failures.length, applicable: true, cablesOnly: true, cables, failures }; }
+  const failures = [...plan.failures, ...cableFailures(cables)];
   const { components, ...rest } = plan;
   return { ok: !failures.length, applicable: true, ...rest, components, cables: cables && { report: cables.report, failures: cables.failures }, failures };
 }
