@@ -41,7 +41,7 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
     const startHead = git(J.dir, ['rev-parse', 'HEAD']).trim(), snap = snapshot(ws, id), scope = roleScope(role, J);
     const n = ++state.round, t0 = now();
     state.lastRole = role;
-    log(`\n▶ 第 ${n} 輪 ${role}（${adapter.label}${rc.model ? ' ' + rc.model : ''}${sessionId ? '，續接' : ''}）`);
+    log(`\n▶ 第 ${n} 輪 ${role}（${adapter.label}${rc.model ? ' ' + rc.model : ''}${rc.effort ? ` effort=${rc.effort}` : ''}${sessionId ? '，續接' : ''}）`);
     save();
     const res = await runAgent(adapter, {
       cwd: J.dir, prompt, sessionId, model: rc.model || undefined, effort: rc.effort || undefined,
@@ -59,7 +59,7 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
     }
     if (res.sessionId) state.sessions[role] = { cli: rc.cli, model: rc.model, sessionId: res.sessionId };
     state.violations = violations;
-    appendJsonl(J.rounds, { round: n, role, cli: rc.cli, model: rc.model, sessionId: res.sessionId, resumed: !!sessionId, startedAt: t0, seconds: res.seconds,
+    appendJsonl(J.rounds, { round: n, role, cli: rc.cli, model: rc.model, effort: rc.effort, sessionId: res.sessionId, resumed: !!sessionId, startedAt: t0, seconds: res.seconds,
       ok: res.ok, aborted: res.aborted, timedOut: res.timedOut, usage: res.usage, costUsd: res.costUsd, turns: res.turns, commit, violations, summary: short(res.text, 400) });
     save();
     log(`  ${res.ok ? '✓' : '✗'} 第 ${n} 輪結束（${res.seconds} s${commit ? `，commit ${commit}` : '，沒有變更'}）`);

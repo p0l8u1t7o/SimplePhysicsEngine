@@ -22,7 +22,7 @@ import { loadQuestions, parseChoice, recordAnswer, printQuestion } from './lib/q
 import { runChecks, failureSummary } from './lib/checks.mjs';
 import { ROLES, resolveRole, loadRoleContext, parseRoleOverrides } from './lib/roles.mjs';
 import { isolationProbe } from './lib/probe.mjs';
-import { defaultWorkspace, readText } from './lib/util.mjs';
+import { defaultWorkspace, readText, readJson, writeJson } from './lib/util.mjs';
 
 const VALUE = new Set(['--workspace', '--prompt', '--prompt-file', '--title', '--summary', '--cli', '--model', '--role', '--effort', '--note', '--max-rounds', '--timeout', '--other']);
 function parseArgs(argv) {
@@ -65,6 +65,13 @@ switch (cmd) {
     if (!prompt.trim() && !o.files.length) fail('請用 --prompt 或 --files 提供需求');
     for (const f of o.files) if (!existsSync(f)) fail(`找不到檔案：${f}`);
     const J = await createProject(ws, { id: name, title: o.title || name, summary: o.summary || '', prompt, files: o.files, cli: o.cli });
+    // new 時指定的 --model／--effort／--role 寫進 studio.json，之後 resume 沒帶參數也沿用（否則續接會退回預設模型）
+    const sj = readJson(J.studioJson, {});
+    for (const r of Object.keys(ROLES)) {
+      const x = { ...(o.cli ? { cli: o.cli } : {}), ...(o.model ? { model: o.model } : {}), ...(override.roles[r] || {}) };
+      if (Object.keys(x).length) sj.roles = { ...sj.roles, [r]: x };
+    }
+    writeJson(J.studioJson, sj);
     console.log(`已建立專案：${J.dir}`);
     if (!o['create-only']) report(await runProject(ws, name, runOpts()));
     break;
