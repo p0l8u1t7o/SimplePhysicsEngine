@@ -32,6 +32,9 @@ node studio/vs3d.mjs check Conveyor --full                    # 手動跑檢查
 node studio/vs3d.mjs review Conveyor                          # 重新審查（必修自動送修正），接著補強
 node studio/vs3d.mjs render Conveyor --pick --focus "手臂與夾爪" # 重新補強：先挑項目、限定範圍
 node studio/vs3d.mjs stage2 Conveyor                          # 開始第二段（電控、電盤、配線、相機）
+node studio/vs3d.mjs export Conveyor [--zip] [--html] [--mp4]  # 匯出成品到專案 TEMP/exports/（不指定時壓縮檔＋單一 HTML）
+node studio/vs3d.mjs handoff Conveyor                         # 交接包：git 歷史、上傳檔、提問與紀錄、不得顯示的名稱
+node studio/vs3d.mjs import Conveyor-handoff-20261004.zip --name Conveyor2   # 匯入交接包，之後 resume 續跑
 node studio/vs3d.mjs probe Conveyor --cli codex --other <另一個專案>   # 寫入隔離自我測試
 node studio/vs3d.mjs models Conveyor                          # 各角色目前的 CLI 與模型
 ```
@@ -108,6 +111,16 @@ new → 規劃（配置提案＋問題）⇄ 使用者回答 → 確認提案 �
 代理 CLI 讀不了 Office 檔，所以建立專案時（`new --files` 與網頁上傳都一樣）由 `lib/office.mjs` 自動抽出（純 Node，自己解 zip，不用套件）：pptx 依投影片順序抽文字（含表格、SmartArt、備忘稿），圖片命名 `slideNN-…` 標出所在投影片；docx 抽段落、標題、清單、表格，圖片位置以 `[圖片：…]` 標在本文；xlsx 每個工作表轉成 Markdown 表格（列號＋欄字母，日期與百分比依儲存格格式，最多 2000 列），圖片標出錨點儲存格。結果寫到 `docs/<檔名>.extract/text.md`，專案 `AGENTS.md` 的上傳檔清單會標出路徑。檔案損壞只記警告；舊格式（.ppt／.doc／.xls）不處理，建立時提示另存成新格式。圖表數據、版面位置不會保留。
 
 角色指派的優先順序：app 預設（`lib/roles.mjs`）＜ 工作區 `.studio/settings.json` ＜ 專案 `studio.json` ＜ 命令列。正式預設（2026-10-04 拍板）：規劃、開發、修正、審查用 Claude `opus`；渲染與細節補強用 Codex `gpt-6-astra` 高推理（`lib/roles.mjs` 的 `ROLE_DEFAULTS`）。這是使用者的實務分工：opus 做規劃與主體實作，gpt-6 補強渲染、電盤、電線與細節；P4 第二段的電控與配線也預設交給 gpt-6。命令列 `--cli` 會讓所有角色改用同一種 CLI。`new` 時指定的 `--cli`、`--model`、`--effort`、`--role` 會寫進專案 `studio.json`，之後 `resume` 沿用。
+
+## 匯出與交接（2026-10-04）
+
+- **成品**：`vs3d export`（介面「匯出成品」列）呼叫工作區 core 的 `tools/export.mjs`，輸出到專案 `TEMP/exports/`，介面列出已匯出的檔案可以下載。
+  - 網站壓縮檔：首頁＋本站＋core，解壓後雙擊 `open-demo.cmd` 用 Windows 內建 PowerShell 的本機伺服器開啟，客戶電腦不必安裝軟體。
+  - 單一 HTML：模組、CSS、圖示全部內嵌（Blob URL），雙擊就能離線開；一站約 1.5 MB，超過 15 MB 時建議改用壓縮檔。
+  - MP4：無頭 Chrome（GPU）開 `?movie&auto` 全自動錄製，ffmpeg 用 NVENC（不可用時 libx264），結束時核對影格數。範本已經接好錄影；這個功能之前建立的專案要自己在 `main.js` 加 `installMovie`（照 `core/template/web/js/main.js` 最後一段）。
+  - 匯出前後都做用戶名稱檢查，成品裡有名稱就失敗、不留下檔案。
+- **交接包**：`vs3d handoff` 產生 `TEMP/exports/<專案>-handoff-<日期>.zip`，內容是專案 git 全部歷史（bundle）、`docs/` 上傳檔、`.studio/` 的狀態、提問、回答、提案、審查與每輪紀錄（不含代理的完整對話記錄），以及這個專案不得顯示的用戶名稱。對方用 `vs3d import`（或介面「新建專案」頁的「匯入交接包」）匯入後，名稱加進他的工作區名單，代理的工作階段清掉（屬於原本的電腦），可以直接 `resume`。
+- 專案自己的名單在 `.studio/client-names.txt`：建立時的 `--private` 與規劃角色列出的名稱都會記在這裡，交接包靠它把名稱保護帶給接手的人。
 
 ## P4 第二段驗收（2026-10-04）
 

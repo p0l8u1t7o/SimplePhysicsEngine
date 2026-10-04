@@ -18,6 +18,7 @@ export const api = {
   answer: (id, v) => call('POST', `/api/projects/${encodeURIComponent(id)}/answer`, v),
   run: (id, v) => call('POST', `/api/projects/${encodeURIComponent(id)}/run`, v),
   stop: () => call('POST', '/api/stop'),
+  importHandoff: v => call('POST', '/api/import', v),
   async upload(token, file) {
     const r = await fetch(`/api/uploads?token=${encodeURIComponent(token)}&name=${encodeURIComponent(file.name)}`, { method: 'POST', body: file });
     const j = await r.json(); if (!r.ok) throw new Error(j.error || r.statusText); return j;

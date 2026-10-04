@@ -42,6 +42,14 @@ export function ProjectView({ id, tick, running, onChange }) {
         <input value={focus} onChange={e => setFocus(e.target.value)} placeholder="補強範圍（選填，例如 手臂與吸盤）" style={{ minWidth: 220 }} />
         <a href={p.previewUrl} target="_blank" rel="noreferrer">在新分頁開啟預覽</a>
       </div>
+      <div className="bar">
+        <span className="mute">匯出成品：</span>
+        <button disabled={busy} title="首頁＋本站＋core，附 open-demo.cmd，解壓後雙擊即可離線開啟" onClick={() => act(() => api.run(id, { cmd: 'export', formats: ['zip'] }))}>網站壓縮檔</button>
+        <button disabled={busy} title="全部內嵌成一個檔案，雙擊就能開（超過 15 MB 建議改用壓縮檔）" onClick={() => act(() => api.run(id, { cmd: 'export', formats: ['html'] }))}>單一 HTML</button>
+        <button disabled={busy} title="Chrome＋ffmpeg 自動錄製 1080p" onClick={() => act(() => api.run(id, { cmd: 'export', formats: ['mp4'] }))}>錄影 MP4</button>
+        <button disabled={busy} title="git 歷史、上傳檔、提問與紀錄、不得顯示的名稱；給接手的同事匯入" onClick={() => act(() => api.run(id, { cmd: 'handoff' }))}>交接包</button>
+      </div>
+      {p.exports?.length > 0 && <div className="card"><b>已匯出</b>{p.exports.map(x => <div key={x.path}><a href={fileUrl(id, x.path)} download>{x.path.split('/').pop()}</a> <span className="mute">{(x.size / 1048576).toFixed(1)} MB · {new Date(x.at).toLocaleString()}</span></div>)}</div>}
       {error && <div className="bad">{error}</div>}
       <div className="tabs">{TABS.map(([k, label]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{label}{k === 'questions' && pending.length ? `（${pending.length}）` : ''}</button>)}</div>
 

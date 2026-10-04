@@ -57,7 +57,7 @@ export const TASK = {
 - 場景：設備與工件寫在 \`web/js/project.js\`，能用 \`core/models\` 的模型就用
 - 排程：製程時間軸（\`createStepSequence\` 或 \`createTimeline\`），節拍符合提案
 - 介面：站別按鈕、視角、3D 標籤、側欄說明（\`web/js/main.js\`；\`index.html\` 的版面骨架保留）
-- 播放列與手機、平板精簡版面（範本已接好，不要拿掉）
+- 播放列與手機、平板精簡版面、\`?movie\` 錄影掛鉤（範本已接好，不要拿掉；錄影的追焦對象改成本專案的工件）
 - \`tools/verify.mjs\` 改成本專案的製程規則檢查（例如節拍上限、放置位置）
 - \`project.json\` 的 \`title\`、\`summary\`
 

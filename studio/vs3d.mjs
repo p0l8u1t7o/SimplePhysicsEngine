@@ -11,6 +11,9 @@
 //   node studio/vs3d.mjs review <名稱> [--no-fix]                 重新審查（必修項自動送修正），接著補強；--no-fix 只審查、不修正
 //   node studio/vs3d.mjs render <名稱> [--pick] [--focus "範圍"]  重新做渲染與細節補強（--pick 先挑項目）
 //   node studio/vs3d.mjs stage2 <名稱>                            開始第二段（電控、電盤、配線、相機）；第一段完成時也會出卡片詢問
+//   node studio/vs3d.mjs export <名稱> [--zip] [--html] [--mp4]   匯出成品到專案 TEMP/exports/（不指定時輸出網站壓縮檔＋單一 HTML）
+//   node studio/vs3d.mjs handoff <名稱> [--out 檔案]              匯出交接包（git 歷史、上傳檔、提問與紀錄、不得顯示的名稱）
+//   node studio/vs3d.mjs import <交接包.zip> [--name 新名稱]       匯入交接包，之後用 resume 續跑
 //   node studio/vs3d.mjs probe <名稱> [--cli …] [--other <專案>] [--simulate]   寫入隔離自我測試（--simulate：app 另外模擬越界寫入）
 //   node studio/vs3d.mjs models                                   各 CLI 可用的模型與各角色目前的指派
 //   node studio/vs3d.mjs ui [--port 8780] [--no-open]             開啟網頁介面（http://127.0.0.1:8780/）
@@ -31,8 +34,9 @@ import { runChecks, failureSummary } from './lib/checks.mjs';
 import { ROLES, resolveRole, loadRoleContext, parseRoleOverrides } from './lib/roles.mjs';
 import { isolationProbe } from './lib/probe.mjs';
 import { defaultWorkspace, readText, readJson, writeJson } from './lib/util.mjs';
+import { exportHandoff, importHandoff } from './lib/handoff.mjs';
 
-const VALUE = new Set(['--workspace', '--private', '--prompt', '--prompt-file', '--title', '--summary', '--cli', '--model', '--role', '--effort', '--note', '--max-rounds', '--timeout', '--other', '--focus', '--port']);
+const VALUE = new Set(['--workspace', '--private', '--prompt', '--prompt-file', '--title', '--summary', '--cli', '--model', '--role', '--effort', '--note', '--max-rounds', '--timeout', '--other', '--focus', '--port', '--out', '--name']);
 
 // 測試用：VS3D_EXTRA_ADAPTERS 指向一個匯出 { adapters: { 名稱: adapter } } 的模組（例如假代理），讓介面的端對端測試走真正的命令列
 if (process.env.VS3D_EXTRA_ADAPTERS) Object.assign(ADAPTERS, (await import(pathToFileURL(resolve(process.env.VS3D_EXTRA_ADAPTERS)).href)).adapters);
@@ -98,6 +102,26 @@ switch (cmd) {
     if (cmd === 'review') s.reviews = 0;
     writeJson(J.state, s);
     report(await runProject(ws, name, runOpts()));
+    break;
+  }
+  case 'export': {
+    needProject();
+    const tool = join(paths(ws).core, 'tools', 'export.mjs');
+    if (!existsSync(tool)) fail('工作區的 core 太舊，沒有匯出工具：先執行 vs3d init --refresh-core');
+    const formats = ['zip', 'html', 'mp4'].filter(f => o[f]).map(f => '--' + f);
+    const child = spawn(process.execPath, [tool, name, ...formats], { cwd: ws, stdio: 'inherit', windowsHide: true });
+    process.exitCode = await new Promise(r => child.on('close', r));
+    break;
+  }
+  case 'handoff': {
+    const J = needProject(), day = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    try { await exportHandoff(ws, name, resolve(o.out || join(J.temp, 'exports', `${name.replace(/\s+/g, '-')}-handoff-${day}.zip`))); } catch (e) { fail(e.message); }
+    break;
+  }
+  case 'import': {
+    if (!name || !existsSync(resolve(name))) fail('用法：vs3d import <交接包.zip> [--name 新名稱]');
+    if (!existsSync(paths(ws).marker)) initWorkspace(ws);
+    try { await importHandoff(ws, resolve(name), { id: o.name }); } catch (e) { fail(e.message); }
     break;
   }
   case 'stage2': {

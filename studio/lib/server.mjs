@@ -24,6 +24,7 @@ import { ADAPTERS } from './adapters/index.mjs';
 import { ROLES, resolveRole, loadRoleContext } from './roles.mjs';
 import { createRunner } from './runner.mjs';
 import { OFFICE, OLD_OFFICE } from './office.mjs';
+import { importHandoff } from './handoff.mjs';
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp',
@@ -59,6 +60,15 @@ export async function startUi(ws, { port = 8780, log = console.log } = {}) {
     return { id, title: pj.title || id, summary: pj.summary || '', stage: s.stage, segment: s.segment || 1, round: s.round, pending: pending.length, lastCheck: s.lastCheck && { ok: s.lastCheck.ok, quick: s.lastCheck.quick },
       render: s.render?.result || null, reviews: s.reviews || 0, updated, running: runner.current?.id === id };
   };
+  // 匯出的成品：TEMP/exports/ 底下的壓縮檔、HTML、影片（影片在子資料夾）
+  const listExports = J => {
+    const root = join(J.temp, 'exports'), out = [];
+    const walk = (d, depth) => { if (!existsSync(d)) return; for (const n of readdirSync(d)) { if (n.startsWith('.')) continue; const f = join(d, n), st = statSync(f);
+      if (st.isDirectory()) { if (depth < 1) walk(f, depth + 1); } else if (/\.(zip|html|mp4)$/i.test(n)) out.push({ path: rel(f), size: st.size, at: st.mtimeMs }); } };
+    const rel = f => f.slice(J.dir.length + 1).split(/[\\/]/).join('/');
+    walk(root, 0);
+    return out.sort((x, y) => y.at - x.at);
+  };
   const detail = id => {
     const J = projectPaths(ws, id), s = loadState(J), qs = loadQuestions(J);
     const rounds = existsSync(J.rounds) ? readFileSync(J.rounds, 'utf8').trim().split('\n').filter(Boolean).map(l => JSON.parse(l)) : [];
@@ -70,7 +80,7 @@ export async function startUi(ws, { port = 8780, log = console.log } = {}) {
       // Office 抽取資料夾列出它的 text.md（資料夾本身不能開）
       docs: existsSync(J.docs) ? readdirSync(J.docs).map(f => f.endsWith('.extract') && existsSync(join(J.docs, f, 'text.md')) ? `${f}/text.md` : f) : [], shots: shots.map(f => rel(join(shotDir, f))),
       compare: existsSync(join(J.temp, 'render-compare', 'index.html')) ? 'TEMP/render-compare/index.html' : null,
-      log: runner.history(id), previewUrl: `http://127.0.0.1:${previewPort}/${encodeURIComponent(id)}/`,
+      exports: listExports(J), log: runner.history(id), previewUrl: `http://127.0.0.1:${previewPort}/${encodeURIComponent(id)}/`,
     };
   };
   const resumeIfReady = id => { const J = projectPaths(ws, id); if (!runner.current && !loadQuestions(J).list.some(q => !q.answered)) runner.start('resume', id); };
@@ -111,6 +121,14 @@ export async function startUi(ws, { port = 8780, log = console.log } = {}) {
             : OFFICE.test(name) ? '建立專案時會自動抽出文字與圖片' : '';
           return json(200, { token, files, notice });
         }
+        // 匯入交接包：先用 /api/uploads 上傳 zip，再帶 token 呼叫
+        if (a === 'import' && req.method === 'POST') {
+          const v = await jbody(), dir = join(P.ws, '.studio', 'uploads', String(v.token || '').replace(/[^\w-]/g, ''));
+          const zip = existsSync(dir) ? readdirSync(dir).find(f => /\.zip$/i.test(f)) : null;
+          if (!zip) return json(400, { error: '請先上傳交接包（.zip）' });
+          try { const r = await importHandoff(ws, join(dir, zip), { id: (v.name || '').trim() || undefined, log: () => {} }); return json(200, { id: r.id, stage: r.stage, rounds: r.rounds }); }
+          catch (e) { return json(400, { error: e.message }); }
+        }
         if (a === 'projects' && !id) {
           if (req.method === 'POST') {
             const v = await jbody();
@@ -144,8 +162,10 @@ export async function startUi(ws, { port = 8780, log = console.log } = {}) {
             return json(200, { ok: true, running: runner.current });
           }
           if (b === 'run' && req.method === 'POST') {
-            const v = await jbody(), cmd = ['resume', 'review', 'render', 'stage2'].includes(v.cmd) ? v.cmd : 'resume';
-            runner.start(cmd, id, [...(v.pick ? ['--pick'] : []), ...(v.focus ? ['--focus', v.focus] : [])]);
+            const v = await jbody(), cmd = ['resume', 'review', 'render', 'stage2', 'export', 'handoff'].includes(v.cmd) ? v.cmd : 'resume';
+            const args = cmd === 'export' ? (v.formats || ['zip', 'html']).filter(f => ['zip', 'html', 'mp4'].includes(f)).map(f => '--' + f)
+              : [...(v.pick ? ['--pick'] : []), ...(v.focus ? ['--focus', v.focus] : [])];
+            runner.start(cmd, id, args);
             return json(200, { started: true });
           }
         }

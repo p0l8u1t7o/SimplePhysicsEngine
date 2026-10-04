@@ -216,6 +216,24 @@ test('角色依段落指派：第二段的開發與修正預設 Codex gpt-6，�
   assert.equal(resolveRole('build', { override: { cli: 'claude', roles: {} } }, 2).cli, 'claude');   // --cli 讓所有角色用同一種
 });
 
+test('交接包：匯出 → 匯入成新專案，git 歷史、階段、拍板與名單都帶過去，工作階段清掉', async () => {
+  const { exportHandoff, importHandoff } = await import('../lib/handoff.mjs');
+  const J = projectPaths(ws, 'Alpha'), file = join(J.temp, 'exports', 'alpha-handoff.zip');
+  const before = loadState(J), head = git(J.dir, ['rev-parse', 'HEAD']).trim();
+  const meta = await exportHandoff(ws, 'Alpha', file, { log: () => {} });
+  assert.equal(meta.head, head);
+  const r = await importHandoff(ws, file, { id: 'AlphaCopy', log: () => {} });
+  const K = projectPaths(ws, 'AlphaCopy'), s = loadState(K);
+  assert.equal(git(K.dir, ['rev-parse', 'HEAD']).trim(), head);                       // 歷史完整
+  assert.equal(s.stage, before.stage); assert.equal(s.round, before.round);
+  assert.deepEqual(s.sessions, {}); assert.equal(s.importedFrom.id, 'Alpha');           // 工作階段屬於原本的電腦
+  assert.match(readFileSync(K.agents, 'utf8'), /\*\*站位\*\*：左邊/);                   // 拍板事項
+  assert.ok(existsSync(join(K.plan, 'proposal.md')));
+  assert.ok(!existsSync(join(K.studio, 'logs')), '代理的完整對話記錄不帶過去');
+  await assert.rejects(importHandoff(ws, file, { id: 'AlphaCopy', log: () => {} }), /專案已存在/);
+  assert.equal(r.id, 'AlphaCopy');
+});
+
 test('pickItems：編號、id、「除了」', () => {
   const all = [{ id: 'S1' }, { id: 'S2' }, { id: 'S3' }, { id: 'S4' }];
   assert.deepEqual(pickItems(all, '1,3').map(x => x.id), ['S1', 'S3']);

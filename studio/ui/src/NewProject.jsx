@@ -4,6 +4,27 @@ import { api } from './api.js';
 
 const newToken = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 
+// 匯入同事給的交接包（vs3d handoff 產生的 zip）：上傳後直接建成專案，之後按續跑
+function ImportHandoff({ onCreated, disabled }) {
+  const [name, setName] = useState(''), [msg, setMsg] = useState(''), [busy, setBusy] = useState(false);
+  async function pick(file) {
+    if (!file) return;
+    setBusy(true); setMsg('上傳中…');
+    try { const token = newToken(); await api.upload(token, file); const r = await api.importHandoff({ token, name }); setMsg(`✓ 已匯入 ${r.id}（${r.rounds} 輪）`); onCreated(r.id); }
+    catch (e) { setMsg(`✗ ${e.message}`); } finally { setBusy(false); }
+  }
+  return (
+    <div className="card">
+      <b>匯入交接包</b>
+      <div className="row">
+        <label><span>專案名稱（選填，預設沿用原名）</span><input value={name} onChange={e => setName(e.target.value)} placeholder="例如 PickPlace-接手" /></label>
+        <label><span>交接包（.zip）</span><input type="file" accept=".zip" disabled={disabled || busy} onChange={e => pick(e.target.files[0])} /></label>
+      </div>
+      {msg && <div className={msg.startsWith('✗') ? 'bad' : 'mute'}>{msg}</div>}
+    </div>
+  );
+}
+
 export function NewProject({ info, running, onCreated }) {
   const [token] = useState(newToken);
   const [form, setForm] = useState({ id: '', title: '', prompt: '', clientNames: '', cli: '', model: '', effort: '', autoApprove: false, pick: false });
@@ -65,6 +86,7 @@ export function NewProject({ info, running, onCreated }) {
         {running && <div className="warn">工作區正在執行 {running.id}，要等它結束才能開始新專案。</div>}
         <div><button className="primary" disabled={busy || !!running || files.some(f => f.status === '上傳中…')}>{busy ? '建立中…' : '建立並開始'}</button></div>
       </form>
+      <ImportHandoff onCreated={onCreated} disabled={!!running} />
     </div>
   );
 }

@@ -72,6 +72,14 @@ export function addClientNames(ws, names = []) {
   if (add.length) { mkdirSync(join(ws, '.studio'), { recursive: true }); writeFileSync(namesFile(ws), ['# 用戶名稱：不得出現在任何產出（vs3d 與 check.mjs 的 names 檢查使用）', ...cur, ...add].join('\n') + '\n'); }
   return add;
 }
+// 專案自己的名單（<專案>/.studio/client-names.txt）：交接包靠它把名稱保護帶給接手的人
+export const projectNamesFile = J => join(J.studio, 'client-names.txt');
+export const readProjectNames = J => existsSync(projectNamesFile(J)) ? readFileSync(projectNamesFile(J), 'utf8').split(/\r?\n/).map(s => s.trim()).filter(s => s && !s.startsWith('#')) : [];
+export function addProjectNames(J, names = []) {
+  const cur = readProjectNames(J), add = names.map(s => String(s).trim()).filter(s => s && !s.startsWith('#') && !cur.includes(s));
+  if (add.length) { mkdirSync(J.studio, { recursive: true }); writeFileSync(projectNamesFile(J), ['# 這個專案不得顯示的用戶名稱', ...cur, ...add].join('\n') + '\n'); }
+  return add;
+}
 // 長的名稱先換，避免「A 公司」被「A」拆開
 export const redactNames = (text, names) => [...names].sort((a, b) => b.length - a.length).reduce((s, n) => s.split(n).join('（用戶）'), String(text));
 
@@ -87,6 +95,7 @@ export async function createProject(ws, { id, title, summary = '', prompt = '', 
   const r = await run(process.execPath, [join(P.core, 'tools', 'new-project.mjs'), id, title, summary || title], { cwd: ws });
   if (r.code) throw new Error('new-project 失敗：\n' + r.out);
   rmSync(join(J.dir, '.claude'), { recursive: true, force: true });   // 本庫的範圍關卡不適用於工作區；studio 另外掛關卡
+  addProjectNames(J, clientNames);
 
   mkdirSync(J.docs, { recursive: true });
   const copied = [];
