@@ -29,7 +29,7 @@ export const loadState = J => readJson(J.state, { stage: 'plan', round: 0, sessi
 
 // full：快速檢查通過後是否再跑完整檢查（含 ui）；shots：通過後是否截圖；perf：補強前後是否量效能（測試時可關掉以節省時間）
 // review／render：第一段完成後是否自動審查、補強（override.pick 時先讓使用者挑補強項目，override.focus 限定範圍）
-export async function runProject(ws, id, { interactive = false, override = {}, maxRounds = 40, timeoutMin = 60, full = true, shots: wantShots = true,
+export async function runProject(ws, id, { interactive = false, override = {}, maxRounds = 40, timeoutMin = 90, full = true, shots: wantShots = true,
   perf: wantPerf = true, review: wantReview = true, render: wantRender = true, log = console.log } = {}) {
   const P = paths(ws), J = projectPaths(ws, id);
   if (!existsSync(J.dir)) throw new Error(`找不到專案：${J.dir}`);
