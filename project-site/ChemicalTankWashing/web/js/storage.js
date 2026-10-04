@@ -83,7 +83,8 @@ export function createStorage(scene, makeDrum) {
   // 其他兩層的穿梭車停在各自車道後端（示意；換道由 AGV 搬運）
   for (const [l, v, p] of RACK.shuttles) if (v !== RACK.demo.level) { const s = shuttle.clone(); s.position.set(RACK.lanes[l], RACK.levels[v], RACK.pos[p]); group.add(s); }
   const laneX = RACK.lanes[RACK.demo.lane], laneY = RACK.levels[RACK.demo.level];
-  const zAt = pos => { const i = Math.max(0, Math.min(2.999, Math.floor(pos))); return RACK.pos[i] + (RACK.pos[i + 1] - RACK.pos[i]) * (pos - i); };
+  // 先夾上限再取整（原本取整後再夾，會取到 RACK.pos[2.999] 變成 NaN，第 4 位的棧板看不到）
+  const zAt = pos => { const i = Math.max(0, Math.floor(Math.min(2.999, pos))); return RACK.pos[i] + (RACK.pos[i + 1] - RACK.pos[i]) * (pos - i); };
 
   return {
     group, demo, shuttle, empties, fullCount: full + 4, zAt,

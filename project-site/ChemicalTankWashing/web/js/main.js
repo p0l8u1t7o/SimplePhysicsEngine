@@ -336,13 +336,6 @@ if (qp.has('movie')) {
     return FIXED[station].clone();
   }
 
-  // 暫代：storage.js 的 zAt(3) 取到 RACK.pos[2.999]，示範車道最後一位的棧板（與停在該位的穿梭車）位置是 NaN，
-  // 網頁上本來就畫不出來；但錄影的全景外框會被 NaN 汙染成整片空白。錄影時把這些物件隱藏（畫面與網頁相同），修正待拍板。
-  const { storage } = plant;
-  function hideInvalid() {
-    for (const d of storage.demo) if (!Number.isFinite(d.group.position.z)) d.group.visible = false;
-    storage.shuttle.visible = Number.isFinite(storage.shuttle.position.z);
-  }
 
   installMovie({
     project: decodeURIComponent(location.pathname.split('/').filter(Boolean).at(-1)),   // 網址的專案資料夾名稱
@@ -350,7 +343,7 @@ if (qp.has('movie')) {
     far: 150000,   // 廠房以 mm 計、全景距離約 30 m（錄影預設 16 m 是工作站尺度）
     scene, renderer, camera, controls, setView, total, steps,
     // 與網頁同一路徑取樣（seq.sample → applyPlant）；錄影中視為自動運轉（燈塔亮運轉燈）
-    sample: t => { movieT = t; S = seq.sample(t); applyPlant(plant, S, { playing: true }); hideInvalid(); },
+    sample: t => { movieT = t; S = seq.sample(t); applyPlant(plant, S, { playing: true }); },
     render: () => {
       washing.tick(movieT);
       // 按需重繪時陰影不自動更新（stage 設 shadowMap.autoUpdate = false）；錄影每格都重算陰影，不依賴下一格補正

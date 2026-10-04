@@ -73,6 +73,6 @@
 - [ ] **PCB-CopperAssembly**：S1、S3 相機與 S2 Y 軌的間隙只剩 1.75 mm，待實機確認。
 - [ ] **MilitaryGradePC**：用 DENSO CAD 核對關節零點與尺寸。
 - [ ] **ChemicalTankWashing**：西牆捲門待現場確認。
-- [ ] **ChemicalTankWashing**：`web/js/storage.js` 的 `zAt` 寫成 `Math.max(0, Math.min(2.999, Math.floor(pos)))`，會取到 `RACK.pos[2.999]`，示範車道第 4 位的棧板（含 4 桶）一直是 NaN 位置、畫面上看不到，穿梭車停在那一位時也會消失。正確應為 `Math.floor(Math.min(2.999, pos))`。修了外觀會改變、可能影響干涉檢查，待使用者拍板；修好後拿掉 `main.js` 錄影區塊的 `hideInvalid()` 暫代。
+- [x] **ChemicalTankWashing**：`storage.js` 的 `zAt` 改成先夾上限再取整，示範車道第 4 位的棧板與穿梭車不再是 NaN；錄影的 `hideInvalid()` 暫代已拿掉（2026-10-04）。
 - [ ] **shutter assembly**：待使用者提供葉片圖面。
 - [ ] **WorkpieceMeasurement**：規格 A 底孔、規格 C 口部是依圖面判讀的，待原始圖檔確認。
