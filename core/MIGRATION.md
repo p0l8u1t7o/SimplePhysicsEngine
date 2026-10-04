@@ -89,11 +89,20 @@ Node 端由 `core/tools/loader.mjs` 解析相同的三種名稱，檢查程式�
   - `check-scope.mjs` 新增 `scopeOf()`：`project-site/<專案>/…` 判為該專案，`core/`、`tools/`、`studio/` 判為固定範圍，其餘是 root；pre-commit、`scope.yml` 的分支名稱規則不變。`scope-guard.mjs` 與各站 `.claude/settings.json` 的 hook 改成 `$CLAUDE_PROJECT_DIR/../../core/tools/scope-guard.mjs`。
   - `new-project.mjs` 建在 `project-site/`；`check.mjs`、`install-hooks.mjs`、`compare-review.py` 改用 `REPO`。根目錄 `tools/`、`scripts/`、`.gitignore`（`docs/`、ffmpeg）同步改路徑。
   - 7 站桌面截圖與搬移前 HEAD 比對 0 張超過門檻，review JSON 內容不變。
+- 2026-10-04 core 1.4.0（studio P4 第二段：電控、電盤、配線、相機；用戶名稱檢查）：
+  - `core/verify/electrical.mjs`（`checkElectricalPlan`、`verifyElectrical`）與 `core/verify/cables.mjs`（`checkCableScenarios`）：從根目錄 `tools/verify-electrical-plan.mjs`、`verify-cables.mjs` 抽出通用的判定，根目錄工具改成只組各站情境再呼叫 core（各站 `cables.json`、`electrical-plan-checks.json` 結果不變）。`tools/geometry-clearance.mjs`、`check-feedthroughs.mjs` 搬到 `core/verify/clearance.mjs`、`feedthroughs.mjs`，根目錄留轉接檔，各站工具不用改。
+  - `check.mjs` 內建 `electrical`（快速）：場景有電控元件或電盤時檢查元件在櫃內（場景沒有電盤櫃時不檢查這條）、編號、機身重疊、櫃內連線、穿板孔；`project.js` 的 `verify.cables = { obstacles, interval, times, minRoutes }` 有宣告時另做配線動態取樣。結果寫入 `review/electrical-checks.json`，沒有電控的專案略過、不產生報告。現有 7 站都通過（ChemicalTankWashing 略過）。
+  - `electrical-components.js` 匯出 `component({...})`；`populatePanel`／`controlPanel` 可以直接收元件表 `schedule`（原本只能用寫死在 core 的 `profile`），`controlPanel` 另外回傳 `devices`。現有 `profile` 寫法不變。
+  - 新模型 `core/models/camera.js`（工業相機＋鏡頭＋環形光源，內含依感光元件與焦距算視角的虛擬相機、`fieldOfView(工作距離)`、`lensFov`），共 13 個參數化模型。
+  - `core/examples/segment2/`：第二段的完整範例（電盤櫃、背板元件表、穿板接頭、龍門拖鏈、外露線路、立柱相機與相機線）與說明；`check.mjs` 的 `core · examples` 會跟著檢查。
+  - `core/tools/check-names.mjs` 與 `check.mjs` 內建 `names`（快速）：專案資料夾不得出現本機名單（`.private/client-names.txt`、工作區 `.studio/client-names.txt`）裡的用戶名稱；pre-commit 也會掃。
+  - 7 站桌面截圖與改前比對 0 張超過門檻；根目錄配線、電盤、干涉回歸全過。
 
 ## 版本
 
 | 版本 | 日期 | 內容 |
 |---|---|---|
+| 1.4.0 | 2026-10-04 | 通用電控與配線檢查（`electrical`）、元件表 `schedule`、相機模型、第二段範例、用戶名稱檢查（`names`） |
 | 1.3.0 | 2026-10-04 | 專案搬進 `project-site/`；`REPO`、`PROJECTS_DIR`、`scopeOf` |
 | 1.2.0 | 2026-10-04 | 排程指紋、效能量測、舞台登記 |
 | 1.1.0 | 2026-10-04 | 工作區模式（studio）；new-project 複製後設為可寫 |

@@ -1,0 +1,186 @@
+{
+  "variant": "預設",
+  "params": {},
+  "ok": true,
+  "applicable": true,
+  "devices": 11,
+  "connections": 10,
+  "enclosures": 2,
+  "feedthroughs": {
+    "plates": 4,
+    "glands": 6,
+    "holeRays": 54,
+    "wireCrossings": 18,
+    "mountChecks": 4,
+    "failures": []
+  },
+  "failures": [],
+  "components": [
+    {
+      "id": "RC1",
+      "kind": "robot",
+      "title": "COBOTTA PRO 控制器",
+      "size": [
+        420,
+        200,
+        360
+      ],
+      "role": "motion",
+      "description": "CRC9M 專用控制器，整合電腦下達任務；控制手臂及末端。",
+      "source": null,
+      "category": "ac",
+      "model": "CRC9M 標準型；420×200×360 mm"
+    },
+    {
+      "id": "QS1",
+      "kind": "isolator",
+      "title": "總電源隔離開關",
+      "size": [
+        36,
+        75,
+        65
+      ],
+      "role": "power",
+      "description": "檢修時隔離設備電源；額定電流與現場電源待確認。",
+      "source": null,
+      "category": "ac",
+      "model": "配置估算，型號待選"
+    },
+    {
+      "id": "QF1",
+      "kind": "breaker",
+      "title": "控制支路保護",
+      "size": [
+        18,
+        75,
+        65
+      ],
+      "role": "power",
+      "description": "分支保護後供應 24 V 電源，與伺服動力分路。",
+      "source": "QS1",
+      "category": "ac",
+      "model": "配置估算，型號待選"
+    },
+    {
+      "id": "PS1",
+      "kind": "psu",
+      "title": "24 VDC 電源",
+      "size": [
+        50,
+        95,
+        100
+      ],
+      "role": "power",
+      "description": "供應儀器交握 I/O、序列介面與夾座控制；天平與滴定儀保留原廠電源。",
+      "source": "QF1",
+      "category": "ac",
+      "model": "配置估算，型號待選"
+    },
+    {
+      "id": "GC1",
+      "kind": "safety",
+      "title": "安全控制器",
+      "size": [
+        60,
+        90,
+        95
+      ],
+      "role": "safety",
+      "description": "收集急停與防護裝置訊號，交握驅動停止及重啟允許；此畫面僅呈現規劃。",
+      "source": "PS1",
+      "category": "dc",
+      "model": "GC-1000 規劃平台；外形 60×90×95 mm"
+    },
+    {
+      "id": "K1",
+      "kind": "contactor",
+      "title": "監控接觸器",
+      "size": [
+        32,
+        75,
+        70
+      ],
+      "role": "safety",
+      "description": "安全輸出控制動力支路，輔助接點回授；回路需另做風險評估與設計。",
+      "source": "GC1",
+      "category": "safety",
+      "model": "配置估算，型號待選"
+    },
+    {
+      "id": "IO1",
+      "kind": "io",
+      "title": "儀器交握 I/O",
+      "size": [
+        50,
+        75,
+        65
+      ],
+      "role": "io",
+      "description": "由桌面整合電腦指揮，接收杯到位、液位與夾座狀態。",
+      "source": "PS1",
+      "category": "dc",
+      "model": "配置估算，型號待選"
+    },
+    {
+      "id": "SW1",
+      "kind": "switch",
+      "title": "儀器網路交換器",
+      "size": [
+        40,
+        75,
+        65
+      ],
+      "role": "network",
+      "description": "連接整合電腦與 CRC9；滴定儀原廠軟體負責分析。",
+      "source": "PS1",
+      "category": "dc",
+      "model": "配置估算，型號待選"
+    },
+    {
+      "id": "SER1",
+      "kind": "gateway",
+      "title": "天平序列介面",
+      "size": [
+        40,
+        70,
+        55
+      ],
+      "role": "weigh",
+      "description": "天平穩定、去皮與重量資料經序列介面回傳整合電腦。",
+      "source": "IO1",
+      "category": "signal",
+      "model": "配置估算，型號待選"
+    },
+    {
+      "id": "REM1",
+      "kind": "io",
+      "title": "Metrohm Remote 交握",
+      "size": [
+        60,
+        70,
+        65
+      ],
+      "role": "analysis",
+      "description": "tiamo 主案：Start／Ready／Busy 交握與樣品表、結果檔整合；OMNIS 為替代介面。",
+      "source": "IO1",
+      "category": "signal",
+      "model": "Remote Box 功能包絡，型號待確認"
+    },
+    {
+      "id": "PIP1",
+      "kind": "gateway",
+      "title": "移液 RS-485 介面",
+      "size": [
+        40,
+        70,
+        55
+      ],
+      "role": "pipette",
+      "description": "傳送吸液、吐液、吹出與退吸頭命令，回讀移液完成。",
+      "source": "IO1",
+      "category": "signal",
+      "model": "配置估算，型號待選"
+    }
+  ],
+  "cables": null
+}

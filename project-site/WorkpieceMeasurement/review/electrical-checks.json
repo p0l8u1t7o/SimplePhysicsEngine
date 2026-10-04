@@ -1,0 +1,1385 @@
+{
+  "ok": true,
+  "variants": [
+    {
+      "variant": "預設",
+      "params": {},
+      "ok": true,
+      "applicable": true,
+      "devices": 23,
+      "connections": 0,
+      "enclosures": 0,
+      "feedthroughs": {
+        "plates": 0,
+        "glands": 0,
+        "holeRays": 0,
+        "wireCrossings": 0,
+        "mountChecks": 0,
+        "failures": []
+      },
+      "failures": [],
+      "components": [
+        {
+          "id": "QS1",
+          "kind": "isolator",
+          "title": "總電源隔離",
+          "size": [
+            36,
+            65,
+            65
+          ],
+          "model": "額定待負載確認",
+          "category": "ac",
+          "role": "isolator",
+          "description": "總電源隔離；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -181,
+            237,
+            16
+          ]
+        },
+        {
+          "id": "QF1",
+          "kind": "breaker",
+          "title": "控制支路保護",
+          "size": [
+            36,
+            65,
+            65
+          ],
+          "model": "型號待選",
+          "category": "ac",
+          "role": "breaker",
+          "description": "控制支路保護；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -131,
+            237,
+            16
+          ]
+        },
+        {
+          "id": "QF2",
+          "kind": "breaker",
+          "title": "驅動支路保護",
+          "size": [
+            36,
+            65,
+            65
+          ],
+          "model": "型號待選",
+          "category": "ac",
+          "role": "breaker",
+          "description": "驅動支路保護；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -81,
+            237,
+            16
+          ]
+        },
+        {
+          "id": "QF3",
+          "kind": "breaker",
+          "title": "IPC 支路保護",
+          "size": [
+            36,
+            65,
+            65
+          ],
+          "model": "型號待選",
+          "category": "ac",
+          "role": "breaker",
+          "description": "IPC 支路保護；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -31,
+            237,
+            16
+          ]
+        },
+        {
+          "id": "PS1",
+          "kind": "psu",
+          "title": "24 V 電源",
+          "size": [
+            65,
+            85,
+            100
+          ],
+          "model": "24 VDC 容量待負載表",
+          "category": "ac",
+          "role": "psu",
+          "description": "24 V 電源；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            33.5,
+            237,
+            16
+          ]
+        },
+        {
+          "id": "GC1",
+          "kind": "safety",
+          "title": "安全控制器",
+          "size": [
+            60,
+            90,
+            95
+          ],
+          "model": "GC-1000 規劃平台",
+          "category": "safety",
+          "role": "safety",
+          "description": "安全控制器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            110,
+            237,
+            16
+          ]
+        },
+        {
+          "id": "K1",
+          "kind": "contactor",
+          "title": "動力允許接觸器",
+          "size": [
+            45,
+            65,
+            70
+          ],
+          "model": "型號與冗餘方案待定",
+          "category": "safety",
+          "role": "contactor",
+          "description": "動力允許接觸器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            176.5,
+            237,
+            16
+          ]
+        },
+        {
+          "id": "PLC1",
+          "kind": "plc",
+          "title": "設備 PLC",
+          "size": [
+            100,
+            85,
+            85
+          ],
+          "model": "KV-X + EtherCAT 規劃平台",
+          "category": "dc",
+          "role": "plc",
+          "description": "設備 PLC；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -150.5,
+            100,
+            16
+          ]
+        },
+        {
+          "id": "IO1",
+          "kind": "io",
+          "title": "現場 I/O",
+          "size": [
+            65,
+            80,
+            65
+          ],
+          "model": "PNP 功能配置，模組待選",
+          "category": "dc",
+          "role": "io",
+          "description": "現場 I/O；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -54,
+            100,
+            16
+          ]
+        },
+        {
+          "id": "SW1",
+          "kind": "switch",
+          "title": "工業網路交換器",
+          "size": [
+            40,
+            80,
+            70
+          ],
+          "model": "100/1000BASE-T",
+          "category": "network",
+          "role": "switch",
+          "description": "工業網路交換器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            12.5,
+            100,
+            16
+          ]
+        },
+        {
+          "id": "LC1",
+          "kind": "light",
+          "title": "相機光源控制器",
+          "size": [
+            70,
+            70,
+            70
+          ],
+          "model": "三通道以上，型號待選",
+          "category": "dc",
+          "role": "light",
+          "description": "相機光源控制器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            81.5,
+            100,
+            16
+          ]
+        },
+        {
+          "id": "CL1",
+          "kind": "gateway",
+          "title": "共焦控制器",
+          "size": [
+            70,
+            85,
+            100
+          ],
+          "model": "KEYENCE CL-3000",
+          "category": "dc",
+          "role": "gateway",
+          "description": "共焦控制器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            165.5,
+            100,
+            16
+          ]
+        },
+        {
+          "id": "DX",
+          "kind": "drive",
+          "title": "移載 X 驅動器",
+          "size": [
+            45,
+            95,
+            110
+          ],
+          "model": "原廠配套，功率與回授待定",
+          "category": "ac",
+          "role": "drive",
+          "description": "移載 X 驅動器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -206.5,
+            -45,
+            16
+          ]
+        },
+        {
+          "id": "DZ",
+          "kind": "drive",
+          "title": "移載 Z 驅動器",
+          "size": [
+            45,
+            95,
+            110
+          ],
+          "model": "原廠配套，功率與回授待定",
+          "category": "ac",
+          "role": "drive",
+          "description": "移載 Z 驅動器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -147.5,
+            -45,
+            16
+          ]
+        },
+        {
+          "id": "DT1",
+          "kind": "drive",
+          "title": "ST1 旋轉 驅動器",
+          "size": [
+            45,
+            95,
+            110
+          ],
+          "model": "原廠配套，功率與回授待定",
+          "category": "ac",
+          "role": "drive",
+          "description": "ST1 旋轉 驅動器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -88.5,
+            -45,
+            16
+          ]
+        },
+        {
+          "id": "DT2",
+          "kind": "drive",
+          "title": "ST2 旋轉 驅動器",
+          "size": [
+            45,
+            95,
+            110
+          ],
+          "model": "原廠配套，功率與回授待定",
+          "category": "ac",
+          "role": "drive",
+          "description": "ST2 旋轉 驅動器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -29.5,
+            -45,
+            16
+          ]
+        },
+        {
+          "id": "DR",
+          "kind": "drive",
+          "title": "ST2 徑向 驅動器",
+          "size": [
+            45,
+            95,
+            110
+          ],
+          "model": "原廠配套，功率與回授待定",
+          "category": "ac",
+          "role": "drive",
+          "description": "ST2 徑向 驅動器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            29.5,
+            -45,
+            16
+          ]
+        },
+        {
+          "id": "DIN",
+          "kind": "drive",
+          "title": "入料梭台 驅動器",
+          "size": [
+            45,
+            95,
+            110
+          ],
+          "model": "原廠配套，功率與回授待定",
+          "category": "ac",
+          "role": "drive",
+          "description": "入料梭台 驅動器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            88.5,
+            -45,
+            16
+          ]
+        },
+        {
+          "id": "DOUT",
+          "kind": "drive",
+          "title": "出料梭台 驅動器",
+          "size": [
+            45,
+            95,
+            110
+          ],
+          "model": "原廠配套，功率與回授待定",
+          "category": "ac",
+          "role": "drive",
+          "description": "出料梭台 驅動器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            147.5,
+            -45,
+            16
+          ]
+        },
+        {
+          "id": "DH",
+          "kind": "drive",
+          "title": "上感測頭避讓 Z 驅動器",
+          "size": [
+            45,
+            95,
+            110
+          ],
+          "model": "原廠配套，功率與回授待定",
+          "category": "ac",
+          "role": "drive",
+          "description": "上感測頭避讓 Z 驅動器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            206.5,
+            -45,
+            16
+          ]
+        },
+        {
+          "id": "OM1",
+          "kind": "gateway",
+          "title": "上頭光學模組",
+          "size": [
+            100,
+            140,
+            140
+          ],
+          "model": "KEYENCE CL-S015N",
+          "category": "signal",
+          "role": "gateway",
+          "description": "上頭光學模組；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -139,
+            -225,
+            16
+          ]
+        },
+        {
+          "id": "OM2",
+          "kind": "gateway",
+          "title": "下頭光學模組",
+          "size": [
+            100,
+            140,
+            140
+          ],
+          "model": "KEYENCE CL-S015N",
+          "category": "signal",
+          "role": "gateway",
+          "description": "下頭光學模組；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -25,
+            -225,
+            16
+          ]
+        },
+        {
+          "id": "IPC1",
+          "kind": "ipc",
+          "title": "視覺工業電腦",
+          "size": [
+            150,
+            95,
+            130
+          ],
+          "model": "GPU / GigE 相機介面",
+          "category": "network",
+          "role": "ipc",
+          "description": "視覺工業電腦；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            114,
+            -225,
+            16
+          ]
+        }
+      ],
+      "cables": null
+    },
+    {
+      "variant": "A/NG-A",
+      "params": {
+        "spec": "A",
+        "scenario": "NG-A"
+      },
+      "ok": true,
+      "applicable": true,
+      "devices": 23,
+      "connections": 0,
+      "enclosures": 0,
+      "feedthroughs": {
+        "plates": 0,
+        "glands": 0,
+        "holeRays": 0,
+        "wireCrossings": 0,
+        "mountChecks": 0,
+        "failures": []
+      },
+      "failures": [],
+      "components": [
+        {
+          "id": "QS1",
+          "kind": "isolator",
+          "title": "總電源隔離",
+          "size": [
+            36,
+            65,
+            65
+          ],
+          "model": "額定待負載確認",
+          "category": "ac",
+          "role": "isolator",
+          "description": "總電源隔離；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -181,
+            237,
+            16
+          ]
+        },
+        {
+          "id": "QF1",
+          "kind": "breaker",
+          "title": "控制支路保護",
+          "size": [
+            36,
+            65,
+            65
+          ],
+          "model": "型號待選",
+          "category": "ac",
+          "role": "breaker",
+          "description": "控制支路保護；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -131,
+            237,
+            16
+          ]
+        },
+        {
+          "id": "QF2",
+          "kind": "breaker",
+          "title": "驅動支路保護",
+          "size": [
+            36,
+            65,
+            65
+          ],
+          "model": "型號待選",
+          "category": "ac",
+          "role": "breaker",
+          "description": "驅動支路保護；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -81,
+            237,
+            16
+          ]
+        },
+        {
+          "id": "QF3",
+          "kind": "breaker",
+          "title": "IPC 支路保護",
+          "size": [
+            36,
+            65,
+            65
+          ],
+          "model": "型號待選",
+          "category": "ac",
+          "role": "breaker",
+          "description": "IPC 支路保護；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -31,
+            237,
+            16
+          ]
+        },
+        {
+          "id": "PS1",
+          "kind": "psu",
+          "title": "24 V 電源",
+          "size": [
+            65,
+            85,
+            100
+          ],
+          "model": "24 VDC 容量待負載表",
+          "category": "ac",
+          "role": "psu",
+          "description": "24 V 電源；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            33.5,
+            237,
+            16
+          ]
+        },
+        {
+          "id": "GC1",
+          "kind": "safety",
+          "title": "安全控制器",
+          "size": [
+            60,
+            90,
+            95
+          ],
+          "model": "GC-1000 規劃平台",
+          "category": "safety",
+          "role": "safety",
+          "description": "安全控制器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            110,
+            237,
+            16
+          ]
+        },
+        {
+          "id": "K1",
+          "kind": "contactor",
+          "title": "動力允許接觸器",
+          "size": [
+            45,
+            65,
+            70
+          ],
+          "model": "型號與冗餘方案待定",
+          "category": "safety",
+          "role": "contactor",
+          "description": "動力允許接觸器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            176.5,
+            237,
+            16
+          ]
+        },
+        {
+          "id": "PLC1",
+          "kind": "plc",
+          "title": "設備 PLC",
+          "size": [
+            100,
+            85,
+            85
+          ],
+          "model": "KV-X + EtherCAT 規劃平台",
+          "category": "dc",
+          "role": "plc",
+          "description": "設備 PLC；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -150.5,
+            100,
+            16
+          ]
+        },
+        {
+          "id": "IO1",
+          "kind": "io",
+          "title": "現場 I/O",
+          "size": [
+            65,
+            80,
+            65
+          ],
+          "model": "PNP 功能配置，模組待選",
+          "category": "dc",
+          "role": "io",
+          "description": "現場 I/O；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -54,
+            100,
+            16
+          ]
+        },
+        {
+          "id": "SW1",
+          "kind": "switch",
+          "title": "工業網路交換器",
+          "size": [
+            40,
+            80,
+            70
+          ],
+          "model": "100/1000BASE-T",
+          "category": "network",
+          "role": "switch",
+          "description": "工業網路交換器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            12.5,
+            100,
+            16
+          ]
+        },
+        {
+          "id": "LC1",
+          "kind": "light",
+          "title": "相機光源控制器",
+          "size": [
+            70,
+            70,
+            70
+          ],
+          "model": "三通道以上，型號待選",
+          "category": "dc",
+          "role": "light",
+          "description": "相機光源控制器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            81.5,
+            100,
+            16
+          ]
+        },
+        {
+          "id": "CL1",
+          "kind": "gateway",
+          "title": "共焦控制器",
+          "size": [
+            70,
+            85,
+            100
+          ],
+          "model": "KEYENCE CL-3000",
+          "category": "dc",
+          "role": "gateway",
+          "description": "共焦控制器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            165.5,
+            100,
+            16
+          ]
+        },
+        {
+          "id": "DX",
+          "kind": "drive",
+          "title": "移載 X 驅動器",
+          "size": [
+            45,
+            95,
+            110
+          ],
+          "model": "原廠配套，功率與回授待定",
+          "category": "ac",
+          "role": "drive",
+          "description": "移載 X 驅動器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -206.5,
+            -45,
+            16
+          ]
+        },
+        {
+          "id": "DZ",
+          "kind": "drive",
+          "title": "移載 Z 驅動器",
+          "size": [
+            45,
+            95,
+            110
+          ],
+          "model": "原廠配套，功率與回授待定",
+          "category": "ac",
+          "role": "drive",
+          "description": "移載 Z 驅動器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -147.5,
+            -45,
+            16
+          ]
+        },
+        {
+          "id": "DT1",
+          "kind": "drive",
+          "title": "ST1 旋轉 驅動器",
+          "size": [
+            45,
+            95,
+            110
+          ],
+          "model": "原廠配套，功率與回授待定",
+          "category": "ac",
+          "role": "drive",
+          "description": "ST1 旋轉 驅動器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -88.5,
+            -45,
+            16
+          ]
+        },
+        {
+          "id": "DT2",
+          "kind": "drive",
+          "title": "ST2 旋轉 驅動器",
+          "size": [
+            45,
+            95,
+            110
+          ],
+          "model": "原廠配套，功率與回授待定",
+          "category": "ac",
+          "role": "drive",
+          "description": "ST2 旋轉 驅動器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -29.5,
+            -45,
+            16
+          ]
+        },
+        {
+          "id": "DR",
+          "kind": "drive",
+          "title": "ST2 徑向 驅動器",
+          "size": [
+            45,
+            95,
+            110
+          ],
+          "model": "原廠配套，功率與回授待定",
+          "category": "ac",
+          "role": "drive",
+          "description": "ST2 徑向 驅動器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            29.5,
+            -45,
+            16
+          ]
+        },
+        {
+          "id": "DIN",
+          "kind": "drive",
+          "title": "入料梭台 驅動器",
+          "size": [
+            45,
+            95,
+            110
+          ],
+          "model": "原廠配套，功率與回授待定",
+          "category": "ac",
+          "role": "drive",
+          "description": "入料梭台 驅動器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            88.5,
+            -45,
+            16
+          ]
+        },
+        {
+          "id": "DOUT",
+          "kind": "drive",
+          "title": "出料梭台 驅動器",
+          "size": [
+            45,
+            95,
+            110
+          ],
+          "model": "原廠配套，功率與回授待定",
+          "category": "ac",
+          "role": "drive",
+          "description": "出料梭台 驅動器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            147.5,
+            -45,
+            16
+          ]
+        },
+        {
+          "id": "DH",
+          "kind": "drive",
+          "title": "上感測頭避讓 Z 驅動器",
+          "size": [
+            45,
+            95,
+            110
+          ],
+          "model": "原廠配套，功率與回授待定",
+          "category": "ac",
+          "role": "drive",
+          "description": "上感測頭避讓 Z 驅動器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            206.5,
+            -45,
+            16
+          ]
+        },
+        {
+          "id": "OM1",
+          "kind": "gateway",
+          "title": "上頭光學模組",
+          "size": [
+            100,
+            140,
+            140
+          ],
+          "model": "KEYENCE CL-S015N",
+          "category": "signal",
+          "role": "gateway",
+          "description": "上頭光學模組；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -139,
+            -225,
+            16
+          ]
+        },
+        {
+          "id": "OM2",
+          "kind": "gateway",
+          "title": "下頭光學模組",
+          "size": [
+            100,
+            140,
+            140
+          ],
+          "model": "KEYENCE CL-S015N",
+          "category": "signal",
+          "role": "gateway",
+          "description": "下頭光學模組；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -25,
+            -225,
+            16
+          ]
+        },
+        {
+          "id": "IPC1",
+          "kind": "ipc",
+          "title": "視覺工業電腦",
+          "size": [
+            150,
+            95,
+            130
+          ],
+          "model": "GPU / GigE 相機介面",
+          "category": "network",
+          "role": "ipc",
+          "description": "視覺工業電腦；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            114,
+            -225,
+            16
+          ]
+        }
+      ],
+      "cables": null
+    },
+    {
+      "variant": "C/ERR",
+      "params": {
+        "spec": "C",
+        "scenario": "ERR"
+      },
+      "ok": true,
+      "applicable": true,
+      "devices": 23,
+      "connections": 0,
+      "enclosures": 0,
+      "feedthroughs": {
+        "plates": 0,
+        "glands": 0,
+        "holeRays": 0,
+        "wireCrossings": 0,
+        "mountChecks": 0,
+        "failures": []
+      },
+      "failures": [],
+      "components": [
+        {
+          "id": "QS1",
+          "kind": "isolator",
+          "title": "總電源隔離",
+          "size": [
+            36,
+            65,
+            65
+          ],
+          "model": "額定待負載確認",
+          "category": "ac",
+          "role": "isolator",
+          "description": "總電源隔離；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -181,
+            237,
+            16
+          ]
+        },
+        {
+          "id": "QF1",
+          "kind": "breaker",
+          "title": "控制支路保護",
+          "size": [
+            36,
+            65,
+            65
+          ],
+          "model": "型號待選",
+          "category": "ac",
+          "role": "breaker",
+          "description": "控制支路保護；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -131,
+            237,
+            16
+          ]
+        },
+        {
+          "id": "QF2",
+          "kind": "breaker",
+          "title": "驅動支路保護",
+          "size": [
+            36,
+            65,
+            65
+          ],
+          "model": "型號待選",
+          "category": "ac",
+          "role": "breaker",
+          "description": "驅動支路保護；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -81,
+            237,
+            16
+          ]
+        },
+        {
+          "id": "QF3",
+          "kind": "breaker",
+          "title": "IPC 支路保護",
+          "size": [
+            36,
+            65,
+            65
+          ],
+          "model": "型號待選",
+          "category": "ac",
+          "role": "breaker",
+          "description": "IPC 支路保護；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -31,
+            237,
+            16
+          ]
+        },
+        {
+          "id": "PS1",
+          "kind": "psu",
+          "title": "24 V 電源",
+          "size": [
+            65,
+            85,
+            100
+          ],
+          "model": "24 VDC 容量待負載表",
+          "category": "ac",
+          "role": "psu",
+          "description": "24 V 電源；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            33.5,
+            237,
+            16
+          ]
+        },
+        {
+          "id": "GC1",
+          "kind": "safety",
+          "title": "安全控制器",
+          "size": [
+            60,
+            90,
+            95
+          ],
+          "model": "GC-1000 規劃平台",
+          "category": "safety",
+          "role": "safety",
+          "description": "安全控制器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            110,
+            237,
+            16
+          ]
+        },
+        {
+          "id": "K1",
+          "kind": "contactor",
+          "title": "動力允許接觸器",
+          "size": [
+            45,
+            65,
+            70
+          ],
+          "model": "型號與冗餘方案待定",
+          "category": "safety",
+          "role": "contactor",
+          "description": "動力允許接觸器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            176.5,
+            237,
+            16
+          ]
+        },
+        {
+          "id": "PLC1",
+          "kind": "plc",
+          "title": "設備 PLC",
+          "size": [
+            100,
+            85,
+            85
+          ],
+          "model": "KV-X + EtherCAT 規劃平台",
+          "category": "dc",
+          "role": "plc",
+          "description": "設備 PLC；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -150.5,
+            100,
+            16
+          ]
+        },
+        {
+          "id": "IO1",
+          "kind": "io",
+          "title": "現場 I/O",
+          "size": [
+            65,
+            80,
+            65
+          ],
+          "model": "PNP 功能配置，模組待選",
+          "category": "dc",
+          "role": "io",
+          "description": "現場 I/O；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -54,
+            100,
+            16
+          ]
+        },
+        {
+          "id": "SW1",
+          "kind": "switch",
+          "title": "工業網路交換器",
+          "size": [
+            40,
+            80,
+            70
+          ],
+          "model": "100/1000BASE-T",
+          "category": "network",
+          "role": "switch",
+          "description": "工業網路交換器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            12.5,
+            100,
+            16
+          ]
+        },
+        {
+          "id": "LC1",
+          "kind": "light",
+          "title": "相機光源控制器",
+          "size": [
+            70,
+            70,
+            70
+          ],
+          "model": "三通道以上，型號待選",
+          "category": "dc",
+          "role": "light",
+          "description": "相機光源控制器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            81.5,
+            100,
+            16
+          ]
+        },
+        {
+          "id": "CL1",
+          "kind": "gateway",
+          "title": "共焦控制器",
+          "size": [
+            70,
+            85,
+            100
+          ],
+          "model": "KEYENCE CL-3000",
+          "category": "dc",
+          "role": "gateway",
+          "description": "共焦控制器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            165.5,
+            100,
+            16
+          ]
+        },
+        {
+          "id": "DX",
+          "kind": "drive",
+          "title": "移載 X 驅動器",
+          "size": [
+            45,
+            95,
+            110
+          ],
+          "model": "原廠配套，功率與回授待定",
+          "category": "ac",
+          "role": "drive",
+          "description": "移載 X 驅動器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -206.5,
+            -45,
+            16
+          ]
+        },
+        {
+          "id": "DZ",
+          "kind": "drive",
+          "title": "移載 Z 驅動器",
+          "size": [
+            45,
+            95,
+            110
+          ],
+          "model": "原廠配套，功率與回授待定",
+          "category": "ac",
+          "role": "drive",
+          "description": "移載 Z 驅動器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -147.5,
+            -45,
+            16
+          ]
+        },
+        {
+          "id": "DT1",
+          "kind": "drive",
+          "title": "ST1 旋轉 驅動器",
+          "size": [
+            45,
+            95,
+            110
+          ],
+          "model": "原廠配套，功率與回授待定",
+          "category": "ac",
+          "role": "drive",
+          "description": "ST1 旋轉 驅動器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -88.5,
+            -45,
+            16
+          ]
+        },
+        {
+          "id": "DT2",
+          "kind": "drive",
+          "title": "ST2 旋轉 驅動器",
+          "size": [
+            45,
+            95,
+            110
+          ],
+          "model": "原廠配套，功率與回授待定",
+          "category": "ac",
+          "role": "drive",
+          "description": "ST2 旋轉 驅動器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -29.5,
+            -45,
+            16
+          ]
+        },
+        {
+          "id": "DR",
+          "kind": "drive",
+          "title": "ST2 徑向 驅動器",
+          "size": [
+            45,
+            95,
+            110
+          ],
+          "model": "原廠配套，功率與回授待定",
+          "category": "ac",
+          "role": "drive",
+          "description": "ST2 徑向 驅動器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            29.5,
+            -45,
+            16
+          ]
+        },
+        {
+          "id": "DIN",
+          "kind": "drive",
+          "title": "入料梭台 驅動器",
+          "size": [
+            45,
+            95,
+            110
+          ],
+          "model": "原廠配套，功率與回授待定",
+          "category": "ac",
+          "role": "drive",
+          "description": "入料梭台 驅動器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            88.5,
+            -45,
+            16
+          ]
+        },
+        {
+          "id": "DOUT",
+          "kind": "drive",
+          "title": "出料梭台 驅動器",
+          "size": [
+            45,
+            95,
+            110
+          ],
+          "model": "原廠配套，功率與回授待定",
+          "category": "ac",
+          "role": "drive",
+          "description": "出料梭台 驅動器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            147.5,
+            -45,
+            16
+          ]
+        },
+        {
+          "id": "DH",
+          "kind": "drive",
+          "title": "上感測頭避讓 Z 驅動器",
+          "size": [
+            45,
+            95,
+            110
+          ],
+          "model": "原廠配套，功率與回授待定",
+          "category": "ac",
+          "role": "drive",
+          "description": "上感測頭避讓 Z 驅動器；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            206.5,
+            -45,
+            16
+          ]
+        },
+        {
+          "id": "OM1",
+          "kind": "gateway",
+          "title": "上頭光學模組",
+          "size": [
+            100,
+            140,
+            140
+          ],
+          "model": "KEYENCE CL-S015N",
+          "category": "signal",
+          "role": "gateway",
+          "description": "上頭光學模組；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -139,
+            -225,
+            16
+          ]
+        },
+        {
+          "id": "OM2",
+          "kind": "gateway",
+          "title": "下頭光學模組",
+          "size": [
+            100,
+            140,
+            140
+          ],
+          "model": "KEYENCE CL-S015N",
+          "category": "signal",
+          "role": "gateway",
+          "description": "下頭光學模組；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            -25,
+            -225,
+            16
+          ]
+        },
+        {
+          "id": "IPC1",
+          "kind": "ipc",
+          "title": "視覺工業電腦",
+          "size": [
+            150,
+            95,
+            130
+          ],
+          "model": "GPU / GigE 相機介面",
+          "category": "network",
+          "role": "ipc",
+          "description": "視覺工業電腦；外形為配置包絡，接腳與散熱間距待原廠圖面核定。",
+          "at": [
+            114,
+            -225,
+            16
+          ]
+        }
+      ],
+      "cables": null
+    }
+  ]
+}

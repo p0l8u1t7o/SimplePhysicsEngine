@@ -10,7 +10,7 @@ const projects=['AutomaticAcid-BaseTitration','MilitaryGradePC','PCB-CopperAssem
 async function hash(project) {
   const h=createHash('sha256');
   for(const dir of [join(site,project,'web/js'),join(root,'core/electrical')])for(const name of (await readdir(dir)).filter(n=>n.endsWith('.js')).sort())h.update(name).update(await readFile(join(dir,name)));
-  h.update(await readFile(join(root,'tools/verify-cables.mjs')));h.update(await readFile(join(root,'tools/check-feedthroughs.mjs')));return h.digest('hex');
+  for(const f of ['tools/verify-cables.mjs','core/verify/cables.mjs','core/verify/feedthroughs.mjs','core/verify/clearance.mjs'])h.update(await readFile(join(root,f)));return h.digest('hex');   // 判定迴圈在 core/verify
 }
 const startedAt=new Date().toISOString();
 const results=await Promise.all(projects.map(async project=>{

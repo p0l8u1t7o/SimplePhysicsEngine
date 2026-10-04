@@ -2,7 +2,7 @@
   "title": "快門葉片與上蓋組裝站",
   "summary": "DENSO HSR065 SCARA、吸塑盤雙抽屜、上視補正的葉片與上蓋組裝。",
   "order": 6,
-  "coreVersion": "1.3.0",
+  "coreVersion": "1.4.0",
   "checks": {
     "quick": [
       "tools/verify.mjs"

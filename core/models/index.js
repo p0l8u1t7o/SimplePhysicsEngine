@@ -2,6 +2,7 @@
 // 每個模型提供 meta（名稱、分類、可調參數、可動狀態、用法）與 create(params) → { root, set?(state) }。
 import * as conveyor from './conveyor.js';
 import * as gantry from './gantry.js';
+import * as camera from './camera.js';
 import { motor, sensor, foot, gauge } from './hardware.js';
 import * as agvForklift from './agv-forklift.js';
 import * as drum200l from './drum-200l.js';
@@ -11,4 +12,4 @@ import * as densoHsr065 from './robots/denso-hsr065.js';
 import * as cobottaPro900 from './robots/denso-cobotta-pro900.js';
 import * as densoVm60b1 from './robots/denso-vm60b1.js';
 
-export const MODELS = [fanucR2000, densoVs068, densoVm60b1, cobottaPro900, densoHsr065, conveyor, gantry, agvForklift, drum200l, motor, sensor, foot, gauge];
+export const MODELS = [fanucR2000, densoVs068, densoVm60b1, cobottaPro900, densoHsr065, conveyor, gantry, camera, agvForklift, drum200l, motor, sensor, foot, gauge];

@@ -60,7 +60,7 @@ export function cabinetShell(parent,name,{center,size,entries=[],thickness=12,ma
 /** DIN rail / terminal / PLC mounting panel with genuinely connected wiring.
  * Coordinates are in the caller's frame, so feeds never attach to a moving axis.
  */
-export function controlPanel(parent,name,{center,width=700,height=430,backZ,profile}){
+export function controlPanel(parent,name,{center,width=700,height=430,backZ,profile,schedule}){
   const g=new THREE.Group();g.name=name;g.position.set(...center);parent.add(g);
   box(g,name+' / mounting backplate',[width,height,4],[0,0,0]);
   if(!Number.isFinite(backZ)||backZ>=center[2]-2)throw new Error(name+': rear wall mounting surface required');
@@ -84,7 +84,7 @@ export function controlPanel(parent,name,{center,width=700,height=430,backZ,prof
     box(g,'terminal entry '+(i+1),[6,3,6],[x,terminalY,20],rubber);
     const screw=new THREE.Mesh(new THREE.CylinderGeometry(2.3,2.3,1,6),steel);screw.rotation.x=Math.PI/2;screw.position.set(x,row,31.5);g.add(screw);
   }
-  if(profile)populatePanel(g,{profile,width,height});
+  const devices=profile||schedule?populatePanel(g,{profile,schedule,width,height}):new Map();
   // Slotted side ducts, open at the front so wire placement can be inspected.
   for(const x of [-width*.45,width*.45]){
     for(const y of [-height*.35,height*.35])box(g,'duct mounting foot',[12,12,5],[x,y,4.5]);
@@ -96,7 +96,7 @@ export function controlPanel(parent,name,{center,width=700,height=430,backZ,prof
   const stud=new THREE.Mesh(new THREE.CylinderGeometry(4,4,6,6),steel);
   stud.name='PE bonding stud';stud.rotation.x=Math.PI/2;stud.position.set(-width*.35,-height*.36,5);g.add(stud);
   cable(g,'PE / chassis bond',[[-width*.35,-height*.36,7],[-width*.42,-height*.32,28],[-width*.42,row,28],[-5.5*pitch,row+15,20]],{radius:1.5,color:CABLE.earth,clips:3,ends:false});
-  g.userData.controlPanel={ports,width,height,backZ};return {group:g,ports};
+  g.userData.controlPanel={ports,width,height,backZ};return {group:g,ports,devices};
 }
 
 /** Route through a desktop, through a cabinet roof, then to a terminal. */

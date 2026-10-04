@@ -1,0 +1,469 @@
+{
+  "ok": true,
+  "variants": [
+    {
+      "variant": "預設",
+      "params": {},
+      "ok": true,
+      "applicable": true,
+      "devices": 14,
+      "connections": 14,
+      "enclosures": 1,
+      "feedthroughs": {
+        "plates": 2,
+        "glands": 3,
+        "holeRays": 24,
+        "wireCrossings": 9,
+        "mountChecks": 4,
+        "failures": []
+      },
+      "failures": [],
+      "components": [
+        {
+          "id": "QS1",
+          "kind": "isolator",
+          "title": "總電源隔離開關",
+          "size": [
+            54,
+            75,
+            65
+          ],
+          "role": "power",
+          "description": "檢修時隔離設備電源；額定電流與現場電源待確認。",
+          "source": null,
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "QF1",
+          "kind": "breaker",
+          "title": "控制支路保護",
+          "size": [
+            36,
+            75,
+            65
+          ],
+          "role": "power",
+          "description": "分支保護後供應 24 V 電源，與伺服動力分路。",
+          "source": "QS1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "PS1",
+          "kind": "psu",
+          "title": "24 VDC 電源",
+          "size": [
+            65,
+            95,
+            100
+          ],
+          "role": "power",
+          "description": "供應 PLC、I/O、光源控制及感測器；容量需依負載表確認。",
+          "source": "QF1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "GC1",
+          "kind": "safety",
+          "title": "安全控制器",
+          "size": [
+            60,
+            90,
+            95
+          ],
+          "role": "safety",
+          "description": "收集急停與防護裝置訊號，交握驅動停止及重啟允許；此畫面僅呈現規劃。",
+          "source": "PS1",
+          "category": "dc",
+          "model": "GC-1000 規劃平台；外形 60×90×95 mm"
+        },
+        {
+          "id": "K1",
+          "kind": "contactor",
+          "title": "監控接觸器",
+          "size": [
+            50,
+            75,
+            70
+          ],
+          "role": "safety",
+          "description": "安全輸出控制動力支路，輔助接點回授；回路需另做風險評估與設計。",
+          "source": "GC1",
+          "category": "safety",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "QF2",
+          "kind": "breaker",
+          "title": "動力支路保護",
+          "size": [
+            36,
+            75,
+            65
+          ],
+          "role": "power",
+          "description": "獨立供應驅動器／馬達支路；與控制电源分區。",
+          "source": "QS1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "PLC1",
+          "kind": "plc",
+          "title": "設備 PLC",
+          "size": [
+            100,
+            90,
+            85
+          ],
+          "role": "control",
+          "description": "管理站序、到位互鎖與配方交握。",
+          "source": "PS1",
+          "category": "dc",
+          "model": "KV-X 系列規劃平台；模組外形估算"
+        },
+        {
+          "id": "IO1",
+          "kind": "io",
+          "title": "分散式 I/O",
+          "size": [
+            70,
+            80,
+            65
+          ],
+          "role": "io",
+          "description": "接收止擋、夾緊、到位與壓力訊號，輸出電磁閥及指示燈。",
+          "source": "PLC1",
+          "category": "signal",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "SW1",
+          "kind": "switch",
+          "title": "工業乙太網交換器",
+          "size": [
+            40,
+            80,
+            70
+          ],
+          "role": "network",
+          "description": "連接 PLC、視覺電腦、手臂及上位系統。",
+          "source": "PS1",
+          "category": "dc",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "LC1",
+          "kind": "light",
+          "title": "頻閃光源控制器",
+          "size": [
+            70,
+            70,
+            70
+          ],
+          "role": "vision",
+          "description": "配合相機觸發時序驅動光源，檢視狀態隨主時間軸。",
+          "source": "IO1",
+          "category": "signal",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "IPC1",
+          "kind": "ipc",
+          "title": "視覺工業電腦",
+          "size": [
+            160,
+            95,
+            100
+          ],
+          "role": "vision",
+          "description": "相機取像、配方辨識、補正與結果紀錄；與 PLC 交換 Ready／Busy／OK／NG。",
+          "source": "SW1",
+          "category": "network",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "VAC1",
+          "kind": "io",
+          "title": "真空／壓力介面",
+          "size": [
+            65,
+            75,
+            65
+          ],
+          "role": "vacuum",
+          "description": "確認 T1/T2 吸附與破真空、T3 夾持及治具夾緊；對應閥島與壓力開關。",
+          "source": "IO1",
+          "category": "signal",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "RC1",
+          "kind": "robot",
+          "title": "手臂控制器",
+          "size": [
+            357,
+            94,
+            320
+          ],
+          "role": "motion",
+          "description": "RC8A 負責手臂軸控制，PLC 交握任務、完成與異常。",
+          "source": null,
+          "category": "ac",
+          "model": "RC8A 標準型包絡；357×94×320 mm"
+        },
+        {
+          "id": "YV1",
+          "kind": "valve",
+          "title": "工具／治具電磁閥島",
+          "size": [
+            140,
+            50,
+            55
+          ],
+          "role": "vacuum",
+          "description": "分配 T1/T2 真空及破真空、T3 夾爪、工具滑台與治具夾緊；I/O 線圈控制與氣管分開接入。",
+          "source": "IO1",
+          "category": "signal",
+          "model": "閥島功能包絡；閥數與流量待選型"
+        }
+      ],
+      "cables": null
+    },
+    {
+      "variant": "NG",
+      "params": {
+        "ng": true
+      },
+      "ok": true,
+      "applicable": true,
+      "devices": 14,
+      "connections": 14,
+      "enclosures": 1,
+      "feedthroughs": {
+        "plates": 2,
+        "glands": 3,
+        "holeRays": 24,
+        "wireCrossings": 9,
+        "mountChecks": 4,
+        "failures": []
+      },
+      "failures": [],
+      "components": [
+        {
+          "id": "QS1",
+          "kind": "isolator",
+          "title": "總電源隔離開關",
+          "size": [
+            54,
+            75,
+            65
+          ],
+          "role": "power",
+          "description": "檢修時隔離設備電源；額定電流與現場電源待確認。",
+          "source": null,
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "QF1",
+          "kind": "breaker",
+          "title": "控制支路保護",
+          "size": [
+            36,
+            75,
+            65
+          ],
+          "role": "power",
+          "description": "分支保護後供應 24 V 電源，與伺服動力分路。",
+          "source": "QS1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "PS1",
+          "kind": "psu",
+          "title": "24 VDC 電源",
+          "size": [
+            65,
+            95,
+            100
+          ],
+          "role": "power",
+          "description": "供應 PLC、I/O、光源控制及感測器；容量需依負載表確認。",
+          "source": "QF1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "GC1",
+          "kind": "safety",
+          "title": "安全控制器",
+          "size": [
+            60,
+            90,
+            95
+          ],
+          "role": "safety",
+          "description": "收集急停與防護裝置訊號，交握驅動停止及重啟允許；此畫面僅呈現規劃。",
+          "source": "PS1",
+          "category": "dc",
+          "model": "GC-1000 規劃平台；外形 60×90×95 mm"
+        },
+        {
+          "id": "K1",
+          "kind": "contactor",
+          "title": "監控接觸器",
+          "size": [
+            50,
+            75,
+            70
+          ],
+          "role": "safety",
+          "description": "安全輸出控制動力支路，輔助接點回授；回路需另做風險評估與設計。",
+          "source": "GC1",
+          "category": "safety",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "QF2",
+          "kind": "breaker",
+          "title": "動力支路保護",
+          "size": [
+            36,
+            75,
+            65
+          ],
+          "role": "power",
+          "description": "獨立供應驅動器／馬達支路；與控制电源分區。",
+          "source": "QS1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "PLC1",
+          "kind": "plc",
+          "title": "設備 PLC",
+          "size": [
+            100,
+            90,
+            85
+          ],
+          "role": "control",
+          "description": "管理站序、到位互鎖與配方交握。",
+          "source": "PS1",
+          "category": "dc",
+          "model": "KV-X 系列規劃平台；模組外形估算"
+        },
+        {
+          "id": "IO1",
+          "kind": "io",
+          "title": "分散式 I/O",
+          "size": [
+            70,
+            80,
+            65
+          ],
+          "role": "io",
+          "description": "接收止擋、夾緊、到位與壓力訊號，輸出電磁閥及指示燈。",
+          "source": "PLC1",
+          "category": "signal",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "SW1",
+          "kind": "switch",
+          "title": "工業乙太網交換器",
+          "size": [
+            40,
+            80,
+            70
+          ],
+          "role": "network",
+          "description": "連接 PLC、視覺電腦、手臂及上位系統。",
+          "source": "PS1",
+          "category": "dc",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "LC1",
+          "kind": "light",
+          "title": "頻閃光源控制器",
+          "size": [
+            70,
+            70,
+            70
+          ],
+          "role": "vision",
+          "description": "配合相機觸發時序驅動光源，檢視狀態隨主時間軸。",
+          "source": "IO1",
+          "category": "signal",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "IPC1",
+          "kind": "ipc",
+          "title": "視覺工業電腦",
+          "size": [
+            160,
+            95,
+            100
+          ],
+          "role": "vision",
+          "description": "相機取像、配方辨識、補正與結果紀錄；與 PLC 交換 Ready／Busy／OK／NG。",
+          "source": "SW1",
+          "category": "network",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "VAC1",
+          "kind": "io",
+          "title": "真空／壓力介面",
+          "size": [
+            65,
+            75,
+            65
+          ],
+          "role": "vacuum",
+          "description": "確認 T1/T2 吸附與破真空、T3 夾持及治具夾緊；對應閥島與壓力開關。",
+          "source": "IO1",
+          "category": "signal",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "RC1",
+          "kind": "robot",
+          "title": "手臂控制器",
+          "size": [
+            357,
+            94,
+            320
+          ],
+          "role": "motion",
+          "description": "RC8A 負責手臂軸控制，PLC 交握任務、完成與異常。",
+          "source": null,
+          "category": "ac",
+          "model": "RC8A 標準型包絡；357×94×320 mm"
+        },
+        {
+          "id": "YV1",
+          "kind": "valve",
+          "title": "工具／治具電磁閥島",
+          "size": [
+            140,
+            50,
+            55
+          ],
+          "role": "vacuum",
+          "description": "分配 T1/T2 真空及破真空、T3 夾爪、工具滑台與治具夾緊；I/O 線圈控制與氣管分開接入。",
+          "source": "IO1",
+          "category": "signal",
+          "model": "閥島功能包絡；閥數與流量待選型"
+        }
+      ],
+      "cables": null
+    }
+  ]
+}

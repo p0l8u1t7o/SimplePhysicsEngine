@@ -12,6 +12,11 @@ function badge(p,text,w,h,at){
   const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({map:t}));m.position.set(...at);p.add(m);
 }
 const part=(id,kind,title,size,role,description,source,category='dc',model='配置估算，型號待選')=>({id,kind,title,size,role,description,source,category,model});
+// 新專案自己列元件表：populatePanel／controlPanel 的 schedule = [{ y, items: [component({...}), …] }, …]（y 為背板上的列高，mm）
+// kind：isolator breaker psu safety contactor plc io switch light ipc drive valve gateway robot（決定外觀）；
+// role：power control io network safety vision motion force vacuum…（electricalActivity 用來亮燈）；category：CIRCUITS 的鍵（連線顏色）；
+// source：上游元件 id（櫃內連線從它拉過來；null 表示接端子台）；free：放在櫃外（檢查不要求在櫃內）
+export const component=({id,kind,title,size,role,description='',source=null,category='dc',model='配置估算，型號待選',...rest})=>({...part(id,kind,title,size,role,description,source,category,model),...rest});
 function supply(compact=false){return [
   part('QS1','isolator','總電源隔離開關',[compact?36:54,75,65],'power','檢修時隔離設備電源；額定電流與現場電源待確認。',null,'ac'),
   part('QF1','breaker','控制支路保護',[compact?18:36,75,65],'power','分支保護後供應 24 V 電源，與伺服動力分路。','QS1','ac'),
@@ -90,12 +95,12 @@ function internalWire(parent,id,from,to,points,category){
   const m=new THREE.Mesh(new THREE.TubeGeometry(path,Math.max(24,vs.length*8),.8,6,false),mat(CIRCUITS[category].color));
   m.name=id;m.userData.electricalWire={from,to,category,points};parent.add(m);return m;
 }
-export function populatePanel(panel,{profile,width,height}){
-  const rows=panelSchedule(profile),devices=new Map(),g=new THREE.Group();g.name='electrical planning / '+profile;panel.add(g);
+export function populatePanel(panel,{profile,schedule,width,height}){
+  const rows=schedule||panelSchedule(profile),label=profile||panel.name||'schedule',devices=new Map(),g=new THREE.Group();g.name='electrical planning / '+label;panel.add(g);
   const rowBottom=new Map();
   for(const row of rows){
     const gap=14,total=row.items.reduce((a,x)=>a+x.size[0],0)+gap*(row.items.length-1);
-    if(total>width*.83)throw new Error(profile+' equipment does not fit panel width');
+    if(total>width*.83)throw new Error(label+' equipment does not fit panel width（'+Math.round(total)+' mm > '+Math.round(width*.83)+' mm；分成多列或加寬背板）');
     let x=-total/2;
     const bottom=row.y-Math.max(...row.items.map(x=>x.size[1]))/2-13;
     for(const item of row.items){x+=item.size[0]/2;const o=electricalDevice(g,item,[x,row.y,15]);devices.set(item.id,o);rowBottom.set(item.id,bottom);x+=item.size[0]/2+gap;}
@@ -113,7 +118,7 @@ export function populatePanel(panel,{profile,width,height}){
     const b=pin(dst,-1),yb=rowBottom.get(id),a=src?pin(src,1):[(index%12-5.5)*pitch,terminalY,20],ya=src?rowBottom.get(s.source):terminalY-16;
     internalWire(g,'NET / '+(src?s.source:'X1')+' → '+id,src?s.source:'X1',id,[a,[a[0],ya,a[2]],[a[0],ya,z],[side,ya,z],[side,yb,z],[b[0],yb,z],[b[0],yb,b[2]],b],category);index++;
   }
-  panel.userData.electricalProfile=profile;return devices;
+  panel.userData.electricalProfile=label;return devices;
 }
 
 export function robotController(parent,{at,crc=false,id='RC1',floor=4}){
