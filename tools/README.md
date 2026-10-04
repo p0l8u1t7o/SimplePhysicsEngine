@@ -22,32 +22,15 @@ node tools/verify-interference.mjs MilitaryGradePC RobotArmPressSSD
 
 這是可重跑的動畫回歸檢查，不是背景排程或實機安全認證；有限時間取樣不構成連續碰撞證明，仍未涵蓋完整動態軟管、線纜、公差與所有非相鄰連桿。
 
-## 五站配線檢查
+## 配線、穿板孔與電盤（已移到 core）
 
-共用線材模型只有 `core/electrical/` 一份，各站直接引用（`@core/electrical/…`），修改後不必同步，直接執行配線檢查：
-
-```powershell
-node tools/verify-cable-routing.mjs
-```
-
-涵蓋上述四站與 `shutter assembly`，檢查主要外露線路的取樣碰撞、拖鏈定長、折返半徑及行程。總表為 [cable-checks.json](review/cable-checks.json)，各站 `review/cables.json` 記錄配方、取樣數與失敗項目。程序同時確認執行期間來源沒有變更。
-
-配線檢查補充原有機構檢查，不能取代它。現在也檢查帶有 `userData.support` 的支架、線夾腳與拖鏈承托板；未模擬軟線下垂、疲勞、全線材互撞及支架強度。配置與選型依據見[五站線材研究](docs/cable-routing-review.md)，本次修正見[支架檢查紀錄](docs/support-routing-review.md)。網頁的「線材配置」按鈕提供觀察視角，右下角可展開配色說明。
-
-
-## 穿板孔與電盤
-
-`core/electrical/electrical-cabinet.js` 提供真實開孔、穿板接頭、中空機櫃、固定背板及端子配線；五站「電盤配線」可查看櫃內。配線檢查另驗證孔洞暢通、接頭上下連續穿線及背板固定柱接觸櫃壁。詳見[穿板與電盤紀錄](docs/electrical-routing-review.md)。
-
-## 電控元件配置
-
-`core/electrical/electrical-components.js` 定義各站的元件、功能連接與安裝包絡；`core/electrical/electrical-inspector.js/css` 提供選取、特寫、剖視／透視及同步狀態。
+2026-10-04 起，配線動態取樣、穿板孔與電盤配置檢查都由 `core/tools/check.mjs` 內建的 `electrical` 執行（快速檢查就會跑，CI 部署前也會擋）。判定邏輯在 `core/verify/cables.mjs`、`feedthroughs.mjs`、`electrical.mjs`；各站在 `web/js/project.js` 的 `verify.cables` 宣告情境（配方、SKU、OK／NG）、障礙物與取樣時間。原本的 `verify-cable-routing.mjs`、`verify-cables.mjs`、`verify-electrical-plan.mjs` 已退役：退役前 5 站逐情境比對，線路、支架、拖鏈與取樣數完全相同、0 個失敗。
 
 ```powershell
-node --import ./core/tools/register.mjs tools/verify-electrical-plan.mjs
+node core/tools/check.mjs --only electrical          # 全部專案；結果在各站 review/electrical-checks.json
 ```
 
-這項檢查不需 npm 套件，總表為 `tools/review/electrical-plan-checks.json`；另重跑原有配線與機構檢查。操作與來源見[五站電控規劃](docs/electrical-control-plan.md)。
+檢查內容：外露線路與支架對選定剛體的取樣碰撞（線端 10 mm 可插入接頭）、拖鏈定長與折返半徑、穿板孔真的開孔且有線穿過、背板固定柱接觸櫃壁、元件主體在櫃內且不重疊、櫃內連線不穿過元件。未模擬軟線下垂、疲勞、全線材互撞及支架強度。配置與選型依據見[五站線材研究](docs/cable-routing-review.md)、[支架檢查紀錄](docs/support-routing-review.md)、[穿板與電盤紀錄](docs/electrical-routing-review.md)、[五站電控規劃](docs/electrical-control-plan.md)（這幾份是當時的研究紀錄，裡面提到的根目錄工具已經退役）。
 
 ## 五站共用視窗控制
 

@@ -6,6 +6,12 @@ import { createSequence } from './sequence.js';
 import { RECIPES, DEFAULT_RECIPE } from './recipes.js';
 import { LAYOUT } from './cell.js';
 
+import { stepTimes } from '@core/anim/sampling.js';
+import { solidMeshes as meshList } from '@core/electrical/cable-routing.js';
+
+// 配線檢查的取樣間隔（秒）
+const CABLE_DT = 0.1;
+
 /** 網址參數 → 配方鍵與壓墊（main.js 與檢查共用同一規則） */
 export function resolveRecipe(recipeKey, insert) {
   const key = RECIPES[recipeKey] ? recipeKey : DEFAULT_RECIPE, recipe = RECIPES[key];
@@ -88,6 +94,20 @@ export function createProject({ scene, headless = false, recipe: recipeKey, inse
       skip: o => o.isMesh && o.parent === cell.group && o.position.y <= 1,
       moduleOf,
       envelope: ['robot'],
+      // 配線動態取樣（core electrical 檢查）：與原本根目錄 tools/verify-cables.mjs（2026-10-04 退役） 的本站情境等價
+      cables: {
+        interval: CABLE_DT,
+        minRoutes: 5,
+        // 會動的手臂、工具，加上要讓開的固定件（不含走線支架與地面平面）
+        obstacles: () => [...robot.clearanceParts.arm, ...meshList(robot.tool), ...cell.keepout.flatMap(meshList), ...meshList(cell.occluders)],
+        // 直接取樣排程＋手臂到位（不經網頁的到位閘門，也不更新燈號與 ROI 框）
+        apply: t => { sequence.sample(t); robot.snap(); },
+        // 每個步驟各自依間隔取樣（含步驟起訖）
+        times: () => stepTimes(sequence.steps, CABLE_DT),
+        // 預設情境是預設配方＋標準壓墊；其餘配方 × 壓墊組合（整排接頭的配方另有單點）
+        variants: Object.entries(RECIPES).flatMap(([k, r]) => (r.multiPad ? ['bar', 'single'] : ['single']).map(ins => ({ name: k + '/' + ins, params: { recipe: k, insert: ins } })))
+          .filter(v => !(v.params.recipe === DEFAULT_RECIPE && v.params.insert === RECIPES[DEFAULT_RECIPE].insert)),
+      },
     },
   };
 }

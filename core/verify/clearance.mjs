@@ -39,7 +39,5 @@ export function minimumGap(first, second) {
 }
 
 // Includes exact endpoints even when duration is not a multiple of interval.
-export function sampleTimes(start, duration, interval) {
-  const count = Math.max(1, Math.ceil(duration / interval));
-  return Array.from({ length: count + 1 }, (_, i) => start + duration * i / count);
-}
+// 本體在 core/anim/sampling.js（網頁也能載入），這裡沿用舊匯入路徑
+export { sampleTimes } from '../anim/sampling.js';

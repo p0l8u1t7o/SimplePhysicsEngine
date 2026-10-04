@@ -7,6 +7,8 @@ const jacket = color => new THREE.MeshStandardMaterial({color,roughness:.66,meta
 const clipMat = jacket(0x69727c), connectorMat = new THREE.MeshStandardMaterial({color:0xa5adb4,roughness:.3,metalness:.75});
 const V = p => new THREE.Vector3(...p);
 const mark = (o,kind) => {o.userData.routingHardware=kind;return o;};
+/** 子樹中的實體網格（去掉配線五金與平面貼片）：verify.cables.obstacles 用 */
+export const solidMeshes = root => { const a = []; root.traverse(m => { if (m.isMesh && !m.userData.routingHardware && m.geometry.type !== 'PlaneGeometry') a.push(m); }); return a; };
 
 /** Clamped, static relative to its parent; endpoints are connector centres. */
 export function cable(parent,name,points,{radius=2.5,color=CABLE.signal,clips=2,ends=true,backing=null}={}) {

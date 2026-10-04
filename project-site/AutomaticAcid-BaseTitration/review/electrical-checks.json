@@ -182,5 +182,24 @@
       "model": "配置估算，型號待選"
     }
   ],
-  "cables": null
+  "cables": {
+    "report": [
+      {
+        "scenario": "預設",
+        "samples": 22837,
+        "routes": 20,
+        "supports": 60,
+        "carriers": 1,
+        "feedthroughs": {
+          "plates": 4,
+          "glands": 6,
+          "holeRays": 54,
+          "wireCrossings": 18,
+          "mountChecks": 4,
+          "failures": []
+        }
+      }
+    ],
+    "failures": []
+  }
 }

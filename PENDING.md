@@ -41,6 +41,7 @@
 - [x] P2 執行：冒煙＋其餘 5 次都完成，第一段全部通過檢查；對照報告在本機 `TEMP/p2-report/index.html`（2026-10-04）。
 - [x] 定各角色的正式預設：opus 規劃與實作、gpt-6 渲染與細節補強（2026-10-04，已寫進 `studio/lib/roles.mjs`）。
 - [x] P4 第二段能力實作（2026-10-04，core 1.4.0）：`vs3d stage2`／第一段完成後的卡片、`segment2.md`／`segment2.json` 規劃、角色依段落指派、第二段不能改第一段的排程指紋、core 內建 `electrical` 檢查、`core/examples/segment2` 範例、相機模型。
+- [x] 現有 5 站（酸鹼、MGPC、PCB、SSD、快門）的配線檢查改由 core 的 `electrical`（`verify.cables`）執行，根目錄 verify-cable-routing／verify-cables／verify-electrical-plan 退役；退役前逐情境比對完全一致（2026-10-04，core 1.5.0）。
 - [x] P4 第二段驗收（2026-10-04）：MGPC（P2 Codex 版）與回收物分揀都跑完第二段，結果見 `studio/README.md`「P4 第二段驗收」；回收物分揀成品已匯入本庫。快門不跑（使用者決定）。
 - [ ] 回收物分揀：光幕依 ISO 13855 的安全距離 668 mm 在現有框架內不成立，畫面只畫示意；實機防護位置待風險評估（對客戶說明時要提）。
 - [ ] 回收物分揀的「電盤配線」視角離櫃子太近，相機子畫面蓋住櫃子右半邊；調視角或在這個視角收起子畫面。

@@ -30,7 +30,7 @@ for (const v of variants) {
   if (check === 'scene') r = verifyScene(project, scene, { dt: opts.dt, report: s => console.log(`[${v.name}] ${s}`) });
   else if (check === 'determinism') r = verifyDeterminism(project, scene);
   else if (check === 'layout') { const rows = project.layoutChecks?.() || []; r = { ok: rows.every(x => x.ok), count: rows.length, failures: rows.filter(x => !x.ok), rows }; }
-  else if (check === 'electrical') r = verifyElectrical(project, scene, { interval: opts.dt });
+  else if (check === 'electrical') r = verifyElectrical(project, scene, { interval: opts.dt, name: v.name });
   else if (check === 'fingerprint') r = { ok: true, ...fingerprint(project, scene), layout: (project.layoutChecks?.() || []).map(x => [x.group || '', x.name, !!x.ok, x.value ?? null]) };
   else { console.log('未知檢查：' + check); process.exit(2); }
   runs.push({ variant: v.name, params: v.params, ...r });
@@ -40,7 +40,8 @@ for (const v of variants) {
     runs.push({ variant: '配線 ' + cv.name, params: cv.params, ...verifyElectrical(p2, s2, { interval: opts.dt, name: cv.name, cablesOnly: true }) });
   }
 }
-const result = variants.length === 1 ? runs[0] : { ok: runs.every(r => r.ok), variants: runs };
+// 用 runs 而不是 variants 判斷：electrical 的配線額外情境（cables.variants）也在 runs 裡，要一起寫進報告、一起決定通過與否
+const result = runs.length === 1 ? runs[0] : { ok: runs.every(r => r.ok), variants: runs };
 // 排程指紋只印一行 JSON 給 studio 比對，不寫 review（避免每次跑都產生 git 差異）
 if (check === 'fingerprint') { console.log('FINGERPRINT ' + JSON.stringify(result)); process.exit(0); }
 // 耗時只印在終端機、不寫進 review（提交的報告只在結果改變時才有差異）

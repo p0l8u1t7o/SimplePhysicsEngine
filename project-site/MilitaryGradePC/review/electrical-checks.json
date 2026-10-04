@@ -1,306 +1,360 @@
 {
-  "variant": "預設",
-  "params": {},
   "ok": true,
-  "applicable": true,
-  "devices": 19,
-  "connections": 20,
-  "enclosures": 2,
-  "feedthroughs": {
-    "plates": 2,
-    "glands": 4,
-    "holeRays": 24,
-    "wireCrossings": 12,
-    "mountChecks": 8,
-    "failures": []
-  },
-  "failures": [],
-  "components": [
+  "variants": [
     {
-      "id": "QS1",
-      "kind": "isolator",
-      "title": "總電源隔離開關",
-      "size": [
-        36,
-        75,
-        65
+      "variant": "預設",
+      "params": {},
+      "ok": true,
+      "applicable": true,
+      "devices": 19,
+      "connections": 20,
+      "enclosures": 2,
+      "feedthroughs": {
+        "plates": 2,
+        "glands": 4,
+        "holeRays": 24,
+        "wireCrossings": 12,
+        "mountChecks": 8,
+        "failures": []
+      },
+      "failures": [],
+      "components": [
+        {
+          "id": "QS1",
+          "kind": "isolator",
+          "title": "總電源隔離開關",
+          "size": [
+            36,
+            75,
+            65
+          ],
+          "role": "power",
+          "description": "檢修時隔離設備電源；額定電流與現場電源待確認。",
+          "source": null,
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "QF1",
+          "kind": "breaker",
+          "title": "控制支路保護",
+          "size": [
+            18,
+            75,
+            65
+          ],
+          "role": "power",
+          "description": "分支保護後供應 24 V 電源，與伺服動力分路。",
+          "source": "QS1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "PS1",
+          "kind": "psu",
+          "title": "24 VDC 電源",
+          "size": [
+            50,
+            95,
+            100
+          ],
+          "role": "power",
+          "description": "供應 PLC、I/O、光源控制及感測器；容量需依負載表確認。",
+          "source": "QF1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "GC1",
+          "kind": "safety",
+          "title": "安全控制器",
+          "size": [
+            60,
+            90,
+            95
+          ],
+          "role": "safety",
+          "description": "收集急停與防護裝置訊號，交握驅動停止及重啟允許；此畫面僅呈現規劃。",
+          "source": "PS1",
+          "category": "dc",
+          "model": "GC-1000 規劃平台；外形 60×90×95 mm"
+        },
+        {
+          "id": "K1",
+          "kind": "contactor",
+          "title": "監控接觸器",
+          "size": [
+            32,
+            75,
+            70
+          ],
+          "role": "safety",
+          "description": "安全輸出控制動力支路，輔助接點回授；回路需另做風險評估與設計。",
+          "source": "GC1",
+          "category": "safety",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "PLC1",
+          "kind": "plc",
+          "title": "設備 PLC",
+          "size": [
+            80,
+            90,
+            85
+          ],
+          "role": "control",
+          "description": "管理站序、到位互鎖與配方交握。",
+          "source": "PS1",
+          "category": "dc",
+          "model": "KV-X 系列規劃平台；模組外形估算"
+        },
+        {
+          "id": "IO1",
+          "kind": "io",
+          "title": "分散式 I/O",
+          "size": [
+            50,
+            80,
+            65
+          ],
+          "role": "io",
+          "description": "接收止擋、夾緊、到位與壓力訊號，輸出電磁閥及指示燈。",
+          "source": "PLC1",
+          "category": "signal",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "SW1",
+          "kind": "switch",
+          "title": "工業乙太網交換器",
+          "size": [
+            40,
+            80,
+            70
+          ],
+          "role": "network",
+          "description": "連接 PLC、視覺電腦、手臂及上位系統。",
+          "source": "PS1",
+          "category": "dc",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "LC1",
+          "kind": "light",
+          "title": "頻閃光源控制器",
+          "size": [
+            45,
+            70,
+            70
+          ],
+          "role": "vision",
+          "description": "配合相機觸發時序驅動光源，檢視狀態隨主時間軸。",
+          "source": "IO1",
+          "category": "signal",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "FT1",
+          "kind": "io",
+          "title": "力覺介面",
+          "size": [
+            50,
+            70,
+            65
+          ],
+          "role": "force",
+          "description": "接收末端 F/T 訊號，提供接觸力監看與製程判斷。",
+          "source": "IO1",
+          "category": "signal",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "RC1",
+          "kind": "robot",
+          "title": "手臂控制器",
+          "size": [
+            357,
+            94,
+            320
+          ],
+          "role": "motion",
+          "description": "RC8A 負責手臂軸控制，PLC 交握任務、完成與異常。",
+          "source": null,
+          "category": "ac",
+          "model": "RC8A 標準型包絡；357×94×320 mm"
+        },
+        {
+          "id": "D1",
+          "kind": "drive",
+          "title": "手臂直線軌道驅動",
+          "size": [
+            45,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "伺服功率級、回授及運動命令介面；軸功率、編碼器與煞車選型待確認。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D2",
+          "kind": "drive",
+          "title": "S0 進料升降驅動",
+          "size": [
+            45,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "伺服功率級、回授及運動命令介面；軸功率、編碼器與煞車選型待確認。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D3",
+          "kind": "drive",
+          "title": "S4 出料升降驅動",
+          "size": [
+            45,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "伺服功率級、回授及運動命令介面；軸功率、編碼器與煞車選型待確認。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D4",
+          "kind": "drive",
+          "title": "S1 取像頭驅動",
+          "size": [
+            45,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "伺服功率級、回授及運動命令介面；軸功率、編碼器與煞車選型待確認。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D5",
+          "kind": "drive",
+          "title": "S3 翻轉驅動",
+          "size": [
+            45,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "伺服功率級、回授及運動命令介面；軸功率、編碼器與煞車選型待確認。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D6",
+          "kind": "drive",
+          "title": "輸送驅動",
+          "size": [
+            45,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "伺服功率級、回授及運動命令介面；軸功率、編碼器與煞車選型待確認。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "EC1",
+          "kind": "plc",
+          "title": "周邊運動交握",
+          "size": [
+            70,
+            85,
+            75
+          ],
+          "role": "motion",
+          "description": "與主 PLC 同步滑軌、堆料升降、取像頭、翻轉與輸送；周邊驅動數量為規劃假設。",
+          "source": null,
+          "category": "network",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "IPC1",
+          "kind": "ipc",
+          "title": "視覺工業電腦",
+          "size": [
+            160,
+            40,
+            95
+          ],
+          "role": "vision",
+          "description": "相機取像、配方辨識、補正與結果紀錄；與 PLC 交換 Ready／Busy／OK／NG。",
+          "source": "SW1",
+          "category": "network",
+          "model": "配置估算，型號待選"
+        }
       ],
-      "role": "power",
-      "description": "檢修時隔離設備電源；額定電流與現場電源待確認。",
-      "source": null,
-      "category": "ac",
-      "model": "配置估算，型號待選"
+      "cables": {
+        "report": [
+          {
+            "scenario": "預設",
+            "samples": 3736,
+            "routes": 19,
+            "supports": 67,
+            "carriers": 2,
+            "feedthroughs": {
+              "plates": 2,
+              "glands": 4,
+              "holeRays": 24,
+              "wireCrossings": 12,
+              "mountChecks": 8,
+              "failures": []
+            }
+          }
+        ],
+        "failures": []
+      }
     },
     {
-      "id": "QF1",
-      "kind": "breaker",
-      "title": "控制支路保護",
-      "size": [
-        18,
-        75,
-        65
-      ],
-      "role": "power",
-      "description": "分支保護後供應 24 V 電源，與伺服動力分路。",
-      "source": "QS1",
-      "category": "ac",
-      "model": "配置估算，型號待選"
-    },
-    {
-      "id": "PS1",
-      "kind": "psu",
-      "title": "24 VDC 電源",
-      "size": [
-        50,
-        95,
-        100
-      ],
-      "role": "power",
-      "description": "供應 PLC、I/O、光源控制及感測器；容量需依負載表確認。",
-      "source": "QF1",
-      "category": "ac",
-      "model": "配置估算，型號待選"
-    },
-    {
-      "id": "GC1",
-      "kind": "safety",
-      "title": "安全控制器",
-      "size": [
-        60,
-        90,
-        95
-      ],
-      "role": "safety",
-      "description": "收集急停與防護裝置訊號，交握驅動停止及重啟允許；此畫面僅呈現規劃。",
-      "source": "PS1",
-      "category": "dc",
-      "model": "GC-1000 規劃平台；外形 60×90×95 mm"
-    },
-    {
-      "id": "K1",
-      "kind": "contactor",
-      "title": "監控接觸器",
-      "size": [
-        32,
-        75,
-        70
-      ],
-      "role": "safety",
-      "description": "安全輸出控制動力支路，輔助接點回授；回路需另做風險評估與設計。",
-      "source": "GC1",
-      "category": "safety",
-      "model": "配置估算，型號待選"
-    },
-    {
-      "id": "PLC1",
-      "kind": "plc",
-      "title": "設備 PLC",
-      "size": [
-        80,
-        90,
-        85
-      ],
-      "role": "control",
-      "description": "管理站序、到位互鎖與配方交握。",
-      "source": "PS1",
-      "category": "dc",
-      "model": "KV-X 系列規劃平台；模組外形估算"
-    },
-    {
-      "id": "IO1",
-      "kind": "io",
-      "title": "分散式 I/O",
-      "size": [
-        50,
-        80,
-        65
-      ],
-      "role": "io",
-      "description": "接收止擋、夾緊、到位與壓力訊號，輸出電磁閥及指示燈。",
-      "source": "PLC1",
-      "category": "signal",
-      "model": "配置估算，型號待選"
-    },
-    {
-      "id": "SW1",
-      "kind": "switch",
-      "title": "工業乙太網交換器",
-      "size": [
-        40,
-        80,
-        70
-      ],
-      "role": "network",
-      "description": "連接 PLC、視覺電腦、手臂及上位系統。",
-      "source": "PS1",
-      "category": "dc",
-      "model": "配置估算，型號待選"
-    },
-    {
-      "id": "LC1",
-      "kind": "light",
-      "title": "頻閃光源控制器",
-      "size": [
-        45,
-        70,
-        70
-      ],
-      "role": "vision",
-      "description": "配合相機觸發時序驅動光源，檢視狀態隨主時間軸。",
-      "source": "IO1",
-      "category": "signal",
-      "model": "配置估算，型號待選"
-    },
-    {
-      "id": "FT1",
-      "kind": "io",
-      "title": "力覺介面",
-      "size": [
-        50,
-        70,
-        65
-      ],
-      "role": "force",
-      "description": "接收末端 F/T 訊號，提供接觸力監看與製程判斷。",
-      "source": "IO1",
-      "category": "signal",
-      "model": "配置估算，型號待選"
-    },
-    {
-      "id": "RC1",
-      "kind": "robot",
-      "title": "手臂控制器",
-      "size": [
-        357,
-        94,
-        320
-      ],
-      "role": "motion",
-      "description": "RC8A 負責手臂軸控制，PLC 交握任務、完成與異常。",
-      "source": null,
-      "category": "ac",
-      "model": "RC8A 標準型包絡；357×94×320 mm"
-    },
-    {
-      "id": "D1",
-      "kind": "drive",
-      "title": "手臂直線軌道驅動",
-      "size": [
-        45,
-        100,
-        110
-      ],
-      "role": "motion",
-      "description": "伺服功率級、回授及運動命令介面；軸功率、編碼器與煞車選型待確認。",
-      "source": "QF2",
-      "category": "ac",
-      "model": "配置估算，型號待選"
-    },
-    {
-      "id": "D2",
-      "kind": "drive",
-      "title": "S0 進料升降驅動",
-      "size": [
-        45,
-        100,
-        110
-      ],
-      "role": "motion",
-      "description": "伺服功率級、回授及運動命令介面；軸功率、編碼器與煞車選型待確認。",
-      "source": "QF2",
-      "category": "ac",
-      "model": "配置估算，型號待選"
-    },
-    {
-      "id": "D3",
-      "kind": "drive",
-      "title": "S4 出料升降驅動",
-      "size": [
-        45,
-        100,
-        110
-      ],
-      "role": "motion",
-      "description": "伺服功率級、回授及運動命令介面；軸功率、編碼器與煞車選型待確認。",
-      "source": "QF2",
-      "category": "ac",
-      "model": "配置估算，型號待選"
-    },
-    {
-      "id": "D4",
-      "kind": "drive",
-      "title": "S1 取像頭驅動",
-      "size": [
-        45,
-        100,
-        110
-      ],
-      "role": "motion",
-      "description": "伺服功率級、回授及運動命令介面；軸功率、編碼器與煞車選型待確認。",
-      "source": "QF2",
-      "category": "ac",
-      "model": "配置估算，型號待選"
-    },
-    {
-      "id": "D5",
-      "kind": "drive",
-      "title": "S3 翻轉驅動",
-      "size": [
-        45,
-        100,
-        110
-      ],
-      "role": "motion",
-      "description": "伺服功率級、回授及運動命令介面；軸功率、編碼器與煞車選型待確認。",
-      "source": "QF2",
-      "category": "ac",
-      "model": "配置估算，型號待選"
-    },
-    {
-      "id": "D6",
-      "kind": "drive",
-      "title": "輸送驅動",
-      "size": [
-        45,
-        100,
-        110
-      ],
-      "role": "motion",
-      "description": "伺服功率級、回授及運動命令介面；軸功率、編碼器與煞車選型待確認。",
-      "source": "QF2",
-      "category": "ac",
-      "model": "配置估算，型號待選"
-    },
-    {
-      "id": "EC1",
-      "kind": "plc",
-      "title": "周邊運動交握",
-      "size": [
-        70,
-        85,
-        75
-      ],
-      "role": "motion",
-      "description": "與主 PLC 同步滑軌、堆料升降、取像頭、翻轉與輸送；周邊驅動數量為規劃假設。",
-      "source": null,
-      "category": "network",
-      "model": "配置估算，型號待選"
-    },
-    {
-      "id": "IPC1",
-      "kind": "ipc",
-      "title": "視覺工業電腦",
-      "size": [
-        160,
-        40,
-        95
-      ],
-      "role": "vision",
-      "description": "相機取像、配方辨識、補正與結果紀錄；與 PLC 交換 Ready／Busy／OK／NG。",
-      "source": "SW1",
-      "category": "network",
-      "model": "配置估算，型號待選"
+      "variant": "配線 V110-RF",
+      "params": {
+        "sku": "V110-RF"
+      },
+      "ok": true,
+      "applicable": true,
+      "cablesOnly": true,
+      "cables": {
+        "report": [
+          {
+            "scenario": "V110-RF",
+            "samples": 3736,
+            "routes": 19,
+            "supports": 67,
+            "carriers": 2,
+            "feedthroughs": {
+              "plates": 2,
+              "glands": 4,
+              "holeRays": 24,
+              "wireCrossings": 12,
+              "mountChecks": 8,
+              "failures": []
+            }
+          }
+        ],
+        "failures": []
+      },
+      "failures": []
     }
-  ],
-  "cables": null
+  ]
 }

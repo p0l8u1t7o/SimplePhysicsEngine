@@ -2,9 +2,15 @@
 // 規格見 core/README.md「專案介面」。網頁與檢查用同一份場景，所以檢查的就是畫面上的幾何。
 import { createStation } from './station.js';
 import { createSequence } from './sequence.js';
+import { stepTimes } from '@core/anim/sampling.js';
+import { solidMeshes as meshList } from '@core/electrical/cable-routing.js';
 
 // 機台內再分工位：不同工位的固定件互相穿插也算架設相撞（其餘機台、線材、電盤為 misc）
 const STATIONS = new Set(['nest', 'up-camera', 'ionizer', 'ng-bin', 'drawer-A', 'drawer-B', 'occluders']);
+
+// 配線取樣：間隔與實際開孔台面的網格名稱（cell.js 的 portPlate）
+const CABLE_INTERVAL = .1;
+const OPTICAL_PORTS = new Set(['table-optical-port', 'esd-optical-port']);
 
 /**
  * @param scene    three.js 場景
@@ -55,6 +61,21 @@ export function createProject({ scene, headless = false, ng = false }) {
     verify: {
       moduleOf,
       stationOf,
+      // 配線動態取樣（core electrical 檢查）：OK 流程由這裡跑，NG 由 project.json 的 variants 再建一次場景跑。
+      // 與原本根目錄 tools/verify-cables.mjs（2026-10-04 退役） 的 SSD／快門區塊等價：取樣點是每個步驟各自等分（間隔 0.1 s，相鄰步驟交界會重複取樣），
+      // 套用時不給靜止段參考姿態（只 sample → snap → sync）。
+      cables: {
+        interval: CABLE_INTERVAL,
+        times: () => stepTimes(sequence.steps, CABLE_INTERVAL),
+        apply: t => { sequence.sample(t); robot.snap(); st.sync?.(); },
+        minRoutes: 5,
+        obstacles: () => {
+          // 手臂連桿、工具（不含配線五金）、工作台 keepout 與護罩；另加實際的開孔台面（光學埠板），不只靠手臂 keepout 代理
+          const meshes = [...robot.clearanceParts.arm, ...meshList(robot.tool), ...cell.keepout.flatMap(meshList), ...meshList(cell.occluders)];
+          scene.traverse(m => { if (m.isMesh && OPTICAL_PORTS.has(m.name)) meshes.push(m); });
+          return meshes;
+        },
+      },
       // 產品是 0.06 mm 葉片、0.2 mm 上蓋：設備尺度的 2 mm 穿插、0.6 mm 重合面門檻不適用。
       // 對數深度在近看時解析度約 0.00002 mm，0.008 mm 以上的間隙不會閃爍；配合公差另由 tools/verify.mjs 以 0.005 mm 檢查
       thresholds: { product: { tol: .01, dist: .008, area: 1 } },

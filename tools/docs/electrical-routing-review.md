@@ -22,11 +22,11 @@
 
 ## 檢查與修正
 
-`node tools/verify-cable-routing.mjs` 同時檢查五站共用程式一致性、外露線路取樣碰撞與拖鏈運動。新增的 `check-feedthroughs.mjs` 使用實際網格射線檢查孔中心及邊側暢通、孔旁仍有板材，並確認每個接頭上、中、下三個高度都有線材穿過，包含線徑淨空。另以射線檢查背板固定柱的末端確實接觸櫃壁。
+`node core/tools/check.mjs --only electrical` 同時檢查五站共用程式一致性、外露線路取樣碰撞與拖鏈運動。新增的 `check-feedthroughs.mjs` 使用實際網格射線檢查孔中心及邊側暢通、孔旁仍有板材，並確認每個接頭上、中、下三個高度都有線材穿過，包含線徑淨空。另以射線檢查背板固定柱的末端確實接觸櫃壁。
 
 本次修正滴定站兩條線在桌板下方太早彎曲、碰到下鎖帽的情況。軍規站新增電盤亦移至相鄰立柱之間，縮為 460 mm 寬並落地；其機構檢查新增對 24 個輸送線立柱及腳座的淨空檢查，最小間距為 10 mm。
 
-配線總表：[review/cable-checks.json](../review/cable-checks.json)。各站 `review/cables.json` 列出每個情境的接頭、射線、穿線與固定柱檢查數。四站既有機構回歸結果：[review/interference-checks.json](../review/interference-checks.json)。快門站另執行 `verify.mjs`、`verify-physics.mjs` 及 `verify-product-detail.mjs`。
+配線總表：[review/cable-checks.json]（已退役，改看各站 `review/electrical-checks.json`）。各站 `review/electrical-checks.json` 列出每個情境的接頭、射線、穿線與固定柱檢查數。四站既有機構回歸結果：[review/interference-checks.json](../review/interference-checks.json)。快門站另執行 `verify.mjs`、`verify-physics.mjs` 及 `verify-product-detail.mjs`。
 
 本次屬動畫幾何與安裝方式示意；機構與配線檢查採有限時間取樣。孔徑、接頭、端子及控制器外形尚未對應最終採購料號，也未完成全線材互撞、柔性下垂、熱設計或實機配電設計。
 

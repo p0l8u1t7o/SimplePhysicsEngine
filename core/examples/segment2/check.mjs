@@ -7,6 +7,7 @@ import { create as createGantry } from '../../models/gantry.js';
 import { createSegment2 } from './segment2.js';
 import { checkElectricalPlan } from '../../verify/electrical.mjs';
 import { checkCableScenarios } from '../../verify/cables.mjs';
+import { electricalActivity } from '../../electrical/electrical-components.js';
 
 const scene = new THREE.Scene(), gantry = createGantry({ span: 1300, height: 1700, offset: 400 });
 gantry.root.position.set(350, 0, -400); scene.add(gantry.root);
@@ -19,6 +20,11 @@ const obstacles = []; for (const o of [gantry.root, scene.getObjectByName('camer
 const cables = checkCableScenarios([{ name: 'sweep', scene, apply, times: Array.from({ length: 41 }, (_, i) => i / 40), obstacles }], { minRoutes: 4 });
 const fails = [...plan.failures, ...cables.failures.map(f => `${f.key}（${f.method}）`)];
 if (plan.devices < 9 || plan.feedthroughs.glands < 2) fails.push(`元件 ${plan.devices}、接頭 ${plan.feedthroughs.glands}：範例不完整`);
+// electricalActivity：指示燈只依製程狀態，不依播放／暫停（原本在根目錄 verify-electrical-plan.mjs）
+for (const role of ['motion', 'vision', 'force', 'io'])
+  if (electricalActivity(role, { action: '壓合', vision: true, playing: true }) !== electricalActivity(role, { action: '壓合', vision: true, playing: false })) fails.push(`electricalActivity(${role})：暫停時指示燈要凍結在製程狀態`);
+if (electricalActivity('motion', { action: '等待分析', motion: false }) !== false) fails.push('electricalActivity(motion)：motion:false 時不亮');
+if (electricalActivity('vision', { action: '移動', vision: false }) !== false) fails.push('electricalActivity(vision)：沒有取像時不亮');
 console.log(`${fails.length ? '✗' : '✓'} segment2：${plan.devices} 個元件、${plan.connections} 條櫃內連線、${plan.feedthroughs.glands} 個接頭、${cables.report[0].routes} 條線路`);
 for (const f of fails) console.log('   ' + f);
 process.exit(fails.length ? 1 : 0);

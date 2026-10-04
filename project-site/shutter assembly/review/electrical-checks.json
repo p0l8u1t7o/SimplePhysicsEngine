@@ -230,7 +230,26 @@
           "model": "閥島功能包絡；閥數與流量待選型"
         }
       ],
-      "cables": null
+      "cables": {
+        "report": [
+          {
+            "scenario": "預設",
+            "samples": 381,
+            "routes": 20,
+            "supports": 36,
+            "carriers": 1,
+            "feedthroughs": {
+              "plates": 2,
+              "glands": 3,
+              "holeRays": 24,
+              "wireCrossings": 9,
+              "mountChecks": 4,
+              "failures": []
+            }
+          }
+        ],
+        "failures": []
+      }
     },
     {
       "variant": "NG",
@@ -463,7 +482,26 @@
           "model": "閥島功能包絡；閥數與流量待選型"
         }
       ],
-      "cables": null
+      "cables": {
+        "report": [
+          {
+            "scenario": "NG",
+            "samples": 425,
+            "routes": 20,
+            "supports": 36,
+            "carriers": 1,
+            "feedthroughs": {
+              "plates": 2,
+              "glands": 3,
+              "holeRays": 24,
+              "wireCrossings": 9,
+              "mountChecks": 4,
+              "failures": []
+            }
+          }
+        ],
+        "failures": []
+      }
     }
   ]
 }

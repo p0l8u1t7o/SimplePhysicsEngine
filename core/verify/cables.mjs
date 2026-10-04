@@ -3,7 +3,7 @@
 // 線路是場景中帶 userData.cable／carrier／support 的物件（core/electrical/cable-routing.js 建出來的）。
 // 判定：拖鏈長度與彎曲半徑固定；線段對障礙物的「放大包圍盒」不可相交，線端 10 mm 可以插進接頭／固定座；
 // 穿板孔（userData.serviceBores）內的線段不算。這是取樣回歸檢查，不是柔性線材或安全認證。
-// 根目錄 tools/verify-cables.mjs（現有各站）與 run.mjs 的 electrical 檢查（project.js 的 verify.cables）共用這一份。
+// run.mjs 的 electrical 檢查（project.js 的 verify.cables）與 core/examples/segment2/check.mjs 使用；根目錄 tools/verify-cables.mjs 已於 2026-10-04 退役。
 import * as THREE from 'three';
 import { meshBounds, separatingGap } from './clearance.mjs';
 import { checkFeedthroughs } from './feedthroughs.mjs';

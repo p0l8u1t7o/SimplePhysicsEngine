@@ -4,6 +4,11 @@
 import * as THREE from 'three';
 import { createSim } from './sim.js';
 
+import { stepTimes } from '@core/anim/sampling.js';
+
+// 配線取樣間隔（秒）；等待步驟只取起訖
+const CABLE_INTERVAL = 0.1;
+
 export function createProject({ scene }) {
   const sim = createSim(scene), { robot, lab, plan } = sim;
   let info = null;                                   // 最近一次 apply 的狀態（允許規則依目前步驟判斷）
@@ -70,6 +75,15 @@ export function createProject({ scene }) {
         },
       ],
       envelope: ['robot'],
+      // 配線動態檢查（core electrical）：與原本根目錄 tools/verify-cables.mjs（2026-10-04 退役） 的 full-batch 情境等價
+      cables: {
+        interval: CABLE_INTERVAL,
+        // 手臂連桿、工具與實驗桌上要讓開的固定件（不含線材）
+        obstacles: () => [...robot.clearanceParts.arm, ...robot.clearanceParts.tool, ...lab.keepout.map(k => k.mesh)],
+        // 每個步驟依間隔取樣；等待步驟（如 7 分鐘分析）只取起訖，避免大量無意義的取樣
+        times: () => stepTimes(plan.steps, p => p.kind === 'wait' ? p.dur || 1 : CABLE_INTERVAL),
+        minRoutes: 5,
+      },
     },
   };
 }

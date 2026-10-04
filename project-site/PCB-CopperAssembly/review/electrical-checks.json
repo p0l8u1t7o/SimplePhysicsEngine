@@ -620,7 +620,26 @@
           "model": "配置估算，型號待選"
         }
       ],
-      "cables": null
+      "cables": {
+        "report": [
+          {
+            "scenario": "預設",
+            "samples": 1968,
+            "routes": 51,
+            "supports": 176,
+            "carriers": 12,
+            "feedthroughs": {
+              "plates": 1,
+              "glands": 4,
+              "holeRays": 24,
+              "wireCrossings": 12,
+              "mountChecks": 4,
+              "failures": []
+            }
+          }
+        ],
+        "failures": []
+      }
     },
     {
       "variant": "round-72",
@@ -1243,7 +1262,26 @@
           "model": "配置估算，型號待選"
         }
       ],
-      "cables": null
+      "cables": {
+        "report": [
+          {
+            "scenario": "round-72",
+            "samples": 1094,
+            "routes": 51,
+            "supports": 176,
+            "carriers": 12,
+            "feedthroughs": {
+              "plates": 1,
+              "glands": 4,
+              "holeRays": 24,
+              "wireCrossings": 12,
+              "mountChecks": 4,
+              "failures": []
+            }
+          }
+        ],
+        "failures": []
+      }
     }
   ]
 }

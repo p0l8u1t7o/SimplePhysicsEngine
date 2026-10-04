@@ -3,7 +3,7 @@
 // 元件（userData.electrical，electricalDevice 建的）要整個在電盤櫃內（userData.electricalEnclosure，cabinetShell 建的）、
 // 編號不重複、機身不重疊；櫃內連線（userData.electricalWire）不穿過其他元件機身；穿板孔與接頭要真的開孔、有線穿過。
 // 放在櫃外的設備（例如落地的手臂控制器）在元件規格寫 free: true；場景沒有電盤櫃（開放式面板）時不檢查「在櫃內」。只看幾何，不是電氣設計或認證。
-// 根目錄 tools/verify-electrical-plan.mjs（現有各站）與 run.mjs 的 electrical 檢查共用這一份。
+// run.mjs 的 electrical 檢查使用；根目錄 tools/verify-electrical-plan.mjs 已於 2026-10-04 退役。
 import * as THREE from 'three';
 import { checkFeedthroughs } from './feedthroughs.mjs';
 import { checkCableScenarios } from './cables.mjs';
@@ -62,7 +62,8 @@ export function cableTimes(project, spec, interval) {
   if (Array.isArray(spec.times)) return spec.times;
   const set = new Set(sampleTimes(0, project.total, spec.interval ?? interval ?? .1));
   const events = project.events || project.timeline?.events || project.sequence?.events || [];
-  for (const e of events) for (const t of [e.start, e.start + (e.dur ?? 0)]) if (Number.isFinite(t) && t >= 0 && t <= project.total) set.add(t);
+  // 標準事件是 { time, dur }，時間軸事件是 { start, dur }
+  for (const e of events) for (const t of [e.time ?? e.start, (e.time ?? e.start) + (e.dur ?? 0)]) if (Number.isFinite(t) && t >= 0 && t <= project.total) set.add(t);
   return [...set].sort((x, y) => x - y);
 }
 const cableFailures = c => (c?.failures || []).map(f => `Cable ${f.key}${f.time != null ? ` @${f.time}s` : ''}（${f.method}${f.detail ? '：' + f.detail : ''}）`);

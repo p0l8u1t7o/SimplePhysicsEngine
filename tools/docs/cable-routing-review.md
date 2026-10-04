@@ -48,7 +48,7 @@
 
 ## 已完成的驗證與限制
 
-新增[線材檢查工具](../verify-cable-routing.mjs)，檢查五站所有配方／情境。移動步驟以最長 50 ms 間隔取樣並包含端點；滴定站長時間靜止等待取樣兩端。檢查線段與主要機構、固定障礙、外罩的包絡，拖鏈的定長、行程及折返半徑，並保留端部 10 mm 的接頭安裝區。穿線孔依已建模孔徑檢查；圓柱使用徑向範圍排除包圍盒空角。
+新增[線材檢查工具](../../core/verify/cables.mjs)，檢查五站所有配方／情境。移動步驟以最長 50 ms 間隔取樣並包含端點；滴定站長時間靜止等待取樣兩端。檢查線段與主要機構、固定障礙、外罩的包絡，拖鏈的定長、行程及折返半徑，並保留端部 10 mm 的接頭安裝區。穿線孔依已建模孔徑檢查；圓柱使用徑向範圍排除包圍盒空角。
 
 本次五站共 12 組情境、63,244 個取樣姿態通過，未回報已納入檢查範圍的潛在干涉。
 
@@ -60,7 +60,7 @@
 | RobotArmPressSSD | 5 | 2,737 | 通過 |
 | shutter assembly | 2 | 1,285 | 通過 |
 
-總表：[cable-checks.json](../review/cable-checks.json)。各專案明細位於 `review/cables.json`。既有機構／相機回歸檢查仍保留；PCB 的大曲線包圍盒相交會再用線段確認，避免把 U 形拖鏈中間的空間誤當實體。
+總表：[cable-checks.json]（已退役，改看各站 `review/electrical-checks.json`）。各專案明細位於 `review/electrical-checks.json`。既有機構／相機回歸檢查仍保留；PCB 的大曲線包圍盒相交會再用線段確認，避免把 U 形拖鏈中間的空間誤當實體。
 
 2026-09-27 增加支架、線夾固定腳及拖鏈承托板的取樣干涉檢查，修正紀錄見 [配線與固定架檢查](support-routing-review.md)。這些檢查不包含電線自重下垂、扭轉疲勞、摩擦、隨機甩動、完整線材互撞、支架強度、所有小型線夾／接頭曲面與製造公差，也不模擬真實電氣或流體連通。尚需以實際手臂 CAD、線材及拖鏈料號確認內部通道、承重、自支撐長度和端口位置。
 
@@ -69,7 +69,7 @@
 ## 維護與發布
 
 ```powershell
-node tools/verify-cable-routing.mjs
+node core/tools/check.mjs --only electrical
 node tools/verify-interference.mjs
 ```
 

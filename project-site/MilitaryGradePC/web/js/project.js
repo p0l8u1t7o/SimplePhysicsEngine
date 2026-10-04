@@ -5,8 +5,13 @@ import { createNotebook, NB, SKUS, selectSku } from './notebook.js';
 import { createRobot } from './robot.js';
 import { createCell, createPallet, LAYOUT } from './cell.js';
 import { createSequence, smooth } from './sequence.js';
+import { stepTimes } from '@core/anim/sampling.js';
+import { solidMeshes as meshList } from '@core/electrical/cable-routing.js';
 
 export const DEFAULT_SKU = 'V110-STND';
+
+// 配線動態檢查的取樣間隔（秒）：每個步驟各自取樣，步驟交界會重複取樣
+const CABLE_INTERVAL = 0.1;
 
 // 參數（與 core project.json 的 variants.params 相同，直接展開在第一層）：sku = 'V110-STND'（預設）或 'V110-RF'
 export function createProject({ scene, headless = false, sku: wanted } = {}) {
@@ -154,6 +159,19 @@ export function createProject({ scene, headless = false, sku: wanted } = {}) {
         { why: '鉤爪尖端／PU 壓頭在力控接觸步驟勾起門扣、帶動護蓋開關與按壓鎖定（力值見 sequence.js）', test: (a, b) => pairOf(a, b, m => m.name === 'hook-tip' || m.name === 'press-pad', onDoor) },
       ],
       envelope: ['robot'],
+      // 配線動態檢查（core electrical）：與原本根目錄 tools/verify-cables.mjs（2026-10-04 退役） 的 MilitaryGradePC 情境等價
+      cables: {
+        interval: CABLE_INTERVAL,
+        // 手臂連桿、工具、S1／S3 固定結構與電控櫃、遮擋物（不含線材）
+        obstacles: () => [...robot.clearanceParts.arm, ...robot.clearanceParts.tool, ...cell.keepout, ...meshList(cell.occluders)],
+        // 每個步驟依間隔取樣
+        times: () => stepTimes(sequence.steps, CABLE_INTERVAL),
+        // 只取樣序列並讓手臂到位（不需要光源與輔助線）
+        apply: t => { sequence.sample(t); robot.snap(); },
+        minRoutes: 5,
+        // 預設情境是 DEFAULT_SKU（V110-STND）；其他 SKU 的護蓋配置不同，各自建場景（createProject 開頭 selectSku）
+        variants: Object.keys(SKUS).filter(k => k !== DEFAULT_SKU).map(k => ({ name: k, params: { sku: k } })),
+      },
     },
   };
 }

@@ -345,7 +345,7 @@
   "cables": {
     "report": [
       {
-        "scenario": "cables",
+        "scenario": "預設",
         "samples": 321,
         "routes": 81,
         "supports": 152,

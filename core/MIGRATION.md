@@ -97,11 +97,18 @@ Node 端由 `core/tools/loader.mjs` 解析相同的三種名稱，檢查程式�
   - `core/examples/segment2/`：第二段的完整範例（電盤櫃、背板元件表、穿板接頭、龍門拖鏈、外露線路、立柱相機與相機線）與說明；`check.mjs` 的 `core · examples` 會跟著檢查。
   - `core/tools/check-names.mjs` 與 `check.mjs` 內建 `names`（快速）：專案資料夾不得出現本機名單（`.private/client-names.txt`、工作區 `.studio/client-names.txt`）裡的用戶名稱；pre-commit 也會掃。
   - 7 站桌面截圖與改前比對 0 張超過門檻；根目錄配線、電盤、干涉回歸全過。
+- 2026-10-04 core 1.5.0（現有 5 站的配線檢查改用 core，根目錄配線與電盤工具退役）：
+  - `verify.cables` 新增 `variants`（只給配線檢查的額外情境：配方、SKU）、`apply`、`times`（陣列或函式）、`minRoutes`；預設取樣點另外加上排程事件的起訖時間（標準事件 `{ time, dur }`與時間軸事件 `{ start, dur }` 都認得）。
+  - `run.mjs`：結果改用全部情境判斷（原本 `project.json` 沒有 variants 時只看第一個情境，配線額外情境失敗也會通過、也不會寫進報告）；各情境的配線報告用情境名稱命名。
+  - 新增 `core/anim/sampling.js`（`sampleTimes`、`stepTimes(steps, interval)`，網頁也能載入）；`core/verify/clearance.mjs` 的 `sampleTimes` 改成轉匯出它。`cable-routing.js` 匯出 `solidMeshes(root)`（去掉配線五金與平面的實體網格，給 `verify.cables.obstacles` 用）。
+  - 酸鹼、MGPC、PCB、SSD、快門的 `project.js` 宣告 `verify.cables`（取樣間隔 0.1 s，快速檢查就會跑）。退役前逐情境比對：線路、支架、拖鏈、取樣數與穿板孔統計都和根目錄版相同，0 個失敗。
+  - 退役：根目錄 `tools/verify-cable-routing.mjs`、`verify-cables.mjs`、`verify-electrical-plan.mjs`、`check-feedthroughs.mjs` 與 `tools/review/cable-checks.json`、`electrical-plan-checks.json`、各站 `review/cables.json`；`electricalActivity` 的斷言移到 `core/examples/segment2/check.mjs`。`tools/geometry-clearance.mjs` 轉接檔保留（各站工具還在用）。
 
 ## 版本
 
 | 版本 | 日期 | 內容 |
 |---|---|---|
+| 1.5.0 | 2026-10-04 | `verify.cables` 的 variants／apply／times、結果判斷修正、`core/anim/sampling.js`、`solidMeshes`；根目錄配線與電盤工具退役 |
 | 1.4.0 | 2026-10-04 | 通用電控與配線檢查（`electrical`）、元件表 `schedule`、相機模型、第二段範例、用戶名稱檢查（`names`） |
 | 1.3.0 | 2026-10-04 | 專案搬進 `project-site/`；`REPO`、`PROJECTS_DIR`、`scopeOf` |
 | 1.2.0 | 2026-10-04 | 排程指紋、效能量測、舞台登記 |

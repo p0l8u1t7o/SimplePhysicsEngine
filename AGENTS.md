@@ -26,9 +26,9 @@
 
 | 位置 | 內容 |
 |---|---|
-| `core/` | 共用框架（以 importmap `@core/` 引用）：geom（形狀、材質、五金、地面）、models（13 個參數化模型＋目錄頁，含工業相機）、examples（第二段範例：電控、配線、相機）、anim（時間軸、步驟序列、到位閘門）、ui（stage、player、viewer-workspace）、electrical、movie、verify、template、tools；版本號在 `core/VERSION`，core 需求登記在 `core/REQUESTS.md` |
+| `core/` | 共用框架（以 importmap `@core/` 引用）：geom（形狀、材質、五金、地面）、models（13 個參數化模型＋目錄頁，含工業相機）、anim 的 sampling（取樣時間）、examples（第二段範例：電控、配線、相機）、anim（時間軸、步驟序列、到位閘門）、ui（stage、player、viewer-workspace）、electrical、movie、verify、template、tools；版本號在 `core/VERSION`，core 需求登記在 `core/REQUESTS.md` |
 | `project-site/<專案>/` | 所有展示專案（之後新增的也放這裡）。`web/`（網站；`web/js/project.js` 是網頁與檢查共用的場景）、`project.json`（首頁說明、`coreVersion`、`checks.quick`／`checks.full`、`variants`、`ui`）、`tools/`（專案自有檢查）、`review/`（檢查結果，進版控）、`docs/`（只留本機）、`AGENTS.md`／`CLAUDE.md`（該站規則）、`.claude/settings.json`（寫檔關卡） |
-| `tools/` | 跨專案工具：配線、電盤、干涉回歸、電路圖、錄影輸出 |
+| `tools/` | 跨專案工具：干涉回歸、電路圖、錄影輸出（配線與電盤檢查已移到 core 的 `electrical`） |
 | `scripts/` | 腳本：`setup.ps1`（環境設定）、`start`／`stop`（`.ps1`＋可點兩下的 `.cmd`，網頁啟動與停止，PID 與輸出在 `logs/`）、`migrate/`（搬庫腳本） |
 | `studio/` | 3D 動畫生成應用程式：目前是 P1 命令列原型 `node studio/vs3d.mjs`（說明見 `studio/README.md`，測試 `node --test "studio/test/*.test.mjs"`）；計畫書在本機 `TEMP/3d-app-plan.md` |
 | `.githooks/` | pre-commit 範圍檢查 |
@@ -50,7 +50,7 @@ python core/tools/compare-review.py TEMP/<review 基準>   # review JSON 比對�
 node core/tools/new-project.mjs <資料夾> "<標題>" ["一句說明"]   # 由範本建立新專案（含規則檔與寫檔關卡）
 node core/tools/install-hooks.mjs                 # 安裝 pre-commit 範圍檢查（clone 後一次）
 node core/tools/check-scope.mjs --scope <範圍> <路徑…>   # 手動檢查路徑是否在範圍內
-node --import ./core/tools/register.mjs tools/verify-cable-routing.mjs   # 也有 verify-interference、verify-electrical-plan
+node --import ./core/tools/register.mjs tools/verify-interference.mjs   # 四站干涉回歸；配線與電盤檢查是 check.mjs 內建的 electrical
 ```
 
 ## 範圍（子專案規則）

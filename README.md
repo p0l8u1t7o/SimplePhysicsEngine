@@ -26,7 +26,7 @@ node core/tools/new-project.mjs <名稱> "<標題>"  # 由範本建立新專案
 
 - 各 3D 專案（`project-site/<專案>/`）：`web/` 為網站（`web/js/project.js` 是網頁與檢查共用的場景）、`project.json` 為首頁說明與檢查清單、`tools/` 為專案自有檢查、`review/` 為檢查結果、`docs/` 為本機參考資料。
 - 共用模型目錄：本機 http://127.0.0.1:8770/core/catalog/，Pages 上為 `/core/catalog/`。
-- [tools](tools/)：跨專案的配線、電盤、干涉回歸與影片輸出工具；`tools/docs/` 是跨專案研究文件，`tools/review/` 是彙總結果。
+- [tools](tools/)：跨專案的干涉回歸、電路圖與影片輸出工具（配線與電盤檢查是 core 的 `electrical`）；`tools/docs/` 是跨專案研究文件，`tools/review/` 是彙總結果。
 - [GitHub Pages 部署](tools/github-pages/README.md)：`.github/workflows/pages.yml`，PR 只跑快速檢查；推送到 `main` 時先跑快速檢查，通過才發布；首頁依各專案 `project.json` 自動產生。
 - `TEMP/`、`LOGS/`（不分大小寫）、`*.log` 與快取不納入版控。影片輸出位於 `TEMP/videos/`，不隨網站發布。
 - CardServer、Bin 已退役並移出版控。本機暫存封存位於 `TEMP/retired-projects/`。

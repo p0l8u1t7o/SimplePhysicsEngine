@@ -15,11 +15,11 @@
 
 ## 驗證方式
 
-`tools/verify-cable-routing.mjs` 執行五站、12 組配方／情境，共 63,244 個姿態取樣。移動步驟間隔不超過 50 ms，包含步驟端點；靜止等待不重複密集取樣。
+`core/tools/check.mjs --only electrical` 執行五站、12 組配方／情境，共 63,244 個姿態取樣。移動步驟間隔不超過 50 ms，包含步驟端點；靜止等待不重複密集取樣。
 
 本次將帶有 `userData.support` 的線夾腳、支承軌、支腳和拖鏈承托納入檢查。圓柱支架以線段擴張半徑檢查，承托板使用有向實體包圍盒；並保留原本的線材、拖鏈定長／行程檢查。支架只有接觸障礙物的端點可使用安裝接觸容許區，並不略過整支支架。快門站同時檢查實際桌板與已建模孔洞。
 
-結果與目前來源雜湊見 [五站配線檢查](../review/cable-checks.json)，各專案 `review/cables.json` 列出線路、支架數及失敗項目。原有機構、自碰撞、相機與產品幾何檢查另外執行，詳見 [機構檢查](../review/interference-checks.json) 及快門站 `review` 內報告。
+結果與目前來源雜湊見 [五站配線檢查]（已退役，改看各站 `review/electrical-checks.json`），各專案 `review/electrical-checks.json` 列出線路、支架數及失敗項目。原有機構、自碰撞、相機與產品幾何檢查另外執行，詳見 [機構檢查](../review/interference-checks.json) 及快門站 `review` 內報告。
 
 五站的「線材配置」視角已人工檢視；畫面留存於各站 `review/support-routing.png`。相機與側欄控制功能保留。
 
@@ -28,7 +28,7 @@
 ## 重跑
 
 ```powershell
-node tools/verify-cable-routing.mjs
+node core/tools/check.mjs --only electrical
 node tools/verify-interference.mjs
 ```
 

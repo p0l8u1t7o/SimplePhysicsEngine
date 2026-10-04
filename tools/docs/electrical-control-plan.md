@@ -39,8 +39,8 @@
 
 橙色表示動力／AC、藍色為 24 VDC、青綠為通訊、黃色為安全交握、紫色為感測／I/O。這些是展示分類色，不是施工線色規範。所畫線束表示功能連接；未展開 L/N/PE、每條訊號回路與全部芯線，也未據此決定線徑、斷路器容量、接觸器數量、STO 接法、EMC 或冷卻能力。
 
-`tools/verify-electrical-plan.mjs` 檢查所有元件主體都在機櫃可用空間內、主體彼此不重疊、功能線路不穿過元件主體、孔洞實際貫穿、線材通過接頭，以及背板固定柱接觸櫃壁。軍規站的兩個櫃體另檢查對輸送線立柱與腳座的淨空。測試也檢查暫停不改變同一製程的電控指示狀態。
+`core/verify/electrical.mjs`（check.mjs 的 electrical） 檢查所有元件主體都在機櫃可用空間內、主體彼此不重疊、功能線路不穿過元件主體、孔洞實際貫穿、線材通過接頭，以及背板固定柱接觸櫃壁。軍規站的兩個櫃體另檢查對輸送線立柱與腳座的淨空。測試也檢查暫停不改變同一製程的電控指示狀態。
 
-結果：[電控幾何檢查](../review/electrical-plan-checks.json)、[配線取樣檢查](../review/cable-checks.json)、[機構回歸檢查](../review/interference-checks.json)。各站 `review/electrical-plan.png` 為瀏覽器檢視截圖。
+結果：[電控幾何檢查]（已退役，改看各站 `review/electrical-checks.json`）、[配線取樣檢查]（已退役，改看各站 `review/electrical-checks.json`）、[機構回歸檢查](../review/interference-checks.json)。各站 `review/electrical-plan.png` 為瀏覽器檢視截圖。
 
 這是向用戶說明配置、空間及控制分工的工程模擬；完整採購 BOM、負載表、施工接線圖與實機安全／熱設計仍需依最終料號完成。
