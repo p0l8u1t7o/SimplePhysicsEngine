@@ -4,11 +4,11 @@
 //   審查（計畫書 4.7）：看截圖、比對拍板事項與規則；必修項自動送修正 → 重新檢查 → 再審查（最多 3 次）
 //   補強：記下基準（commit、排程指紋、效能、截圖）→ 補強角色 → 守門檢查（檢查全過、指紋與空間檢核不變、效能在預算內，
 //         沒過就退回補強角色，最多 3 次）→ 前後對照頁 → 使用者接受／要求調整／整批還原
-import { existsSync } from 'node:fs';
+import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { adapterFor, runAgent } from './adapters/index.mjs';
 import { resolveRole, loadRoleContext } from './roles.mjs';
-import { paths, projectPaths, acquireLock } from './workspace.mjs';
+import { paths, projectPaths, acquireLock, addClientNames, readClientNames, redactNames } from './workspace.mjs';
 import { snapshot, verifyAndRestore } from './isolation.mjs';
 import { loadQuestions, askInteractive, writeAppQuestion, readAnswer, printQuestion } from './questions.mjs';
 import { runChecks, takeShots, failureSummary, runFingerprint, compareRenderFingerprint, runPerf, comparePerf } from './checks.mjs';
@@ -68,6 +68,7 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
     }, e => printEvent(e, log));
     const iso = verifyAndRestore(ws, id, snap), roleViol = enforceRoleScope(role, J, startHead);
     const violations = [...iso.violations, ...roleViol];
+    if (role === 'plan') syncClientNames();
     for (const v of violations) log(`  ⚠ 越界：${v.area} ${v.path}（${v.change}）${v.restored ? '→ 已還原' : '→ 未能自動還原，請檢查'}`);
     let commit = null;
     if (git(J.dir, ['status', '--porcelain']).trim()) {
@@ -86,6 +87,13 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
       throw new Stop(`代理執行失敗（${res.timedOut ? `超過 ${timeoutMin} 分鐘` : `exit ${res.code}`}）：${short(res.stderr || res.text, 300)}\n之後可用 vs3d resume 重試。`);
     }
     return res;
+  }
+  // 規劃角色列出的用戶名稱併進工作區名單，專案 AGENTS.md（app 寫的需求原文、拍板事項）裡的名稱換成「（用戶）」
+  function syncClientNames() {
+    const added = addClientNames(ws, readText(join(J.plan, 'client-names.txt')).split(/\r?\n/));
+    if (added.length) log(`  ⊘ 規劃角色列出 ${added.length} 個用戶名稱，已加進名單（不得顯示）`);
+    const names = readClientNames(ws), text = readText(J.agents);
+    if (names.length && text && names.some(n => text.includes(n))) writeFileSync(J.agents, redactNames(text, names));
   }
   const ctxFor = extra => ({ ws, J, adapter: adapterFor(resolveRole(extra.role, roleCtx()).cli), scope: roleScope(extra.role, J).text, violations: state.violations, ...extra });
 

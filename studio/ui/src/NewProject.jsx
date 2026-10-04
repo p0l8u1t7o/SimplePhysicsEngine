@@ -6,7 +6,7 @@ const newToken = () => Math.random().toString(36).slice(2) + Date.now().toString
 
 export function NewProject({ info, running, onCreated }) {
   const [token] = useState(newToken);
-  const [form, setForm] = useState({ id: '', title: '', prompt: '', cli: '', model: '', effort: '', autoApprove: false, pick: false });
+  const [form, setForm] = useState({ id: '', title: '', prompt: '', clientNames: '', cli: '', model: '', effort: '', autoApprove: false, pick: false });
   const [files, setFiles] = useState([]);             // { name, size, status, extra }
   const [over, setOver] = useState(false);
   const [error, setError] = useState('');
@@ -42,6 +42,7 @@ export function NewProject({ info, running, onCreated }) {
           <label><span>專案名稱</span><input value={form.id} onChange={e => set('id', e.target.value)} placeholder="例如 PickPlace（英數）" /></label>
           <label><span>顯示標題</span><input value={form.title} onChange={e => set('title', e.target.value)} placeholder="例如 輸送帶龍門取放站" /></label>
         </div>
+        <label><span>不得顯示的用戶名稱</span><input value={form.clientNames} onChange={e => set('clientNames', e.target.value)} placeholder="例如 客戶公司名稱（多個用逗號分隔）；畫面與檔案都不會出現，需求裡的會換成「（用戶）」" /></label>
         <label><span>需求</span><textarea rows={6} value={form.prompt} onChange={e => set('prompt', e.target.value)} placeholder="描述要自動化的作業、節拍、限制，以及上傳的資料各是什麼" /></label>
         <div>
           <div className={`drop ${over ? 'over' : ''}`}

@@ -64,10 +64,25 @@ export function initWorkspace(ws, { log = console.log, refreshCore = false } = {
   return P;
 }
 
+// 用戶名稱名單（不得出現在任何產出；core/tools/check-names.mjs 讀同一個檔）：<工作區>/.studio/client-names.txt，一行一個
+export const namesFile = ws => join(ws, '.studio', 'client-names.txt');
+export const readClientNames = ws => existsSync(namesFile(ws)) ? readFileSync(namesFile(ws), 'utf8').split(/\r?\n/).map(s => s.trim()).filter(s => s && !s.startsWith('#')) : [];
+export function addClientNames(ws, names = []) {
+  const cur = readClientNames(ws), add = names.map(s => String(s).trim()).filter(s => s && !s.startsWith('#') && !cur.includes(s));
+  if (add.length) { mkdirSync(join(ws, '.studio'), { recursive: true }); writeFileSync(namesFile(ws), ['# 用戶名稱：不得出現在任何產出（vs3d 與 check.mjs 的 names 檢查使用）', ...cur, ...add].join('\n') + '\n'); }
+  return add;
+}
+// 長的名稱先換，避免「A 公司」被「A」拆開
+export const redactNames = (text, names) => [...names].sort((a, b) => b.length - a.length).reduce((s, n) => s.split(n).join('（用戶）'), String(text));
+
 // 由 core 範本建立專案，換成 studio 用的規則檔，複製上傳檔（Office 檔抽出文字與圖片），git init
 //   J.notes：給使用者看的訊息（抽取結果、舊格式提示、失敗警告）
-export async function createProject(ws, { id, title, summary = '', prompt = '', files = [], cli }) {
+//   clientNames：不得顯示的用戶名稱；加進工作區名單，標題、說明與需求原文裡的名稱換成「（用戶）」
+export async function createProject(ws, { id, title, summary = '', prompt = '', files = [], cli, clientNames = [] }) {
   const P = paths(ws), J = projectPaths(ws, id);
+  addClientNames(ws, clientNames);
+  const names = readClientNames(ws);
+  [title, summary, prompt] = [title, summary, prompt].map(s => redactNames(s, names));
   if (existsSync(J.dir)) throw new Error(`專案已存在：${J.dir}`);
   const r = await run(process.execPath, [join(P.core, 'tools', 'new-project.mjs'), id, title, summary || title], { cwd: ws });
   if (r.code) throw new Error('new-project 失敗：\n' + r.out);

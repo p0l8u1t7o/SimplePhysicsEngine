@@ -37,3 +37,6 @@ question_log.txt
 
 # studio 網頁介面的建置輸出（npm --prefix studio/ui run build 產生）
 studio/ui/dist/
+
+# 用戶名稱名單（不得出現在任何子專案；名單本身也不能公開）
+/.private/

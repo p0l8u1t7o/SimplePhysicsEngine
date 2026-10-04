@@ -2,7 +2,8 @@
 // vs3d：3D 設備動畫生成應用程式的命令列原型（P1）。不需要 npm 套件。
 //   node studio/vs3d.mjs doctor                                   檢查 Claude Code／Codex 是否已安裝、已登入
 //   node studio/vs3d.mjs init [--refresh-core]                    建立工作區（複製 core、寫入共通規則）；--refresh-core 換成本庫目前的 core
-//   node studio/vs3d.mjs new <名稱> --prompt "<需求>" [--files 檔案…] [--title 標題] [--cli claude|codex]
+//   node studio/vs3d.mjs new <名稱> --prompt "<需求>" [--files 檔案…] [--title 標題] [--cli claude|codex] [--private "用戶名稱,…"]
+//                                                                 --private：不得顯示的用戶名稱（加進工作區名單，需求原文裡換成「（用戶）」）
 //   node studio/vs3d.mjs resume <名稱>                            續跑（回答問題後、中斷後）
 //   node studio/vs3d.mjs answer <名稱> <問題 id> <編號或文字> [--note 補充]
 //   node studio/vs3d.mjs status [<名稱>]                          進度、等待中的問題、最近一次檢查
@@ -30,7 +31,7 @@ import { ROLES, resolveRole, loadRoleContext, parseRoleOverrides } from './lib/r
 import { isolationProbe } from './lib/probe.mjs';
 import { defaultWorkspace, readText, readJson, writeJson } from './lib/util.mjs';
 
-const VALUE = new Set(['--workspace', '--prompt', '--prompt-file', '--title', '--summary', '--cli', '--model', '--role', '--effort', '--note', '--max-rounds', '--timeout', '--other', '--focus', '--port']);
+const VALUE = new Set(['--workspace', '--private', '--prompt', '--prompt-file', '--title', '--summary', '--cli', '--model', '--role', '--effort', '--note', '--max-rounds', '--timeout', '--other', '--focus', '--port']);
 
 // 測試用：VS3D_EXTRA_ADAPTERS 指向一個匯出 { adapters: { 名稱: adapter } } 的模組（例如假代理），讓介面的端對端測試走真正的命令列
 if (process.env.VS3D_EXTRA_ADAPTERS) Object.assign(ADAPTERS, (await import(pathToFileURL(resolve(process.env.VS3D_EXTRA_ADAPTERS)).href)).adapters);
@@ -74,7 +75,7 @@ switch (cmd) {
     const prompt = o['prompt-file'] ? readText(resolve(o['prompt-file'])) : (o.prompt || '');
     if (!prompt.trim() && !o.files.length) fail('請用 --prompt 或 --files 提供需求');
     for (const f of o.files) if (!existsSync(f)) fail(`找不到檔案：${f}`);
-    const J = await createProject(ws, { id: name, title: o.title || name, summary: o.summary || '', prompt, files: o.files, cli: o.cli });
+    const J = await createProject(ws, { id: name, title: o.title || name, summary: o.summary || '', prompt, files: o.files, cli: o.cli, clientNames: String(o.private || '').split(/[,，、]/) });
     // new 時指定的 --model／--effort／--role 寫進 studio.json，之後 resume 沒帶參數也沿用（否則續接會退回預設模型）
     const sj = readJson(J.studioJson, {});
     for (const r of Object.keys(ROLES)) {

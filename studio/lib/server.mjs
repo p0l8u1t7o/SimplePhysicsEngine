@@ -121,6 +121,7 @@ export async function startUi(ws, { port = 8780, log = console.log } = {}) {
             const promptFile = join(P.ws, '.studio', 'uploads', `${randomUUID()}.txt`); mkdirSync(join(P.ws, '.studio', 'uploads'), { recursive: true });
             writeFileSync(promptFile, v.prompt || '');
             const args = ['--title', v.title || v.id, '--prompt-file', promptFile, ...(files.length ? ['--files', ...files] : [])];
+            if (v.clientNames) args.push('--private', v.clientNames);
             if (v.cli) args.push('--cli', v.cli);
             if (v.model) args.push('--model', v.model);
             if (v.effort) args.push('--effort', v.effort);
