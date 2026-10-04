@@ -65,14 +65,14 @@ new → 規劃（配置提案＋問題）⇄ 使用者回答 → 確認提案 �
     └── web/ tools/ review/  與本庫各站相同
 ```
 
-角色指派的優先順序：app 預設（`lib/roles.mjs`）＜ 工作區 `.studio/settings.json` ＜ 專案 `studio.json` ＜ 命令列。正式預設（2026-10-04 依 P2 實測拍板）：維持 Claude，所有角色用 `opus`；選 Codex 時用帳號預設模型，可用 `--effort high` 提高推理強度。`new` 時指定的 `--cli`、`--model`、`--effort`、`--role` 會寫進專案 `studio.json`，之後 `resume` 沿用。
+角色指派的優先順序：app 預設（`lib/roles.mjs`）＜ 工作區 `.studio/settings.json` ＜ 專案 `studio.json` ＜ 命令列。正式預設（2026-10-04 拍板）：規劃、開發、修正、審查用 Claude `opus`；渲染與細節補強用 Codex `gpt-6-astra` 高推理（`lib/roles.mjs` 的 `ROLE_DEFAULTS`）。這是使用者的實務分工：opus 做規劃與主體實作，gpt-6 補強渲染、電盤、電線與細節；P4 第二段的電控與配線也預設交給 gpt-6。命令列 `--cli` 會讓所有角色改用同一種 CLI。`new` 時指定的 `--cli`、`--model`、`--effort`、`--role` 會寫進專案 `studio.json`，之後 `resume` 沿用。
 
 ## P2 驗收（2026-10-04）
 
-重做 MGPC 與快門組裝站的第一段，只給原始資料＋一段需求，代理的設計問題依現有拍板紀錄代答。6 次（兩站 × 兩種 CLI 中階，MGPC 再加 Claude opus 與 Codex 高推理）都在 app 的快速＋完整檢查第一次就通過；對照報告在本機 `TEMP/p2-report/index.html`。重點：
+重做 MGPC 與快門組裝站的第一段，只給原始資料＋一段需求，代理的設計問題依現有拍板紀錄代答。6 次都在 app 的快速＋完整檢查第一次就通過；對照報告在本機 `TEMP/p2-report/index.html`。Claude 比較了 sonnet 與 opus；Codex 這邊因為 `~/.codex/config.toml` 預設就是 `gpt-6-astra` 高推理，原本規劃的「中階／高推理」其實是同一設定跑了三次，沒有比較到中階模型。重點：
 
 - 檢查擋不住「做錯東西」：快門 × Claude sonnet 把葉片層序做反（拍板先小後大），MGPC × opus 顯示了第一段不該有的相機子畫面。P4b 的審查角色要比對「實作是否照已拍板事項與規則」。
-- 成品與速度：Codex 三次成品最完整、代理時間約 22～30 分；Claude sonnet 兩站都偏弱（42～52 分），opus 介於中間（57 分，API 等值約 $22）。MGPC 的動作細節都比現有版本（347.75 s）簡化，Claude 只有 64～68 s。
+- 成品與速度：Codex gpt-6 的成品最完整、代理時間約 22～30 分；Claude sonnet 兩站都偏弱（42～52 分），opus 介於中間（57 分，API 等值約 $22）。MGPC 的動作細節都比現有版本（347.75 s）簡化，Claude 只有 64～68 s。
 - 規則遵守：Claude 兩次自己跑 ui／截圖，其中一次寫到工作區根目錄，由雜湊比對偵測；Codex 的沙箱在第一層就擋下寫入。
 - 實測中修掉的 bug：`--model`／`--effort` 沒有保存，續接時退回預設（受影響的兩次已用正確設定重跑）。
 

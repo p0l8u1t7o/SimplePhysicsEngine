@@ -1,10 +1,11 @@
 // 角色與模型指派。優先順序（後蓋前）：
-//   1. 應用程式預設（本檔 PRESETS，依 CLI）
+//   1. 應用程式預設（本檔 ROLE_DEFAULTS 指定角色的 CLI，PRESETS 依 CLI 給模型）
 //   2. 工作區設定 <工作區>/.studio/settings.json 的 { defaultCli, roles }
 //   3. 專案設定 projects/<專案>/studio.json 的 roles
 //   4. 單次指定（命令列 --cli、--model、--role plan=opus,fix=haiku）
-// 正式預設（2026-10-04 依 P2 實測，使用者拍板）：維持 Claude，所有角色用 opus。
-// P2 中 sonnet 在兩站都明顯較弱，而且規劃時容易偏離範圍；Codex 成品較好、較快，但不強制同事安裝。
+// 正式預設（2026-10-04 使用者拍板）：規劃、開發、修正、審查用 Claude opus；
+// 渲染與細節補強用 Codex gpt-6-astra 高推理（使用者的實務經驗：opus 規劃與實作，gpt-6 補強渲染、電盤、電線與細節）。
+// P2 中 sonnet 在兩站都明顯較弱，而且規劃時容易偏離範圍。
 import { readJson } from './util.mjs';
 
 export const ROLES = {
@@ -19,6 +20,11 @@ export const ROLES = {
 export const PRESETS = {
   claude: { plan: 'opus', build: 'opus', fix: 'opus', review: 'opus', render: 'opus' },
   codex: { plan: '', build: '', fix: '', review: '', render: '' },
+};
+
+// 指定 CLI 的角色預設（最底層；工作區、專案或命令列指定 CLI 時會被蓋過）
+export const ROLE_DEFAULTS = {
+  render: { cli: 'codex', model: 'gpt-6-astra', effort: 'high' },
 };
 
 export const DEFAULT_STUDIO_JSON = {
@@ -41,7 +47,7 @@ export function parseRoleOverrides(s = '') {
 export function resolveRole(role, { workspaceSettings = {}, studioJson = {}, override = {} } = {}) {
   // 預設 CLI：專案 studio.json 的 defaultCli（vs3d new --cli 會寫入）＞ 工作區設定 ＞ claude
   const wsCli = workspaceSettings.defaultCli || 'claude', projCli = studioJson.defaultCli || wsCli;
-  const layers = [[workspaceSettings.roles?.[role], wsCli], [studioJson.roles?.[role], projCli], [override.roles?.[role], null]].filter(([l]) => l);
+  const layers = [[ROLE_DEFAULTS[role], null], [workspaceSettings.roles?.[role], wsCli], [studioJson.roles?.[role], projCli], [override.roles?.[role], null]].filter(([l]) => l);
   const cli = override.roles?.[role]?.cli || override.cli || [...layers].reverse().find(([l]) => l.cli)?.[0].cli || projCli;
   const r = { cli, model: PRESETS[cli]?.[role] ?? '', effort: '' };
   // 只套用同一個 CLI 的層：沒寫 cli 的層屬於該層的預設 CLI（單次指定的層跟著這次的 CLI）；不同 CLI 的模型名稱不通用

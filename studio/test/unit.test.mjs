@@ -65,6 +65,10 @@ test('角色指派的優先順序', () => {
   // 單次指定 --cli codex：所有角色改用 codex，模型名稱不沿用 claude 的
   assert.deepEqual(resolveRole('plan', { workspaceSettings: ws, studioJson: sj, override: { cli: 'codex', roles: {} } }), { cli: 'codex', model: '', effort: '' });
   assert.deepEqual(resolveRole('plan', { workspaceSettings: ws, override: { roles: parseRoleOverrides('plan=haiku') } }).model, 'haiku');
+  // 渲染與細節補強預設交給 Codex gpt-6-astra；這次指定 --cli claude 時跟著改用 Claude 的預設模型
+  assert.deepEqual(resolveRole('render', {}), { cli: 'codex', model: 'gpt-6-astra', effort: 'high' });
+  assert.deepEqual(resolveRole('render', { override: { cli: 'claude', roles: {} } }), { cli: 'claude', model: 'opus', effort: '' });
+  assert.deepEqual(resolveRole('render', { studioJson: { roles: { render: { cli: 'claude' } } } }), { cli: 'claude', model: 'opus', effort: '' });
   // 專案 studio.json 的 defaultCli（vs3d new --cli codex）：resume 沒帶 --cli 也沿用
   assert.deepEqual(resolveRole('plan', { workspaceSettings: ws, studioJson: { defaultCli: 'codex' } }), { cli: 'codex', model: '', effort: '' });
   assert.deepEqual(parseRoleOverrides('render=codex:gpt-5'), { render: { cli: 'codex', model: 'gpt-5' } });
