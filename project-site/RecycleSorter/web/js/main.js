@@ -65,7 +65,7 @@ $('pipTitle').addEventListener('keydown',releasePip,true);
 
 // ---------------------------------------------------------------- 視角：[相機位置, 注視點]（照桌面寫；手機直向等窄畫布由 stage 自動拉遠）
 const VIEWS = {
-  electrical: [[1150, 1250, -1050], [300, 700, -1760]],
+  electrical: [[600, 1900, -950], [300, 650, -1720]],   // 從機台後緣上方往下看走道裡的電盤（走道只有 850 mm，正面拉不遠）
   overview: [[-2750, 2100, 2300], [0, 820, -30]],
   top: [[60, 4600, 10], [60, 0, 0]],
   infeed: [[-2500, 1500, 1400], [-1050, 820, b.z]],
@@ -80,6 +80,9 @@ function setView(name, instant = false, automatic = false) {
   const view = typeof VIEWS[name] === 'function' ? VIEWS[name]() : VIEWS[name]; if (!view) return;
   if (!automatic) userView = true;
   setElectricalCutaway(scene, name === 'electrical');
+  // 電盤視角收起相機子畫面，免得蓋住櫃子（需要時按 ▣ 再開）
+  const pip = document.getElementById('showPip');
+  if (name === 'electrical' && pip?.checked) { pip.checked = false; pip.dispatchEvent(new Event('change')); }
   workspace.stopFollowing();
   stage.goTo(view[0], view[1], instant);
   document.querySelectorAll('.views [data-view]').forEach(x => x.classList.toggle('on', x.dataset.view === name));
