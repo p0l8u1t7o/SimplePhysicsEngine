@@ -1,6 +1,6 @@
 # studio：3D 設備動畫生成應用程式
 
-上傳規格、輸入需求，由使用者電腦上已登入的代理 CLI（Claude Code 或 Codex）做出與本庫各站同等級的 3D 設備動畫。目前是命令列 `vs3d`＋網頁介面（P1～P4 第二段）；Electron 外殼之後再包。計畫書在本機 `TEMP/3d-app-plan.md`（不進版控）。
+上傳規格、輸入需求，由使用者電腦上已登入的代理 CLI（Claude Code 或 Codex）做出與本庫各站同等級的 3D 設備動畫。介面是命令列 `vs3d`＋網頁介面（本機瀏覽器），不做 Electron 桌面外殼（2026-10-04 決議）。計畫書在本機 `TEMP/3d-app-plan.md`（不進版控）。
 
 命令列只需要 Node.js 22 以上，沒有 npm 套件；網頁介面（`studio/ui/`）用 React＋Vite，npm 套件只放在那個資料夾。
 
@@ -18,7 +18,7 @@ node studio/vs3d.mjs ui               # 開啟 http://127.0.0.1:8780/（--port�
 - 介面用子程序執行 `vs3d` 命令列，流程和終端機完全相同；回答完全部問題會自動續跑。伺服器只聽 127.0.0.1，`/files/` 只開放專案的 `TEMP/`、`docs/`、`.studio/plan|reviews|render/`。
 - 開發時 `npm --prefix studio/ui run dev`（Vite 5173，`/api` 轉給 8780 的 `vs3d ui`）。
 - 端對端測試：`node studio/test/ui-e2e.mjs [--shots 資料夾]`（暫存工作區＋假代理，在網頁上點完整個流程，約 2 分鐘）。
-- 之後用 Electron 把同一個頁面包成桌面程式（P5 打包）。
+- 介面維持網頁版：用瀏覽器開，檔案用拖放或「選擇檔案」上傳（2026-10-04 決議不做 Electron）。
 
 ## 用法
 
