@@ -112,6 +112,7 @@ switch (cmd) {
     const J = needProject(), [qid, ...words] = rest;
     const q = loadQuestions(J).list.find(x => x.id === qid);
     if (!q) fail(`找不到問題 ${qid}（vs3d status "${name}" 可以看等待中的問題）`);
+    if (q.answered) fail(`問題 ${qid} 已經回答過（vs3d status "${name}" 可以看等待中的問題）`);
     let parsed; try { parsed = parseChoice(q, words.join(' ')); } catch (e) { fail(e.message); }
     if (!parsed) fail('選 0（其他）時請直接輸入說明文字');
     const a = recordAnswer(J, q, { ...parsed, note: o.note || '' });
