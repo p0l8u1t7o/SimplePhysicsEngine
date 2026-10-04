@@ -26,6 +26,8 @@ export function loadQuestions(J) {
     let raw; try { raw = JSON.parse(readFileSync(join(J.questions, f), 'utf8').replace(/^﻿/, '')); } catch (e) { invalid.push({ file: f, errors: [`JSON 解析失敗：${e.message}`] }); continue; }
     const { errors, q } = validateQuestion(raw, f);
     if (errors.length) { invalid.push({ file: f, errors }); continue; }
+    // 代理有時自己在選項名稱寫「（建議）」，app 顯示時會再加一次：先拿掉（建議項以 recommended 為準）
+    q.options = q.options.map(o => ({ ...o, label: String(o.label).replace(/\s*[（(]建議[）)]\s*$/, '') }));
     list.push({ ...q, file: f, answered: existsSync(join(J.answers, `${q.id}.json`)) });
   }
   return { list, invalid };
