@@ -10,7 +10,7 @@ import { ADAPTERS } from '../lib/adapters/index.mjs';
 import { claude } from '../lib/adapters/claude.mjs';
 import { initWorkspace, createProject, projectPaths, paths, setReadOnly } from '../lib/workspace.mjs';
 import { snapshot, verifyAndRestore } from '../lib/isolation.mjs';
-import { runProject, loadState } from '../lib/loop.mjs';
+import { runProject, loadState, pickItems } from '../lib/loop.mjs';
 import { recordAnswer, loadQuestions } from '../lib/questions.mjs';
 import { runChecks } from '../lib/checks.mjs';
 import { STUDIO, git } from '../lib/util.mjs';
@@ -64,7 +64,7 @@ test('隔離：core、規則檔、其他專案被改會被偵測並還原', () =
 test('完整流程（假代理）：提問 → 回答 → 提案確認 → 開發（含越界）→ 檢查失敗 → 修正 → 完成', async () => {
   process.env.FAKE_ESCAPE = '1';
   const J = projectPaths(ws, 'Alpha'), logs = [], log = s => logs.push(s);
-  const opts = { override: { cli: 'fake', roles: {} }, full: false, shots: false, log };
+  const opts = { override: { cli: 'fake', roles: {} }, full: false, shots: false, review: false, render: false, log };
   try {
     let r = await runProject(ws, 'Alpha', opts);
     assert.equal(r.status, 'waiting'); assert.deepEqual(r.questions, ['site-1']);
@@ -104,7 +104,7 @@ test('執行鎖：工作區有別的 vs3d 在跑時不開始', async () => {
 
 test('同一項檢查連續失敗會轉成提問', async () => {
   process.env.FAKE_NEVER_FIX = '1';
-  const J = projectPaths(ws, 'Beta'), opts = { override: { cli: 'fake', roles: {}, autoApprove: true }, full: false, shots: false, log: () => {} };
+  const J = projectPaths(ws, 'Beta'), opts = { override: { cli: 'fake', roles: {}, autoApprove: true }, full: false, shots: false, review: false, render: false, log: () => {} };
   try {
     let r = await runProject(ws, 'Beta', opts);
     recordAnswer(J, loadQuestions(J).list[0], { choices: [1] });
@@ -118,4 +118,57 @@ test('同一項檢查連續失敗會轉成提問', async () => {
     r = await runProject(ws, 'Beta', opts);
     assert.equal(r.status, 'done');
   } finally { delete process.env.FAKE_NEVER_FIX; }
+});
+
+test('審查與補強（假代理）：必修送修正 → 再審查 → 補強改到節拍被守門擋下 → 修正 → 接受', async () => {
+  process.env.FAKE_RENDER_BREAK = '1';
+  await createProject(ws, { id: 'Gamma', title: '測試 G', prompt: '輸送帶＋龍門' });
+  const J = projectPaths(ws, 'Gamma'), logs = [];
+  const opts = { override: { cli: 'fake', roles: {}, autoApprove: true }, full: false, shots: false, perf: false, log: s => logs.push(s) };
+  try {
+    let r = await runProject(ws, 'Gamma', opts);
+    recordAnswer(J, loadQuestions(J).list[0], { choices: [0] });
+    r = await runProject(ws, 'Gamma', opts);
+    assert.equal(r.status, 'waiting', logs.join('\n'));
+    assert.match(r.questions[0], /^vs3d-render-accept/);
+    const s = loadState(J), rounds = readFileSync(J.rounds, 'utf8').trim().split('\n').map(l => JSON.parse(l));
+    assert.deepEqual(rounds.filter(x => x.review).map(x => x.must.length), [1, 0]);           // 第 1 次抓到必修，修好後第 2 次沒有
+    assert.ok(existsSync(join(J.dir, 'web', 'review-fixed.txt')));
+    const guards = rounds.filter(x => x.guard);
+    assert.equal(guards.length, 2);
+    assert.equal(guards[0].ok, false); assert.match(guards[0].fails.join(), /時間軸總長/);    // 改了節拍被擋下
+    assert.equal(guards[1].ok, true);
+    assert.ok(existsSync(join(J.temp, 'render-compare', 'index.html')));
+    assert.deepEqual(s.renderItems.map(x => x.id), ['S1', 'S2']);
+    recordAnswer(J, loadQuestions(J).list.find(q => !q.answered), { choices: [0] });
+    r = await runProject(ws, 'Gamma', opts);
+    assert.equal(r.status, 'done');
+    assert.equal(loadState(J).render.result, 'accepted');
+    assert.ok(existsSync(join(J.dir, 'web', 'render-detail.txt')));
+  } finally { delete process.env.FAKE_RENDER_BREAK; }
+});
+
+test('補強後選「整批還原」：回到補強前的 commit', async () => {
+  await createProject(ws, { id: 'Delta', title: '測試 D', prompt: 'x' });
+  const J = projectPaths(ws, 'Delta'), opts = { override: { cli: 'fake', roles: {}, autoApprove: true }, full: false, shots: false, perf: false, log: () => {} };
+  let r = await runProject(ws, 'Delta', opts);
+  recordAnswer(J, loadQuestions(J).list[0], { choices: [0] });
+  r = await runProject(ws, 'Delta', opts);
+  assert.match(r.questions[0], /^vs3d-render-accept/);
+  assert.ok(existsSync(join(J.dir, 'web', 'render-detail.txt')));
+  const base = loadState(J).renderBase.commit;
+  recordAnswer(J, loadQuestions(J).list.find(q => !q.answered), { choices: [2] });
+  r = await runProject(ws, 'Delta', opts);
+  assert.equal(r.status, 'done');
+  assert.equal(git(J.dir, ['rev-parse', 'HEAD']).trim(), base);
+  assert.ok(!existsSync(join(J.dir, 'web', 'render-detail.txt')));
+  assert.equal(loadState(J).render.result, 'reverted');
+});
+
+test('pickItems：編號、id、「除了」', () => {
+  const all = [{ id: 'S1' }, { id: 'S2' }, { id: 'S3' }, { id: 'S4' }];
+  assert.deepEqual(pickItems(all, '1,3').map(x => x.id), ['S1', 'S3']);
+  assert.deepEqual(pickItems(all, 'S2、S4').map(x => x.id), ['S2', 'S4']);
+  assert.deepEqual(pickItems(all, '除了 2、4').map(x => x.id), ['S1', 'S3']);
+  assert.equal(pickItems(all, '').length, 4);
 });

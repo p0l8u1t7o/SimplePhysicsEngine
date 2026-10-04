@@ -13,6 +13,8 @@ node studio/vs3d.mjs status Conveyor                          # 階段、輪數�
 node studio/vs3d.mjs answer Conveyor layout-1 2 --note "靠牆"  # 不在終端機時回答問題
 node studio/vs3d.mjs resume Conveyor                          # 回答後、中斷後續跑
 node studio/vs3d.mjs check Conveyor --full                    # 手動跑檢查
+node studio/vs3d.mjs review Conveyor                          # 重新審查（必修自動送修正），接著補強
+node studio/vs3d.mjs render Conveyor --pick --focus "手臂與夾爪" # 重新補強：先挑項目、限定範圍
 node studio/vs3d.mjs probe Conveyor --cli codex --other <另一個專案>   # 寫入隔離自我測試
 node studio/vs3d.mjs models Conveyor                          # 各角色目前的 CLI 與模型
 ```
@@ -27,6 +29,8 @@ node studio/vs3d.mjs models Conveyor                          # 各角色目前�
 | `--effort <等級>` | 推理強度（Claude `--effort`、Codex `model_reasoning_effort`） |
 | `--no-wait` | 有問題時寫出後就結束（預設在終端機直接詢問） |
 | `--auto-approve` | 配置提案不必確認，直接開始開發 |
+| `--no-review`、`--no-render`、`--no-perf` | 第一段完成後不自動審查／不補強／補強時不量效能 |
+| `--pick`、`--focus "範圍"` | 補強前先用卡片挑項目（全部／只補高優先／自己挑編號）；限定這次補強的範圍 |
 | `--max-rounds 24`、`--timeout 60` | 輪數上限、每輪逾時（分鐘） |
 
 結束代碼：0 完成、10 等待回答、1 中途停止（代理失敗、額度、逾時），2 參數錯誤。
@@ -35,9 +39,17 @@ node studio/vs3d.mjs models Conveyor                          # 各角色目前�
 
 ```
 new → 規劃（配置提案＋問題）⇄ 使用者回答 → 確認提案 → 開發第一段
-    → 快速檢查 → 完整檢查（含 ui 四尺寸）→ 截圖 → 完成
+    → 快速檢查 → 完整檢查（含 ui 四尺寸）→ 截圖
            └ 失敗 → 修正（續接同一個工作階段）→ 再檢查；同一項連續失敗 3 次轉成提問
+    → 審查（比對拍板事項與規則、看截圖）
+           └ 必修 → 修正 → 再檢查 → 再審查（最多 3 次）
+    → 渲染與細節補強（建議補強全部交給 render 角色；--pick 先挑）
+    → 守門檢查：檢查全過、排程指紋與空間檢核不變、效能在預算內
+           └ 沒過 → 退回 render（續接，最多 3 次，之後轉成提問）
+    → 前後對照頁（TEMP/render-compare/）→ 接受／要調整／整批還原 → 完成
 ```
+
+效能預算在專案 `studio.json` 的 `budget`：三角面 ≤ 補強前 1.5 倍、draw call ≤ 1.3 倍、手機幀率不低於補強前的 80%。`phoneMinFps`（30）只當提示：無頭瀏覽器加 CPU 降速的幀率不等於實機，現有各站本身也低於 30。
 
 每一輪：
 

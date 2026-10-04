@@ -1,6 +1,9 @@
-// 流程主體：規劃 → 提問 → 開發 → 檢查 ⇄ 修正 → 第一段完成。狀態存在 .studio/state.json，隨時可以中斷後用 resume 續跑。
+// 流程主體：規劃 → 提問 → 開發 → 檢查 ⇄ 修正 → 審查 → 渲染與細節補強 → 完成。狀態存在 .studio/state.json，隨時可以中斷後用 resume 續跑。
 //   每輪：開工前 commit → 記雜湊 → 執行代理 → 比對還原（越界）→ 角色範圍檢查 → commit → 記錄 rounds.jsonl
 //   品質迴圈：快速檢查 → 完整檢查（含 ui 四尺寸）→ 截圖；失敗就回送修正角色，同一項連續失敗 3 次轉成提問
+//   審查（計畫書 4.7）：看截圖、比對拍板事項與規則；必修項自動送修正 → 重新檢查 → 再審查（最多 3 次）
+//   補強：記下基準（commit、排程指紋、效能、截圖）→ 補強角色 → 守門檢查（檢查全過、指紋與空間檢核不變、效能在預算內，
+//         沒過就退回補強角色，最多 3 次）→ 前後對照頁 → 使用者接受／要求調整／整批還原
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { adapterFor, runAgent } from './adapters/index.mjs';
@@ -8,9 +11,15 @@ import { resolveRole, loadRoleContext } from './roles.mjs';
 import { paths, projectPaths, acquireLock } from './workspace.mjs';
 import { snapshot, verifyAndRestore } from './isolation.mjs';
 import { loadQuestions, askInteractive, writeAppQuestion, readAnswer, printQuestion } from './questions.mjs';
-import { runChecks, takeShots, failureSummary } from './checks.mjs';
-import { rolePrompt, answersPrompt, fixAgainPrompt, invalidQuestionsPrompt } from './prompts.mjs';
-import { readJson, writeJson, appendJsonl, git, now, readText } from './util.mjs';
+import { runChecks, takeShots, failureSummary, runFingerprint, compareRenderFingerprint, runPerf, comparePerf } from './checks.mjs';
+import { rolePrompt, answersPrompt, fixAgainPrompt, invalidQuestionsPrompt, mustFixPrompt, renderGuardPrompt, renderRevisePrompt } from './prompts.mjs';
+import { writeComparePage } from './compare.mjs';
+import { readJson, writeJson, appendJsonl, git, now, readText, rel } from './util.mjs';
+import { readdirSync } from 'node:fs';
+
+const REVIEW_LIMIT = 3, RENDER_TRIES = 3;
+const pngs = dir => dir && existsSync(dir) ? readdirSync(dir).filter(f => f.endsWith('.png') && !f.endsWith('.diff.png')).sort().map(f => join(dir, f)) : [];
+const refImages = J => existsSync(J.docs) ? readdirSync(J.docs).filter(f => /\.(png|jpe?g|webp)$/i.test(f)).sort().slice(0, 12).map(f => join(J.docs, f)) : [];
 
 const STREAK_LIMIT = 3;
 const GIT_ID = ['-c', 'user.name=vs3d', '-c', 'user.email=vs3d@localhost'];
@@ -18,8 +27,10 @@ const short = (s, n = 160) => (s = String(s ?? '').replace(/\s+/g, ' ').trim()).
 
 export const loadState = J => readJson(J.state, { stage: 'plan', round: 0, sessions: {}, streak: {}, waiting: null, lastCheck: null, violations: [] });
 
-// full：快速檢查通過後是否再跑完整檢查（含 ui）；shots：通過後是否截圖（測試時可關掉以節省時間）
-export async function runProject(ws, id, { interactive = false, override = {}, maxRounds = 24, timeoutMin = 60, full = true, shots: wantShots = true, log = console.log } = {}) {
+// full：快速檢查通過後是否再跑完整檢查（含 ui）；shots：通過後是否截圖；perf：補強前後是否量效能（測試時可關掉以節省時間）
+// review／render：第一段完成後是否自動審查、補強（override.pick 時先讓使用者挑補強項目，override.focus 限定範圍）
+export async function runProject(ws, id, { interactive = false, override = {}, maxRounds = 40, timeoutMin = 60, full = true, shots: wantShots = true,
+  perf: wantPerf = true, review: wantReview = true, render: wantRender = true, log = console.log } = {}) {
   const P = paths(ws), J = projectPaths(ws, id);
   if (!existsSync(J.dir)) throw new Error(`找不到專案：${J.dir}`);
   let release;
@@ -32,7 +43,7 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
   process.once('SIGINT', onInt);
 
   // ---------------------------------------------------------------- 一輪
-  async function round(role, prompt, { resume = false } = {}) {
+  async function round(role, prompt, { resume = false, images = [] } = {}) {
     if (state.round >= maxRounds) throw new Error(`已達 ${maxRounds} 輪上限（--max-rounds 可調整）`);
     const rc = resolveRole(role, roleCtx()), adapter = adapterFor(rc.cli);
     const prev = state.sessions[role], sessionId = resume && prev?.cli === rc.cli ? prev.sessionId : null;
@@ -45,7 +56,7 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
     save();
     const res = await runAgent(adapter, {
       cwd: J.dir, prompt, sessionId, model: rc.model || undefined, effort: rc.effort || undefined,
-      readDirs: [P.core], allowWrite: scope.allow, denyWrite: scope.deny,
+      readDirs: [P.core], allowWrite: scope.allow, denyWrite: scope.deny, images,
       logFile: join(J.logs, `round-${String(n).padStart(2, '0')}-${role}.jsonl`), timeoutMs: timeoutMin * 60000, signal: abort.signal,
     }, e => printEvent(e, log));
     const iso = verifyAndRestore(ws, id, snap), roleViol = enforceRoleScope(role, J, startHead);
@@ -90,6 +101,23 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
       if (a.choices[0] === 0 || a.text) { state.streak = {}; state.stage = 'fix'; state.extraNote = a.text || a.note || ''; }
       else if (a.choices[0] === 1) state.stage = 'paused';
       else state.stage = 'done';
+    }
+    if (a.id.startsWith('vs3d-render-pick')) {
+      const all = state.reviewData?.suggest || [];
+      if (a.choices[0] === 0 && !a.text) state.renderItems = all;
+      else if (a.choices[0] === 1 && !a.text) state.renderItems = all.filter(x => (x.priority ?? 2) <= 1);
+      else state.renderItems = pickItems(all, [a.text, a.note].filter(Boolean).join(' '));
+      state.renderPicked = true;
+    }
+    if (a.id.startsWith('vs3d-render-accept') || a.id.startsWith('vs3d-render-stuck')) {
+      const stuck = a.id.startsWith('vs3d-render-stuck'), c = a.choices[0], text = [a.text, a.note].filter(Boolean).join('；');
+      if (!stuck && c === 0 && !a.text) { state.render = { ...state.render, result: 'accepted' }; state.stage = 'done'; }
+      else if ((!stuck && (c === 1 || a.text)) || (stuck && c === 0)) { state.renderRevise = text || '請依守門檢查的結果修正'; state.renderTries = 0; state.stage = 'render-revise'; }
+      else if ((!stuck && c === 2) || (stuck && c === 1)) {
+        git(J.dir, ['reset', '-q', '--hard', state.renderBase.commit]); git(J.dir, ['clean', '-fdq']);
+        state.render = { ...state.render, result: 'reverted' }; state.stage = 'done';
+        log(`  ↺ 已還原到補強前（${state.renderBase.commit.slice(0, 7)}）`);
+      } else { state.render = { ...state.render, result: 'accepted-with-failures' }; state.stage = 'done'; }
     }
     save();
   }
@@ -170,8 +198,108 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
           state.lastCheck = { quick: c.quick, ok: c.ok, rows: c.rows.length, failures: c.failures };
           if (c.ok) {
             if (wantShots) { log('▶ 截圖'); const s = await takeShots(ws, id, join(J.temp, `shots-r${state.round}`)); state.shots = s.ok ? s.dir : null; }
-            state.stage = 'done';
+            state.stage = wantReview ? 'review' : wantRender ? 'render' : 'done';
           } else state.stage = 'fix';
+          break;
+        }
+        case 'review': {
+          const n = (state.reviews || 0) + 1, shotList = pngs(state.shots && join(state.shots, id)), refs = refImages(J);
+          state.reviews = n; save();
+          await round('review', rolePrompt('review', ctxFor({ role: 'review', round: n, shots: shotList.map(f => rel(J.dir, f)), refs: refs.map(f => rel(J.dir, f)) })), { images: [...shotList, ...refs] });
+          const rv = readJson(join(J.studio, 'reviews', `review-${n}.json`), null);
+          if (!rv) { log('  ! 審查角色沒有寫出審查結果，略過審查'); state.reviewData = { must: [], suggest: [] }; state.stage = wantRender ? 'render' : 'done'; break; }
+          state.reviewData = { n, must: rv.must || [], suggest: (rv.suggest || []).sort((a, b) => (a.priority ?? 2) - (b.priority ?? 2)), summary: rv.summary || '' };
+          log(`  審查：必修 ${state.reviewData.must.length} 項、建議補強 ${state.reviewData.suggest.length} 項${rv.summary ? `；${short(rv.summary, 120)}` : ''}`);
+          for (const m of state.reviewData.must) log(`    ✗ ${m.id} ${short(m.issue, 140)}`);
+          appendJsonl(J.rounds, { review: n, at: now(), must: state.reviewData.must.map(m => `${m.id}：${m.issue}`), suggest: state.reviewData.suggest.length });
+          if (state.reviewData.must.length && n < REVIEW_LIMIT) state.stage = 'review-fix';
+          else {
+            if (state.reviewData.must.length) log(`  ! 審查 ${n} 次後仍有 ${state.reviewData.must.length} 項必修，先繼續；請在最後的對照中確認`);
+            state.stage = wantRender ? 'render' : 'done';
+          }
+          break;
+        }
+        case 'review-fix':
+          await round('fix', mustFixPrompt(state.reviewData.must, ctxFor({ role: 'fix' })));
+          state.stage = 'check';
+          break;
+        case 'render': {
+          if (!state.renderBase) {
+            log('\n▶ 補強前基準：排程指紋與空間檢核' + (wantPerf ? '、效能' : ''));
+            if (git(J.dir, ['status', '--porcelain']).trim()) { git(J.dir, ['add', '-A']); git(J.dir, [...GIT_ID, 'commit', '-qm', 'Before render']); }
+            const fp = await runFingerprint(ws, id);
+            if (!fp.ok) throw new Stop(`無法產生排程指紋，不能開始補強：${fp.error}`);
+            writeJson(join(J.studio, 'render', 'base-fingerprint.json'), fp);
+            const perf = wantPerf ? await runPerf(ws, id, join(J.studio, 'render', 'base-perf.json')) : null;
+            if (perf?.max) log(`  三角面 ${perf.max.triangles}、draw call ${perf.max.calls}、手機 ${perf.phoneFps} fps`);
+            state.renderBase = { commit: git(J.dir, ['rev-parse', 'HEAD']).trim(), perf, shots: state.shots };
+            state.renderPicked = false; state.renderItems = null; state.renderTries = 0;
+          }
+          const suggest = state.reviewData?.suggest || [];
+          if (!state.renderPicked && override.pick && suggest.length) {
+            log(`\n建議補強清單：`); suggest.forEach((x, i) => log(`  ${i + 1}. ［${x.area || '其他'}］${x.item}（優先 ${x.priority ?? 2}）`));
+            const qid = `vs3d-render-pick-r${state.round}`;
+            writeAppQuestion(J, { id: qid, header: '補強項目', question: `審查列出 ${suggest.length} 項建議補強（見上方清單），要交給補強角色處理哪些？`,
+              options: [{ label: '全部補強', description: `${suggest.length} 項都做` },
+                { label: '只補高優先', description: `只做優先 1 的 ${suggest.filter(x => (x.priority ?? 2) <= 1).length} 項` },
+                { label: '我自己挑', description: '在補充說明寫編號，例如「1,3,5」或「除了 2、4」' }], recommended: 0 });
+            state.waiting = { askedBy: 'app', ids: [qid] };
+            break;
+          }
+          if (!state.renderItems) state.renderItems = suggest;
+          state.renders = (state.renders || 0) + 1;
+          await round('render', rolePrompt('render', ctxFor({ role: 'render', items: state.renderItems, focus: override.focus || '', round: state.renders })));
+          state.stage = 'render-guard';
+          break;
+        }
+        case 'render-revise': {
+          const text = state.renderRevise; state.renderRevise = null;
+          await round('render', renderRevisePrompt(text, ctxFor({ role: 'render' })), { resume: true });
+          state.stage = 'render-guard';
+          break;
+        }
+        case 'render-guard': {
+          log('\n▶ 守門檢查：檢查、排程指紋、空間檢核' + (wantPerf ? '、效能預算' : ''));
+          const fails = [], notes = [];
+          let c = await runChecks(ws, id, { quick: true });
+          if (c.ok && full) c = await runChecks(ws, id, { quick: false });
+          if (!c.ok) fails.push(...c.failures.map(f => `檢查 ${f.check}：${f.note}${f.detail.length ? `（${short(f.detail.join(' '), 200)}）` : ''}`));
+          fails.push(...compareRenderFingerprint(readJson(join(J.studio, 'render', 'base-fingerprint.json')), await runFingerprint(ws, id)));
+          let perf = null;
+          if (wantPerf && state.renderBase.perf?.max) {
+            perf = await runPerf(ws, id, join(J.studio, 'render', `perf-${state.round}.json`));
+            const r = comparePerf(state.renderBase.perf, perf, readJson(J.studioJson, {}).budget);
+            fails.push(...r.fails); notes.push(...r.notes);
+          }
+          for (const f of fails) log(`  ✗ ${short(f, 200)}`);
+          for (const x of notes) log(`  ! ${x}`);
+          appendJsonl(J.rounds, { guard: state.renders, at: now(), ok: !fails.length, fails, notes, perf: perf?.max ? { ...perf.max, phoneFps: perf.phoneFps } : null });
+          if (fails.length) {
+            state.renderTries = (state.renderTries || 0) + 1;
+            if (state.renderTries >= RENDER_TRIES) {
+              const qid = `vs3d-render-stuck-r${state.round}`;
+              writeAppQuestion(J, { id: qid, header: '補強卡關', question: `補強後的守門檢查連續 ${state.renderTries} 次沒通過（${short(fails.join('；'), 160)}），要怎麼處理？`,
+                options: [{ label: '繼續修正', description: `再給補強角色 ${RENDER_TRIES} 次機會；可以在補充說明寫修正方向` },
+                  { label: '整批還原', description: `退回補強前（${state.renderBase.commit.slice(0, 7)}），保留第一段成品` },
+                  { label: '接受目前狀態', description: '保留補強結果（守門檢查未全過），之後再處理' }], recommended: 1 });
+              state.waiting = { askedBy: 'app', ids: [qid] };
+              break;
+            }
+            await round('render', renderGuardPrompt(fails, ctxFor({ role: 'render' })), { resume: true });
+            break;
+          }
+          // 通過：截圖、前後對照頁，讓使用者決定
+          let after = null;
+          if (wantShots) { log('▶ 補強後截圖'); const s = await takeShots(ws, id, join(J.temp, `shots-render-r${state.round}`)); after = s.ok ? s.dir : null; state.shots = after || state.shots; }
+          const page = writeComparePage(J, { id, before: state.renderBase.shots, after, basePerf: state.renderBase.perf, perf, items: state.renderItems, review: state.reviewData, notes });
+          state.render = { round: state.round, page, after };
+          log(`  ✓ 守門檢查通過；前後對照：${page}`);
+          const qid = `vs3d-render-accept-r${state.round}`;
+          writeAppQuestion(J, { id: qid, header: '補強結果', question: `補強通過守門檢查，請看前後對照（${rel(J.dir, page)}），要保留嗎？`,
+            options: [{ label: '接受', description: '保留補強結果，第一段完成' },
+              { label: '要調整', description: '在補充說明寫要改或退回的部分，補強角色會再處理一次' },
+              { label: '整批還原', description: `退回補強前（${state.renderBase.commit.slice(0, 7)}）` }], recommended: 0 });
+          state.waiting = { askedBy: 'app', ids: [qid] };
           break;
         }
         case 'fix': {
@@ -193,6 +321,8 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
           return { status: 'paused' };
         case 'done':
           log(`\n✔ 第一段完成：${state.lastCheck?.ok ? '檢查全部通過' : '依你的選擇結束（檢查未全過）'}，共 ${state.round} 輪。`);
+          if (state.reviewData) log(`  審查 ${state.reviews} 次：剩餘必修 ${state.reviewData.must.length} 項`);
+          if (state.render) log(`  補強：${{ accepted: '已接受', reverted: '已整批還原', 'accepted-with-failures': '接受（守門檢查未全過）' }[state.render.result] || '未完成'}${state.render.page ? `；對照 ${state.render.page}` : ''}`);
           if (state.shots) log(`  截圖：${state.shots}`);
           log(`  預覽：node "${join(P.core, 'tools', 'serve.mjs')}" "${id}"`);
           save();
@@ -222,6 +352,14 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
 }
 
 class Stop extends Error {}
+
+// 「1,3,5」「S2、S4」只做這些；「除了 2、4」做其他全部（編號從 1 起，也可以寫審查的 id）
+export function pickItems(all, text = '') {
+  const tokens = [...String(text).matchAll(/S?\d+/gi)].map(m => m[0].toUpperCase());
+  const hit = (x, i) => tokens.includes(String(i + 1)) || tokens.includes(String(x.id).toUpperCase());
+  if (!tokens.length) return all;
+  return /除了|除外|不要|排除|except/i.test(text) ? all.filter((x, i) => !hit(x, i)) : all.filter(hit);
+}
 
 // 角色的可寫範圍：寫檔關卡（Claude）用 allow／deny；結束後再用 git 檢查追蹤中的檔案
 export function roleScope(role, J) {

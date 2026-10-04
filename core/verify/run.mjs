@@ -1,6 +1,7 @@
 // core 內建檢查的執行入口（由 core/tools/check.mjs 以子程序呼叫，也可單獨執行）：
 //   node core/tools/run.mjs <專案> ../core/verify/run.mjs <檢查> [--dt=0.5] [--variant=名稱]
-// 檢查：scene（全場干涉＋重合面）、determinism（倒序一致）、layout（空間檢核）
+// 檢查：scene（全場干涉＋重合面）、determinism（倒序一致）、layout（空間檢核）、
+//       fingerprint（排程指紋＋空間檢核結果，只輸出一行 JSON，供渲染補強前後比對）
 // 讀取專案 web/js/project.js 的 createProject({ scene, headless, ...params })，結果寫入 <專案>/review/<檢查>.json。
 // project.json 的 "variants": [{ "name": "NG", "params": { "ng": "A1" } }] 會在預設情境之外各跑一次
 // （配方、SKU、NG 情境等不同參數會建出不同場景）。
@@ -11,6 +12,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { verifyScene, sceneText } from './scene.mjs';
 import { verifyDeterminism } from './determinism.mjs';
+import { fingerprint } from './fingerprint.mjs';
 
 const check = process.argv[2], opts = Object.fromEntries(process.argv.slice(3).filter(a => a.startsWith('--')).map(a => a.slice(2).split('=')).map(([k, v]) => [k, v === undefined ? true : isNaN(+v) ? v : +v]));
 const dir = process.cwd(), file = join(dir, 'web', 'js', 'project.js');
@@ -26,10 +28,13 @@ for (const v of variants) {
   if (check === 'scene') r = verifyScene(project, scene, { dt: opts.dt, report: s => console.log(`[${v.name}] ${s}`) });
   else if (check === 'determinism') r = verifyDeterminism(project, scene);
   else if (check === 'layout') { const rows = project.layoutChecks?.() || []; r = { ok: rows.every(x => x.ok), count: rows.length, failures: rows.filter(x => !x.ok), rows }; }
+  else if (check === 'fingerprint') r = { ok: true, ...fingerprint(project, scene), layout: (project.layoutChecks?.() || []).map(x => [x.group || '', x.name, !!x.ok, x.value ?? null]) };
   else { console.log('未知檢查：' + check); process.exit(2); }
   runs.push({ variant: v.name, params: v.params, ...r });
 }
 const result = variants.length === 1 ? runs[0] : { ok: runs.every(r => r.ok), variants: runs };
+// 排程指紋只印一行 JSON 給 studio 比對，不寫 review（避免每次跑都產生 git 差異）
+if (check === 'fingerprint') { console.log('FINGERPRINT ' + JSON.stringify(result)); process.exit(0); }
 // 耗時只印在終端機、不寫進 review（提交的報告只在結果改變時才有差異）
 const seconds = +((Date.now() - t0) / 1000).toFixed(1);
 mkdirSync(join(dir, 'review'), { recursive: true });

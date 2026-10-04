@@ -1,18 +1,21 @@
 #!/usr/bin/env node
 // vs3d：3D 設備動畫生成應用程式的命令列原型（P1）。不需要 npm 套件。
 //   node studio/vs3d.mjs doctor                                   檢查 Claude Code／Codex 是否已安裝、已登入
-//   node studio/vs3d.mjs init                                     建立工作區（複製 core、寫入共通規則）
+//   node studio/vs3d.mjs init [--refresh-core]                    建立工作區（複製 core、寫入共通規則）；--refresh-core 換成本庫目前的 core
 //   node studio/vs3d.mjs new <名稱> --prompt "<需求>" [--files 檔案…] [--title 標題] [--cli claude|codex]
 //   node studio/vs3d.mjs resume <名稱>                            續跑（回答問題後、中斷後）
 //   node studio/vs3d.mjs answer <名稱> <問題 id> <編號或文字> [--note 補充]
 //   node studio/vs3d.mjs status [<名稱>]                          進度、等待中的問題、最近一次檢查
 //   node studio/vs3d.mjs check <名稱> [--full]                    手動跑檢查
+//   node studio/vs3d.mjs review <名稱>                            重新審查（必修項自動送修正），接著補強
+//   node studio/vs3d.mjs render <名稱> [--pick] [--focus "範圍"]  重新做渲染與細節補強（--pick 先挑項目）
 //   node studio/vs3d.mjs probe <名稱> [--cli …] [--other <專案>] [--simulate]   寫入隔離自我測試（--simulate：app 另外模擬越界寫入）
 //   node studio/vs3d.mjs models                                   各 CLI 可用的模型與各角色目前的指派
 // 共通選項：--workspace <資料夾>（預設 %USERPROFILE%\Documents\3D-Studio，或環境變數 VS3D_WORKSPACE）
 //   --cli、--model（所有角色）、--role plan=opus,fix=haiku（個別角色；可寫 codex:<模型>）、--effort
 //   --no-wait（有問題時寫出後結束，不在終端機詢問）、--auto-approve（配置提案不必確認）、--max-rounds 24、--timeout 60（分鐘／輪）
 //   new 另有 --create-only（只建立專案，之後用 resume 開始）
+//   第一段完成後預設自動審查與補強；--no-review、--no-render 關掉，--no-perf 不量效能，--pick 讓你先挑補強項目
 import { existsSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { ADAPTERS, adapterFor } from './lib/adapters/index.mjs';
@@ -24,7 +27,7 @@ import { ROLES, resolveRole, loadRoleContext, parseRoleOverrides } from './lib/r
 import { isolationProbe } from './lib/probe.mjs';
 import { defaultWorkspace, readText, readJson, writeJson } from './lib/util.mjs';
 
-const VALUE = new Set(['--workspace', '--prompt', '--prompt-file', '--title', '--summary', '--cli', '--model', '--role', '--effort', '--note', '--max-rounds', '--timeout', '--other']);
+const VALUE = new Set(['--workspace', '--prompt', '--prompt-file', '--title', '--summary', '--cli', '--model', '--role', '--effort', '--note', '--max-rounds', '--timeout', '--other', '--focus']);
 function parseArgs(argv) {
   const opts = { _: [], files: [] };
   for (let i = 0; i < argv.length; i++) {
@@ -39,10 +42,11 @@ function parseArgs(argv) {
 
 const o = parseArgs(process.argv.slice(2)), [cmd, name, ...rest] = o._;
 const ws = resolve(o.workspace || defaultWorkspace());
-const override = { cli: o.cli, model: o.model, roles: parseRoleOverrides(o.role || ''), autoApprove: !!o['auto-approve'] };
+const override = { cli: o.cli, model: o.model, roles: parseRoleOverrides(o.role || ''), autoApprove: !!o['auto-approve'], pick: !!o.pick, focus: o.focus || '' };
 if (o.effort) for (const r of Object.keys(ROLES)) override.roles[r] = { ...override.roles[r], effort: o.effort };
 if (o.cli && !ADAPTERS[o.cli]) fail(`--cli 只能是 ${Object.keys(ADAPTERS).join('、')}`);
-const runOpts = () => ({ interactive: !!process.stdin.isTTY && !o['no-wait'], override, maxRounds: +(o['max-rounds'] || 24), timeoutMin: +(o.timeout || 60) });
+const runOpts = () => ({ interactive: !!process.stdin.isTTY && !o['no-wait'], override, maxRounds: +(o['max-rounds'] || 40), timeoutMin: +(o.timeout || 60),
+  review: !o['no-review'], render: !o['no-render'], perf: !o['no-perf'] });
 const needWs = () => { if (!existsSync(paths(ws).marker)) fail(`工作區還沒建立：${ws}（先執行 vs3d init，或用 --workspace 指定）`); };
 const needProject = () => { needWs(); if (!name) fail('請指定專案名稱'); if (!existsSync(projectPaths(ws, name).dir)) fail(`找不到專案：${name}`); return projectPaths(ws, name); };
 function fail(msg) { console.error(msg); process.exit(2); }
@@ -56,7 +60,7 @@ switch (cmd) {
     console.log(`工作區：${ws}${existsSync(paths(ws).marker) ? '' : '（尚未建立）'}`);
     break;
   }
-  case 'init': initWorkspace(ws); console.log(`工作區就緒：${ws}`); break;
+  case 'init': initWorkspace(ws, { refreshCore: !!o['refresh-core'] }); console.log(`工作區就緒：${ws}`); break;
   case 'new': {
     if (!name) fail('用法：vs3d new <名稱> --prompt "<需求>" [--files …]');
     if (!/^[\w][\w .-]*$/.test(name)) fail('專案名稱請用英數、空白、- 或 _');
@@ -77,6 +81,16 @@ switch (cmd) {
     break;
   }
   case 'resume': needProject(); report(await runProject(ws, name, runOpts())); break;
+  case 'review':
+  case 'render': {
+    const J = needProject(), s = loadState(J);
+    if (!['done', 'review', 'render', 'render-guard', 'render-revise'].includes(s.stage)) fail(`專案目前在「${s.stage}」階段，第一段完成後才能${cmd === 'review' ? '審查' : '補強'}`);
+    Object.assign(s, { stage: cmd, waiting: null, renderBase: null, renderPicked: false, renderItems: null, renderTries: 0 });
+    if (cmd === 'review') s.reviews = 0;
+    writeJson(J.state, s);
+    report(await runProject(ws, name, runOpts()));
+    break;
+  }
   case 'answer': {
     const J = needProject(), [qid, ...words] = rest;
     const q = loadQuestions(J).list.find(x => x.id === qid);

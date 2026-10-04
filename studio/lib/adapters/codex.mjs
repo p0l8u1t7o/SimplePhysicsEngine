@@ -44,11 +44,13 @@ export const codex = {
   },
   listModels() { return this.models; },
 
-  command({ prompt, sessionId, model, effort }) {
+  command({ prompt, sessionId, model, effort, images = [] }) {
     const { cmd, pre } = resolveCodex();
     const common = ['--json', '-c', 'sandbox_mode="workspace-write"', '-c', 'approval_policy="never"'];
     if (model) common.push('-m', model);
     if (effort) common.push('-c', `model_reasoning_effort="${effort}"`);
+    // 審查截圖：用 --image=路徑，避免 -i 的多值參數把後面的工作階段 ID 與提示 "-" 也當成圖片
+    for (const f of images) common.push(`--image=${f}`);
     const args = sessionId ? ['exec', 'resume', ...common, sessionId, '-'] : ['exec', ...common, '-'];
     return { cmd, args: [...pre, ...args], input: prompt, env: {} };
   },

@@ -15,9 +15,9 @@ TestCode 底下每個有 `web/index.html` 的資料夾都是一個展示專案�
 | `electrical/` | 線材、拖鏈、電盤、電控元件與檢視器 |
 | `movie/` | 錄影程式（4K 取樣 1080p、絕對時間取樣、追焦運鏡），各專案以 `?movie` 呼叫 |
 | `ui/` | `stage.js`（renderer／場景／相機／燈光／3D 標籤／視角轉場／畫面迴圈／`exposeSim`）、`player.js`（標準播放列）、`viewer-workspace`（相機視窗與焦點追隨，所有專案共用）、`vision-overlay` |
-| `verify/` | 統一檢查：`scene.mjs`（全場干涉＋重合面閃爍）、`determinism.mjs`（倒序一致）、`run.mjs`（執行入口）、`dom-stub.mjs` |
+| `verify/` | 統一檢查：`scene.mjs`（全場干涉＋重合面閃爍）、`determinism.mjs`（倒序一致）、`fingerprint.mjs`／`fingerprint-compare.mjs`（排程指紋，渲染補強前後比對）、`run.mjs`（執行入口）、`dom-stub.mjs` |
 | `template/` | 新專案範本（`tools/new-project.mjs` 複製） |
-| `tools/` | 伺服器、檢查執行器、截圖比對、Pages 建置、建立新專案、範圍檢查（`check-scope.mjs`、`scope-guard.mjs`、`install-hooks.mjs`）（不發布） |
+| `tools/` | 伺服器、檢查執行器、截圖比對、效能量測（`perf-check.mjs`）、Pages 建置、建立新專案、範圍檢查（`check-scope.mjs`、`scope-guard.mjs`、`install-hooks.mjs`）（不發布） |
 | `VERSION`、`REQUESTS.md` | core 版本號（語意化版本，改版紀錄在 `MIGRATION.md`）；子專案提出的 core 需求登記 |
 
 ## 新專案
@@ -161,6 +161,8 @@ node core/tools/check.mjs --only scene     # 只跑某項
 | `scene` | ✓ | 動態干涉、靜態架設相撞、重合面閃爍；結果寫入 `review/scene-verification.json/.txt` |
 | `ui` |  | 標準互動測試（`core/tools/ui-check.mjs`）：桌面、手機直向、手機橫向、觸控平板四種尺寸，檢查載入與主控台錯誤、版面不溢出、畫布面積、播放／暫停、上一步／下一步／步驟選單、視角按鈕與選單收合、側欄、標籤在畫布內且（精簡版面）不重疊、點按目標 ≥ 30 px、`?movie`；結果寫入 `review/ui-check.json`，`--shots 資料夾` 另存截圖；`project.json` 的 `ui.skip`／`ui.params` 可設定 |
 | 專案自有 | 依 `checks` | `project.json` 的 `checks.quick`／`checks.full` |
+
+另有兩個不在 check.mjs 裡、給 studio 渲染補強守門用的工具：`node core/tools/run.mjs <專案> ../core/verify/run.mjs fingerprint`（印出一行排程指紋 JSON）、`node core/tools/perf-check.mjs <專案> [--out 檔案]`（各視角三角面、draw call 與手機幀率）。
 
 ## 回歸比對（改共用模組或渲染時）
 

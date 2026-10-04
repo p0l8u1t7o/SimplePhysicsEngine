@@ -7,6 +7,9 @@ import { pickProjects } from './projects.mjs';
 import { startServer } from './serve.mjs';
 import { openBrowser, sleep } from './cdp.mjs';
 import { decodePng, encodePng, diffPng } from './png.mjs';
+import { viewNames } from './views.mjs';
+
+export { viewNames };
 
 const argv = process.argv.slice(2), opt = (k, d) => { const i = argv.indexOf(k); return i >= 0 ? argv.splice(i, 2)[1] : d; };
 const OUT = resolve(opt('--out', 'TEMP/shots')), BASE = opt('--compare', null), TOL = +opt('--tol', 24), MAX = +opt('--max', .002);
@@ -14,23 +17,6 @@ const PORT = +opt('--port', 8790);
 const projects = pickProjects(argv.filter(a => !a.startsWith('--')));
 const FRACS = [.12, .31, .5, .69, .88];
 
-// 從 main.js 讀出視角名稱（const views／VIEWS 物件第一層的鍵）
-export function viewNames(src) {
-  const m = /const\s+(?:views|VIEWS)\s*=\s*\{/.exec(src); if (!m) return ['iso'];
-  // 第一層：鍵出現在開頭或逗號之後，緊接冒號
-  const names = []; let depth = 1, expectKey = true, tok = '';
-  for (let i = m.index + m[0].length; i < src.length && depth > 0; i++) {
-    const c = src[i];
-    if ('{[('.includes(c)) { depth++; expectKey = false; tok = ''; continue; }
-    if ('}])'.includes(c)) { depth--; continue; }
-    if (depth !== 1) continue;
-    if (c === ',') { expectKey = true; tok = ''; }
-    else if (expectKey && /[\w$]/.test(c)) tok += c;
-    else if (expectKey && c === ':' && tok) { names.push(tok); expectKey = false; tok = ''; }
-    else if (!/\s/.test(c)) { expectKey = false; tok = ''; }
-  }
-  return [...new Set(names)];
-}
 
 const server = await startServer({ port: PORT, quiet: true });
 const browser = await openBrowser();

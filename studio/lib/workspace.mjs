@@ -37,9 +37,14 @@ export function setReadOnly(dir, readOnly = true) {
   for (const r of walk(dir)) try { chmodSync(join(dir, r), readOnly ? 0o444 : 0o644); } catch { /* 略過 */ }
 }
 
-export function initWorkspace(ws, { log = console.log } = {}) {
+// refreshCore：來源 core 的版本和工作區不同時，換掉工作區的 core 與還原副本（開發用；正式的升級＋背景驗證在 P5）
+export function initWorkspace(ws, { log = console.log, refreshCore = false } = {}) {
   const P = paths(ws);
   mkdirSync(P.projects, { recursive: true });
+  if (refreshCore && existsSync(P.core) && coreVersion(P.core) !== coreVersion(SOURCE_CORE)) {
+    log(`更新 core：${coreVersion(P.core)} → ${coreVersion(SOURCE_CORE)}`);
+    for (const d of [P.core, P.pristine]) if (existsSync(d)) { setReadOnly(d, false); rmSync(d, { recursive: true, force: true }); }
+  }
   if (!existsSync(P.core)) {
     const filter = src => !SKIP_CORE(src.slice(SOURCE_CORE.length + 1).replace(/\\/g, '/'));
     cpSync(SOURCE_CORE, P.core, { recursive: true, filter });

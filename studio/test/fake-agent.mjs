@@ -15,7 +15,25 @@ const cwd = process.cwd(), w = (f, s) => { mkdirSync(join(f, '..'), { recursive:
 const log = process.env.FAKE_LOG; if (log) appendFileSync(log, prompt.split('\n')[0] + '\n');
 
 let text = 'DONE';
-if (/任務：配置提案/.test(prompt)) {
+const reviewN = /任務：審查第一段成品（第 (\d+) 次）/.exec(prompt)?.[1];
+if (reviewN) {
+  // 第 1 次審查抓到 1 項必修，修好後第 2 次只剩建議補強
+  const must = reviewN === '1' && !existsSync(join(cwd, 'web/review-fixed.txt')) ? [{ id: 'M1', issue: '順序做反（違反已拍板事項）', evidence: 'web/js/project.js', fix: '改回先小後大' }] : [];
+  w(join(cwd, `.studio/reviews/review-${reviewN}.json`), JSON.stringify({ must, suggest: [{ id: 'S1', area: '材質', item: '鋁件加細紋', priority: 1 }, { id: 'S2', area: '標籤', item: '標籤加底色', priority: 2 }], summary: '假審查' }));
+  text = '審查完成';
+} else if (/任務：修正審查發現的必修問題/.test(prompt)) {
+  w(join(cwd, 'web/review-fixed.txt'), 'ok');
+  text = '必修已修正';
+} else if (/任務：渲染與細節補強/.test(prompt)) {
+  const pj = join(cwd, 'web/js/project.js');
+  if (process.env.FAKE_RENDER_BREAK) { writeFileSync(pj, readFileSync(pj, 'utf8').replace('total: tl.total,', 'total: tl.total + 1,')); tool('Edit', pj); }
+  w(join(cwd, 'web/render-detail.txt'), 'detail');
+  text = '補強完成';
+} else if (/守門檢查沒有通過/.test(prompt)) {
+  const pj = join(cwd, 'web/js/project.js');
+  writeFileSync(pj, readFileSync(pj, 'utf8').replace('total: tl.total + 1,', 'total: tl.total,')); tool('Edit', pj);
+  text = '已修正守門檢查';
+} else if (/任務：配置提案/.test(prompt)) {
   w(join(cwd, '.studio/questions/site-1.json'), JSON.stringify({ id: 'site-1', header: '站位', question: '輸送帶放左邊還是右邊？', options: [{ label: '左邊', description: 'a' }, { label: '右邊', description: 'b' }], recommended: 0 }));
   text = '寫了 1 個問題';
 } else if (/^使用者回答了你的問題/.test(prompt) || /要求修改/.test(prompt)) {

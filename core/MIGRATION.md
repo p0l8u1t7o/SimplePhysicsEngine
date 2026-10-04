@@ -78,10 +78,16 @@ Node 端由 `core/tools/loader.mjs` 解析相同的三種名稱，檢查程式�
 - 2026-10-04 core 1.1.0（3D 動畫生成應用程式 P1 需要）：
   - 工作區模式：`core/tools/projects.mjs` 看到 core 旁邊有 `studio-workspace.json` 時，專案改從 `<工作區>/projects/` 找（`WORKSPACE`、`ROOT`），網址配置不變；`check.mjs` 在工作區模式只檢查單一專案時，結果寫到該專案的 `TEMP/`。本庫沒有標記檔，行為不變。
   - `new-project.mjs`：從範本複製出的檔案一律改成可寫（工作區的 core 是唯讀屬性）。
+- 2026-10-04 core 1.2.0（studio P4b 渲染與細節補強的守門檢查需要）：
+  - `core/verify/fingerprint.mjs`：排程指紋（時間軸總長、事件表、各取樣點 `apply(t)` 的狀態、有名稱且會動的物件軌跡）＋`fingerprint-compare.mjs`（不依賴 three 的比對：原有欄位不可變、可新增）。`core/verify/run.mjs` 新增 `fingerprint` 檢查，只印一行 JSON、不寫 review。
+  - `core/tools/perf-check.mjs`：各視角 `renderer.info`（三角面、draw call、貼圖、幾何）與手機直向（CPU 降速 4 倍）幀率；`createStage` 把舞台登記到 `globalThis.__coreStages` 供量測讀取。
+  - `viewNames` 從 `shots.mjs` 搬到 `core/tools/views.mjs`（shots 仍匯出）。7 站桌面截圖與改前 HEAD 比對 0 張超過門檻。
+  - 現有各站的量測基準（無頭瀏覽器）：快門 572 萬三角面／4457 draw call／手機 11.7 fps，MGPC 134 萬／28172／5 fps，可作為之後最佳化的參考。
 
 ## 版本
 
 | 版本 | 日期 | 內容 |
 |---|---|---|
+| 1.2.0 | 2026-10-04 | 排程指紋、效能量測、舞台登記 |
 | 1.1.0 | 2026-10-04 | 工作區模式（studio）；new-project 複製後設為可寫 |
 | 1.0.0 | 2026-10-04 | 開始編號：搬庫後、第四輪統一完成時的 core |

@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { readText, rel } from './util.mjs';
 import { formatAnswers } from './questions.mjs';
 
-const ROLE_TITLE = { plan: '規劃（配置提案）', build: '開發（第一段）', fix: '修正（檢查失敗）', review: '審查', render: '渲染與細節補強' };
+const ROLE_TITLE = { plan: '規劃（配置提案）', build: '開發（第一段）', fix: '修正', review: '審查', render: '渲染與細節補強' };
 
 export function header({ ws, J, role, adapter, scope }) {
   const lines = [
@@ -31,7 +31,7 @@ export function handoff({ J, check, shotsDir, notes = [], violations = [] }) {
   return out.join('\n');
 }
 
-const TASK = {
+export const TASK = {
   plan: () => `## 任務：配置提案
 
 讀 \`AGENTS.md\` 的需求與 \`docs/\` 裡的資料（圖片、PDF 也要看），寫出配置提案到 \`.studio/plan/proposal.md\`，章節如下：
@@ -68,6 +68,48 @@ ${check ? failureText(check) : '（沒有檢查結果）'}
 找出根因並修正：不要用 allow 規則蓋掉真的干涉，閃爍要改幾何。修完跑快速檢查確認。`,
 };
 
+// 審查：看截圖、對照拍板事項與規則，輸出必修與建議補強
+TASK.review = ({ shots = [], refs = [], round = 1 }) => `## 任務：審查第一段成品（第 ${round} 次）
+
+你是審查者，不是開發者：**不要修改任何專案檔案**，只寫審查結果。
+
+請看下列截圖（用讀檔工具開啟圖片），並讀 \`AGENTS.md\` 的需求與「已拍板事項」、\`.studio/plan/proposal.md\`、工作區規則，必要時讀 \`web/js/\` 的程式確認：
+
+${shots.map(s => `- \`${s}\``).join('\n') || '- （沒有截圖）'}
+${refs.length ? `\n使用者提供的參考資料（照片、圖面）：\n\n${refs.map(s => `- \`${s}\``).join('\n')}\n` : ''}
+把結果寫成 \`.studio/reviews/review-${round}.json\`：
+
+\`\`\`json
+{
+  "must": [
+    { "id": "M1", "issue": "違反了什麼（引用拍板事項或規則原文）", "evidence": "在哪裡看到（截圖檔名、檔案與函式）", "fix": "要怎麼改" }
+  ],
+  "suggest": [
+    { "id": "S1", "area": "材質｜細部幾何｜燈光｜鏡頭｜標籤｜其他", "item": "建議補強的具體內容", "priority": 1 }
+  ],
+  "summary": "一兩句總評"
+}
+\`\`\`
+
+- **must（必修）只放違反已拍板事項、需求或工作區規則的問題**，例如順序做反、做了明講不做的東西、拍板的設備沒出現。外觀好不好看不算必修。
+- **suggest（建議補強）**只放外觀：材質、細部幾何（倒角、螺絲、溝槽、管線、標示）、燈光、鏡頭構圖、標籤樣式；不可以要求改節拍、動作或站位。priority 1 最重要、3 最次要，最多 15 項。
+- 沒有問題就給空陣列。寫完檔案就結束。`;
+
+// 渲染與細節補強：只改「看起來」，不改「做了什麼」
+TASK.render = ({ items = [], focus = '', round = 1 }) => `## 任務：渲染與細節補強（第 ${round} 次）
+
+依下列審查建議，提升場景的外觀：材質（\`MAT\`、\`finished()\`、貼圖）、細部幾何（倒角、螺絲、溝槽、管線、標示）、燈光（\`look\`、\`extraLights\`、陰影範圍）、鏡頭（視角構圖）、標籤樣式。core 的 \`geom/finish.js\`、\`hardware.js\`、\`surfaces.js\`、\`perforated.js\` 可以直接用。
+
+${items.map(x => `- **${x.id}**［${x.area || '其他'}］${x.item}`).join('\n') || '- （審查沒有具體建議，請自行找出最影響觀感的 3～5 處補強）'}
+${focus ? `\n這次的處理範圍：${focus}\n` : ''}
+**硬性限制**（app 會在你結束後檢查，任何一項沒過都會退回給你）：
+
+- 不能改節拍與動作：時間軸總長、事件、\`apply(t)\` 回傳的原有狀態、會動物件的軌跡都要和補強前相同（可以新增欄位與會動的細節，例如拖鏈）。不要改有名稱的會動物件的名稱。
+- 不能改配置：\`layoutChecks()\` 的結果要相同。
+- 新細節不能撞到東西，也不能和既有的面重合（scene 干涉、閃爍要維持 0）。
+- 效能預算：三角面數不超過補強前的 1.5 倍、draw call 不超過 1.3 倍，手機幀率不能明顯下降。重複的細節用共用幾何或 InstancedMesh。
+- 完成後跑快速檢查並修到通過。`;
+
 const failureText = c => c.failures.map(f => [`- **${f.check}**：${f.note}`, ...f.detail.slice(0, 25).map(d => `    ${d}`)].join('\n')).join('\n');
 
 export function rolePrompt(role, ctx) {
@@ -86,6 +128,30 @@ export const answersPrompt = (answers, ctx) => [
 export const fixAgainPrompt = (check, ctx) => [
   ctx?.violations?.length ? handoff(ctx) : '',
   `app 重新執行檢查，仍有問題：`, '', failureText(check), '', '請繼續修正，修完跑快速檢查確認。',
+].filter(Boolean).join('\n');
+
+// 審查的必修項交給修正角色
+export const mustFixPrompt = (must, ctx) => [
+  rolePromptHeader(ctx),
+  '## 任務：修正審查發現的必修問題', '',
+  '審查者比對已拍板事項與規則後，發現以下問題，請逐項修正（不要順便做外觀補強）：', '',
+  ...must.map(m => `- **${m.id}**：${m.issue}\n  依據／位置：${m.evidence || '—'}\n  建議改法：${m.fix || '—'}`), '',
+  '修完跑快速檢查並修到通過。',
+].join('\n');
+const rolePromptHeader = ctx => [header({ ...ctx, role: 'fix' }), handoff(ctx)].join('\n\n');
+
+// 補強沒過守門檢查時回送同一個補強工作階段
+export const renderGuardPrompt = (fails, ctx) => [
+  ctx?.violations?.length ? handoff(ctx) : '',
+  '補強後的守門檢查沒有通過，請修正以下問題（保留其他補強成果）：', '',
+  ...fails.map(f => `- ${f}`), '',
+  '修完跑快速檢查確認。',
+].filter(Boolean).join('\n');
+
+// 使用者要求部分退回
+export const renderRevisePrompt = (text, ctx) => [
+  ctx?.violations?.length ? handoff(ctx) : '',
+  `使用者看過補強前後對照，要求調整：\n\n${text}\n\n其餘補強保留。改完跑快速檢查確認，硬性限制同前。`,
 ].filter(Boolean).join('\n');
 
 // 問題檔格式錯誤時回送

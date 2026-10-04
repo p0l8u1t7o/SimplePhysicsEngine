@@ -218,7 +218,10 @@ function buildStage({
   function loop(fn, opts = {}) { tick = fn; if (opts.render) draw = opts.render; resize(); if (qp.has('movie') || running) return; running = true; clock.getDelta(); frame(); }
   function stop() { running = false; }
 
-  return { renderer, scene, camera, controls, lights, qp, addLabel, updateLabels, labels, goTo, cancelTween, shiftView, get tweening() { return tweening(); }, get fitScale() { return fitScale; }, resize, render, invalidate, loop, stop, clock, useLog };
+  const stage = { renderer, scene, camera, controls, lights, qp, addLabel, updateLabels, labels, goTo, cancelTween, shiftView, get tweening() { return tweening(); }, get fitScale() { return fitScale; }, resize, render, invalidate, loop, stop, clock, useLog };
+  // 效能量測（core/tools/perf-check.mjs）從這裡讀 renderer.info
+  (globalThis.__coreStages ||= []).push(stage);
+  return stage;
 }
 
 // 標準 window.sim：統一檢查與截圖工具依賴 seekTo、setView、views、total、play、pause；
