@@ -28,9 +28,9 @@ const short = (s, n = 160) => (s = String(s ?? '').replace(/\s+/g, ' ').trim()).
 export const loadState = J => readJson(J.state, { stage: 'plan', round: 0, sessions: {}, streak: {}, waiting: null, lastCheck: null, violations: [] });
 
 // full：快速檢查通過後是否再跑完整檢查（含 ui）；shots：通過後是否截圖；perf：補強前後是否量效能（測試時可關掉以節省時間）
-// review／render：第一段完成後是否自動審查、補強（override.pick 時先讓使用者挑補強項目，override.focus 限定範圍）
+// review／render：第一段完成後是否自動審查、補強；reviewFix：必修項是否自動送修正（override.pick 時先讓使用者挑補強項目，override.focus 限定範圍）
 export async function runProject(ws, id, { interactive = false, override = {}, maxRounds = 40, timeoutMin = 90, full = true, shots: wantShots = true,
-  perf: wantPerf = true, review: wantReview = true, render: wantRender = true, log = console.log } = {}) {
+  perf: wantPerf = true, review: wantReview = true, reviewFix: wantReviewFix = true, render: wantRender = true, log = console.log } = {}) {
   const P = paths(ws), J = projectPaths(ws, id);
   if (!existsSync(J.dir)) throw new Error(`找不到專案：${J.dir}`);
   let release;
@@ -212,9 +212,10 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
           log(`  審查：必修 ${state.reviewData.must.length} 項、建議補強 ${state.reviewData.suggest.length} 項${rv.summary ? `；${short(rv.summary, 120)}` : ''}`);
           for (const m of state.reviewData.must) log(`    ✗ ${m.id} ${short(m.issue, 140)}`);
           appendJsonl(J.rounds, { review: n, at: now(), must: state.reviewData.must.map(m => `${m.id}：${m.issue}`), suggest: state.reviewData.suggest.length });
-          if (state.reviewData.must.length && n < REVIEW_LIMIT) state.stage = 'review-fix';
+          if (state.reviewData.must.length && n < REVIEW_LIMIT && wantReviewFix) state.stage = 'review-fix';
           else {
-            if (state.reviewData.must.length) log(`  ! 審查 ${n} 次後仍有 ${state.reviewData.must.length} 項必修，先繼續；請在最後的對照中確認`);
+            if (state.reviewData.must.length && !wantReviewFix) log(`  ! 只審查（--no-fix）：${state.reviewData.must.length} 項必修沒有送修正`);
+            else if (state.reviewData.must.length) log(`  ! 審查 ${n} 次後仍有 ${state.reviewData.must.length} 項必修，先繼續；請在最後的對照中確認`);
             state.stage = wantRender ? 'render' : 'done';
           }
           break;

@@ -45,7 +45,7 @@ node studio/vs3d.mjs models Conveyor                          # 各角色目前�
 | `--effort <等級>` | 推理強度（Claude `--effort`、Codex `model_reasoning_effort`） |
 | `--no-wait` | 有問題時寫出後就結束（預設在終端機直接詢問） |
 | `--auto-approve` | 配置提案不必確認，直接開始開發 |
-| `--no-review`、`--no-render`、`--no-perf` | 第一段完成後不自動審查／不補強／補強時不量效能 |
+| `--no-review`、`--no-render`、`--no-perf`、`--no-fix` | 第一段完成後不自動審查／不補強／補強時不量效能；`--no-fix` 審查的必修項不送修正（只審查） |
 | `--pick`、`--focus "範圍"` | 補強前先用卡片挑項目（全部／只補高優先／自己挑編號）；限定這次補強的範圍 |
 | `--max-rounds 40`、`--timeout 90` | 輪數上限、每輪逾時（分鐘）；opus 開發複雜案子單輪可能超過 60 分鐘 |
 

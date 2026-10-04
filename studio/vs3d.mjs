@@ -7,7 +7,7 @@
 //   node studio/vs3d.mjs answer <名稱> <問題 id> <編號或文字> [--note 補充]
 //   node studio/vs3d.mjs status [<名稱>]                          進度、等待中的問題、最近一次檢查
 //   node studio/vs3d.mjs check <名稱> [--full]                    手動跑檢查
-//   node studio/vs3d.mjs review <名稱>                            重新審查（必修項自動送修正），接著補強
+//   node studio/vs3d.mjs review <名稱> [--no-fix]                 重新審查（必修項自動送修正），接著補強；--no-fix 只審查、不修正
 //   node studio/vs3d.mjs render <名稱> [--pick] [--focus "範圍"]  重新做渲染與細節補強（--pick 先挑項目）
 //   node studio/vs3d.mjs probe <名稱> [--cli …] [--other <專案>] [--simulate]   寫入隔離自我測試（--simulate：app 另外模擬越界寫入）
 //   node studio/vs3d.mjs models                                   各 CLI 可用的模型與各角色目前的指派
@@ -52,7 +52,7 @@ const override = { cli: o.cli, model: o.model, roles: parseRoleOverrides(o.role 
 if (o.effort) for (const r of Object.keys(ROLES)) override.roles[r] = { ...override.roles[r], effort: o.effort };
 if (o.cli && !ADAPTERS[o.cli]) fail(`--cli 只能是 ${Object.keys(ADAPTERS).join('、')}`);
 const runOpts = () => ({ interactive: !!process.stdin.isTTY && !o['no-wait'], override, maxRounds: +(o['max-rounds'] || 40), timeoutMin: +(o.timeout || 90),
-  review: !o['no-review'], render: !o['no-render'], perf: !o['no-perf'] });
+  review: !o['no-review'], reviewFix: !o['no-fix'], render: !o['no-render'], perf: !o['no-perf'] });
 const needWs = () => { if (!existsSync(paths(ws).marker)) fail(`工作區還沒建立：${ws}（先執行 vs3d init，或用 --workspace 指定）`); };
 const needProject = () => { needWs(); if (!name) fail('請指定專案名稱'); if (!existsSync(projectPaths(ws, name).dir)) fail(`找不到專案：${name}`); return projectPaths(ws, name); };
 function fail(msg) { console.error(msg); process.exit(2); }
