@@ -106,7 +106,8 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null 
           res.write(`event: hello\ndata: ${JSON.stringify({ running: runner.current })}\n\n`);
           clients.add(res); req.on('close', () => clients.delete(res)); return;
         }
-        if (a === 'info') return json(200, { ws, repo, running: runner.current, ffmpeg: !!ffmpeg, previewPort, roles: ROLES });
+        // options：介面的下拉選單（各 CLI 可選的模型與推理強度），不必呼叫 CLI
+        if (a === 'info') return json(200, { options: Object.fromEntries(Object.values(ADAPTERS).filter(x => x.name !== 'fake').map(x => [x.name, { label: x.label, models: x.listModels(), efforts: x.efforts || [] }])), ws, repo, running: runner.current, ffmpeg: !!ffmpeg, previewPort, roles: ROLES });
         if (a === 'doctor') return json(200, Object.values(ADAPTERS).filter(x => x.name !== 'fake').map(x => ({ name: x.name, label: x.label, models: x.listModels(), ...x.detect() })));
         if (a === 'settings') {
           if (req.method === 'PUT') { const v = await jbody(); writeJson(P.settings, { defaultCli: v.defaultCli || 'claude', roles: v.roles || {} }); }

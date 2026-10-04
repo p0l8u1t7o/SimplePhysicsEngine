@@ -29,6 +29,7 @@ export const claude = {
   label: 'Claude Code',
   loadsParentRules: true,          // 會一路往上載入 CLAUDE.md，所以工作區規則不必放進提示
   models: ['opus', 'sonnet', 'haiku'],
+  efforts: ['low', 'medium', 'high', 'xhigh', 'max'],   // claude --effort 接受的值
 
   detect() {
     try {

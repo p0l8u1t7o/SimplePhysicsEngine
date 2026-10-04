@@ -40,10 +40,10 @@ export function App() {
         <div className="list">
           {/* 兩個分區：工作區的專案、本庫 project-site/ 的站（本庫模式） */}
           {[['工作區', projects.filter(p => !p.repo)], ['本庫 project-site', projects.filter(p => p.repo).sort((a, b) => a.name.localeCompare(b.name))]].filter(([, list]) => list.length).map(([label, list]) => <div key={label}>
-          <div className="mute" style={{ padding: '8px 8px 2px', fontSize: 12 }}>{label}</div>
+          <div className="sec">{label}<span>{list.length}</span></div>
           {list.map(p => (
             <button key={p.id} className={`item ${route.id === p.id ? 'on' : ''}`} onClick={() => go({ view: 'project', id: p.id })}>
-              <div className="t">{p.title}</div>
+              <div className="t"><span className={`dot ${p.running ? 'run' : p.pending > 0 ? 'warn' : p.stage === 'done' ? 'ok' : ''}`} />{p.title}</div>
               <div className="m">
                 <span className={`chip ${p.running ? 'run' : p.stage === 'done' ? 'ok' : ''}`}>{p.running ? '執行中' : (p.segment === 2 ? '第二段 · ' : '') + (STAGE[p.stage] || p.stage)}</span>
                 {p.pending > 0 && <span className="chip warn">{p.pending} 個問題</span>}
@@ -64,7 +64,11 @@ export function App() {
           <div className="page">
             <h2>歡迎</h2>
             <p className="sub">上傳規格、圖面、照片或影片，輸入需求，代理會產出配置提案、詢問需要你拍板的事，再做出 3D 動畫，並自動審查與補強細節。</p>
-            <button className="primary" onClick={() => go({ view: 'new' })}>＋ 新建專案</button>
+            <div className="tiles">
+              <button className="tile" onClick={() => go({ view: 'new' })}><b>＋ 新建專案</b><span>從規格與資料開始，代理規劃、開發、檢查、審查與補強。</span></button>
+              {projects.some(p => p.repo) && <div className="tile static"><b>本庫的站</b><span>左側「本庫 project-site」可以直接下審查、修改指令、第二段、檢查與匯出；每次開本機分支、只提交該站。</span></div>}
+              <button className="tile" onClick={() => go({ view: 'settings' })}><b>⚙ 設定</b><span>檢查 CLI 安裝與登入，選各角色的 CLI、模型與推理強度。</span></button>
+            </div>
           </div>
         )}
       </main>

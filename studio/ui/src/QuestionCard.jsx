@@ -23,7 +23,7 @@ export function QuestionCard({ projectId, q, suggest = [], onDone }) {
   }
 
   return (
-    <div className="card">
+    <div className="card qcard">
       <h3>{q.header && <span className="chip" style={{ marginRight: 6 }}>{q.header}</span>}{q.question}</h3>
       {pick ? (
         <div>

@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, fileUrl, STAGE, ROLE } from './api.js';
 import { QuestionCard } from './QuestionCard.jsx';
+import { Select, RENDER_FOCUS } from './fields.jsx';
 
 const TABS = [['progress', '進度'], ['questions', '問題'], ['proposal', '提案'], ['review', '審查'], ['preview', '預覽'], ['shots', '截圖'], ['compare', '補強對照'], ['rules', '規則']];
 const min = s => `${(s / 60).toFixed(1)} 分`;
@@ -29,54 +30,91 @@ export function ProjectView({ id, tick, running, onChange }) {
   const s = p.state, rv = s.reviewData;
   const agentRounds = p.rounds.filter(r => r.role);
 
+  const done = p.stage === 'done', blocked = busy || pending.length > 0;
+  const exportBtn = (fmt, label, title) => <button disabled={busy} title={title} onClick={() => act(() => api.run(id, { cmd: 'export', formats: [fmt] }))}>{label}</button>;
+
   return (
     <div className="page">
-      <h2>{p.title}</h2>
-      <div className="sub">{p.id}　<span className={`chip ${isRunning ? 'run' : p.stage === 'done' ? 'ok' : ''}`}>{isRunning ? `執行中：${running.cmd}` : (p.segment === 2 ? '第二段 · ' : '') + (STAGE[p.stage] || p.stage)}</span>
-        　{p.round} 輪{p.lastCheck && <>　最近檢查 <span className={p.lastCheck.ok ? 'ok' : 'bad'}>{p.lastCheck.ok ? '通過' : '未過'}</span></>}{p.render && <>　補強{RENDER_RESULT[p.render] || p.render}</>}</div>
-      <div className="bar">
-        {isRunning ? <button onClick={() => act(api.stop)}>■ 停止</button>
-          : <button className="primary" disabled={busy || pending.length > 0 || p.stage === 'done'} onClick={() => act(() => api.run(id, { cmd: 'resume' }))}>▶ 續跑</button>}
-        {p.segment !== 2 && <button disabled={busy || p.stage !== 'done' || pending.length > 0} onClick={() => act(() => api.run(id, { cmd: 'stage2' }))}>開始第二段</button>}
-        <button disabled={busy || p.stage !== 'done'} onClick={() => act(() => api.run(id, { cmd: 'review' }))}>重新審查</button>
-        <button disabled={busy || p.stage !== 'done'} onClick={() => act(() => api.run(id, { cmd: 'render', pick: true, focus }))}>重新補強（挑項目）</button>
-        <input value={focus} onChange={e => setFocus(e.target.value)} placeholder="補強範圍（選填，例如 手臂與吸盤）" style={{ minWidth: 220 }} />
-        <a href={p.previewUrl} target="_blank" rel="noreferrer">在新分頁開啟預覽</a>
-      </div>
-      <div className="bar">
-        <span className="mute">匯出成品：</span>
-        <button disabled={busy} title="首頁＋本站＋core，附 open-demo.cmd，解壓後雙擊即可離線開啟" onClick={() => act(() => api.run(id, { cmd: 'export', formats: ['zip'] }))}>網站壓縮檔</button>
-        <button disabled={busy} title="全部內嵌成一個檔案，雙擊就能開（超過 15 MB 建議改用壓縮檔）" onClick={() => act(() => api.run(id, { cmd: 'export', formats: ['html'] }))}>單一 HTML</button>
-        <button disabled={busy} title="Chrome＋ffmpeg 自動錄製 1080p" onClick={() => act(() => api.run(id, { cmd: 'export', formats: ['mp4'] }))}>錄影 MP4</button>
-        {!p.repo && <button disabled={busy} title="git 歷史、上傳檔、提問與紀錄、不得顯示的名稱；給接手的同事匯入" onClick={() => act(() => api.run(id, { cmd: 'handoff' }))}>交接包</button>}
-        <button disabled={busy} title="快速檢查（imports、names、determinism、layout、scene、electrical 與本站檢查）" onClick={() => act(() => api.run(id, { cmd: 'check' }))}>檢查</button>
-      </div>
-      {p.repo && <div className="card">
-        <b>本庫的站：修改指令</b>
-        <div className="mute">開工時本站不能有未提交的改動；app 會開本機分支 <code>{p.name.toLowerCase().replace(/\s+/g, '-')}/vs3d-…</code>，每輪只提交本站的路徑，不會 checkout／reset／stash 你的工作目錄。{p.branch && <> 這次的分支：<code>{p.branch}</code>{p.flowActive ? '（進行中）' : ''}</>}</div>
-        <textarea rows={3} value={change} onChange={e => setChange(e.target.value)} placeholder="要改什麼，例如「出料台改成兩層，第二層放 NG 品」或「手臂換成 VS-087，夾爪改兩指」" style={{ width: '100%', marginTop: 6 }} />
-        <div className="bar">
-          <label><input type="checkbox" checked={keepTiming} onChange={e => setKeepTiming(e.target.checked)} /> 不能改節拍與動作（比對排程指紋）</label>
-          <button className="primary" disabled={busy || !change.trim() || p.stage !== 'done'} onClick={() => act(() => api.run(id, { cmd: 'change', text: change, keepTiming }))}>送出修改指令</button>
-          <button disabled={busy || !p.branch || p.flowActive} title="推送這次的 vs3d 分支到 GitHub，之後開 PR" onClick={() => act(() => api.run(id, { cmd: 'push' }))}>推送分支</button>
+      <div className="head">
+        <div>
+          <h2>{p.title}</h2>
+          <div className="meta">
+            <span className="mute">{p.id}</span>
+            <span className={`chip ${isRunning ? 'run' : done ? 'ok' : ''}`}>{isRunning ? `● 執行中：${running.cmd}` : (p.segment === 2 ? '第二段 · ' : '') + (STAGE[p.stage] || p.stage)}</span>
+            {pending.length > 0 && <span className="chip warn">{pending.length} 個問題待回答</span>}
+            {p.repo ? <span className="chip">本庫{p.branch ? ` · ${p.branch}${p.flowActive ? '（進行中）' : ''}` : ''}</span> : <span className="chip">{p.round} 輪</span>}
+            {p.lastCheck && <span className={`chip ${p.lastCheck.ok ? 'ok' : 'bad'}`}>最近檢查{p.lastCheck.ok ? '通過' : '未過'}</span>}
+            {p.render && <span className="chip">補強{RENDER_RESULT[p.render] || p.render}</span>}
+          </div>
         </div>
-      </div>}
-      {p.exports?.length > 0 && <div className="card"><b>已匯出</b>{p.exports.map(x => <div key={x.path}><a href={fileUrl(id, x.path)} download>{x.path.split('/').pop()}</a> <span className="mute">{(x.size / 1048576).toFixed(1)} MB · {new Date(x.at).toLocaleString()}</span></div>)}</div>}
-      {error && <div className="bad">{error}</div>}
+        <a className="btn" href={p.previewUrl} target="_blank" rel="noreferrer">↗ 在新分頁開啟預覽</a>
+      </div>
+
+      <div className="acts">
+        <section className="group">
+          <h4>流程</h4>
+          <div className="bar">
+            {isRunning ? <button className="danger" onClick={() => act(api.stop)}>■ 停止</button>
+              : !done ? <button className="primary" disabled={blocked} onClick={() => act(() => api.run(id, { cmd: 'resume' }))}>▶ 續跑</button>
+              : p.segment !== 2 ? <button className="primary" disabled={blocked} title="電控、電盤、配線、相機" onClick={() => act(() => api.run(id, { cmd: 'stage2' }))}>開始第二段</button>
+              : <span className="ok">✓ 第二段已完成</span>}
+          </div>
+          {!isRunning && pending.length > 0 && <small className="warn">先到「問題」分頁回答，才能繼續。</small>}
+          {!isRunning && busy && <small className="mute">工作區正在執行 {running.id}。</small>}
+        </section>
+
+        <section className="group">
+          <h4>審查與補強</h4>
+          {done ? <>
+            <div className="bar">
+              <button disabled={blocked} onClick={() => act(() => api.run(id, { cmd: 'review' }))}>重新審查</button>
+            </div>
+            <div className="bar">
+              <Select value={focus} onChange={setFocus} options={RENDER_FOCUS} title="補強範圍" />
+              <button disabled={blocked} onClick={() => act(() => api.run(id, { cmd: 'render', pick: true, focus }))}>重新補強（挑項目）</button>
+            </div>
+          </> : <small className="mute">完成後可以重新審查、補強。</small>}
+        </section>
+
+        <section className="group">
+          <h4>成品與交付</h4>
+          <div className="bar">
+            {exportBtn('zip', '網站壓縮檔', '首頁＋本站＋core，附 open-demo.cmd，解壓後雙擊即可離線開啟')}
+            {exportBtn('html', '單一 HTML', '全部內嵌成一個檔案，雙擊就能開（超過 15 MB 建議改用壓縮檔）')}
+            {exportBtn('mp4', '錄影 MP4', 'Chrome＋ffmpeg 自動錄製 1080p')}
+            {!p.repo && <button disabled={busy} title="git 歷史、上傳檔、提問與紀錄、不得顯示的名稱；給接手的同事匯入" onClick={() => act(() => api.run(id, { cmd: 'handoff' }))}>交接包</button>}
+            <button disabled={busy} title="快速檢查（imports、names、determinism、layout、scene、electrical 與本站檢查）" onClick={() => act(() => api.run(id, { cmd: 'check' }))}>檢查</button>
+          </div>
+          {p.exports?.length > 0 && <ul className="exports">{p.exports.map(x => <li key={x.path}><a href={fileUrl(id, x.path)} download>⤓ {x.path.split('/').pop()}</a> <span className="mute">{(x.size / 1048576).toFixed(1)} MB · {new Date(x.at).toLocaleString()}</span></li>)}</ul>}
+        </section>
+      </div>
+
+      {(done || p.repo) && <section className="card">
+        <h3>修改指令</h3>
+        <div className="mute hint">代理照你的描述修改，之後檢查、審查。{p.repo && <>開工時本站不能有未提交的改動；app 會開本機分支 <code>{p.name.toLowerCase().replace(/\s+/g, '-')}/vs3d-…</code>，每輪只提交本站的路徑，不會 checkout／reset／stash 你的工作目錄。</>}</div>
+        <textarea rows={3} value={change} onChange={e => setChange(e.target.value)} placeholder="要改什麼，例如「出料台改成兩層，第二層放 NG 品」或「手臂換成 VS-087，夾爪改兩指」" />
+        <div className="bar">
+          <label className="check"><input type="checkbox" checked={keepTiming} onChange={e => setKeepTiming(e.target.checked)} /> 不能改節拍與動作（比對排程指紋）</label>
+          <span className="grow" />
+          {p.repo && <button disabled={busy || !p.branch || p.flowActive} title="推送這次的 vs3d 分支到 GitHub，之後開 PR" onClick={() => act(() => api.run(id, { cmd: 'push' }))}>推送分支</button>}
+          <button className="primary" disabled={blocked || !change.trim() || !done} onClick={() => act(() => api.run(id, { cmd: 'change', text: change, keepTiming }))}>送出修改指令</button>
+        </div>
+      </section>}
+      {error && <div className="notice bad">{error}</div>}
       <div className="tabs">{TABS.map(([k, label]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{label}{k === 'questions' && pending.length ? `（${pending.length}）` : ''}</button>)}</div>
 
       {tab === 'progress' && <>
         <div className="log" ref={logRef}>{p.log.length ? p.log.join('\n') : '（這次開啟介面後還沒有輸出；下面是每輪紀錄）'}</div>
         <div className="card" style={{ marginTop: 12 }}>
           <h3>每輪紀錄</h3>
-          <table><thead><tr><th>輪</th><th>角色</th><th>CLI／模型</th><th>時間</th><th>摘要</th></tr></thead><tbody>
+          {!p.rounds.length ? <p className="mute">還沒有紀錄（app 執行過的開發、檢查、審查、補強會列在這裡）。</p> : <table><thead><tr><th>輪</th><th>角色</th><th>CLI／模型</th><th>時間</th><th>摘要</th></tr></thead><tbody>
             {p.rounds.map((r, i) => r.role
               ? <tr key={i}><td>{r.round}</td><td>{ROLE[r.role] || r.role}{r.resumed ? '（續接）' : ''}</td><td>{r.cli} {r.model}{r.effort ? ` ${r.effort}` : ''}</td><td>{min(r.seconds)}</td><td>{r.ok ? '' : <span className="bad">失敗 </span>}{r.violations?.length ? <span className="warn">越界 {r.violations.length}　</span> : ''}{r.summary}</td></tr>
               : r.check ? <tr key={i}><td></td><td>檢查 {r.check}</td><td></td><td>{r.seconds} s</td><td className={r.ok ? 'ok' : 'bad'}>{r.ok ? '通過' : r.failures.join('；')}</td></tr>
               : r.review ? <tr key={i}><td></td><td>審查 {r.review}</td><td></td><td></td><td>必修 {r.must.length}、建議 {r.suggest}</td></tr>
               : r.guard ? <tr key={i}><td></td><td>守門</td><td></td><td></td><td className={r.ok ? 'ok' : 'bad'}>{r.ok ? '通過' : r.fails.join('；')}</td></tr> : null)}
-          </tbody></table>
-          <p className="mute">代理合計 {min(agentRounds.reduce((a, r) => a + (r.seconds || 0), 0))}{agentRounds.some(r => r.costUsd) && `，Claude API 等值 $${agentRounds.reduce((a, r) => a + (r.costUsd || 0), 0).toFixed(2)}`}</p>
+          </tbody></table>}
+          {agentRounds.length > 0 && <p className="mute">代理合計 {min(agentRounds.reduce((a, r) => a + (r.seconds || 0), 0))}{agentRounds.some(r => r.costUsd) && `，Claude API 等值 $${agentRounds.reduce((a, r) => a + (r.costUsd || 0), 0).toFixed(2)}`}</p>}
         </div>
       </>}
 

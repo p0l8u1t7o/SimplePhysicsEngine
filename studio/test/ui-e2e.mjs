@@ -29,7 +29,7 @@ async function waitFor(expr, label, timeout = 600000) {
   throw new Error(`逾時：${label}\n${out.slice(-2000)}`);
 }
 // 點「送出」：問題卡片預設已選建議選項
-const answerAll = async () => browser.evaluate(`(async () => { const b = [...document.querySelectorAll('.card .bar button.primary')].find(x => x.textContent.includes('送出')); if (!b) return false; b.click(); return true; })()`);
+const answerAll = async () => browser.evaluate(`(async () => { const b = [...document.querySelectorAll('.qcard .bar button.primary')].find(x => x.textContent.includes('送出')); if (!b) return false; b.click(); return true; })()`);
 const pendingIds = () => api('/api/projects/E2E').then(p => p.questions.filter(q => !q.answered).map(q => q.id));
 
 try {
@@ -46,7 +46,7 @@ try {
     await waitFor(`fetch('/api/projects/E2E').then(r => r.json()).then(p => !p.running && p.questions.some(q => !q.answered))`, `等待問題 ${expect}`);
     const ids = await pendingIds();
     if (!ids.some(x => expect.test(x))) throw new Error(`預期問題 ${expect}，實際 ${ids}`);
-    await waitFor(`!!document.querySelector('.card .bar button.primary')`, '問題卡片出現', 30000);
+    await waitFor(`!!document.querySelector('.qcard .bar button.primary')`, '問題卡片出現', 30000);
     log(`回答 ${ids.join('、')}`);
     await shot(ids[0]);
     if (!await answerAll()) throw new Error('找不到送出按鈕');
