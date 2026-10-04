@@ -1,11 +1,16 @@
 // 主程式：舞台（core/ui/stage.js）＋播放列（core/ui/player.js）＋共用版面（core/ui/viewer-workspace.js）＋本專案的視角、站別與面板。
 // 場景與每個時間點的狀態全部來自 project.js，與 core 統一檢查用的是同一份。
 // 版面骨架在 index.html（#topbar／#side／#bottombar）；手機、平板的精簡版面由 createViewerWorkspace 自動切換。
-// 相機子畫面（renderCamera／setSources）屬第二段，這裡只用 createViewerWorkspace 的版面與焦點追隨功能。
+// 第二段共用同一時間軸呈現電控活動與雙相機取像。
 import * as THREE from 'three';
 import { createStage, exposeSim } from '@core/ui/stage.js';
 import { createPlayer } from '@core/ui/player.js';
 import { createViewerWorkspace } from '@core/ui/viewer-workspace.js';
+import { createElectricalInspector } from '@core/electrical/electrical-inspector.js';
+import { setElectricalCutaway } from '@core/electrical/electrical-cabinet.js';
+import { routingLegend } from '@core/electrical/cable-routing.js';
+import { createVisionOverlay } from '@core/ui/vision-overlay.js';
+import { renderVisionFrame } from './vision.js';
 import { createProject } from './project.js';
 import { LAYOUT, STATIONS } from './layout.js';
 import { CHAPTERS, CT, AXIS, BELT_V, VISION_TO_PICK, MIX } from './schedule.js';
@@ -18,7 +23,7 @@ const L = LAYOUT, b = L.belt, v = L.vision, a = L.arm;
 // ---------------------------------------------------------------- 舞台
 const canvas = $('c');
 const stage = createStage({
-  canvas, look: 'cell', extent: { center: [0, 700, 0], radius: 2000 },
+  canvas, look: 'cell', extent: { center: [0, 700, -500], radius: 2400 },
   declutter: true,
   camera: { near: 5, far: 30000 },
   controls: { minDistance: 300, maxDistance: 12000 },
@@ -29,6 +34,7 @@ const { stationStart, metrics, jobs, throughput } = project;
 
 // ---------------------------------------------------------------- 共用版面：精簡版面（☰ 製程與視角、⚙ 播放設定）、焦點追隨（◎）
 const focusVec = new THREE.Vector3();
+routingLegend();
 const workspace = createViewerWorkspace({
   camera, controls, canvas, resize: stage.resize,
   getFocus: () => {
@@ -40,8 +46,26 @@ const workspace = createViewerWorkspace({
   onFocus: () => { stage.cancelTween(); document.querySelectorAll('.views [data-view]').forEach(x => x.classList.remove('on')); },
 });
 
+// 桌面預設停靠畫布右下，讓開入料端；使用者拖曳後交回共用視窗控制。
+const pip = $('pipFrame'); pip.classList.add('default-dock');
+const placePip = () => {
+  const bottom = $('bottombar').getBoundingClientRect();
+  pip.style.setProperty('--pip-bottom', `${Math.max(14, innerHeight-bottom.top+12)}px`);
+};
+const pipObserver = new ResizeObserver(placePip); pipObserver.observe($('bottombar'));
+window.addEventListener('resize', placePip); placePip();
+const releasePip = event => {
+  if (event.type==='keydown' && !event.key.startsWith('Arrow')) return;
+  if (!pip.classList.contains('default-dock')) return;
+  const rect=pip.getBoundingClientRect(); pip.classList.remove('default-dock');
+  pip.style.left=`${rect.left}px`; pip.style.top=`${rect.top}px`;
+};
+$('pipTitle').addEventListener('pointerdown',releasePip,true);
+$('pipTitle').addEventListener('keydown',releasePip,true);
+
 // ---------------------------------------------------------------- 視角：[相機位置, 注視點]（照桌面寫；手機直向等窄畫布由 stage 自動拉遠）
 const VIEWS = {
+  electrical: [[1150, 1250, -1050], [300, 700, -1760]],
   overview: [[-2750, 2100, 2300], [0, 820, -30]],
   top: [[60, 4600, 10], [60, 0, 0]],
   infeed: [[-2500, 1500, 1400], [-1050, 820, b.z]],
@@ -51,13 +75,21 @@ const VIEWS = {
   pick: [[-450, 1500, 1500], [a.x + 60, 950, -60]],
   outfeed: [[450, 1880, 3000], [175, 700, 490]],
 };
-function setView(name, instant = false) {
+let userView = false;
+function setView(name, instant = false, automatic = false) {
   const view = typeof VIEWS[name] === 'function' ? VIEWS[name]() : VIEWS[name]; if (!view) return;
+  if (!automatic) userView = true;
+  setElectricalCutaway(scene, name === 'electrical');
   workspace.stopFollowing();
   stage.goTo(view[0], view[1], instant);
   document.querySelectorAll('.views [data-view]').forEach(x => x.classList.toggle('on', x.dataset.view === name));
 }
 document.querySelectorAll('.views [data-view]').forEach(x => x.onclick = () => setView(x.dataset.view));
+const electrical = createElectricalInspector({ scene, camera, controls, canvas,
+  title: '回收物自動分揀展示機', onEnter: () => setView('electrical', true), onExit: () => setView('overview', true) });
+const visionOverlay = createVisionOverlay();
+const cameraToggle = document.querySelector('.viewer-tools [aria-label="顯示／隱藏相機視窗"]');
+workspace.setSources([{ id: 'CAM1', label: 'CAM-L 立體左眼' }, { id: 'CAM2', label: 'CAM-R 立體右眼' }], { onChange: () => stage.invalidate(true) });
 
 // ---------------------------------------------------------------- 3D 標籤
 const label = (html, getPos, cls = '', priority = 0) => stage.addLabel(html, getPos, cls, { anchor: 'above', priority });
@@ -105,7 +137,7 @@ $('checks').innerHTML = checks.map(r => `<li class="${r.ok ? 'ok' : 'ng'}">${r.o
 $('checkCount').textContent = `${checks.filter(r => r.ok).length} / ${checks.length}`;
 $('notes').innerHTML = [
   `模型庫共 12 款，這段動畫實際展示 11 款；洗衣精罐尚未排入料流。包裝色塊、斜撐、護板框與細節尺寸皆為<b>示意</b>。`,
-  `規格未給的尺寸一律是<b>示意</b>值：帶面高 750、分流帶面 700、相機 500 萬畫素 8 mm 鏡頭、基線 300／WD 800。`,
+  `規格未給的尺寸一律是<b>示意</b>值：帶面高 750、分流帶面 700、相機 500 萬畫素 10 mm 鏡頭、基線 300／WD 800，單眼視野 704 × 528 mm。`,
   `相機數量依「補充說明」改為<b>雙相機立體對</b>，覆蓋開案報告第 8 頁的「相機數量 1」。`,
   `取像站設在 X ${v.x}（原案 −450 會落在手臂掃掠範圍內）；到抓取點 ${VISION_TO_PICK} mm，飛行時間 ${(VISION_TO_PICK / BELT_V).toFixed(2)} s ≫ 視覺鏈路 0.29 s。`,
   `導料板把帶上料流由 600 收攏到 <b>280 mm</b>（已拍板）：HSR065（R650）側邊立座扣掉最小迴轉半徑與 J2 基座干涉區後，實際只覆蓋這個帶寬。`,
@@ -115,7 +147,11 @@ $('notes').innerHTML = [
   `對應的帶上目標物平均間距需 ≥ <b>${throughput.pitch} mm</b>（同類連抓時 ${(CT * BELT_V).toFixed(0)} mm）；第 9 段用 280 mm 的滿載同類料流驗證 1.40 s，其後第 9 件目標間距只有 240 mm 排不進空檔，流到末端觸發警報。`,
   `手臂軸速上限取 DENSO HSR 型錄等級的假設值（J1／J2 ${AXIS.j1}°/s、J4 ${AXIS.j4}°/s、Z ${AXIS.z} mm/s），每個子動作的時間由行程反推，待型錄核對。`,
   `第 4 段為凍結分析、第 5～7 段為慢動作（1/4、1/6、1/5）：製程時間整體放慢，帶速與手臂速度同步縮放，不是單獨調慢帶子。`,
-  `第一段不含：電控盤內部、配線與氣管、相機子畫面與 AI 疊圖、HMI 畫面內容、安全門與光柵動作、操作面護板。`,
+  `第二段電盤：600 × 1200 × 300，後方維修走道 <b>850 mm</b>；20 個元件、六組穿板接頭，⚡ 開啟電控檢視器可選取元件、查看用途與連線。`,
+  `電源 AC 220 V／20 A、24 VDC 240 W（概算負載 160 W），三帶變頻器、PLC／高速計數、視覺 IPC／PoE 與 RC8A 控制器均為<b>配置示意</b>，型號與施工線徑待選定。`,
+  `雙相機由編碼器每 200 mm 同步觸發、曝光 2 ms；子畫面保留最近一次取像，分類、頂面高度、角度與信心分數皆為 <b>SIM／示意</b>。來源選單可切換左右眼。`,
+  `外露線沿線槽、立柱與托架固定；Z 軸使用 HSR065 內建拖鏈，工具浮動段採內部通道（示意）。`,
+  `安全鏈：光柵／急停 → GC1 → K1／K2 雙通道切斷動力，IO2 監看回授；須手動復歸。<b>光幕位置僅示意</b>：提案估算安全距離 ≥668 mm，實機位置與停機時間待風險評估。此動畫未新增遮斷或急停事件。`,
 ].map(s => `<li>${s}</li>`).join('');
 
 const kindList = Object.entries(KINDS).reduce((m, [, k]) => (m[k.cls] = (m[k.cls] || 0) + 1, m), {});
@@ -164,18 +200,25 @@ const player = createPlayer({
   onChange: T => {
     updatePanels(T);
     const want = project.state?.chapter.view;
-    if (want && want !== currentView && !workspace.following) { currentView = want; setView(want); }
+    if (want && want !== currentView && !workspace.following && !userView) { currentView = want; setView(want, false, true); }
     stage.invalidate(true);
   },
 });
 
 currentView = qp.get('view') in VIEWS ? qp.get('view') : 'overview';
-setView(currentView, true);
+setView(currentView, true, !qp.has('view'));
 if (qp.has('cam')) { const arr = qp.get('cam').split(',').map(Number); if (arr.length === 6 && arr.every(Number.isFinite)) stage.goTo(arr.slice(0, 3), arr.slice(3), true); }
 $('loading').classList.add('hide');
 // ?movie 時 stage 不啟動迴圈（交給錄影程式）
-stage.loop(dt => { const changed = player.update(dt); workspace.follow(); stage.updateLabels(); return changed; },
-  { render: () => workspace.renderOverview(renderer, scene) });
+function render() {
+  const st = project.state;
+  electrical.update({ time: player.T, playing: player.playing, action: st.action, motion: st.rate > .01, vision: st.electrical.capture || st.electrical.analysis });
+  const requested=cameraToggle.getAttribute('aria-pressed')==='true';
+  if (!renderVisionFrame(project, scene, workspace.source,
+    data => workspace.renderCamera({ renderer, scene, vision: visionOverlay, ...data }), requested)) visionOverlay.hide();
+  workspace.renderOverview(renderer, scene);
+}
+stage.loop(dt => { const changed = player.update(dt); workspace.follow(); stage.updateLabels(); return changed; }, { render });
 
 exposeSim({
   seekTo: player.seekTo, setView, views: VIEWS, total: project.total, play: player.play, pause: player.pause,

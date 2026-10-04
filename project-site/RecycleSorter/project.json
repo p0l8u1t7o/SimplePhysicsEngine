@@ -5,7 +5,8 @@
   "coreVersion": "1.4.0",
   "checks": {
     "quick": [
-      "tools/verify.mjs"
+      "tools/verify.mjs",
+      "tools/verify-segment2.mjs"
     ],
     "full": []
   },

@@ -76,3 +76,10 @@ select option{background:#172431}
 
 #loading{position:absolute;inset:0;display:grid;place-items:center;background:var(--bg);z-index:10;color:var(--muted);font-size:14px;letter-spacing:1px}
 #loading.hide{display:none}
+
+/* 桌面預設縮圖停靠右下；精簡版面與觸控裝置沿用共用框架。 */
+body.viewer-workspace:not(.viewer-compact):not(.viewer-touch) #app #pipFrame.default-dock{
+  left:auto!important;top:auto!important;right:calc(var(--viewer-right,0px) + 12px)!important;
+  bottom:var(--pip-bottom,180px)!important;
+}
+body.viewer-workspace:not(.viewer-compact):not(.viewer-touch) #app #pipFrame:not(.expanded){width:min(320px,calc(100vw - 24px))}

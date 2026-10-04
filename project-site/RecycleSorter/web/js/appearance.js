@@ -90,15 +90,11 @@ export function addDetails({ belt, vision, robot, frame, bins, L }) {
   // 懸臂頂部雙斜撐；全部位於既有相機及燈具之上。
   block(vision, [6, 24, 26], [-817, 1722, -728], SURFACE.support);
   for (const x of [-735, -665]) rod(vision, [-810, 1722, -728], [x, 1687, -175], 7, SURFACE.support, 8);
-  // 端蓋沿用原看板最前緣，保持既有取像架台外廓與配置檢核值。
-  block(vision, [96, 110, 10], [v.x, v.beamY, 130], SURFACE.sheet);
-  for (const side of [-1, 1]) for (const dy of [-30, 30])
-    vb.box([1.4, 5, 830], [v.x + side * 52.9, v.beamY + dy, -307], MAT.steelDark);
-  for (const cz of v.camZ) {
-    for (const dy of [-37, -44, -57, -64]) vb.ring([v.x, v.camY + dy, cz], 23.4);
-    for (const dx of [-34, 34]) for (const dz of [-23, 23]) vb.bolt([v.x + dx, v.camY - 28, cz + dz], 3.3);
-    vb.box([18, 14, 8], [v.x + 25, v.camY + 5, cz - 37], MAT.black);
-    vb.box([12, 10, 7], [v.x - 23, v.camY + 5, cz - 37], MAT.steelDark);
+  // 雙軌端蓋保留第一段的 10 mm 厚度與 Z 135 外緣；相機細節由共用相機模型提供。
+  for (const x of [v.x - 80, v.x + 80]) {
+    block(vision, [43, 116, 10], [x, v.beamY, 130], SURFACE.sheet);
+    for (const side of [-1, 1]) for (const dy of [-30, 30])
+      vb.box([1.4, 5, 830], [x + side * 23.6, v.beamY + dy, -307], MAT.steelDark);
   }
   // 視窗密封膠條安置於玻璃與外框之間，不與透明面重合。
   const [wx, wz] = v.windowSize;
@@ -152,7 +148,7 @@ export function createLightPatch(parent, v, b) {
   const n = 64, data = new Uint8Array(n * n * 4);
   for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
     const r = Math.hypot((x - 31.5) / 31.5, (y - 31.5) / 31.5);
-    data.set([218, 243, 255, Math.max(0, 1 - r) ** 2 * 72], (y * n + x) * 4);
+    data.set([218, 243, 255, Math.max(0, 1 - r) ** 2 * 40], (y * n + x) * 4);
   }
   const map = new THREE.DataTexture(data, n, n); map.needsUpdate = true; map.magFilter = THREE.LinearFilter;
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(430, 550), new THREE.MeshBasicMaterial({ map, transparent: true, depthWrite: false }));

@@ -1,0 +1,365 @@
+{
+  "variant": "預設",
+  "params": {},
+  "ok": true,
+  "applicable": true,
+  "devices": 20,
+  "connections": 28,
+  "enclosures": 1,
+  "feedthroughs": {
+    "plates": 1,
+    "glands": 6,
+    "holeRays": 36,
+    "wireCrossings": 18,
+    "mountChecks": 4,
+    "failures": []
+  },
+  "failures": [],
+  "components": [
+    {
+      "id": "QS1",
+      "kind": "isolator",
+      "title": "總電源隔離開關",
+      "size": [
+        36,
+        75,
+        65
+      ],
+      "role": "power",
+      "description": "單相 AC 220 V 20 A 進線隔離，檢修時切斷全機電源（示意）。",
+      "source": null,
+      "category": "ac",
+      "model": "示意",
+      "row": 1
+    },
+    {
+      "id": "QF1",
+      "kind": "breaker",
+      "title": "控制支路保護",
+      "size": [
+        36,
+        75,
+        65
+      ],
+      "role": "power",
+      "description": "供 24 V 電源與視覺工業電腦，與動力分路分開。",
+      "source": "QS1",
+      "category": "ac",
+      "model": "示意",
+      "row": 1
+    },
+    {
+      "id": "QF2",
+      "kind": "breaker",
+      "title": "動力支路保護",
+      "size": [
+        36,
+        75,
+        65
+      ],
+      "role": "power",
+      "description": "供三台輸送變頻器與手臂控制器。",
+      "source": "QS1",
+      "category": "ac",
+      "model": "示意",
+      "row": 1
+    },
+    {
+      "id": "PS1",
+      "kind": "psu",
+      "title": "24 VDC 電源 240 W",
+      "size": [
+        50,
+        95,
+        100
+      ],
+      "role": "power",
+      "description": "負載概算 160 W：PLC／I/O、交換器含 PoE、安全控制器、光源控制器頻閃峰值、HMI、閥與感測。",
+      "source": "QF1",
+      "category": "ac",
+      "model": "示意",
+      "row": 1
+    },
+    {
+      "id": "GC1",
+      "kind": "safety",
+      "title": "安全控制器",
+      "size": [
+        60,
+        90,
+        95
+      ],
+      "role": "safety",
+      "description": "收安全光柵 OSSD ×2 與急停 ×2，雙通道輸出切斷動力，另接手臂控制器的安全輸入；目標 PL d／Cat. 3，須另做風險評估。",
+      "source": "PS1",
+      "category": "dc",
+      "model": "示意",
+      "row": 1
+    },
+    {
+      "id": "K1",
+      "kind": "contactor",
+      "title": "動力切斷接觸器 A",
+      "size": [
+        32,
+        75,
+        70
+      ],
+      "role": "safety",
+      "description": "安全輸出第一通道，輔助接點回授 IO2。",
+      "source": "GC1",
+      "category": "safety",
+      "model": "示意",
+      "row": 1
+    },
+    {
+      "id": "K2",
+      "kind": "contactor",
+      "title": "動力切斷接觸器 B",
+      "size": [
+        32,
+        75,
+        70
+      ],
+      "role": "safety",
+      "description": "安全輸出第二通道，與 K1 串接。",
+      "source": "GC1",
+      "category": "safety",
+      "model": "示意",
+      "row": 1
+    },
+    {
+      "id": "PLC1",
+      "kind": "plc",
+      "title": "設備 PLC",
+      "size": [
+        80,
+        90,
+        85
+      ],
+      "role": "control",
+      "description": "站序與互鎖；收 IPC1 的物件清單做抓取排程，經 GW1 下命令給手臂控制器。",
+      "source": "PS1",
+      "category": "dc",
+      "model": "示意",
+      "row": 2
+    },
+    {
+      "id": "HSC1",
+      "kind": "io",
+      "title": "編碼器高速計數模組",
+      "size": [
+        40,
+        80,
+        65
+      ],
+      "role": "io",
+      "description": "輥徑 Ø100、1000 ppr 四倍頻＝0.0785 mm／計數；每 200 mm 輸出一次取像觸發，並提供手臂追蹤基準。",
+      "source": "PLC1",
+      "category": "signal",
+      "model": "示意",
+      "row": 2
+    },
+    {
+      "id": "IO1",
+      "kind": "io",
+      "title": "數位 I/O（感測與指示）",
+      "size": [
+        50,
+        80,
+        65
+      ],
+      "role": "io",
+      "description": "入料光電、三色警示燈、頻閃觸發允許。",
+      "source": "PLC1",
+      "category": "signal",
+      "model": "示意",
+      "row": 2
+    },
+    {
+      "id": "IO2",
+      "kind": "io",
+      "title": "數位 I/O（安全回授）",
+      "size": [
+        50,
+        80,
+        65
+      ],
+      "role": "io",
+      "description": "急停與 K1／K2 輔助接點回授、復歸按鈕、光柵狀態監看；接點未跳脫時鎖定不允許復歸。",
+      "source": "PLC1",
+      "category": "signal",
+      "model": "示意",
+      "row": 2
+    },
+    {
+      "id": "VAC1",
+      "kind": "io",
+      "title": "真空／氣壓介面",
+      "size": [
+        65,
+        75,
+        65
+      ],
+      "role": "vacuum",
+      "description": "工具電磁閥輸出與真空開關、氣源壓力開關回授。",
+      "source": "IO1",
+      "category": "signal",
+      "model": "示意",
+      "row": 2
+    },
+    {
+      "id": "SW1",
+      "kind": "switch",
+      "title": "工業乙太網交換器（8 埠含 PoE）",
+      "size": [
+        40,
+        80,
+        70
+      ],
+      "role": "network",
+      "description": "連接 PLC、視覺電腦、相機 ×2（PoE）、手臂閘道與 HMI。",
+      "source": "PS1",
+      "category": "dc",
+      "model": "示意",
+      "row": 3
+    },
+    {
+      "id": "IPC1",
+      "kind": "ipc",
+      "title": "視覺工業電腦（GPU 推論）",
+      "size": [
+        160,
+        95,
+        100
+      ],
+      "role": "vision",
+      "description": "雙相機取像、實例分割與材質／食品屬性分類、視差求頂面高度與長軸角度；清單附編碼器計數送 PLC。AC 直供，連線圖上畫的是網路連線。",
+      "source": "SW1",
+      "category": "network",
+      "model": "示意",
+      "row": 3
+    },
+    {
+      "id": "LC1",
+      "kind": "light",
+      "title": "頻閃光源控制器（2 ch）",
+      "size": [
+        45,
+        70,
+        70
+      ],
+      "role": "vision",
+      "description": "依編碼器觸發驅動兩支低角度條燈，亮 2 ms；取像時指示燈隨主時間軸亮。",
+      "source": "IO1",
+      "category": "signal",
+      "model": "示意",
+      "row": 3
+    },
+    {
+      "id": "GW1",
+      "kind": "gateway",
+      "title": "手臂交握閘道",
+      "size": [
+        40,
+        70,
+        55
+      ],
+      "role": "network",
+      "description": "PLC ↔ 手臂控制器的抓取命令、完成與異常狀態。",
+      "source": "SW1",
+      "category": "network",
+      "model": "示意",
+      "row": 3
+    },
+    {
+      "id": "D1",
+      "kind": "drive",
+      "title": "主輸送帶變頻器",
+      "size": [
+        45,
+        100,
+        110
+      ],
+      "role": "motion",
+      "description": "0.2 kW 齒輪減速馬達，帶速 0.2 m/s。",
+      "source": "K2",
+      "category": "ac",
+      "model": "示意",
+      "row": 4
+    },
+    {
+      "id": "D2",
+      "kind": "drive",
+      "title": "分流帶 A 變頻器",
+      "size": [
+        45,
+        100,
+        110
+      ],
+      "role": "motion",
+      "description": "食品 HDPE 出料帶，帶速 0.3 m/s。",
+      "source": "K2",
+      "category": "ac",
+      "model": "示意",
+      "row": 4
+    },
+    {
+      "id": "D3",
+      "kind": "drive",
+      "title": "分流帶 B 變頻器",
+      "size": [
+        45,
+        100,
+        110
+      ],
+      "role": "motion",
+      "description": "非食品 HDPE 出料帶，帶速 0.3 m/s。",
+      "source": "K2",
+      "category": "ac",
+      "model": "示意",
+      "row": 4
+    },
+    {
+      "id": "RC1",
+      "kind": "robot",
+      "title": "手臂控制器",
+      "size": [
+        357,
+        94,
+        320
+      ],
+      "role": "motion",
+      "description": "櫃外落地在電盤 +X 側、面板朝 +Z；以編碼器同步做 conveyor tracking，經 GW1 與 PLC 交握。用 core 的 robotController() 建，建完要補 userData.electrical.free = true。",
+      "source": "QF2",
+      "category": "ac",
+      "model": "RC8A 標準型包絡（示意）",
+      "free": true,
+      "at": [
+        900,
+        700,
+        -1910
+      ]
+    }
+  ],
+  "cables": {
+    "report": [
+      {
+        "scenario": "cables",
+        "samples": 321,
+        "routes": 81,
+        "supports": 152,
+        "carriers": 1,
+        "feedthroughs": {
+          "plates": 1,
+          "glands": 6,
+          "holeRays": 36,
+          "wireCrossings": 18,
+          "mountChecks": 4,
+          "failures": []
+        }
+      }
+    ],
+    "failures": []
+  }
+}

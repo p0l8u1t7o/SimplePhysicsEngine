@@ -4,7 +4,7 @@
 吸盤組同步帶速取放，食品類白色 HDPE 送 A 帶、非食品類送 B 帶，其餘回收物由主帶末端續流。
 動畫 96 秒、十個敘事段落，含慢動作拆解、滿載連續節拍（CT 1.4 s／瓶）與漏抓警報。
 
-框架說明見 [core/README.md](../../core/README.md)。規格與已拍板事項見 [AGENTS.md](AGENTS.md)，配置提案見 `docs/proposal.md`（只留本機）。
+框架說明見 [core/README.md](../../core/README.md)。規格與已拍板事項見 [AGENTS.md](AGENTS.md)，配置提案見 `docs/proposal.md`、`docs/segment2.md`（只留本機）。
 
 ## 時間模型
 
@@ -36,7 +36,7 @@
 
 ## 啟動
 
-雙擊 `run.bat`，或：
+在庫根目錄執行 `scripts\start.cmd -Station recycle`，或在本資料夾：
 
 ```powershell
 node ../../core/tools/serve.mjs "RecycleSorter"
@@ -44,19 +44,32 @@ node ../../core/tools/serve.mjs "RecycleSorter"
 
 開啟 http://127.0.0.1:8770/RecycleSorter/。網址參數：`?pause&t=5&view=pick`、`?shadow=0`、`?cam=x,y,z,tx,ty,tz`。
 
-視角：`overview`、`top`、`infeed`、`vision`、`visionTop`、`track`、`pick`、`outfeed`（頂部列只放六個常用的，
+視角：`overview`、`top`、`infeed`、`vision`、`visionTop`、`track`、`pick`、`outfeed`、`electrical`（頂部列放七個常用的，
 `visionTop` 與 `track` 由段落自動切換，也可用 `?view=` 或 `window.sim.setView()` 指定）。
 播放時相機會跟著段落換成該段的預設視角；自己按過視角按鈕或開了焦點追隨（◎）就不會被搶走。
 
 手機、平板與橫向手機自動改用精簡版面（☰ 製程與視角、⚙ 播放設定、工具列 ◨ 開側欄、◎ 追隨工件），由 `createViewerWorkspace` 處理；`css/style.css` 只寫桌面版面。
-相機子畫面（▣）屬第二段：`index.html` 的 `#showPip` 預設不勾選，`main.js` 不呼叫 `renderCamera`／`setSources`。
+相機子畫面（▣）在桌面預設顯示，手機與觸控裝置由共用版面預設收起。來源可選 CAM-L、CAM-R 或自動切換。
+
+## 第二段電控與取像
+
+- 電盤中心 `[300,600,-1760]`，600 × 1200 × 300 mm，門前走道 850 mm；四列背板、20 個電控元件、六組中空穿板接頭。RC8A 包絡控制器另設落地支架。
+- ⚡ 或「電盤配線」進入剖視，可切換外殼／剖視／透視、選元件特寫及匯出清單。櫃內包含雙接觸器串聯動力、回授、24 V、網路與頻閃控制的功能連線；不是施工接線圖。
+- 固定線沿後方地面分槽、櫃後立管及機台結構走；動力、訊號、安全採不同槽位。手臂沿用模型內建的 Z 軸拖鏈，由原本的 `setJoints()` 更新，工具浮動行程採內部通道示意。
+- 兩台共用相機模型：2/3 吋感光元件、f10、基線 300、WD 800、單眼視野 704 × 528 mm。每 200 mm 輸送行程觸發一次，2 ms 曝光；子畫面顯示最近一次觸發的影像，疊加類別、頂面高度、角度與信心分數，均固定標示「SIM／示意」。
+- 分析段保留相同取像。倒播或跳播時從主時間軸反算，不依賴前一格；子畫面繪製結束後還原當前製程狀態。HMI 顯示計數、節拍、模式與漏抓訊息。
+- 光幕只作示意，沒有新增安全停止事件；GC1、接觸器、急停、復歸與回授均有呈現。提案安全距離估算為 668 mm，實機防護位置與停止性能待風險評估。
+
+安裝細節皆為示意。為避開實際幾何，雙軌穿過後護板處留局部缺口；C2 線槽中心調到 X −40，B 帶地面線先在 Z 170 轉往支腳，避開收料箱；光柵外殼中心微調為 X ±875、Z 620，仍在原框架範圍內，避開分流輥與馬達。手臂接線由原廠出線口側面接入，避開吸盤掃掠。第一段時間軸、關節與工件軌跡均保留。
 
 ## 檢查
 
 ```powershell
-node ../../core/tools/check.mjs "RecycleSorter"          # 完整：import 路徑、倒序一致、空間檢核、全場干涉與閃爍、四種尺寸的介面測試（ui）、本專案檢查
+node ../../core/tools/check.mjs "RecycleSorter"          # 完整：import 路徑、倒序一致、空間檢核、全場干涉與閃爍、電控與配線、四種尺寸的介面測試（ui）、本專案檢查
 node ../../core/tools/check.mjs "RecycleSorter" --quick  # 部署前快速檢查
 ```
+
+快速檢查包含電控、穿板孔與 321 個時間點的配線取樣。`tools/verify-segment2.mjs` 另驗證雙眼投影、取像凍結、倒序還原及安全功能連線；完整檢查另含 ui 四種尺寸。
 
 ## 檔案
 
@@ -68,6 +81,9 @@ node ../../core/tools/check.mjs "RecycleSorter" --quick  # 部署前快速檢查
 | `web/js/layout.js` | 站位配置常數（座標系、設備位置與尺寸）；`project.js`、`main.js` 與 `tools/verify.mjs` 共用 |
 | `web/js/items.js` | 模型庫 12 款，動畫展示 11 款（洗衣精罐未排入料流）；食品／非食品 HDPE、PET、鐵罐、薄膜、壓扁件、紙盒與瓶身材質 |
 | `web/js/appearance.js` | 瓶身包裝與低對比帶面貼圖、金屬表面、批次固定細節及取像照明亮斑 |
+| `web/js/electrical-spec.js` | 已拍板電盤尺寸、背板分列與元件清單 |
+| `web/js/electrical.js` | 電盤、補充功能連線、固定配線、相機安裝、HMI 與光幕示意 |
+| `web/js/vision.js` | 最近一次取像、左右眼來源、SIM 疊圖與繪製後還原 |
 | `web/js/schedule.js` | 敘事段落、播放速率（慢動作與凍結）、製程時間換算、帶上工件清單、子動作與軸速上限 |
 | `web/js/project.js` | 建立場景（地面用 `floor()`）、取放工單與手臂路徑、`apply(t)`、空間檢核、全場檢查設定 |
 | `web/js/main.js` | 舞台（`look`／`extent`）、`createViewerWorkspace`、視角、站別按鈕、3D 標籤、播放列、面板、`exposeSim` |

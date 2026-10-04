@@ -34,6 +34,7 @@
       <button data-view="vision">取像</button>
       <button data-view="pick">取放</button>
       <button data-view="outfeed">出料</button>
+      <button data-view="electrical">電盤配線</button>
     </div>
   </header>
 
@@ -58,8 +59,8 @@
     </section>
   </aside>
 
-  <!-- 相機子畫面屬第二段：showPip 預設不勾選，createViewerWorkspace 的版面功能照常使用 -->
-  <input id="showPip" type="checkbox" hidden>
+  <!-- 共用版面提供相機切換按鈕；精簡版面由框架管理顯示。 -->
+  <input id="showPip" type="checkbox" checked hidden>
 
   <footer id="bottombar">
     <div class="ctl">

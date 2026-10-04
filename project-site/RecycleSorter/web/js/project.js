@@ -11,12 +11,13 @@
 import * as THREE from 'three';
 import { block, blockBetween, cylinder, rod, plate, decal, D2R } from '@core/geom/shapes.js';
 import { MAT, std, finished } from '@core/geom/materials.js';
-import { foot, bolts, motor, sensor, housing, cabinetDetails } from '@core/geom/hardware.js';
+import { foot, bolts, motor, sensor, housing } from '@core/geom/hardware.js';
 import { floor } from '@core/geom/environment.js';
 import { createHSR065, HSR065, fk } from '@core/models/robots/denso-hsr065.js';
 import { LAYOUT, STATIONS } from './layout.js';
 import { buildItem } from './items.js';
 import { createTiming, ITEMS, CHAPTERS, chapterAt, PHASES, GRAB_PHASES, AXIS, CT, BELT_V, TOTAL, VISION_TO_PICK, MIX, mixedCT, perHour } from './schedule.js';
+import { createCameras, createElectrical } from './electrical.js';
 import { SURFACE, beltTexture, detailBatch, addDetails, createLightPatch } from './appearance.js';
 
 const L = LAYOUT, G = 9810;                          // 重力 mm/s²
@@ -93,30 +94,24 @@ export function createProject({ scene }) {
   // 往 +Z 懸臂出去，所以整座架台不落地、也不超出框架平面（見 layout.js frame／vision 註解）。
   const vision = new THREE.Group(); vision.name = 'vision'; scene.add(vision);
   const v = L.vision;
-  const beamW = v.post + 14, postFaceX = -L.frame.postX + L.frame.post / 2;      // 骨架立柱 +X 面：X −820
-  block(vision, [beamW, 120, v.beamZ[1] - v.beamZ[0]], [v.x, v.beamY, (v.beamZ[0] + v.beamZ[1]) / 2], MAT.frame);
-  blockBetween(vision, [postFaceX + 6, v.beamY - 60, v.bracketZ - 28], [v.x - beamW / 2 + 6, v.beamY + 60, v.bracketZ + 28], MAT.frame);
-  for (const [i, cz] of v.camZ.entries()) {
-    const cam = new THREE.Group(); cam.position.set(v.x, 0, cz); vision.add(cam);
-    block(cam, [60, 70, 60], [0, v.camY + 56, 0], MAT.steelDark);                  // 吊架
-    housing(cam, 92, 64, 64, finished(MAT.alu, 'metal'), 0, v.camY + 6, 0, 8);     // 相機本體
-    cylinder(cam, 23, 48, [0, v.camY - 50, 0], MAT.black, 'y', 20);                // 8 mm 鏡頭
-    cylinder(cam, 27, 12, [0, v.camY - 80, 0], MAT.steelDark, 'y', 20);            // 遮光罩
-    block(cam, [26, 16, 26], [0, v.camY + 44, 0], MAT.green);                      // GigE 指示燈
-    decal(cam, 76, 22, [0, v.camY + 6, 33], [0, 0, 0], i ? 'CAM-R' : 'CAM-L', { color: '#cfe3ef', center: true });
-  }
+  const postFaceX = -L.frame.postX + L.frame.post / 2;
+  for (const x of [v.x - 80, v.x + 80])
+    block(vision, [45, 120, v.beamZ[1] - v.beamZ[0]], [x, v.beamY, (v.beamZ[0] + v.beamZ[1]) / 2], MAT.frame);
+  // 托架沿 Z 保留第一段的 56 mm 深度，沿 X 延伸以承接雙軌。
+  blockBetween(vision, [postFaceX + 6, v.beamY - 58, v.bracketZ - 28], [v.x + 100, v.beamY + 58, v.bracketZ + 28], MAT.frame);
+  const cameras = createCameras(vision, v);
   const [wx, wz] = v.windowSize;                                                   // 光學防汙視窗（壓克力）
   const opticalWindow = MAT.glass.clone(); opticalWindow.opacity = .24; opticalWindow.roughness = .12;
   // 清漆反射搭配透明度，免用折射背景重繪，維持行動裝置繪製負擔。
   opticalWindow.transmission = 0; opticalWindow.clearcoat = .45; opticalWindow.metalness = .08;
   block(vision, [wx, 8, wz], [v.x, v.windowY, bz], opticalWindow);
   // 外框四根：橫向兩根在視窗 Z 兩側、縱向兩根在 X 兩側，彼此與視窗都留 10 mm 以上，避免重合面
-  for (const dz of [-wz / 2 - 20, wz / 2 + 20]) housing(vision, wx + 80, 26, 20, SURFACE.extrusion, v.x, v.windowY, bz + dz, 2);
-  for (const dx of [-wx / 2 - 20, wx / 2 + 20]) housing(vision, 20, 26, wz - 84, SURFACE.extrusion, v.x + dx, v.windowY, bz, 2);
+  const windowFrame = [];
+  for (const dz of [-wz / 2 - 20, wz / 2 + 20]) windowFrame.push(housing(vision, wx + 80, 26, 20, SURFACE.extrusion, v.x, v.windowY, bz + dz, 2));
+  for (const dx of [-wx / 2 - 20, wx / 2 + 20]) windowFrame.push(housing(vision, 20, 26, wz - 84, SURFACE.extrusion, v.x + dx, v.windowY, bz, 2));
   for (const dx of [-wx / 2 + 20, wx / 2 - 20]) for (const dz of [-wz / 2 + 20, wz / 2 - 20])
     rod(vision, [v.x + dx, v.windowY + 10, bz + dz], [v.x + dx, v.beamY - 60, bz + dz], 9, MAT.frame);
-  // 橫樑只有 104 mm 寬，視窗吊桿與條燈支柱都在它的 X 之外，所以在橫樑下加兩根橫托架承接
-  // （原本這些零件是吊在兩根獨立立柱之間的寬橫樑上）
+  // 雙軌下方沿用兩根橫托架承接視窗吊桿與條燈支柱。
   for (const dz of [-wz / 2 + 20, wz / 2 - 20]) block(vision, [300, 40, 40], [v.x, v.beamY - 55, bz + dz], MAT.frame);
   const leds = [];                                                                 // 低角度條燈 ×2（45° 朝下）
   for (const lx of v.ledX) {
@@ -158,6 +153,7 @@ export function createProject({ scene }) {
     cylinder(plunger, T.cupR, 8, [0, -256, dz], MAT.black, 'y', 20, 13).name = 'suction cup';
 
   // ================================================================ 分流帶 A／B（同側反向）
+  let divider;
   const divOf = k => k === 'A' ? L.divA : L.divB;
   for (const key of ['A', 'B']) {
     const d = divOf(key), gp = new THREE.Group(); gp.name = 'div' + key; scene.add(gp);
@@ -170,7 +166,7 @@ export function createProject({ scene }) {
     for (const s of [-1, 1]) block(gp, [len, 50, 10], [cx, d.top + 25, d.z + s * (d.width / 2 + 5)], MAT.alu);
     for (const x of d.x) cylinder(gp, 42, d.width + 14, [x, d.top - 50, d.z], finished(MAT.roller, 'metal'), 'z', 20);
     for (const x of d.legX) { block(gp, [60, d.top - 100, 60], [x, (d.top - 100) / 2, d.z], MAT.frame); foot(gp, x, d.z, 140); }
-    if (key === 'A') block(gp, [20, 90, d.width + 20], [175, d.top + 45, d.z], MAT.alu);   // A／B 之間的分隔板
+    if (key === 'A') divider = block(gp, [20, 90, d.width + 20], [175, d.top + 45, d.z], MAT.alu);   // A／B 之間的分隔板
   }
 
   // ================================================================ 收料箱（機台外，示意）
@@ -197,15 +193,18 @@ export function createProject({ scene }) {
   for (const pz of PZ) block(frame, [2 * f.postX + f.post, 40, 40], [0, f.top - 45, pz], MAT.frame);
   for (const px of [-f.postX, f.postX]) block(frame, [40, 40, PZ[1] - PZ[0] + f.post], [px, f.top - 45, (PZ[0] + PZ[1]) / 2], MAT.frame);
   // 透明護板只做非操作面（−Z），X −900…−640 留開口給取像站橫樑的托架穿過去。
-  // 操作面（+Z）是料流與維修開口，手臂搬到 B 帶時掃掠到 Z 約 690，護板與光柵屬第二段。
-  block(frame, [1490, 845, 10], [105, 1327, -710], GUARD);
+  // 操作面（+Z）保留開口，第二段光幕僅呈現安全功能示意。
+  // 雙軌通過後護板處留局部安裝缺口，其餘護板延續原位置。
+  block(frame, [1440, 845, 10], [130, 1327, -710], GUARD);
+  block(frame, [50, 635, 10], [-615, 1222, -710], GUARD);
+  block(frame, [50, 44, 10], [-615, 1727, -710], GUARD);
   // 三色警示燈：按慣例裝在框架頂面之上，所以單獨一個子群組，固定設備的框架平面檢核不列入
   const tower = new THREE.Group(); tower.name = 'tower'; frame.add(tower);
   cylinder(tower, 26, 150, [-f.postX, f.top + 75, PZ[0]], MAT.black, 'y', 18);
   const towerLights = ['red', 'amber', 'green'].map((k, i) => cylinder(tower, 34, 46, [-f.postX, f.top + 30 + i * 48, PZ[0]], MAT[k], 'y', 18));
 
   // HMI：安裝板貼在 +Z 側骨架立柱（X −850／Z +670）的 +X 面，短懸臂往 +X 伸出撐住外殼。
-  // 第一段只畫外殼，畫面內容屬第二段（提案 §5.7）。
+  // 電控模組在外殼面上補入狀態畫面。
   const hmi = new THREE.Group(); hmi.name = 'hmi'; scene.add(hmi);
   const hm = L.hmi, [hw, hh, hd] = hm.size;
   block(hmi, [16, 260, 70], [postFaceX + 14, hm.y, hm.armZ], MAT.steelDark);       // 立柱上的安裝板（離柱面 6 mm，不重合）
@@ -214,10 +213,6 @@ export function createProject({ scene }) {
   block(hmi, [...hm.screen, 6], [hm.x, hm.y, hm.z + hd / 2 + 1], MAT.screen);
 
   const cab = new THREE.Group(); cab.name = 'cabinet'; scene.add(cab);
-  const cb = L.cabinet;
-  housing(cab, cb.size[0], cb.size[1], cb.size[2], MAT.cabinet, cb.x, cb.size[1] / 2, cb.z, 14);
-  cabinetDetails(cab, cb.x - cb.size[0] / 2, cb.z - cb.size[2] / 2, cb.x + cb.size[0] / 2, cb.z + cb.size[2] / 2, cb.size[1]);
-  block(cab, [cb.size[0] + 40, 24, cb.size[2] + 40], [cb.x, 12, cb.z], MAT.steelDark);
 
   addDetails({ belt, vision, robot, frame, bins, L });
   // 只替換固定設備材質，不改共用 MAT，也不觸碰手臂與工件的階層。
@@ -234,10 +229,11 @@ export function createProject({ scene }) {
   const fovMark = mk('fov'), winMark = mk('pickWindow'), dimMark = mk('dims');
   const [fovW, fovL] = v.fov;
   for (const cz of v.camZ) for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]])
-    rod(fovMark, [v.x, v.camY - 95, cz], [v.x + sx * fovL / 2, b.top + 4, bz + sz * fovW / 2], 4, MARK.fov, 6);
+    rod(fovMark, [v.x, v.camY, cz], [v.x + sx * fovL / 2, b.top + 4, bz + sz * fovW / 2], 4, MARK.fov, 6);
   for (const [sx, sz, w, d] of [[0, -1, fovL, 10], [0, 1, fovL, 10], [-1, 0, 10, fovW], [1, 0, 10, fovW]])
     block(fovMark, [w, 6, d], [v.x + sx * fovL / 2, b.top + 6, bz + sz * fovW / 2], MARK.fov);
   rod(fovMark, [v.x, v.camY - 100, v.camZ[0]], [v.x, v.camY - 100, v.camZ[1]], 6, MARK.dim, 6);
+  const elec = createElectrical(scene, { cab, frame, robot, belt, vision, hmi, marks, cameras, tool, leds, towerLights, L });
   const pk = L.pick;
   for (const [x, z, w, d] of [[pk.cx, pk.z[0], pk.x[1] - pk.x[0], 10], [pk.cx, pk.z[1], pk.x[1] - pk.x[0], 10],
   [pk.x[0], pk.cz, 10, pk.z[1] - pk.z[0]], [pk.x[1], pk.cz, 10, pk.z[1] - pk.z[0]]])
@@ -460,6 +456,7 @@ export function createProject({ scene }) {
       action: seg.action || ch.name, sub: seg.sub || ch.note, job: seg.job || null,
       picks: jobs.filter(j => j.releaseTau <= τ).length,
     };
+    last.electrical = elec.set(last);
     return last;
   }
 
@@ -515,7 +512,9 @@ export function createProject({ scene }) {
   // 以及裝在框架頂面之上的三色警示燈（frame 的 tower 子群組）。
   const BOUND = { X: f.x, Y: [0, f.top], Z: f.z };
   const frameBody = new THREE.Box3();                                              // 骨架與護板，不含警示燈
-  for (const c of frame.children) if (c !== tower) frameBody.expandByObject(c);
+  // 外露配線延伸至外置電盤；本項只量機台本體，配線另由動態取樣完整檢查。
+  // 光幕展示標牌依提案置於骨架外側，不計入設備佔地；仍保留場景干涉檢查。
+  for (const c of frame.children) if (c !== tower && c !== elec.curtainPlate && !c.userData.routingHardware) frameBody.expandByObject(c);
   const visionBox = new THREE.Box3().setFromObject(vision);
   const FIXED = [['取像架台', visionBox], ['HMI', new THREE.Box3().setFromObject(hmi)], ['骨架與護板', frameBody]];
   const fixedOut = FIXED.flatMap(([name, bb]) => bb.isEmpty() ? [`${name} 沒有零件`] : Object.entries(BOUND).flatMap(([k, [lo, hi]]) => {
@@ -534,7 +533,7 @@ export function createProject({ scene }) {
     { group: '淨空', name: '分流帶對手臂架台間隙 ≥50 mm', ok: divGap >= 50, value: `${divGap.toFixed(0)} mm` },
     { group: '淨空', name: '工具掃掠在機台框架平面內', ok: metrics.maxZ + toolR <= f.z[1] && metrics.minX - toolR >= f.x[0] && metrics.maxX + toolR <= f.x[1], value: `Z ≤${(metrics.maxZ + toolR).toFixed(0)} / ${f.z[1]}、X ${(metrics.minX - toolR).toFixed(0)}…${(metrics.maxX + toolR).toFixed(0)}` },
     { group: '淨空', name: `固定設備在框架平面 ${f.x[1] - f.x[0]} × ${f.z[1] - f.z[0]} × ${f.top} 內`, ok: !fixedOut.length, value: fixedOut.length ? fixedOut.join('、') : `取像架台 X ${visionBox.min.x.toFixed(0)}…${visionBox.max.x.toFixed(0)}、Z ${visionBox.min.z.toFixed(0)}…${visionBox.max.z.toFixed(0)}` },
-    { group: '取像', name: '相機視野涵蓋帶寬 600 mm', ok: v.fov[0] >= bw, value: `${v.fov[0]} / ${bw} mm` },
+    { group: '取像', name: '相機視野涵蓋帶寬 600 mm', ok: v.requiredFov[0] >= bw && cameras.every(cam => cam.fieldOfView(v.wd).every((size, i) => size >= v.requiredFov[i])), value: `${v.requiredFov[0]} / ${bw} mm`, note: `第一段檢測範圍 ${v.requiredFov.join(' × ')} mm；第二段完整視野 ${cameras[0].fieldOfView(v.wd).map(Math.round).join(' × ')} mm（示意）` },
     { group: '取像', name: '取像架台在手臂動作半徑外', ok: visionBox.max.x < a.x - a.reach, value: `X ${visionBox.max.x.toFixed(0)} < ${a.x - a.reach}` },
     { group: '取像', name: '取像到抓取的飛行時間 > 視覺鏈路 0.29 s', ok: VISION_TO_PICK / BELT_V > .29, value: `${(VISION_TO_PICK / BELT_V).toFixed(2)} s` },
     { group: '節拍', name: '連續運轉段節拍 1.40 s（≥6 連抓）', ok: burst >= 5, value: `${burst + 1} 連抓 × ${CT.toFixed(2)} s` },
@@ -550,6 +549,7 @@ export function createProject({ scene }) {
   ];
 
   return {
+    electrical: elec, visionCamera: cameras[0], visionCameras: cameras, marks, lightPatch,
     total: TOTAL, apply, layoutChecks, timing, jobs, missed, items, itemById, arm, segs, metrics, ctGaps, bad, throughput,
     stationStart: STATIONS.map((_, k) => (CHAPTERS.find(c => c.station === k) ?? CHAPTERS[0]).t[0]),
     get state() { return last; },
@@ -561,6 +561,11 @@ export function createProject({ scene }) {
     },
     verify: {
       dt: .6,
+      cables: { interval: .3, obstacles: () => {
+        const meshes = [...arm.armParts, ...windowFrame, divider];
+        tool.traverse(m => { if (m.isMesh && !m.userData.routingHardware) meshes.push(m); });
+        return meshes;
+      } },
       skip: o => o === marks || o.parent === marks,
       allow: [
         { why: '工件被吸盤吸附時與吸盤面接觸', test: (x, y, ctx) => [x, y].some(m => m.name === 'suction cup') && [x, y].some(m => ctx.moduleOf(m) === 'items') },

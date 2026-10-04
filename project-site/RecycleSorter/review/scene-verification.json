@@ -2,8 +2,8 @@
   "variant": "預設",
   "params": {},
   "ok": true,
-  "meshes": 362,
-  "moving": 161,
+  "meshes": 1986,
+  "moving": 196,
   "joints": 36,
   "samples": 161,
   "dt": 0.6,
@@ -13,11 +13,11 @@
   "zfight": [],
   "envelope": {
     "robot": {
-      "minX": -457,
-      "maxX": 743,
-      "minY": 0,
+      "minX": -858,
+      "maxX": 922,
+      "minY": -2,
       "maxY": 1758,
-      "minZ": -482,
+      "minZ": -1967,
       "maxZ": 730
     }
   },

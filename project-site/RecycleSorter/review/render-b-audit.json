@@ -1,0 +1,19 @@
+{
+  "ok": true,
+  "diffs": [],
+  "layoutUnchanged": true,
+  "camerasUnchanged": true,
+  "specUnchanged": true,
+  "sceneTextures": 53,
+  "sceneMaterials": 385,
+  "triangles": 221166,
+  "calls": 2079,
+  "triangleRatio": 1.1723490872081928,
+  "callRatio": 1.101165254237288,
+  "expandedScene": {
+    "ok": true,
+    "dynamic": [],
+    "static": [],
+    "zfight": []
+  }
+}
