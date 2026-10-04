@@ -18,7 +18,7 @@
 | `ui/` | `stage.js`（renderer／場景／相機／燈光／3D 標籤／視角轉場／畫面迴圈／`exposeSim`）、`player.js`（標準播放列）、`viewer-workspace`（相機視窗與焦點追隨，所有專案共用）、`vision-overlay` |
 | `verify/` | 統一檢查：`scene.mjs`（全場干涉＋重合面閃爍）、`electrical.mjs`（電控配置）、`cables.mjs`（配線動態取樣）、`feedthroughs.mjs`（穿板孔）、`clearance.mjs`（有向包圍盒間距）、`determinism.mjs`（倒序一致）、`fingerprint.mjs`／`fingerprint-compare.mjs`（排程指紋，渲染補強前後比對）、`run.mjs`（執行入口）、`dom-stub.mjs` |
 | `template/` | 新專案範本（`tools/new-project.mjs` 複製） |
-| `tools/` | 伺服器、檢查執行器、截圖比對、效能量測（`perf-check.mjs`）、Pages 建置、成品匯出（`export.mjs`：網站壓縮檔、單一 HTML、MP4）、建立新專案、範圍檢查（`check-scope.mjs`、`scope-guard.mjs`、`install-hooks.mjs`）、用戶名稱檢查（`check-names.mjs`）（不發布） |
+| `tools/` | 伺服器、檢查執行器、截圖比對、效能量測（`perf-check.mjs`）、Pages 建置、成品匯出（`export.mjs`：網站壓縮檔、單一 HTML、MP4）、建立新專案、範圍檢查（`check-scope.mjs`、`scope-guard.mjs`、`install-hooks.mjs`）、用戶名稱檢查（`check-names.mjs`）、結構檢查（`check-structure.mjs`）（不發布） |
 | `VERSION`、`REQUESTS.md` | core 版本號（語意化版本，改版紀錄在 `MIGRATION.md`）；子專案提出的 core 需求登記 |
 
 ## 新專案
@@ -160,6 +160,7 @@ node core/tools/check.mjs --only scene     # 只跑某項
 |---|---|---|
 | `models`（core） | ✓ | 每個共用模型以預設參數建立，狀態走完全範圍，做干涉與重合面檢查（`core/review/models.json`） |
 | `examples`（core） | ✓ | 第二段範例（`examples/segment2`）的電控與配線檢查 |
+| `structure` | ✓ | 開發架構（不管專案是哪個工具做的）：`project.json` 合法且有 `title`、`summary`、`coreVersion`（語意化版本、不超過 `core/VERSION`）；`AGENTS.md`、`CLAUDE.md`（引用 `@AGENTS.md`）；本庫的站有 `.claude/settings.json` 寫檔關卡；`docs/` 被 git 忽略；`web/` 每個 HTML 連 `../core/favicon.svg`、importmap 的 `@core/` 指到 `../core/`。跑全部專案時另查 `project-site/` 底下沒有 `web/index.html` 的資料夾（`core · structure`）。pre-commit 也會檢查這次提交到的站 |
 | `names` | ✓ | 專案資料夾（不含 `docs/`、`TEMP/`）不得出現用戶名稱；名單只放本機 `.private/client-names.txt`（studio 工作區是 `.studio/client-names.txt`），沒有名單就略過。pre-commit 也會掃要提交的內容 |
 | `imports` | ✓ | 從 index.html 走遍 import 圖，找不到的檔案（部署後才會壞的路徑） |
 | `determinism` | ✓ | 40 個時間點順序與倒序取樣，所有可見物件的世界矩陣必須相同 |

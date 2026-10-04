@@ -114,11 +114,17 @@ Node 端由 `core/tools/loader.mjs` 解析相同的三種名稱，檢查程式�
   - `installMovie` 的步驟可以帶 `offset`（這一步的鏡頭偏移，切換時約 2 秒平滑過渡）與 `speed`（展示倍率，>1 較快）；新增 `targetSeconds`（製程段等比例壓到指定總長，短動作保底 0.25 s）。使用者決定不設預設上限，由各站自己調。另外 1.6.0 之後補了 `far`（廠房級的站）與 `glandShots`。
   - 沒有用這些參數的站走原本的程式路徑：SSD 2782 格、MGPC 6503 格與改前相同。
   - 化學桶的 AGV 段落改從南側走道拍（原本只能把固定的西北偏移拉遠）；`storage.js` 的 `zAt` 修正（示範車道第 4 位不再是 NaN）。
+- 2026-10-04 core 1.8.0（結構檢查：別的工具做的站也要符合架構）：
+  - `core/tools/check-structure.mjs`＋`check.mjs` 內建 `structure`（快速）：`project.json` 欄位、規則檔、寫檔關卡、`docs/` 不進版控、favicon、importmap；跑全部專案時另查 `project-site/` 底下不是專案的資料夾。pre-commit 加上 `check-structure.mjs --staged`（只查這次提交到的站）。
+  - 根目錄 `.gitignore` 改用 `/project-site/*/docs/`，新站不必再手動加；`new-project.mjs` 的提示跟著改。
+  - 給不讀 `AGENTS.md` 的工具放指向檔：`GEMINI.md`（`@AGENTS.md`）、`.github/copilot-instructions.md`。
+  - 8 站結構檢查全數通過，執行期程式沒有改變。
 
 ## 版本
 
 | 版本 | 日期 | 內容 |
 |---|---|---|
+| 1.8.0 | 2026-10-04 | 結構檢查 `structure`（check、pre-commit）、`docs/` 萬用忽略規則 |
 | 1.7.0 | 2026-10-04 | 錄影步驟 `offset`／`speed`、`targetSeconds`、`far`、`glandShots` |
 | 1.6.0 | 2026-10-04 | 成品匯出（`export.mjs`：網站壓縮檔、單一 HTML、MP4）、`zip.mjs`、離線伺服器、範本接上錄影；Python 錄影接收端退役 |
 | 1.5.0 | 2026-10-04 | `verify.cables` 的 variants／apply／times、結果判斷修正、`core/anim/sampling.js`、`solidMeshes`；根目錄配線與電盤工具退役 |

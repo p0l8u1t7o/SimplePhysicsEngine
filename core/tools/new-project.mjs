@@ -23,4 +23,4 @@ console.log(`已建立 ${dest}
   開啟：node core/tools/serve.mjs "${id}"
   檢查：node core/tools/check.mjs "${id}"
   規則：${PROJECTS_DIR}/${id}/AGENTS.md 填入規格摘要；從這個資料夾啟動的代理只能改本站（.claude/settings.json 寫檔關卡、pre-commit）
-  記得把 /${PROJECTS_DIR}/${id}/docs/ 加進根目錄 .gitignore（使用者提供的圖面與規劃文件只留本機）`);
+  docs/ 放使用者提供的圖面與規劃文件，只留本機（根目錄 .gitignore 的 /${PROJECTS_DIR}/*/docs/ 已涵蓋）；結構檢查：node core/tools/check-structure.mjs "${id}"`);

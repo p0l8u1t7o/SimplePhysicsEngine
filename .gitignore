@@ -1,12 +1,5 @@
-# 各專案 docs（用戶提供的圖面、照片、影片與規劃文件）不納入版控
-/project-site/AutomaticAcid-BaseTitration/docs/
-/project-site/ChemicalTankWashing/docs/
-/project-site/MilitaryGradePC/docs/
-/project-site/PCB-CopperAssembly/docs/
-/project-site/RobotArmPressSSD/docs/
-/project-site/shutter assembly/docs/
-/project-site/WorkpieceMeasurement/docs/
-/project-site/RecycleSorter/docs/
+# 各專案 docs（用戶提供的圖面、照片、影片與規劃文件）不納入版控；新專案自動適用
+/project-site/*/docs/
 
 # Local generated data (all case variants, at any project depth)
 [Tt][Ee][Mm][Pp]/

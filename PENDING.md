@@ -59,6 +59,7 @@
 - [x] 審查能力驗證（2026-10-04，`vs3d review --no-fix`，opus）：快門 × sonnet 抓到「葉片疊放順序做反」、MGPC × opus 抓到「空白相機預覽框是第一段不做的東西」，兩個已知錯誤都在必修第 1、2 項；另外各抓到 2 項真問題（右抽屜吸塑盤是空的、沒標「示意」、標籤數字與幾何不符、S3 夾持對象與拍板不符）。每案約 6 分鐘。
 - [x] P3 網頁介面 `vs3d ui`（含 P4c 補強勾選與前後對照），端對端測試通過（2026-10-04）。
 - [x] 本庫模式（2026-10-04）：介面與命令列可以對 `project-site/` 的站下審查＋補強、修改指令、第二段、檢查與匯出；開工檢查、每次開本機分支、只提交該站路徑、逐檔寫回、不 checkout／reset／stash（說明在 `studio/README.md`「本庫模式」）。
+- [x] 別的工具（Claude Code、Codex 桌面版等）做的站也要符合架構（2026-10-04，core 1.8.0）：結構檢查 `structure`（check、pre-commit、CI）、`docs/` 萬用忽略規則、`GEMINI.md`／`.github/copilot-instructions.md` 指向檔；studio 清單與站頁標出「N 個未提交」（別的工具改過、還沒提交的檔案），有未提交改動時停用會開分支的指令。
 - [ ] 本庫模式的併改偵測：代理執行中使用者也改了本站同一個檔案時，停下來轉成提問（目前會一起提交）。
 - [x] 上傳 pptx／xlsx／docx 時自動抽出文字與圖片到 `docs/<檔名>.extract/`（純 Node，2026-10-04）。沒做：pptx 內嵌影片的影格、圖表數據、EMF／WMF 向量圖。
 - [x] 7 站與 RecycleSorter 搬進 `project-site/`，新案已匯入本庫（`project-site/RecycleSorter/`，2026-10-04，core 1.3.0）；之後的新專案都放在 `project-site/`。

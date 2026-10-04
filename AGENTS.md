@@ -7,7 +7,7 @@
 - **語言**：一律用繁體中文（台灣用語）回覆。程式碼、指令、檔名保持英文；程式註解用繁體中文；commit 訊息用英文。
 - **要拍板的事用選項對話**：設計取捨、方案選擇都整理成 1～4 題、每題 2～4 個選項，推薦項放第一並標「（建議）」。有合理預設值的小事不必問。
 - **提交與推送**：階段完成、檢查通過就直接 commit，不必問。**推送只在使用者要求時才做**；推送到 `main` 會觸發 Pages 檢查與發布。
-- **不進版控**：各專案 `docs/`（使用者給的圖面、照片、影片、規劃與成本資料）、`TEMP/`、`question_log.txt`、ffmpeg 執行檔。新專案的 `docs/` 也要加進 `.gitignore`。
+- **不進版控**：各專案 `docs/`（使用者給的圖面、照片、影片、規劃與成本資料）、`TEMP/`、`question_log.txt`、ffmpeg 執行檔。`.gitignore` 的 `/project-site/*/docs/` 已涵蓋新專案。
 - **使用者自己也會改檔、提交**：改檔前先看 `git status`。有未提交改動的檔案**絕對不要** `git checkout`／`restore`／`stash`（曾經這樣弄丟過工作，只能事後重做）。
 - 使用者要求「先討論不改」時，只討論、不動檔案。
 - **不得顯示用戶名稱**（2026-10-04 拍板，所有代理都要遵守）：任何子專案的網頁、標籤、`project.json`、README、`AGENTS.md`、程式註解、review、commit 訊息都不得出現用戶（客戶）名稱，即使評估文件或提示詞裡有；改用中性描述（例如「回收物自動分揀展示機」）。名單只放本機 `.private/client-names.txt`（不進版控，一行一個）；`check.mjs` 的 `names` 檢查與 pre-commit 會擋。新案匯入或產生後，先把用戶名稱加進名單再檢查。設備廠牌與零件供應商（例如手臂型號）不算用戶名稱。
@@ -66,6 +66,8 @@ node --import ./core/tools/register.mjs tools/verify-interference.mjs   # 四站
   - **PR CI**（`scope.yml`）：分支名稱是 `<範圍>/…` 時，只能改該範圍；其他分支名稱不限制。
   - **Claude Code 寫檔關卡**：各專案 `.claude/settings.json`（`node "$CLAUDE_PROJECT_DIR/../../core/tools/scope-guard.mjs"`） 的 PreToolUse 呼叫 `core/tools/scope-guard.mjs`，擋下寫到範圍外的 Write／Edit／MultiEdit／NotebookEdit。shell 指令擋不到，靠前兩項。
   - **Codex**：從專案資料夾啟動並用 `--sandbox workspace-write`。沙箱擋住共用檔時，把 core 需求或待辦寫在回報裡，由主 session 登記。
+  - **其他代理工具**：Gemini CLI 讀 `GEMINI.md`、GitHub Copilot 讀 `.github/copilot-instructions.md`，兩者都只指向本檔。不管用哪個工具，最後都要過 pre-commit（用戶名稱、結構、範圍）與 PR CI。
+  - **結構檢查**（`check.mjs` 內建 `structure`，pre-commit 也查這次提交到的站）：站要有 `project.json`（`title`、`summary`、`coreVersion`）、`AGENTS.md`、`CLAUDE.md`、寫檔關卡，`docs/` 不進版控，網頁連 favicon、importmap 用 `@core/`。手動建的資料夾通常過不了，**新站一律用 `new-project.mjs` 建立**。
 - **各站規則**：規格摘要與已拍板事項放在 `project-site/<專案>/AGENTS.md`（同資料夾的 `CLAUDE.md` 只有 `@AGENTS.md`）。新專案由 `new-project.mjs` 從範本帶出這些檔案。
 - **開發流程**：規格 → new-project → 盤點 core → project.js → 排程 → main.js 與 verify（可平行）→ check → 截圖 → commit → PR → Pages。
 - **core 版本**：`core/VERSION` 用語意化版本；各專案 `project.json` 的 `coreVersion` 記錄最後一次驗證通過的 core 版本。core 有 API 或外觀改變時升版、記進 `core/MIGRATION.md`，各站驗證通過後再更新 `coreVersion`。
@@ -94,7 +96,7 @@ node --import ./core/tools/register.mjs tools/verify-interference.mjs   # 四站
 
 ## 檢查與回歸的做法
 
-- **`check.mjs` 內建項目**：`imports`、`determinism`、`layout`、`scene`（干涉＋閃爍，部署前也會擋）、`ui`（只在完整檢查跑；平行執行時設 `UI_PORT`），再加上 `project.json` 列的自有檢查。core 本身另有 `models` 檢查。
+- **`check.mjs` 內建項目**：`imports`、`structure`、`names`、`determinism`、`layout`、`scene`（干涉＋閃爍，部署前也會擋）、`ui`（只在完整檢查跑；平行執行時設 `UI_PORT`），再加上 `project.json` 列的自有檢查。core 本身另有 `models` 檢查。
 - **改 core 或渲染時**：
   1. 先拍基準：`git worktree add <暫存資料夾> HEAD`，在 worktree 裡跑 `shots.mjs --out TEMP/shots-<名>-base`，用完 `git worktree remove`。
   2. 改完比對：7 站桌面截圖要 0 張超過門檻。刻意的外觀改變要逐張看過，並記進 `core/MIGRATION.md`。

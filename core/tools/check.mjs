@@ -14,6 +14,7 @@
 //   layout       project.layoutChecks() 空間檢核（快速）
 //   scene        全場動態／靜態干涉＋重合面閃爍（快速）
 //   electrical   電控元件在櫃內、不重疊、櫃內連線、穿板孔；project.verify.cables 宣告時另做配線動態取樣（快速；沒有電控就略過）
+//   structure    開發架構：project.json、AGENTS.md／CLAUDE.md、寫檔關卡、docs/ 不進版控、favicon、importmap（check-structure.mjs，快速；不管專案是哪個工具做的）
 //   names        不得出現用戶名稱（本機名單 .private/client-names.txt 或工作區 .studio/client-names.txt；沒有名單就略過，快速）
 //   ui           標準互動測試：桌面／手機直向／手機橫向／觸控平板的播放列、選單、側欄、標籤與版面（ui-check.mjs，只在完整檢查）
 // project.json 的 "core" 可覆寫：{ "skip": ["scene"], "quick": ["scene"] }
@@ -23,6 +24,7 @@ import { pickProjects, REPO, CORE, WORKSPACE } from './projects.mjs';
 import { runScript } from './run.mjs';
 import { checkProject as checkImports } from './check-imports.mjs';
 import { scanDirs, clientNames } from './check-names.mjs';
+import { checkStructure, strayFolders } from './check-structure.mjs';
 
 const argv = process.argv.slice(2), quick = argv.includes('--quick');
 const only = (() => { const i = argv.indexOf('--only'); return i >= 0 ? argv.splice(i, 2)[1].split(',') : null; })();
@@ -37,6 +39,7 @@ const viaRunner = (check, args = []) => async p => {
 };
 const BUILTIN = {
   imports: { quick: true, run: async p => { const r = checkImports(p); return { ok: !r.missing.length, note: `${r.modules} 個模組`, detail: r.missing }; } },
+  structure: { quick: true, run: async p => { const r = checkStructure(p); return { ok: !r.length, note: r.length ? `${r.length} 項不符` : '通過', detail: r }; } },
   names: { quick: true, run: async p => { const n = clientNames(); if (!n.length) return { ok: true, note: '沒有名單，略過' }; const h = scanDirs([p.dir], n); return { ok: !h.length, note: h.length ? `${h.length} 處出現用戶名稱` : `通過（名單 ${n.length} 個）`, detail: h.slice(0, 20).map(x => `${x.file.slice(p.dir.length + 1)}${x.line ? ':' + x.line : '（檔名）'}：改成中性描述`) }; } },
   determinism: { quick: true, needsProject: true, run: viaRunner('determinism') },
   layout: { quick: true, needsProject: true, run: viaRunner('layout') },
@@ -66,6 +69,13 @@ if (!argv.some(a => !a.startsWith('--')) && (!only || only.includes('examples'))
   results.push({ project: 'core', check: 'examples', ok: r.code === 0, note: lines.find(l => /^[✓✗]/.test(l))?.slice(2) || `exit ${r.code}`, seconds: +sec.toFixed(1) });
   console.log(`${r.code === 0 ? '✓' : '✗'} core · examples  ${results.at(-1).note}  (${sec.toFixed(1)} s)`);
   if (r.code) for (const l of lines.slice(1)) console.log('     ' + l);
+}
+// 專案根目錄底下沒有 web/index.html 的資料夾：check、首頁、studio 都看不到（例如別的工具手動建的站）；指定專案時略過
+if (!argv.some(a => !a.startsWith('--')) && (!only || only.includes('structure'))) {
+  const stray = strayFolders();
+  results.push({ project: 'core', check: 'structure', ok: !stray.length, note: stray.length ? `${stray.length} 個資料夾不是專案` : '通過', seconds: 0 });
+  console.log(`${stray.length ? '✗' : '✓'} core · structure  ${results.at(-1).note}`);
+  for (const n of stray) console.log(`     ${n}：沒有 web/index.html，用 new-project.mjs 建立`);
 }
 for (const p of projects) {
   const scripts = [...(p.checks?.quick || []), ...(quick ? [] : p.checks?.full || [])];
