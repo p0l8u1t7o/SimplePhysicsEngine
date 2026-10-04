@@ -41,7 +41,9 @@
 - [x] P2 執行：冒煙＋其餘 5 次都完成，第一段全部通過檢查；對照報告在本機 `TEMP/p2-report/index.html`（2026-10-04）。
 - [x] 定各角色的正式預設：opus 規劃與實作、gpt-6 渲染與細節補強（2026-10-04，已寫進 `studio/lib/roles.mjs`）。
 - [x] P4 第二段能力實作（2026-10-04，core 1.4.0）：`vs3d stage2`／第一段完成後的卡片、`segment2.md`／`segment2.json` 規劃、角色依段落指派、第二段不能改第一段的排程指紋、core 內建 `electrical` 檢查、`core/examples/segment2` 範例、相機模型。
-- [ ] P4 第二段驗收：拿 P2 的 MGPC、快門成品與原始回收物分揀工作區實際跑第二段（真實代理），看電控、配線、相機的成品與審查結果。
+- [ ] P4 第二段驗收（進行中，2026-10-04）：MGPC（P2 Codex 版）與回收物分揀實際跑第二段；快門不跑（使用者決定，兩案足以看出能力）。最後的補強卡片由主 session 看截圖後代答。
+  - 驗收後：回收物分揀的第二段成品匯入 `project-site/RecycleSorter/`（MGPC 是 P2 對照版，不匯入）；結果記進 studio README；刪除 P2 工作區。
+  - 推送：驗收結束後一起推。推送前改寫 origin/main 之後的本機 commit，清掉歷史裡的用戶名稱（`git filter-branch`，原歷史備份在 `refs/original`）。
 - 第二段的拍板內容（2026-10-04）：
   - 第一段（含補強 A）完成後出卡片「開始第二段？」，也可以之後用 `vs3d stage2` 或介面按鈕開始。
   - 角色依段落指派：第二段的開發、修正預設 Codex gpt-6-astra high，審查維持 Claude opus，補強 B 照舊 gpt-6。
