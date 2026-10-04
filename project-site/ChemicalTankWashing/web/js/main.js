@@ -309,11 +309,13 @@ if (qp.has('movie')) {
     const k = heldAt(back);
     if (k >= 0) cut(back, 'robot', `${stName('robot')} · ${DRUM_IDS[k]} 沖洗、抽乾與熱風吹乾`);
   });
-  const steps = segs.map((s, i) => ({ ...s, dur: (segs[i + 1]?.start ?? total) - s.start }));
+  // AGV 在貨架深處：這幾段改從南側走道拍（步驟的 offset，錄影程式在切換時平滑過渡）
+  const AGV_OFFSET = [1200, 5200, 6200];
+  const steps = segs.map((s, i) => ({ ...s, dur: (segs[i + 1]?.start ?? total) - s.start, ...(s.station === 'agv' ? { offset: AGV_OFFSET } : {}) }));
 
   // 追焦對象：依目前片段的站別，看該站正在處理的桶（或設備）；目標暫時不在時用該站的固定點
   let movieT = 0;
-  // 鏡頭偏移（由西北斜上方看，沖洗站開口朝北，約 4.4 m）；錄影程式整段製程只用一個偏移
+  // 鏡頭偏移（由西北斜上方看，沖洗站開口朝北，約 4.4 m）；AGV 段落另外帶 offset
   const OFFSET = [-2200, 2800, -2600], O = new THREE.Vector3(...OFFSET), WIDE = .6, up = new THREE.Vector3(0, 400, 0);
   // 拉遠：注視點沿偏移方向往鏡頭移 WIDE 倍，目標仍在畫面中心，鏡頭變成 (1 + WIDE) 倍距離、更高
   const wide = p => p.addScaledVector(O, WIDE);
@@ -328,7 +330,7 @@ if (qp.has('movie')) {
   function movieFocus() {
     const station = steps.findLast(s => s.start <= movieT)?.station ?? 'agv';
     // AGV 與入庫在貨架、懸臂吊旁：拉遠到約 7 m、高約 5.2 m，鏡頭在貨架頂層桶（約 3.75 m）與吊臂之上，不穿過貨架、桶與吊臂
-    if (station === 'agv') return wide(agv.root.position.clone().add(new THREE.Vector3(0, 750, 0)));
+    if (station === 'agv') return agv.root.position.clone().add(new THREE.Vector3(0, 750, 0));
     if (station === 'gantry') return drumIn('gantry') ?? line.gantryPivot.getWorldPosition(new THREE.Vector3());
     if (station === 'upender') return drumIn('upender') ?? FIXED.upender.clone();
     if (station === 'inbound') return wide(drumIn('jib', 'dolly') ?? FIXED.inbound.clone());

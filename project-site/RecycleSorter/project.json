@@ -2,7 +2,7 @@
   "title": "回收物自動分揀展示機",
   "summary": "雙相機立體視覺分類白色 HDPE 瓶罐，DENSO HSR065 SCARA 吸盤同步帶速取放到兩條分流帶；同類連抓 1.4 s／瓶、混合料流約 1.5 s。",
   "order": 8,
-  "coreVersion": "1.6.0",
+  "coreVersion": "1.7.0",
   "checks": {
     "quick": [
       "tools/verify.mjs",

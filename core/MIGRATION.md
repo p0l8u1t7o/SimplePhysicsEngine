@@ -110,11 +110,16 @@ Node 端由 `core/tools/loader.mjs` 解析相同的三種名稱，檢查程式�
   - `tools/export-mp4.mjs`：Node 版錄影接收端（取代 Python 的 `tools/movie-export/server.py`、`prepare.py`，已刪除），無頭 Chrome（GPU）開 `?movie&auto` 全自動錄製，ffmpeg NVENC／libx264，結束時用 ffprobe 核對影格數。`audit.py`、`verify.py` 保留。
   - `movie/movie.js`：`installMovie` 新增 `title`（片頭標題，原本只有 6 站的對照表）；沒有電控元件的專案略過電盤與整線鏡頭。現有各站的鏡頭不變。
   - 範本 `main.js` 接好 `?movie` 錄影（依時間軸事件運鏡、追焦工件），新專案建好就能匯出 MP4。
+- 2026-10-04 core 1.7.0（錄影的鏡頭方向與片長）：
+  - `installMovie` 的步驟可以帶 `offset`（這一步的鏡頭偏移，切換時約 2 秒平滑過渡）與 `speed`（展示倍率，>1 較快）；新增 `targetSeconds`（製程段等比例壓到指定總長，短動作保底 0.25 s）。使用者決定不設預設上限，由各站自己調。另外 1.6.0 之後補了 `far`（廠房級的站）與 `glandShots`。
+  - 沒有用這些參數的站走原本的程式路徑：SSD 2782 格、MGPC 6503 格與改前相同。
+  - 化學桶的 AGV 段落改從南側走道拍（原本只能把固定的西北偏移拉遠）；`storage.js` 的 `zAt` 修正（示範車道第 4 位不再是 NaN）。
 
 ## 版本
 
 | 版本 | 日期 | 內容 |
 |---|---|---|
+| 1.7.0 | 2026-10-04 | 錄影步驟 `offset`／`speed`、`targetSeconds`、`far`、`glandShots` |
 | 1.6.0 | 2026-10-04 | 成品匯出（`export.mjs`：網站壓縮檔、單一 HTML、MP4）、`zip.mjs`、離線伺服器、範本接上錄影；Python 錄影接收端退役 |
 | 1.5.0 | 2026-10-04 | `verify.cables` 的 variants／apply／times、結果判斷修正、`core/anim/sampling.js`、`solidMeshes`；根目錄配線與電盤工具退役 |
 | 1.4.0 | 2026-10-04 | 通用電控與配線檢查（`electrical`）、元件表 `schedule`、相機模型、第二段範例、用戶名稱檢查（`names`） |

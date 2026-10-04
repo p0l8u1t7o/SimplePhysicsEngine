@@ -126,7 +126,7 @@ exposeSim({ seekTo, setView, views, total, play, pause, get T() { return T; } })
 
 - 網址參數一致：`?shadow=0`、`?aa=0`、`?logdepth=0/1`、`?movie`（錄影：不跑迴圈、不聽 resize、強制對數深度）。
 - `loop(tick, { render })`：多畫面專案（主畫面＋相機子畫面＋疊圖）傳自己的整格繪製；不傳則只畫主畫面。
-- 錄影：`?movie` 時在 main.js 呼叫 `installMovie({...})`（`core/movie/movie.js`），各站的取樣、追焦、細節重播設定寫在專案裡；`?movie&auto` 自動開始輸出。
+- 錄影：`?movie` 時在 main.js 呼叫 `installMovie({...})`（`core/movie/movie.js`），各站的取樣、追焦、細節重播設定寫在專案裡；`?movie&auto` 自動開始輸出。`installMovie` 另有 `title`（片頭與段落標題）、`far`（廠房級的站）、`glandShots: false`（接頭不在桌板上的站）、`targetSeconds`（製程段壓到指定總長）；步驟可以帶 `offset`（這一步的鏡頭偏移，約 2 秒平滑過渡）與 `speed`（展示倍率）。
 - 成品匯出總入口：`node core/tools/export.mjs <專案> [--zip] [--html] [--mp4] [--out 資料夾]`（不指定時輸出壓縮檔＋單一 HTML，預設 `TEMP/exports/`）。`--zip` 是首頁＋本站＋core 的網站壓縮檔，附 `open-demo.cmd`（雙擊用 Windows 內建 PowerShell 的本機伺服器 `tools/offline/serve.ps1` 開啟，客戶電腦不必安裝軟體）；匯出前後都做用戶名稱檢查，有名稱就不留下成品。zip 讀寫在 `tools/zip.mjs`（交接包也用）。
 - MP4 匯出：`node core/tools/export-mp4.mjs <專案> [輸出資料夾]`（全自動：建單站網站副本、本機接收端、無頭 Chrome＋GPU、ffmpeg NVENC／libx264，結束時核對影格數；預設輸出 `TEMP/videos/<專案>-<日期>/`）。程式內用 `import { exportMp4 } from './export-mp4.mjs'`。
 - 單一 HTML 匯出：`node core/tools/export-html.mjs <專案> [輸出檔] [--verify]`（預設 `TEMP/exports/<專案>.html`），模組、css、圖示與 `new URL('…', import.meta.url)` 資源全部內嵌，離線雙擊（file://）可開；`--verify` 用 Chrome／Edge 以 file:// 開啟，確認無錯誤、`window.sim` 可跳播、畫布有畫面。程式內用 `exportHtml(專案, 輸出檔)`、`verifyHtml(檔案)`。

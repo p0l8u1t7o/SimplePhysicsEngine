@@ -2,9 +2,10 @@ import * as THREE from 'three';
 import {smooth,filterTargets,atFrame} from './camera-path.mjs';
 
 /** One absolute-time renderer for preview, audit and recording.
+ *  步驟可以帶 offset（這一步的鏡頭偏移，切換時約 2 秒平滑過渡）與 speed（這一步的展示倍率，>1 較快）；targetSeconds 讓製程段等比例壓到指定總長（短動作保底 0.25 s，不設就不壓）。
  *  各專案在 main.js 以 ?movie 呼叫：installMovie({ project, title, scene, renderer, camera, controls, render, setView, total, steps, sample, focus, offset, detailShots, electricalMode, keepGuards, glandShots, far })。
  *  網頁本身的畫面迴圈在 ?movie 時不啟動（core/ui/stage.js 已處理；未用 stage 的專案在自己的迴圈開頭判斷）。 */
-export async function installMovie({project,title,scene,renderer,camera,controls,render,setView,total,steps,sample,focus,offset,detailShots=[],electricalMode,keepGuards=false,glandShots=true,far=16000}) {
+export async function installMovie({project,title,scene,renderer,camera,controls,render,setView,total,steps,sample,focus,offset,detailShots=[],electricalMode,keepGuards=false,glandShots=true,far=16000,targetSeconds=0}) {
   const setElectricalMode=electricalMode||(await import('@core/electrical/electrical-cabinet.js')).setElectricalMode;
   const W=1920,H=1080,FPS=30,SSAA=2,shots=[];
   const acid=project==='AutomaticAcid-BaseTitration',pcb=project==='PCB-CopperAssembly';
@@ -14,11 +15,13 @@ export async function installMovie({project,title,scene,renderer,camera,controls
   // 片頭標題：專案傳入的 title ＞ 現有各站的對照表 ＞ 專案名稱
   add('overview',12,{t:0,label:(title||names[project]||project)+' · 全景到製程',intro:true});
   let previousPhase=null;
+  const base=steps.map(s=>(acid?Math.max(.1,s.dur/(s.idle?100:12)):
+      project==='MilitaryGradePC'?Math.max(.25,s.dur/(s.contact||s.exposure?1.25:3)):
+      pcb?s.dur:Math.max(.45,s.dur*1.2))/(s.speed>0?s.speed:1));
+  const sum=base.reduce((a,b)=>a+b,0),squeeze=targetSeconds>0&&sum>targetSeconds?targetSeconds/sum:1;
   steps.forEach((s,index)=>{
     const phase=s.station??(acid?Math.floor(s.start/600):0),firstInPhase=phase!==previousPhase;
-    const seconds=acid?Math.max(.1,s.dur/(s.idle?100:12)):
-      project==='MilitaryGradePC'?Math.max(.25,s.dur/(s.contact||s.exposure?1.25:3)):
-      pcb?s.dur:Math.max(.45,s.dur*1.2);
+    const seconds=squeeze<1?Math.max(.25,base[index]*squeeze):base[index];
     add('process',seconds,{simStart:s.start,simDuration:s.dur,label:s.action||s.label||'製程',phase,firstInPhase,step:index});previousPhase=phase;
   });
   for(const shot of detailShots)add('station',Math.max(6,shot.simDuration*1.2),shot);
@@ -62,16 +65,20 @@ export async function installMovie({project,title,scene,renderer,camera,controls
   const processEnd=processes.at(-1).startFrame+processes.at(-1).frameCount-1;
   const processLength=processEnd-processStart,raw=[],stride=6;
   let cursor=1;
+  const globalOffset=typeof offset==='function'?offset():offset,stepOffsets=steps.some(s=>s.offset),rawOffsets=[];
   // Precompute chronologically so target smoothing never depends on seek order.
   for(let f=0;f<=processLength+stride;f+=stride){
     const index=Math.min(processStart+f,processEnd);
     while(index>=shots[cursor].startFrame+shots[cursor].frameCount)cursor++;
     const sh=shots[cursor],u=(index-sh.startFrame)/Math.max(1,sh.frameCount-1);
     sample(Math.min(total,simTime(sh,u)));scene.updateMatrixWorld(true);raw.push(focus().toArray());
+    if(stepOffsets)rawOffsets.push(steps[sh.step]?.offset||globalOffset);
     if(raw.length%150===0){status.textContent='建立全流程平滑運鏡 '+Math.round(f/processLength*100)+'%';await new Promise(r=>setTimeout(r,0));}
   }
-  const targets=filterTargets(raw,10),processOffset=typeof offset==='function'?offset():offset;
-  const firstTarget=V(targets[0]),firstPosition=firstTarget.clone().add(V(processOffset));
+  const targets=filterTargets(raw,10),processOffset=globalOffset;
+  // 有步驟自訂 offset 時才平滑過渡（約 2 秒）；沒有時維持原本的固定偏移，現有各站的畫面完全不變
+  const offsets=stepOffsets?filterTargets(rawOffsets,10):null,offsetAt=i=>offsets?atFrame(offsets,i,stride):processOffset;
+  const firstTarget=V(targets[0]),firstPosition=firstTarget.clone().add(V(offsetAt(0)));
   const ray=new THREE.Raycaster(),opaque=[];
   scene.traverse(o=>{if(o.isMesh&&[].concat(o.material).some(m=>m.opacity>=.5))opaque.push(o);});
   const visible=o=>{for(let p=o;p;p=p.parent)if(!p.visible)return false;return true;};
@@ -137,7 +144,7 @@ export async function installMovie({project,title,scene,renderer,camera,controls
     const sh=shots[locate(index)],u=(index-sh.startFrame)/Math.max(1,sh.frameCount-1);
     let p,target;
     if(sh.kind==='process'){
-      target=V(atFrame(targets,index-processStart,stride));p=target.clone().add(V(processOffset));
+      target=V(atFrame(targets,index-processStart,stride));p=target.clone().add(V(offsetAt(index-processStart)));
     }else{
       target=V(sh.pose.t);const delta=V(sh.pose.p).sub(target);
       if(sh.intro){
