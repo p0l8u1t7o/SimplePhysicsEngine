@@ -42,7 +42,7 @@ export function App() {
             <button key={p.id} className={`item ${route.id === p.id ? 'on' : ''}`} onClick={() => go({ view: 'project', id: p.id })}>
               <div className="t">{p.title}</div>
               <div className="m">
-                <span className={`chip ${p.running ? 'run' : p.stage === 'done' ? 'ok' : ''}`}>{p.running ? '執行中' : STAGE[p.stage] || p.stage}</span>
+                <span className={`chip ${p.running ? 'run' : p.stage === 'done' ? 'ok' : ''}`}>{p.running ? '執行中' : (p.segment === 2 ? '第二段 · ' : '') + (STAGE[p.stage] || p.stage)}</span>
                 {p.pending > 0 && <span className="chip warn">{p.pending} 個問題</span>}
                 {p.render && <span className="chip">補強{p.render === 'accepted' ? '已接受' : p.render === 'reverted' ? '已還原' : ''}</span>}
                 <span>{p.round} 輪</span>

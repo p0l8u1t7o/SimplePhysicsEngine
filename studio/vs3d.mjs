@@ -10,6 +10,7 @@
 //   node studio/vs3d.mjs check <名稱> [--full]                    手動跑檢查
 //   node studio/vs3d.mjs review <名稱> [--no-fix]                 重新審查（必修項自動送修正），接著補強；--no-fix 只審查、不修正
 //   node studio/vs3d.mjs render <名稱> [--pick] [--focus "範圍"]  重新做渲染與細節補強（--pick 先挑項目）
+//   node studio/vs3d.mjs stage2 <名稱>                            開始第二段（電控、電盤、配線、相機）；第一段完成時也會出卡片詢問
 //   node studio/vs3d.mjs probe <名稱> [--cli …] [--other <專案>] [--simulate]   寫入隔離自我測試（--simulate：app 另外模擬越界寫入）
 //   node studio/vs3d.mjs models                                   各 CLI 可用的模型與各角色目前的指派
 //   node studio/vs3d.mjs ui [--port 8780] [--no-open]             開啟網頁介面（http://127.0.0.1:8780/）
@@ -17,14 +18,14 @@
 //   --cli、--model（所有角色）、--role plan=opus,fix=haiku（個別角色；可寫 codex:<模型>）、--effort
 //   --no-wait（有問題時寫出後結束，不在終端機詢問）、--auto-approve（配置提案不必確認）、--max-rounds 40、--timeout 90（分鐘／輪）
 //   new 另有 --create-only（只建立專案，之後用 resume 開始）
-//   第一段完成後預設自動審查與補強；--no-review、--no-render 關掉，--no-perf 不量效能，--pick 讓你先挑補強項目
+//   每段完成後預設自動審查與補強；--no-review、--no-render 關掉，--no-perf 不量效能，--pick 讓你先挑補強項目；--no-stage2 第一段完成後不問第二段
 import { existsSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
 import { ADAPTERS, adapterFor } from './lib/adapters/index.mjs';
 import { initWorkspace, createProject, paths, projectPaths } from './lib/workspace.mjs';
-import { runProject, loadState } from './lib/loop.mjs';
+import { runProject, loadState, beginSegment2 } from './lib/loop.mjs';
 import { loadQuestions, parseChoice, recordAnswer, printQuestion } from './lib/questions.mjs';
 import { runChecks, failureSummary } from './lib/checks.mjs';
 import { ROLES, resolveRole, loadRoleContext, parseRoleOverrides } from './lib/roles.mjs';
@@ -53,7 +54,7 @@ const override = { cli: o.cli, model: o.model, roles: parseRoleOverrides(o.role 
 if (o.effort) for (const r of Object.keys(ROLES)) override.roles[r] = { ...override.roles[r], effort: o.effort };
 if (o.cli && !ADAPTERS[o.cli]) fail(`--cli 只能是 ${Object.keys(ADAPTERS).join('、')}`);
 const runOpts = () => ({ interactive: !!process.stdin.isTTY && !o['no-wait'], override, maxRounds: +(o['max-rounds'] || 40), timeoutMin: +(o.timeout || 90),
-  review: !o['no-review'], reviewFix: !o['no-fix'], render: !o['no-render'], perf: !o['no-perf'] });
+  review: !o['no-review'], reviewFix: !o['no-fix'], render: !o['no-render'], perf: !o['no-perf'], stage2: !o['no-stage2'] });
 const needWs = () => { if (!existsSync(paths(ws).marker)) fail(`工作區還沒建立：${ws}（先執行 vs3d init，或用 --workspace 指定）`); };
 const needProject = () => { needWs(); if (!name) fail('請指定專案名稱'); if (!existsSync(projectPaths(ws, name).dir)) fail(`找不到專案：${name}`); return projectPaths(ws, name); };
 function fail(msg) { console.error(msg); process.exit(2); }
@@ -99,6 +100,14 @@ switch (cmd) {
     report(await runProject(ws, name, runOpts()));
     break;
   }
+  case 'stage2': {
+    const J = needProject(), s = loadState(J);
+    if ((s.segment || 1) === 2) fail(`專案已經在第二段（階段 ${s.stage}）；續跑用 vs3d resume`);
+    if (s.stage !== 'done') fail(`專案目前在「${s.stage}」階段，第一段完成後才能開始第二段`);
+    writeJson(J.state, beginSegment2(s));
+    report(await runProject(ws, name, runOpts()));
+    break;
+  }
   case 'answer': {
     const J = needProject(), [qid, ...words] = rest;
     const q = loadQuestions(J).list.find(x => x.id === qid);
@@ -116,7 +125,7 @@ switch (cmd) {
     const ids = name ? [name] : readdirSync(paths(ws).projects).filter(n => existsSync(join(paths(ws).projects, n, '.studio', 'state.json')));
     for (const id of ids) {
       const J = projectPaths(ws, id), s = loadState(J), pending = loadQuestions(J).list.filter(q => !q.answered);
-      console.log(`\n${id}：階段 ${s.stage}，${s.round} 輪${s.lastCheck ? `，最近檢查 ${s.lastCheck.ok ? '通過' : `${s.lastCheck.failures.length} 項失敗`}` : ''}`);
+      console.log(`\n${id}：${(s.segment || 1) === 2 ? '第二段，' : ''}階段 ${s.stage}，${s.round} 輪${s.lastCheck ? `，最近檢查 ${s.lastCheck.ok ? '通過' : `${s.lastCheck.failures.length} 項失敗`}` : ''}`);
       for (const [r, v] of Object.entries(s.sessions)) console.log(`  ${r.padEnd(6)} ${v.cli}${v.model ? ' ' + v.model : ''}  ${v.sessionId}`);
       pending.forEach((q, i) => printQuestion(q, i, pending.length));
     }

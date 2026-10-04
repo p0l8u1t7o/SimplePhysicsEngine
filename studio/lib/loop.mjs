@@ -1,4 +1,6 @@
-// 流程主體：規劃 → 提問 → 開發 → 檢查 ⇄ 修正 → 審查 → 渲染與細節補強 → 完成。狀態存在 .studio/state.json，隨時可以中斷後用 resume 續跑。
+// 流程主體：規劃 → 提問 → 開發 → 檢查 ⇄ 修正 → 審查 → 渲染與細節補強 → 完成；第一段完成後出卡片問要不要開始第二段（電控、電盤、配線、相機），
+//   第二段走同一套流程（規劃寫 .studio/plan/segment2.md／json、開發不能改第一段的排程指紋），角色依段落指派（roles.mjs SEGMENT_DEFAULTS）。
+// 原本：規劃 → 提問 → 開發 → 檢查 ⇄ 修正 → 審查 → 渲染與細節補強 → 完成。狀態存在 .studio/state.json，隨時可以中斷後用 resume 續跑。
 //   每輪：開工前 commit → 記雜湊 → 執行代理 → 比對還原（越界）→ 角色範圍檢查 → commit → 記錄 rounds.jsonl
 //   品質迴圈：快速檢查 → 完整檢查（含 ui 四尺寸）→ 截圖；失敗就回送修正角色，同一項連續失敗 3 次轉成提問
 //   審查（計畫書 4.7）：看截圖、比對拍板事項與規則；必修項自動送修正 → 重新檢查 → 再審查（最多 3 次）
@@ -35,9 +37,10 @@ const short = (s, n = 160) => (s = String(s ?? '').replace(/\s+/g, ' ').trim()).
 export const loadState = J => readJson(J.state, { stage: 'plan', round: 0, sessions: {}, streak: {}, waiting: null, lastCheck: null, violations: [] });
 
 // full：快速檢查通過後是否再跑完整檢查（含 ui）；shots：通過後是否截圖；perf：補強前後是否量效能（測試時可關掉以節省時間）
-// review／render：第一段完成後是否自動審查、補強；reviewFix：必修項是否自動送修正（override.pick 時先讓使用者挑補強項目，override.focus 限定範圍）
+// stage2：第一段完成後是否出卡片問要不要開始第二段
+// review／render：每段完成後是否自動審查、補強；reviewFix：必修項是否自動送修正（override.pick 時先讓使用者挑補強項目，override.focus 限定範圍）
 export async function runProject(ws, id, { interactive = false, override = {}, maxRounds = 40, timeoutMin = 90, full = true, shots: wantShots = true,
-  perf: wantPerf = true, review: wantReview = true, reviewFix: wantReviewFix = true, render: wantRender = true, log = console.log } = {}) {
+  perf: wantPerf = true, review: wantReview = true, reviewFix: wantReviewFix = true, render: wantRender = true, stage2: wantStage2 = true, log = console.log } = {}) {
   const P = paths(ws), J = projectPaths(ws, id);
   if (!existsSync(J.dir)) throw new Error(`找不到專案：${J.dir}`);
   let release;
@@ -45,6 +48,8 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
   const state = loadState(J);
   const save = () => writeJson(J.state, state);
   const roleCtx = () => loadRoleContext(P.settings, J.studioJson, override);
+  // 段落：工作階段與角色指派分段（第二段的開發不續接第一段的工作階段）
+  const seg = () => state.segment || 1, sk = role => seg() === 2 ? role + '@2' : role, resolve = role => resolveRole(role, roleCtx(), seg());
   const abort = new AbortController();
   const onInt = () => { log('\n中斷：停止代理，狀態已保存，之後用 vs3d resume 續跑。'); abort.abort(); };
   process.once('SIGINT', onInt);
@@ -52,19 +57,19 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
   // ---------------------------------------------------------------- 一輪
   async function round(role, prompt, { resume = false, images = [] } = {}) {
     if (state.round >= maxRounds) throw new Error(`已達 ${maxRounds} 輪上限（--max-rounds 可調整）`);
-    const rc = resolveRole(role, roleCtx()), adapter = adapterFor(rc.cli);
-    const prev = state.sessions[role], sessionId = resume && prev?.cli === rc.cli ? prev.sessionId : null;
+    const rc = resolve(role), adapter = adapterFor(rc.cli);
+    const prev = state.sessions[sk(role)], sessionId = resume && prev?.cli === rc.cli ? prev.sessionId : null;
     if (resume && prev && prev.cli !== rc.cli) log(`  ! ${role} 上次用 ${prev.cli}，這次指派為 ${rc.cli}：無法續接，改開新的工作階段`);
     if (git(J.dir, ['status', '--porcelain']).trim()) { git(J.dir, ['add', '-A']); git(J.dir, [...GIT_ID, 'commit', '-qm', `Changes before round ${state.round + 1}`]); }
     const startHead = git(J.dir, ['rev-parse', 'HEAD']).trim(), snap = snapshot(ws, id), scope = roleScope(role, J);
     const n = ++state.round, t0 = now();
     state.lastRole = role;
-    log(`\n▶ 第 ${n} 輪 ${role}（${adapter.label}${rc.model ? ' ' + rc.model : ''}${rc.effort ? ` effort=${rc.effort}` : ''}${sessionId ? '，續接' : ''}）`);
+    log(`\n▶ 第 ${n} 輪 ${role}${seg() === 2 ? '（第二段）' : ''}（${adapter.label}${rc.model ? ' ' + rc.model : ''}${rc.effort ? ` effort=${rc.effort}` : ''}${sessionId ? '，續接' : ''}）`);
     save();
     const res = await runAgent(adapter, {
       cwd: J.dir, prompt, sessionId, model: rc.model || undefined, effort: rc.effort || undefined,
       readDirs: [P.core], allowWrite: scope.allow, denyWrite: scope.deny, images,
-      logFile: join(J.logs, `round-${String(n).padStart(2, '0')}-${role}.jsonl`), timeoutMs: timeoutMin * 60000, signal: abort.signal,
+      logFile: join(J.logs, `round-${String(n).padStart(2, '0')}-${role}${seg() === 2 ? '-s2' : ''}.jsonl`), timeoutMs: timeoutMin * 60000, signal: abort.signal,
     }, e => printEvent(e, log));
     const iso = verifyAndRestore(ws, id, snap), roleViol = enforceRoleScope(role, J, startHead);
     const violations = [...iso.violations, ...roleViol];
@@ -76,9 +81,9 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
       git(J.dir, [...GIT_ID, 'commit', '-qm', `Round ${n} (${role}): ${short(res.text.split('\n').find(l => l.trim()) || 'no summary', 60)}`]);
       commit = git(J.dir, ['rev-parse', '--short', 'HEAD']).trim();
     }
-    if (res.sessionId) state.sessions[role] = { cli: rc.cli, model: rc.model, sessionId: res.sessionId };
+    if (res.sessionId) state.sessions[sk(role)] = { cli: rc.cli, model: rc.model, sessionId: res.sessionId };
     state.violations = violations;
-    appendJsonl(J.rounds, { round: n, role, cli: rc.cli, model: rc.model, effort: rc.effort, sessionId: res.sessionId, resumed: !!sessionId, startedAt: t0, seconds: res.seconds,
+    appendJsonl(J.rounds, { round: n, role, segment: seg(), cli: rc.cli, model: rc.model, effort: rc.effort, sessionId: res.sessionId, resumed: !!sessionId, startedAt: t0, seconds: res.seconds,
       ok: res.ok, aborted: res.aborted, timedOut: res.timedOut, usage: res.usage, costUsd: res.costUsd, turns: res.turns, commit, violations, summary: short(res.text, 400) });
     save();
     log(`  ${res.ok ? '✓' : '✗'} 第 ${n} 輪結束（${res.seconds} s${commit ? `，commit ${commit}` : '，沒有變更'}）`);
@@ -95,7 +100,7 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
     const names = readClientNames(ws), text = readText(J.agents);
     if (names.length && text && names.some(n => text.includes(n))) writeFileSync(J.agents, redactNames(text, names));
   }
-  const ctxFor = extra => ({ ws, J, adapter: adapterFor(resolveRole(extra.role, roleCtx()).cli), scope: roleScope(extra.role, J).text, violations: state.violations, ...extra });
+  const ctxFor = extra => ({ ws, J, adapter: adapterFor(resolve(extra.role).cli), scope: roleScope(extra.role, J).text, violations: state.violations, segment: seg(), ...extra });
 
   // ---------------------------------------------------------------- 回答後續接
   async function handleAnswers(answers) {
@@ -104,13 +109,17 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
     const appAnswers = answers.filter(a => a.id.startsWith('vs3d-'));
     for (const a of appAnswers) applyAppAnswer(a);
     const agentAnswers = answers.filter(a => !a.id.startsWith('vs3d-'));
-    if (agentAnswers.length && asker && asker !== 'app' && state.sessions[asker])
+    if (agentAnswers.length && asker && asker !== 'app' && state.sessions[sk(asker)])
       await round(asker, answersPrompt(agentAnswers, ctxFor({ role: asker })), { resume: true });
   }
   function applyAppAnswer(a) {
     if (a.id.startsWith('vs3d-proposal')) {
       if (a.choices[0] === 0 && !a.text) state.proposalApproved = true;
       else state.planFeedback = [a.text, a.note].filter(Boolean).join('；') || '請修改提案';
+    }
+    if (a.id.startsWith('vs3d-stage2')) {
+      if (a.choices[0] === 0 && !a.text) { beginSegment2(state); log('\n▶ 開始第二段：電控、電盤、配線、相機'); }
+      else if (a.text) { beginSegment2(state); state.planNote = [a.text, a.note].filter(Boolean).join('；'); log('\n▶ 開始第二段（附使用者說明）'); }
     }
     if (a.id.startsWith('vs3d-streak')) {
       if (a.choices[0] === 0 || a.text) { state.streak = {}; state.stage = 'fix'; state.extraNote = a.text || a.note || ''; }
@@ -142,7 +151,7 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
     for (;;) {
       const { list, invalid } = loadQuestions(J);
       const asker = state.lastRole;
-      if (invalid.length && asker && asker !== 'app' && state.sessions[asker]) {
+      if (invalid.length && asker && asker !== 'app' && state.sessions[sk(asker)]) {
         state.invalidRetries = (state.invalidRetries || 0) + 1;
         if (state.invalidRetries > 2) throw new Stop('問題檔格式連續錯誤：' + invalid.map(x => `${x.file}（${x.errors.join('；')}）`).join('、'));
         await round(asker, invalidQuestionsPrompt(invalid), { resume: true }); continue;
@@ -167,21 +176,22 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
 
       switch (state.stage) {
         case 'plan': {
-          const proposal = readText(join(J.plan, 'proposal.md')).trim();
+          const pfile = seg() === 2 ? 'segment2.md' : 'proposal.md', planSession = state.sessions[sk('plan')];
+          const proposal = readText(join(J.plan, pfile)).trim();
           if (state.planFeedback) {
             const fb = state.planFeedback; state.planFeedback = null;
-            await round('plan', `使用者看過配置提案，要求修改：\n\n${fb}\n\n請更新 \`.studio/plan/proposal.md\`；還有必須由使用者決定的事就寫問題檔。`, { resume: true });
+            await round('plan', `使用者看過${seg() === 2 ? '第二段提案' : '配置提案'}，要求修改：\n\n${fb}\n\n請更新 \`.studio/plan/${pfile}\`${seg() === 2 ? '與 `segment2.json`' : ''}；還有必須由使用者決定的事就寫問題檔。`, { resume: true });
             break;
           }
-          if (proposal && state.sessions.plan) {
+          if (proposal && planSession) {
             if (state.proposalApproved || override.autoApprove) { state.stage = 'build'; break; }
             // 提案做成提問卡片請使用者確認（計畫書第 5 節第 3 步）
-            log(`\n配置提案：${join(J.plan, 'proposal.md')}`);
+            log(`\n${seg() === 2 ? '第二段提案' : '配置提案'}：${join(J.plan, pfile)}`);
             const qid = `vs3d-proposal-r${state.round}`;
             writeAppQuestion(J, {
-              id: qid, header: '確認提案', question: `請看過配置提案（.studio/plan/proposal.md），要直接開始第一段開發嗎？`,
+              id: qid, header: '確認提案', question: seg() === 2 ? `請看過第二段提案（.studio/plan/segment2.md），要開始開發電控、電盤、配線與相機嗎？` : `請看過配置提案（.studio/plan/proposal.md），要直接開始第一段開發嗎？`,
               options: [
-                { label: '確認，開始開發', description: '依目前的提案與已拍板事項開始第一段（場景、排程、視角、播放列、手機版面）' },
+                { label: '確認，開始開發', description: seg() === 2 ? `依提案開發第二段（${(r => r.cli + (r.model ? ' ' + r.model : ''))(resolve('build'))}）；不會改第一段的節拍與動作` : '依目前的提案與已拍板事項開始第一段（場景、排程、視角、播放列、手機版面）' },
                 { label: '要修改', description: '在補充說明寫下要改的地方，規劃角色會更新提案後再請你確認' },
               ], recommended: 0,
             });
@@ -189,15 +199,22 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
             break;
           }
           state.planTries = (state.planTries || 0) + 1;
-          if (state.planTries > 3) throw new Stop('規劃角色沒有寫出 .studio/plan/proposal.md');
-          await round('plan', state.sessions.plan ? '你還沒有寫出 `.studio/plan/proposal.md`。請完成配置提案（需要拍板的事寫問題檔）。' : rolePrompt('plan', ctxFor({ role: 'plan' })), { resume: !!state.sessions.plan });
+          if (state.planTries > 3) throw new Stop(`規劃角色沒有寫出 .studio/plan/${pfile}`);
+          const note = state.planNote ? `\n\n使用者補充：${state.planNote}` : ''; state.planNote = '';
+          await round('plan', planSession ? `你還沒有寫出 \`.studio/plan/${pfile}\`。請完成提案（需要拍板的事寫問題檔）。` : rolePrompt('plan', ctxFor({ role: 'plan' })) + note, { resume: !!planSession });
           break;
         }
         case 'build': {
           // 上次開發中斷（額度、逾時）時續接同一個工作階段
-          const again = !!state.sessions.build && state.buildStarted;
+          const again = !!state.sessions[sk('build')] && state.buildStarted;
+          if (seg() === 2 && !state.segBase) {   // 第二段不能改第一段的排程與動作：先記下指紋
+            if (git(J.dir, ['status', '--porcelain']).trim()) { git(J.dir, ['add', '-A']); git(J.dir, [...GIT_ID, 'commit', '-qm', 'Before segment 2']); }
+            const fp = await runFingerprint(ws, id);
+            if (!fp.ok) throw new Stop(`無法產生排程指紋，不能開始第二段：${fp.error}`);
+            writeJson(join(J.studio, 'segment2', 'base-fingerprint.json'), fp); state.segBase = { commit: git(J.dir, ['rev-parse', 'HEAD']).trim() };
+          }
           state.buildStarted = true; save();
-          await round('build', again ? '上一輪開發中斷了。請檢查目前的進度，繼續完成第一段開發，完成後跑快速檢查。' : rolePrompt('build', ctxFor({ role: 'build', check: state.lastCheck })), { resume: again });
+          await round('build', again ? `上一輪開發中斷了。請檢查目前的進度，繼續完成${seg() === 2 ? '第二段' : '第一段'}開發，完成後跑快速檢查。` : rolePrompt('build', ctxFor({ role: 'build', check: state.lastCheck })), { resume: again });
           state.stage = 'check';
           break;
         }
@@ -210,6 +227,11 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
           let c = await runChecks(ws, id, { quick: true });
           record(c);
           if (c.ok && full) { log('▶ 完整檢查（含 ui 四尺寸）'); c = await runChecks(ws, id, { quick: false }); record(c); }
+          if (c.ok && seg() === 2 && state.segBase) {
+            const fails = compareRenderFingerprint(readJson(join(J.studio, 'segment2', 'base-fingerprint.json')), await runFingerprint(ws, id));
+            if (fails.length) { c = { ...c, ok: false, failures: [...c.failures, { check: 'fingerprint', note: '第二段改到第一段的排程或動作（排程指紋不同）', detail: fails.slice(0, 25) }] }; log(`  ✗ 排程指紋：${short(fails.join('；'), 200)}`); }
+            else log('  ✓ 排程指紋與第一段相同');
+          }
           state.lastCheck = { quick: c.quick, ok: c.ok, rows: c.rows.length, failures: c.failures };
           if (c.ok) {
             if (wantShots) { log('▶ 截圖'); const s = await takeShots(ws, id, join(J.temp, `shots-r${state.round}`)); state.shots = s.ok ? s.dir : null; }
@@ -326,7 +348,7 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
           if (stuck.length) { askStreak(stuck); break; }
           const note = state.extraNote ? `\n\n使用者補充：${state.extraNote}` : '';
           state.extraNote = '';
-          const resume = !!state.sessions.fix;
+          const resume = !!state.sessions[sk('fix')];
           await round('fix', (resume ? fixAgainPrompt(c, ctxFor({ role: 'fix' })) : rolePrompt('fix', ctxFor({ role: 'fix', check: c }))) + note, { resume });
           state.stage = 'check';
           break;
@@ -336,7 +358,16 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
           state.stage = 'check'; save();
           return { status: 'paused' };
         case 'done':
-          log(`\n✔ 第一段完成：${state.lastCheck?.ok ? '檢查全部通過' : '依你的選擇結束（檢查未全過）'}，共 ${state.round} 輪。`);
+          if (seg() === 1 && wantStage2 && !state.stage2Asked) {
+            state.stage2Asked = true;
+            const qid = `vs3d-stage2-r${state.round}`, b = resolve('build');
+            writeAppQuestion(J, { id: qid, header: '第二段', question: '第一段完成了，要開始第二段（電控、電盤、配線、相機子畫面、視覺疊圖）嗎？',
+              options: [{ label: '開始第二段', description: `先由規劃角色整理電控與相機提案給你確認，再由 ${b.cli}${b.model ? ' ' + b.model : ''} 開發；不會改第一段的節拍與動作` },
+                { label: '先不要', description: '停在第一段；之後可以用 vs3d stage2 或介面的「開始第二段」按鈕' }], recommended: 0 });
+            state.waiting = { askedBy: 'app', ids: [qid] };
+            break;
+          }
+          log(`\n✔ ${seg() === 2 ? '第二段' : '第一段'}完成：${state.lastCheck?.ok ? '檢查全部通過' : '依你的選擇結束（檢查未全過）'}，共 ${state.round} 輪。`);
           if (state.reviewData) log(`  審查 ${state.reviews} 次：剩餘必修 ${state.reviewData.must.length} 項`);
           if (state.render) log(`  補強：${{ accepted: '已接受', reverted: '已整批還原', 'accepted-with-failures': '接受（守門檢查未全過）' }[state.render.result] || '未完成'}${state.render.page ? `；對照 ${state.render.page}` : ''}`);
           if (state.shots) log(`  截圖：${state.shots}`);
@@ -368,6 +399,14 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
 }
 
 class Stop extends Error {}
+
+// 開始第二段：保留第一段的摘要，重設每段各自的狀態（工作階段用「角色@2」另存，不會續接第一段）
+export function beginSegment2(state) {
+  state.segments = { ...state.segments, 1: { rounds: state.round, reviews: state.reviews || 0, must: state.reviewData?.must?.length ?? null, render: state.render?.result || null } };
+  Object.assign(state, { segment: 2, stage: 'plan', waiting: null, stage2Asked: true, proposalApproved: false, planFeedback: null, planTries: 0, planNote: '', buildStarted: false,
+    reviews: 0, reviewData: null, renderBase: null, render: null, renders: 0, renderTries: 0, renderPicked: false, renderItems: null, streak: {}, invalidRetries: 0, segBase: null });
+  return state;
+}
 
 // 「1,3,5」「S2、S4」只做這些；「除了 2、4」做其他全部（編號從 1 起，也可以寫審查的 id）
 export function pickItems(all, text = '') {

@@ -4,10 +4,11 @@ import { readText, rel } from './util.mjs';
 import { formatAnswers } from './questions.mjs';
 
 const ROLE_TITLE = { plan: '規劃（配置提案）', build: '開發（第一段）', fix: '修正', review: '審查', render: '渲染與細節補強' };
+const ROLE_TITLE2 = { plan: '第二段規劃（電控、電盤、配線、相機）', build: '開發（第二段）', fix: '修正（第二段）', review: '審查（第二段）', render: '渲染與細節補強 B（第二段）' };
 
-export function header({ ws, J, role, adapter, scope }) {
+export function header({ ws, J, role, adapter, scope, segment = 1 }) {
   const lines = [
-    `# vs3d 任務：${ROLE_TITLE[role] || role}`,
+    `# vs3d 任務：${(segment === 2 ? ROLE_TITLE2 : ROLE_TITLE)[role] || role}`,
     '',
     `- 專案資料夾（你的工作目錄）：\`${J.dir}\`，專案名稱 \`${J.id}\``,
     `- 工作區：\`${ws}\`；core 在 \`${join(ws, 'core')}\`（唯讀，框架說明在 \`core/README.md\`）`,
@@ -24,6 +25,7 @@ export function handoff({ J, check, shotsDir, notes = [], violations = [] }) {
   const out = ['## 交接摘要', ''];
   out.push(`- 需求與已拍板事項：\`AGENTS.md\``);
   if (readText(join(J.plan, 'proposal.md'))) out.push(`- 配置提案：\`.studio/plan/proposal.md\``);
+  if (readText(join(J.plan, 'segment2.md'))) out.push(`- 第二段提案：\`.studio/plan/segment2.md\`、\`.studio/plan/segment2.json\`；寫法見 \`core/examples/segment2/README.md\``);
   if (check) out.push(`- 最近一次檢查（${check.quick ? '快速' : '完整'}）：${check.ok ? '全部通過' : `${check.failures.length} 項失敗`}`);
   if (shotsDir) out.push(`- 截圖：\`${rel(J.dir, shotsDir)}\``);
   for (const n of notes) out.push(`- ${n}`);
@@ -68,14 +70,59 @@ app 執行的檢查結果如下：
 ${check ? failureText(check) : '（沒有檢查結果）'}
 
 找出根因並修正：不要用 allow 規則蓋掉真的干涉，閃爍要改幾何。修完跑快速檢查確認。`,
+
+  // 第二段：電控、電盤、配線、相機子畫面、視覺疊圖（第一段已經使用者確認）
+  plan2: () => `## 任務：第二段規劃（電控、電盤、配線、相機）
+
+第一段（場景、排程、視角、播放列、手機版面）已經完成並經使用者確認。讀 \`AGENTS.md\`（需求與已拍板事項）、\`.studio/plan/proposal.md\`（第一段提案）、\`docs/\` 的資料、現有的 \`web/js/\`，以及 \`core/examples/segment2/README.md\`（第二段的寫法、元件種類、相機模型與檢查），寫出：
+
+**\`.studio/plan/segment2.md\`**，章節如下：
+
+1. 電控架構：電源、PLC、I/O、通訊、安全、各軸驅動、視覺電腦；與各設備（手臂控制器、輸送、相機）的交握
+2. 電盤：放在哪裡（不擋動線與維修、門打得開）、櫃體尺寸、背板元件分列（每列寬度要放得下）
+3. 外露線路與拖鏈：每條線從哪裡到哪裡、沿什麼結構走；哪些軸要拖鏈、行程多少
+4. 相機與光源：每台相機的用途、感光元件、焦距、工作距離與視野（要涵蓋工件加定位誤差）、安裝位置與支架、光源；相機子畫面要呈現什麼、何時取像、疊圖標記什麼
+5. 不改的東西：第一段的節拍、動作、站位（真的需要改就寫問題檔）
+6. 假設與待確認事項（型號未定的標「示意」）
+
+**\`.studio/plan/segment2.json\`**（開發角色照這份做）：
+
+\`\`\`json
+{
+  "cabinet": { "center": [0, 0, 0], "size": [600, 900, 400], "panel": [500, 700] },
+  "components": [
+    { "id": "PLC1", "kind": "plc", "title": "設備 PLC", "size": [80, 90, 85], "role": "control", "category": "dc", "source": "PS1", "row": 1, "model": "示意" }
+  ],
+  "routes": [ { "name": "X 軸動力", "from": "D1", "to": "X 軸馬達", "via": "拖鏈 → 樑後側 → 腳柱 → 櫃頂接頭", "carrier": true } ],
+  "cameras": [
+    { "id": "CAM1", "purpose": "尺寸檢查", "sensor": [8.8, 6.6], "focal": 16, "workingDistance": 450, "fov": [248, 186], "at": [0, 0, 0], "aim": "down", "light": "環形光源", "trigger": "工件到位後 0.2 s" }
+  ]
+}
+\`\`\`
+
+\`kind\`、\`role\`、\`category\` 的可用值見 \`core/examples/segment2/README.md\`。需要使用者拍板的事（例如電盤放哪一側、相機數量、規格不清楚）寫成問題檔，一輪最多 4 題。
+這一輪只寫 \`.studio/plan/\` 與 \`.studio/questions/\`，不要建立或修改網頁與程式檔。`,
+
+  build2: () => `## 任務：第二段開發（電控、電盤、配線、相機）
+
+依 \`.studio/plan/segment2.md\`、\`segment2.json\` 與 \`AGENTS.md\`「已拍板事項」，照 \`core/examples/segment2/README.md\` 的寫法完成第二段：
+
+- 電控：\`web/js/electrical.js\`（參考 \`core/examples/segment2/segment2.js\`，import 改成 \`@core/…\`）：電盤櫃、背板元件表（\`component()\`）、穿板接頭、櫃內連線
+- 外露線路與拖鏈：會動的軸用 \`carrier\`，在 \`apply(t)\` 設位置；固定線沿結構、地面或線槽走，不能懸空
+- 相機與光源：\`core/models/camera.js\`；支架要接到結構上；相機線接到電盤
+- 網頁：電控檢視器（⚡）、「電盤配線」視角（進入時剖視）、線材圖例、相機子畫面（\`renderCamera\`＋\`createVisionOverlay\` 疊圖，標「SIM／示意」），多台相機用 \`setSources\`
+- \`project.js\` 的 \`verify.cables\` 宣告會動的機構與要讓開的零件（app 會做配線動態取樣）
+- 側欄或面板加上電控與相機的說明（型號未定的標「示意」）
+
+**不能改第一段**：時間軸總長、事件、\`apply(t)\` 原有的狀態、會動物件的軌跡都要相同（可以新增欄位與會動的細節，例如拖鏈、光源亮度）；app 會比對第一段的排程指紋，不同就退回。完成後跑快速檢查（含 \`electrical\`）並修到通過。`,
 };
 
 // 審查：看截圖、對照拍板事項與規則，輸出必修與建議補強
-TASK.review = ({ shots = [], refs = [], round = 1 }) => `## 任務：審查第一段成品（第 ${round} 次）
+TASK.review = ({ shots = [], refs = [], round = 1, segment = 1 }) => `## 任務：審查${segment === 2 ? '第二段（電控、電盤、配線、相機）' : '第一段'}成品（第 ${round} 次）
 
 你是審查者，不是開發者：**不要修改任何專案檔案**，只寫審查結果。
 
-請看下列截圖（用讀檔工具開啟圖片），並讀 \`AGENTS.md\` 的需求與「已拍板事項」、\`.studio/plan/proposal.md\`、工作區規則，必要時讀 \`web/js/\` 的程式確認：
+請看下列截圖（用讀檔工具開啟圖片），並讀 \`AGENTS.md\` 的需求與「已拍板事項」、\`.studio/plan/proposal.md\`${segment === 2 ? '、`.studio/plan/segment2.md`／`segment2.json`、`core/examples/segment2/README.md`' : ''}、工作區規則，必要時讀 \`web/js/\` 的程式確認：
 
 ${shots.map(s => `- \`${s}\``).join('\n') || '- （沒有截圖）'}
 ${refs.length ? `\n使用者提供的參考資料（照片、圖面）：\n\n${refs.map(s => `- \`${s}\``).join('\n')}\n` : ''}
@@ -95,10 +142,10 @@ ${refs.length ? `\n使用者提供的參考資料（照片、圖面）：\n\n${r
 
 - **must（必修）只放違反已拍板事項、需求或工作區規則的問題**，例如順序做反、做了明講不做的東西、拍板的設備沒出現、畫面或檔案出現用戶名稱。外觀好不好看不算必修。
 - **suggest（建議補強）**只放外觀：材質、細部幾何（倒角、螺絲、溝槽、管線、標示）、燈光、鏡頭構圖、標籤樣式；不可以要求改節拍、動作或站位。priority 1 最重要、3 最次要，最多 15 項。
-- 沒有問題就給空陣列。寫完檔案就結束。`;
+${segment === 2 ? '- 第二段的必修另外看：提案列的電控元件、相機與光源有沒有做出來，位置與視野是否照提案；電盤是否擋到動線或門打不開；線路或相機懸空沒有固定；相機子畫面與疊圖有沒有呈現；第一段的內容有沒有被改壞。\n- 第二段的建議補強集中在電盤內部（線槽、標籤、端子）、線材（束帶、固定座、彎曲）、相機與光源外觀。\n' : ''}- 沒有問題就給空陣列。寫完檔案就結束。`;
 
 // 渲染與細節補強：只改「看起來」，不改「做了什麼」
-TASK.render = ({ items = [], focus = '', round = 1 }) => `## 任務：渲染與細節補強（第 ${round} 次）
+TASK.render = ({ items = [], focus = '', round = 1, segment = 1 }) => `## 任務：渲染與細節補強${segment === 2 ? ' B（第二段）' : ''}（第 ${round} 次）
 
 依下列審查建議，提升場景的外觀：材質（\`MAT\`、\`finished()\`、貼圖）、細部幾何（倒角、螺絲、溝槽、管線、標示）、燈光（\`look\`、\`extraLights\`、陰影範圍）、鏡頭（視角構圖）、標籤樣式。core 的 \`geom/finish.js\`、\`hardware.js\`、\`surfaces.js\`、\`perforated.js\` 可以直接用。
 
@@ -107,7 +154,7 @@ ${focus ? `\n這次的處理範圍：${focus}\n` : ''}
 **硬性限制**（app 會在你結束後檢查，任何一項沒過都會退回給你）：
 
 - 不能改節拍與動作：時間軸總長、事件、\`apply(t)\` 回傳的原有狀態、會動物件的軌跡都要和補強前相同（可以新增欄位與會動的細節，例如拖鏈）。不要改有名稱的會動物件的名稱。
-- 不能改配置：\`layoutChecks()\` 的結果要相同。
+- 不能改配置：\`layoutChecks()\` 的結果要相同。${segment === 2 ? '\n- 不能改電控元件表、相機位置與視野；electrical 檢查（元件、連線、接頭、配線取樣）要維持通過。' : ''}
 - 新細節不能撞到東西，也不能和既有的面重合（scene 干涉、閃爍要維持 0）。
 - 效能預算：三角面數不超過補強前的 1.5 倍、draw call 不超過 1.3 倍，手機幀率不能明顯下降。重複的細節用共用幾何或 InstancedMesh。
 - 完成後跑快速檢查並修到通過。`;
@@ -115,8 +162,9 @@ ${focus ? `\n這次的處理範圍：${focus}\n` : ''}
 const failureText = c => c.failures.map(f => [`- **${f.check}**：${f.note}`, ...f.detail.slice(0, 25).map(d => `    ${d}`)].join('\n')).join('\n');
 
 export function rolePrompt(role, ctx) {
-  if (!TASK[role]) throw new Error(`角色 ${role} 尚未提供提示（P4b）`);
-  return [header({ ...ctx, role }), handoff(ctx), TASK[role](ctx)].join('\n\n');
+  const key = ctx.segment === 2 && TASK[role + '2'] ? role + '2' : role;   // 第二段有自己的規劃與開發任務
+  if (!TASK[key]) throw new Error(`角色 ${role} 尚未提供提示`);
+  return [header({ ...ctx, role }), handoff(ctx), TASK[key](ctx)].join('\n\n');
 }
 
 // 續接：使用者回答問題後

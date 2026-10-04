@@ -77,7 +77,7 @@ test('隔離：core、規則檔、其他專案被改會被偵測並還原', () =
 test('完整流程（假代理）：提問 → 回答 → 提案確認 → 開發（含越界）→ 檢查失敗 → 修正 → 完成', async () => {
   process.env.FAKE_ESCAPE = '1';
   const J = projectPaths(ws, 'Alpha'), logs = [], log = s => logs.push(s);
-  const opts = { override: { cli: 'fake', roles: {} }, full: false, shots: false, review: false, render: false, log };
+  const opts = { override: { cli: 'fake', roles: {} }, full: false, shots: false, review: false, render: false, stage2: false, log };
   try {
     let r = await runProject(ws, 'Alpha', opts);
     assert.equal(r.status, 'waiting'); assert.deepEqual(r.questions, ['site-1']);
@@ -117,7 +117,7 @@ test('執行鎖：工作區有別的 vs3d 在跑時不開始', async () => {
 
 test('同一項檢查連續失敗會轉成提問', async () => {
   process.env.FAKE_NEVER_FIX = '1';
-  const J = projectPaths(ws, 'Beta'), opts = { override: { cli: 'fake', roles: {}, autoApprove: true }, full: false, shots: false, review: false, render: false, log: () => {} };
+  const J = projectPaths(ws, 'Beta'), opts = { override: { cli: 'fake', roles: {}, autoApprove: true }, full: false, shots: false, review: false, render: false, stage2: false, log: () => {} };
   try {
     let r = await runProject(ws, 'Beta', opts);
     recordAnswer(J, loadQuestions(J).list[0], { choices: [1] });
@@ -137,7 +137,7 @@ test('審查與補強（假代理）：必修送修正 → 再審查 → 補強�
   process.env.FAKE_RENDER_BREAK = '1';
   await createProject(ws, { id: 'Gamma', title: '測試 G', prompt: '輸送帶＋龍門' });
   const J = projectPaths(ws, 'Gamma'), logs = [];
-  const opts = { override: { cli: 'fake', roles: {}, autoApprove: true }, full: false, shots: false, perf: false, log: s => logs.push(s) };
+  const opts = { override: { cli: 'fake', roles: {}, autoApprove: true }, full: false, shots: false, perf: false, stage2: false, log: s => logs.push(s) };
   try {
     let r = await runProject(ws, 'Gamma', opts);
     recordAnswer(J, loadQuestions(J).list[0], { choices: [0] });
@@ -163,7 +163,7 @@ test('審查與補強（假代理）：必修送修正 → 再審查 → 補強�
 
 test('補強後選「整批還原」：回到補強前的 commit', async () => {
   await createProject(ws, { id: 'Delta', title: '測試 D', prompt: 'x' });
-  const J = projectPaths(ws, 'Delta'), opts = { override: { cli: 'fake', roles: {}, autoApprove: true }, full: false, shots: false, perf: false, log: () => {} };
+  const J = projectPaths(ws, 'Delta'), opts = { override: { cli: 'fake', roles: {}, autoApprove: true }, full: false, shots: false, perf: false, stage2: false, log: () => {} };
   let r = await runProject(ws, 'Delta', opts);
   recordAnswer(J, loadQuestions(J).list[0], { choices: [0] });
   r = await runProject(ws, 'Delta', opts);
@@ -176,6 +176,44 @@ test('補強後選「整批還原」：回到補強前的 commit', async () => {
   assert.equal(git(J.dir, ['rev-parse', 'HEAD']).trim(), base);
   assert.ok(!existsSync(join(J.dir, 'web', 'render-detail.txt')));
   assert.equal(loadState(J).render.result, 'reverted');
+});
+
+test('第二段（假代理）：第一段完成出卡片 → 第二段規劃（用戶名稱進名單並遮蔽）→ 開發改到節拍被排程指紋擋下 → 修正 → 完成', async () => {
+  process.env.FAKE_SEG2_BREAK = '1';
+  await createProject(ws, { id: 'Eps', title: '測試 E', prompt: '幫測試用戶甲規劃輸送帶' });
+  const J = projectPaths(ws, 'Eps'), logs = [];
+  const opts = { override: { cli: 'fake', roles: {}, autoApprove: true }, full: false, shots: false, perf: false, review: false, render: false, log: s => logs.push(s) };
+  try {
+    let r = await runProject(ws, 'Eps', opts);
+    recordAnswer(J, loadQuestions(J).list[0], { choices: [0] });
+    r = await runProject(ws, 'Eps', opts);                       // 第一段完成 → 第二段卡片
+    assert.equal(r.status, 'waiting', logs.join('\n')); assert.match(r.questions[0], /^vs3d-stage2/);
+    assert.equal(loadState(J).stage, 'done');
+    recordAnswer(J, loadQuestions(J).list.find(q => !q.answered), { choices: [0] });
+    r = await runProject(ws, 'Eps', opts);
+    assert.equal(r.status, 'done', logs.join('\n'));
+    const s = loadState(J), rounds = readFileSync(J.rounds, 'utf8').trim().split('\n').map(l => JSON.parse(l));
+    assert.equal(s.segment, 2);
+    assert.ok(s.sessions['plan@2'] && s.sessions['build@2'] && s.sessions['fix@2'], '第二段的工作階段另存');
+    assert.equal(s.segments[1].rounds > 0, true);
+    assert.ok(rounds.some(x => x.role === 'build' && x.segment === 2));
+    assert.ok(logs.some(l => /排程指紋：/.test(l)) && logs.some(l => /排程指紋與第一段相同/.test(l)), '改到節拍要先被擋下，修好後通過');
+    assert.ok(existsSync(join(J.dir, 'web', 'segment2.txt')));
+    assert.match(readFileSync(join(paths(ws).ws, '.studio', 'client-names.txt'), 'utf8'), /測試用戶甲/);
+    assert.doesNotMatch(readFileSync(J.agents, 'utf8'), /測試用戶甲/);   // 需求原文裡的用戶名稱被遮掉
+    assert.match(readFileSync(J.agents, 'utf8'), /幫（用戶）規劃/);
+    assert.ok(readdirSync(J.logs).some(f => f.endsWith('-build-s2.jsonl')));
+  } finally { delete process.env.FAKE_SEG2_BREAK; }
+});
+
+test('角色依段落指派：第二段的開發與修正預設 Codex gpt-6，審查維持 opus；「角色@段」可以覆寫', async () => {
+  const { resolveRole } = await import('../lib/roles.mjs');
+  assert.deepEqual(resolveRole('build', {}, 1), { cli: 'claude', model: 'opus', effort: '' });
+  assert.deepEqual(resolveRole('build', {}, 2), { cli: 'codex', model: 'gpt-6-astra', effort: 'high' });
+  assert.deepEqual(resolveRole('fix', {}, 2), { cli: 'codex', model: 'gpt-6-astra', effort: 'high' });
+  assert.equal(resolveRole('review', {}, 2).cli, 'claude');
+  assert.deepEqual(resolveRole('build', { studioJson: { roles: { 'build@2': { cli: 'claude', model: 'opus' } } } }, 2), { cli: 'claude', model: 'opus', effort: '' });
+  assert.equal(resolveRole('build', { override: { cli: 'claude', roles: {} } }, 2).cli, 'claude');   // --cli 讓所有角色用同一種
 });
 
 test('pickItems：編號、id、「除了」', () => {

@@ -31,11 +31,12 @@ export function ProjectView({ id, tick, running, onChange }) {
   return (
     <div className="page">
       <h2>{p.title}</h2>
-      <div className="sub">{p.id}　<span className={`chip ${isRunning ? 'run' : p.stage === 'done' ? 'ok' : ''}`}>{isRunning ? `執行中：${running.cmd}` : STAGE[p.stage] || p.stage}</span>
+      <div className="sub">{p.id}　<span className={`chip ${isRunning ? 'run' : p.stage === 'done' ? 'ok' : ''}`}>{isRunning ? `執行中：${running.cmd}` : (p.segment === 2 ? '第二段 · ' : '') + (STAGE[p.stage] || p.stage)}</span>
         　{p.round} 輪{p.lastCheck && <>　最近檢查 <span className={p.lastCheck.ok ? 'ok' : 'bad'}>{p.lastCheck.ok ? '通過' : '未過'}</span></>}{p.render && <>　補強{RENDER_RESULT[p.render] || p.render}</>}</div>
       <div className="bar">
         {isRunning ? <button onClick={() => act(api.stop)}>■ 停止</button>
           : <button className="primary" disabled={busy || pending.length > 0 || p.stage === 'done'} onClick={() => act(() => api.run(id, { cmd: 'resume' }))}>▶ 續跑</button>}
+        {p.segment !== 2 && <button disabled={busy || p.stage !== 'done' || pending.length > 0} onClick={() => act(() => api.run(id, { cmd: 'stage2' }))}>開始第二段</button>}
         <button disabled={busy || p.stage !== 'done'} onClick={() => act(() => api.run(id, { cmd: 'review' }))}>重新審查</button>
         <button disabled={busy || p.stage !== 'done'} onClick={() => act(() => api.run(id, { cmd: 'render', pick: true, focus }))}>重新補強（挑項目）</button>
         <input value={focus} onChange={e => setFocus(e.target.value)} placeholder="補強範圍（選填，例如 手臂與吸盤）" style={{ minWidth: 220 }} />
@@ -67,7 +68,7 @@ export function ProjectView({ id, tick, running, onChange }) {
           <ul>{p.questions.filter(q => q.answered).map(q => <li key={q.id}><span className="chip">{q.header || q.id}</span> {q.question}</li>)}</ul></details>}
       </>}
 
-      {tab === 'proposal' && <div className="card pre">{p.proposal || <span className="mute">還沒有配置提案。</span>}</div>}
+      {tab === 'proposal' && <>{p.segment2 && <div className="card pre"><b>第二段提案（電控、電盤、配線、相機）</b>{'\n\n' + p.segment2}</div>}<div className="card pre">{p.proposal || <span className="mute">還沒有配置提案。</span>}</div></>}
 
       {tab === 'review' && (rv ? <>
         <div className="card"><h3>第 {rv.n} 次審查</h3><p>{rv.summary}</p></div>

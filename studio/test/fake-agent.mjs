@@ -15,8 +15,24 @@ const cwd = process.cwd(), w = (f, s) => { mkdirSync(join(f, '..'), { recursive:
 const log = process.env.FAKE_LOG; if (log) appendFileSync(log, prompt.split('\n')[0] + '\n');
 
 let text = 'DONE';
-const reviewN = /任務：審查第一段成品（第 (\d+) 次）/.exec(prompt)?.[1];
-if (reviewN) {
+const reviewN = /任務：審查(?:第一段|第二段（[^）]*）)成品（第 (\d+) 次）/.exec(prompt)?.[1];
+if (/任務：第二段規劃/.test(prompt)) {
+  // 第二段規劃：寫提案與元件表，並列出一個用戶名稱（測試名單同步）
+  w(join(cwd, '.studio/plan/segment2.md'), '# 第二段提案\n\n電盤放東側\n');
+  w(join(cwd, '.studio/plan/segment2.json'), JSON.stringify({ cabinet: { center: [1600, 450, -500], size: [600, 900, 400] }, components: [], cameras: [] }));
+  w(join(cwd, '.studio/plan/client-names.txt'), '測試用戶甲\n');
+  text = '第二段提案完成';
+} else if (/任務：第二段開發/.test(prompt)) {
+  // FAKE_SEG2_BREAK：第二段改到第一段的節拍（要被排程指紋擋下）
+  const pj = join(cwd, 'web/js/project.js');
+  if (process.env.FAKE_SEG2_BREAK) { writeFileSync(pj, readFileSync(pj, 'utf8').replace('total: tl.total,', 'total: tl.total + 1,')); tool('Edit', pj); }
+  w(join(cwd, 'web/segment2.txt'), 'electrical');
+  text = '第二段完成';
+} else if (/排程指紋/.test(prompt) && /修正/.test(prompt)) {
+  const pj = join(cwd, 'web/js/project.js');
+  writeFileSync(pj, readFileSync(pj, 'utf8').replace('total: tl.total + 1,', 'total: tl.total,')); tool('Edit', pj);
+  text = '已還原第一段的節拍';
+} else if (reviewN) {
   // 第 1 次審查抓到 1 項必修，修好後第 2 次只剩建議補強
   const must = reviewN === '1' && !existsSync(join(cwd, 'web/review-fixed.txt')) ? [{ id: 'M1', issue: '順序做反（違反已拍板事項）', evidence: 'web/js/project.js', fix: '改回先小後大' }] : [];
   w(join(cwd, `.studio/reviews/review-${reviewN}.json`), JSON.stringify({ must, suggest: [{ id: 'S1', area: '材質', item: '鋁件加細紋', priority: 1 }, { id: 'S2', area: '標籤', item: '標籤加底色', priority: 2 }], summary: '假審查' }));

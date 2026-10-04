@@ -56,7 +56,7 @@ export async function startUi(ws, { port = 8780, log = console.log } = {}) {
   const summary = id => {
     const J = projectPaths(ws, id), s = loadState(J), pj = readJson(join(J.dir, 'project.json'), {}), pending = loadQuestions(J).list.filter(q => !q.answered);
     let updated = 0; try { updated = statSync(J.state).mtimeMs; } catch { updated = statSync(J.dir).mtimeMs; }
-    return { id, title: pj.title || id, summary: pj.summary || '', stage: s.stage, round: s.round, pending: pending.length, lastCheck: s.lastCheck && { ok: s.lastCheck.ok, quick: s.lastCheck.quick },
+    return { id, title: pj.title || id, summary: pj.summary || '', stage: s.stage, segment: s.segment || 1, round: s.round, pending: pending.length, lastCheck: s.lastCheck && { ok: s.lastCheck.ok, quick: s.lastCheck.quick },
       render: s.render?.result || null, reviews: s.reviews || 0, updated, running: runner.current?.id === id };
   };
   const detail = id => {
@@ -66,7 +66,7 @@ export async function startUi(ws, { port = 8780, log = console.log } = {}) {
     const rel = f => f.slice(J.dir.length + 1).replace(/\\/g, '/');
     return {
       ...summary(id), state: s, rounds, questions: qs.list, invalid: qs.invalid,
-      proposal: readText(join(J.plan, 'proposal.md')), agents: readText(J.agents), studio: readJson(J.studioJson, {}),
+      proposal: readText(join(J.plan, 'proposal.md')), segment2: readText(join(J.plan, 'segment2.md')), agents: readText(J.agents), studio: readJson(J.studioJson, {}),
       // Office 抽取資料夾列出它的 text.md（資料夾本身不能開）
       docs: existsSync(J.docs) ? readdirSync(J.docs).map(f => f.endsWith('.extract') && existsSync(join(J.docs, f, 'text.md')) ? `${f}/text.md` : f) : [], shots: shots.map(f => rel(join(shotDir, f))),
       compare: existsSync(join(J.temp, 'render-compare', 'index.html')) ? 'TEMP/render-compare/index.html' : null,
@@ -144,7 +144,7 @@ export async function startUi(ws, { port = 8780, log = console.log } = {}) {
             return json(200, { ok: true, running: runner.current });
           }
           if (b === 'run' && req.method === 'POST') {
-            const v = await jbody(), cmd = ['resume', 'review', 'render'].includes(v.cmd) ? v.cmd : 'resume';
+            const v = await jbody(), cmd = ['resume', 'review', 'render', 'stage2'].includes(v.cmd) ? v.cmd : 'resume';
             runner.start(cmd, id, [...(v.pick ? ['--pick'] : []), ...(v.focus ? ['--focus', v.focus] : [])]);
             return json(200, { started: true });
           }

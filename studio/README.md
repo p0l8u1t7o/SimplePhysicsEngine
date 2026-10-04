@@ -1,6 +1,6 @@
 # studio：3D 設備動畫生成應用程式
 
-上傳規格、輸入需求，由使用者電腦上已登入的代理 CLI（Claude Code 或 Codex）做出與本庫各站同等級的 3D 設備動畫。目前是 **P1 命令列原型 `vs3d`**；Electron 外殼排在 P3。計畫書在本機 `TEMP/3d-app-plan.md`（不進版控）。
+上傳規格、輸入需求，由使用者電腦上已登入的代理 CLI（Claude Code 或 Codex）做出與本庫各站同等級的 3D 設備動畫。目前是命令列 `vs3d`＋網頁介面（P1～P4 第二段）；Electron 外殼之後再包。計畫書在本機 `TEMP/3d-app-plan.md`（不進版控）。
 
 命令列只需要 Node.js 22 以上，沒有 npm 套件；網頁介面（`studio/ui/`）用 React＋Vite，npm 套件只放在那個資料夾。
 
@@ -31,6 +31,7 @@ node studio/vs3d.mjs resume Conveyor                          # 回答後、中�
 node studio/vs3d.mjs check Conveyor --full                    # 手動跑檢查
 node studio/vs3d.mjs review Conveyor                          # 重新審查（必修自動送修正），接著補強
 node studio/vs3d.mjs render Conveyor --pick --focus "手臂與夾爪" # 重新補強：先挑項目、限定範圍
+node studio/vs3d.mjs stage2 Conveyor                          # 開始第二段（電控、電盤、配線、相機）
 node studio/vs3d.mjs probe Conveyor --cli codex --other <另一個專案>   # 寫入隔離自我測試
 node studio/vs3d.mjs models Conveyor                          # 各角色目前的 CLI 與模型
 ```
@@ -46,6 +47,8 @@ node studio/vs3d.mjs models Conveyor                          # 各角色目前�
 | `--no-wait` | 有問題時寫出後就結束（預設在終端機直接詢問） |
 | `--auto-approve` | 配置提案不必確認，直接開始開發 |
 | `--no-review`、`--no-render`、`--no-perf`、`--no-fix` | 第一段完成後不自動審查／不補強／補強時不量效能；`--no-fix` 審查的必修項不送修正（只審查） |
+| `--no-stage2` | 第一段完成後不出「開始第二段？」卡片（之後可以用 `vs3d stage2`） |
+| `--private "名稱,…"` | `new` 時指定不得顯示的用戶名稱 |
 | `--pick`、`--focus "範圍"` | 補強前先用卡片挑項目（全部／只補高優先／自己挑編號）；限定這次補強的範圍 |
 | `--max-rounds 40`、`--timeout 90` | 輪數上限、每輪逾時（分鐘）；opus 開發複雜案子單輪可能超過 60 分鐘 |
 
@@ -62,8 +65,17 @@ new → 規劃（配置提案＋問題）⇄ 使用者回答 → 確認提案 �
     → 渲染與細節補強（建議補強全部交給 render 角色；--pick 先挑）
     → 守門檢查：檢查全過、排程指紋與空間檢核不變、效能在預算內
            └ 沒過 → 退回 render（續接，最多 3 次，之後轉成提問）
-    → 前後對照頁（TEMP/render-compare/）→ 接受／要調整／整批還原 → 完成
+    → 前後對照頁（TEMP/render-compare/）→ 接受／要調整／整批還原 → 第一段完成
+    → 卡片「開始第二段？」（或之後 vs3d stage2、介面的「開始第二段」）
+    → 第二段規劃（.studio/plan/segment2.md＋segment2.json：電控元件、電盤、走線、相機與光源）⇄ 回答 → 確認提案
+    → 記下第一段的排程指紋 → 第二段開發（照 core/examples/segment2）
+    → 檢查（含 electrical：電盤、櫃內連線、穿板孔、配線動態取樣）＋排程指紋與第一段相同 ⇄ 修正
+    → 審查（第二段）→ 補強 B（電盤內部、線材、相機與光源外觀）→ 守門 → 對照 → 第二段完成
 ```
+
+第二段的開發與修正預設用 Codex `gpt-6-astra` 高推理，審查仍用 Claude `opus`（`lib/roles.mjs` 的 `SEGMENT_DEFAULTS`）。只想改某一段的指派時寫「角色@段」，例如 `studio.json` 的 `roles: { "build@2": { "cli": "claude", "model": "opus" } }` 或 `--role build@2=claude:opus`。工作階段也分段保存（`state.sessions['build@2']`），第二段不會續接第一段的開發工作階段。
+
+**用戶名稱**：任何產出都不得出現用戶（客戶）名稱。`new --private "名稱,…"`（介面的「不得顯示的用戶名稱」欄）會加進工作區的 `.studio/client-names.txt`，需求原文裡的名稱換成「（用戶）」；規劃角色在資料裡發現的名稱寫進 `.studio/plan/client-names.txt`，app 併進名單並遮掉專案 `AGENTS.md`。core 的 `names` 檢查（快速）擋下出現名稱的檔案，審查角色把它當必修。
 
 效能預算在專案 `studio.json` 的 `budget`：三角面 ≤ 補強前 1.5 倍、draw call ≤ 1.3 倍、手機幀率不低於補強前的 80%。`phoneMinFps`（30）只當提示：無頭瀏覽器加 CPU 降速的幀率不等於實機，現有各站本身也低於 30。
 
