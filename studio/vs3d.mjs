@@ -11,6 +11,7 @@
 //   node studio/vs3d.mjs render <名稱> [--pick] [--focus "範圍"]  重新做渲染與細節補強（--pick 先挑項目）
 //   node studio/vs3d.mjs probe <名稱> [--cli …] [--other <專案>] [--simulate]   寫入隔離自我測試（--simulate：app 另外模擬越界寫入）
 //   node studio/vs3d.mjs models                                   各 CLI 可用的模型與各角色目前的指派
+//   node studio/vs3d.mjs ui [--port 8780] [--no-open]             開啟網頁介面（http://127.0.0.1:8780/）
 // 共通選項：--workspace <資料夾>（預設 %USERPROFILE%\Documents\3D-Studio，或環境變數 VS3D_WORKSPACE）
 //   --cli、--model（所有角色）、--role plan=opus,fix=haiku（個別角色；可寫 codex:<模型>）、--effort
 //   --no-wait（有問題時寫出後結束，不在終端機詢問）、--auto-approve（配置提案不必確認）、--max-rounds 40、--timeout 90（分鐘／輪）
@@ -18,6 +19,8 @@
 //   第一段完成後預設自動審查與補強；--no-review、--no-render 關掉，--no-perf 不量效能，--pick 讓你先挑補強項目
 import { existsSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { spawn } from 'node:child_process';
 import { ADAPTERS, adapterFor } from './lib/adapters/index.mjs';
 import { initWorkspace, createProject, paths, projectPaths } from './lib/workspace.mjs';
 import { runProject, loadState } from './lib/loop.mjs';
@@ -27,7 +30,10 @@ import { ROLES, resolveRole, loadRoleContext, parseRoleOverrides } from './lib/r
 import { isolationProbe } from './lib/probe.mjs';
 import { defaultWorkspace, readText, readJson, writeJson } from './lib/util.mjs';
 
-const VALUE = new Set(['--workspace', '--prompt', '--prompt-file', '--title', '--summary', '--cli', '--model', '--role', '--effort', '--note', '--max-rounds', '--timeout', '--other', '--focus']);
+const VALUE = new Set(['--workspace', '--prompt', '--prompt-file', '--title', '--summary', '--cli', '--model', '--role', '--effort', '--note', '--max-rounds', '--timeout', '--other', '--focus', '--port']);
+
+// 測試用：VS3D_EXTRA_ADAPTERS 指向一個匯出 { adapters: { 名稱: adapter } } 的模組（例如假代理），讓介面的端對端測試走真正的命令列
+if (process.env.VS3D_EXTRA_ADAPTERS) Object.assign(ADAPTERS, (await import(pathToFileURL(resolve(process.env.VS3D_EXTRA_ADAPTERS)).href)).adapters);
 function parseArgs(argv) {
   const opts = { _: [], files: [] };
   for (let i = 0; i < argv.length; i++) {
@@ -132,6 +138,13 @@ switch (cmd) {
     const ctx = loadRoleContext(paths(ws).settings, name ? projectPaths(ws, name).studioJson : '', override);
     console.log(`\n角色指派${name ? `（${name}）` : ''}：`);
     for (const [r, desc] of Object.entries(ROLES)) { const x = resolveRole(r, ctx); console.log(`  ${r.padEnd(6)} ${x.cli}${x.model ? ' ' + x.model : '（預設模型）'}${x.effort ? ` effort=${x.effort}` : ''}　${desc}`); }
+    break;
+  }
+  case 'ui': {
+    const { startUi } = await import('./lib/server.mjs');
+    const ui = await startUi(ws, { port: +(o.port || 8780) });
+    if (!o['no-open'] && process.platform === 'win32') spawn('cmd', ['/c', 'start', '', `http://127.0.0.1:${ui.port}/`], { windowsHide: true, detached: true, stdio: 'ignore' }).unref();
+    process.on('SIGINT', () => { ui.close(); process.exit(0); });
     break;
   }
   default:

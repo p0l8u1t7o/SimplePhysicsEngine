@@ -33,3 +33,6 @@ node_modules/
 # 本機筆記與個人設定
 question_log.txt
 .claude/settings.local.json
+
+# studio 網頁介面的建置輸出（npm --prefix studio/ui run build 產生）
+studio/ui/dist/

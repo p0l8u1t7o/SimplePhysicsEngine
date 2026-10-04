@@ -1,0 +1,20 @@
+{
+  "name": "vs3d-ui",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "3D 設備動畫生成應用程式的網頁介面（vs3d ui）；npm 套件只放在這個資料夾",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.1.1",
+    "vite": "^8.3.2"
+  }
+}

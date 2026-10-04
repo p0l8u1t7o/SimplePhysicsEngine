@@ -2,7 +2,21 @@
 
 上傳規格、輸入需求，由使用者電腦上已登入的代理 CLI（Claude Code 或 Codex）做出與本庫各站同等級的 3D 設備動畫。目前是 **P1 命令列原型 `vs3d`**；Electron 外殼排在 P3。計畫書在本機 `TEMP/3d-app-plan.md`（不進版控）。
 
-只需要 Node.js 22 以上，沒有 npm 套件。
+命令列只需要 Node.js 22 以上，沒有 npm 套件；網頁介面（`studio/ui/`）用 React＋Vite，npm 套件只放在那個資料夾。
+
+## 網頁介面（P3）
+
+```powershell
+npm --prefix studio/ui install        # 第一次：安裝 React 與 Vite（只在 studio/ui）
+npm --prefix studio/ui run build      # 建置到 studio/ui/dist（不進版控）
+node studio/vs3d.mjs ui               # 開啟 http://127.0.0.1:8780/（--port、--no-open、--workspace）
+```
+
+- 專案清單、新建（拖放規格、圖面、照片、影片；影片自動每 5 秒擷取影格）、即時進度、提問卡片（補強項目是勾選清單）、提案、審查結果、3D 預覽、截圖、補強前後對照、設定（兩種 CLI 的狀態與各角色的 CLI＋模型）。
+- 介面用子程序執行 `vs3d` 命令列，流程和終端機完全相同；回答完全部問題會自動續跑。伺服器只聽 127.0.0.1，`/files/` 只開放專案的 `TEMP/`、`docs/`、`.studio/plan|reviews|render/`。
+- 開發時 `npm --prefix studio/ui run dev`（Vite 5173，`/api` 轉給 8780 的 `vs3d ui`）。
+- 端對端測試：`node studio/test/ui-e2e.mjs [--shots 資料夾]`（暫存工作區＋假代理，在網頁上點完整個流程，約 2 分鐘）。
+- 之後用 Electron 把同一個頁面包成桌面程式（P5 打包）。
 
 ## 用法
 

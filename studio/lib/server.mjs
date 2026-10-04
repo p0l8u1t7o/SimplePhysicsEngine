@@ -1,0 +1,167 @@
+// vs3d ui 的本機伺服器（不需要 npm 套件）：API、即時輸出（SSE）、上傳、專案檔案、3D 預覽、前端靜態檔。
+//   GET  /api/info                  工作區、正在執行的專案、預覽 port
+//   GET  /api/doctor                兩種 CLI 是否已安裝與登入
+//   GET  /api/settings ／ PUT        工作區 .studio/settings.json（defaultCli、roles）與各角色目前的指派
+//   GET  /api/projects              專案清單與狀態
+//   GET  /api/projects/:id          單一專案：狀態、每輪紀錄、問題、提案、審查、補強、截圖、最近輸出
+//   POST /api/uploads?token=&name=  原始位元組上傳到暫存（影片會自動每 5 秒擷取一張影格）
+//   POST /api/projects              新建並開始（{ id, title, prompt, token, cli, model, effort, autoApprove, pick }）
+//   POST /api/projects/:id/answer   回答問題（{ qid, choices, text, note }）；全部回答完就自動續跑
+//   POST /api/projects/:id/run      { cmd: resume｜review｜render, pick, focus }
+//   POST /api/stop                  停止目前的執行
+//   GET  /api/events                SSE：line（輸出一行）、exit（執行結束）
+//   GET  /files/:id/<路徑>           專案內的 TEMP/、docs/、.studio/plan|reviews|render/ 檔案（截圖、對照頁）
+import { createServer } from 'node:http';
+import { createReadStream, existsSync, mkdirSync, readdirSync, statSync, writeFileSync, readFileSync } from 'node:fs';
+import { join, extname, normalize, basename } from 'node:path';
+import { spawn, spawnSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
+import { STUDIO, REPO, readJson, writeJson, readText, inside, freePort } from './util.mjs';
+import { paths, projectPaths, initWorkspace } from './workspace.mjs';
+import { loadState } from './loop.mjs';
+import { loadQuestions, recordAnswer, parseChoice } from './questions.mjs';
+import { ADAPTERS } from './adapters/index.mjs';
+import { ROLES, resolveRole, loadRoleContext } from './roles.mjs';
+import { createRunner } from './runner.mjs';
+
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp',
+  '.md': 'text/markdown; charset=utf-8', '.txt': 'text/plain; charset=utf-8', '.pdf': 'application/pdf', '.mp4': 'video/mp4', '.ico': 'image/x-icon' };
+const VIDEO = /\.(mp4|mov|avi|mkv|m4v|webm)$/i;
+const FILE_AREAS = /^(TEMP|docs|\.studio\/(plan|reviews|render))(\/|$)/;
+
+// ffmpeg：環境變數 FFMPEG_PATH ＞ 本庫 setup.ps1 下載的 ＞ PATH
+function findFfmpeg() {
+  const cands = [process.env.FFMPEG_PATH, join(REPO, 'MilitaryGradePC', 'tools', 'bin', process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg')].filter(Boolean);
+  for (const c of cands) if (existsSync(c)) return c;
+  return spawnSync('ffmpeg', ['-version'], { windowsHide: true }).status === 0 ? 'ffmpeg' : null;
+}
+
+export async function startUi(ws, { port = 8780, log = console.log } = {}) {
+  if (!existsSync(paths(ws).marker)) initWorkspace(ws, { log });
+  const P = paths(ws), ffmpeg = findFfmpeg(), dist = join(STUDIO, 'ui', 'dist');
+  const clients = new Set();
+  const broadcast = (event, data) => { const msg = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`; for (const c of clients) c.write(msg); };
+  const runner = createRunner(ws, {
+    onLine: (id, line) => broadcast('line', { id, line }),
+    onExit: (id, status) => broadcast('exit', { id, status }),
+  });
+
+  // 3D 預覽：工作區 core 的 serve.mjs（工作區模式會從 projects/ 找專案）
+  const previewPort = await freePort();
+  const preview = spawn(process.execPath, [join(P.core, 'tools', 'serve.mjs'), '--port', String(previewPort), '--no-open'], { cwd: ws, windowsHide: true, stdio: 'ignore' });
+
+  const projectIds = () => existsSync(P.projects) ? readdirSync(P.projects).filter(n => existsSync(join(P.projects, n, 'studio.json'))) : [];
+  const summary = id => {
+    const J = projectPaths(ws, id), s = loadState(J), pj = readJson(join(J.dir, 'project.json'), {}), pending = loadQuestions(J).list.filter(q => !q.answered);
+    let updated = 0; try { updated = statSync(J.state).mtimeMs; } catch { updated = statSync(J.dir).mtimeMs; }
+    return { id, title: pj.title || id, summary: pj.summary || '', stage: s.stage, round: s.round, pending: pending.length, lastCheck: s.lastCheck && { ok: s.lastCheck.ok, quick: s.lastCheck.quick },
+      render: s.render?.result || null, reviews: s.reviews || 0, updated, running: runner.current?.id === id };
+  };
+  const detail = id => {
+    const J = projectPaths(ws, id), s = loadState(J), qs = loadQuestions(J);
+    const rounds = existsSync(J.rounds) ? readFileSync(J.rounds, 'utf8').trim().split('\n').filter(Boolean).map(l => JSON.parse(l)) : [];
+    const shotDir = s.shots && join(s.shots, id), shots = shotDir && existsSync(shotDir) ? readdirSync(shotDir).filter(f => f.endsWith('.png') && !f.endsWith('.diff.png')).sort() : [];
+    const rel = f => f.slice(J.dir.length + 1).replace(/\\/g, '/');
+    return {
+      ...summary(id), state: s, rounds, questions: qs.list, invalid: qs.invalid,
+      proposal: readText(join(J.plan, 'proposal.md')), agents: readText(J.agents), studio: readJson(J.studioJson, {}),
+      docs: existsSync(J.docs) ? readdirSync(J.docs) : [], shots: shots.map(f => rel(join(shotDir, f))),
+      compare: existsSync(join(J.temp, 'render-compare', 'index.html')) ? 'TEMP/render-compare/index.html' : null,
+      log: runner.history(id), previewUrl: `http://127.0.0.1:${previewPort}/${encodeURIComponent(id)}/`,
+    };
+  };
+  const resumeIfReady = id => { const J = projectPaths(ws, id); if (!runner.current && !loadQuestions(J).list.some(q => !q.answered)) runner.start('resume', id); };
+
+  const server = createServer(async (req, res) => {
+    const url = new URL(req.url, 'http://x'), seg = url.pathname.split('/').filter(Boolean).map(decodeURIComponent);
+    const json = (code, v) => { res.writeHead(code, { 'Content-Type': MIME['.json'], 'Cache-Control': 'no-store' }); res.end(JSON.stringify(v)); };
+    const body = async () => { const chunks = []; for await (const c of req) chunks.push(c); return Buffer.concat(chunks); };
+    const jbody = async () => { const b = await body(); return b.length ? JSON.parse(b.toString('utf8')) : {}; };
+    try {
+      if (seg[0] === 'api') {
+        const [, a, id, b] = seg;
+        if (a === 'events') {
+          res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive' });
+          res.write(`event: hello\ndata: ${JSON.stringify({ running: runner.current })}\n\n`);
+          clients.add(res); req.on('close', () => clients.delete(res)); return;
+        }
+        if (a === 'info') return json(200, { ws, running: runner.current, ffmpeg: !!ffmpeg, previewPort, roles: ROLES });
+        if (a === 'doctor') return json(200, Object.values(ADAPTERS).filter(x => x.name !== 'fake').map(x => ({ name: x.name, label: x.label, models: x.listModels(), ...x.detect() })));
+        if (a === 'settings') {
+          if (req.method === 'PUT') { const v = await jbody(); writeJson(P.settings, { defaultCli: v.defaultCli || 'claude', roles: v.roles || {} }); }
+          const ctx = loadRoleContext(P.settings, '', {});
+          return json(200, { settings: readJson(P.settings, {}), resolved: Object.fromEntries(Object.keys(ROLES).map(r => [r, resolveRole(r, ctx)])) });
+        }
+        if (a === 'stop' && req.method === 'POST') return json(200, { stopped: runner.stop() });
+        if (a === 'uploads' && req.method === 'POST') {
+          const token = (url.searchParams.get('token') || '').replace(/[^\w-]/g, '') || randomUUID(), name = basename(url.searchParams.get('name') || 'file');
+          const dir = join(P.ws, '.studio', 'uploads', token); mkdirSync(dir, { recursive: true });
+          const file = join(dir, name); writeFileSync(file, await body());
+          const files = [name];
+          if (VIDEO.test(name) && ffmpeg) {     // 代理看不了影片：每 5 秒擷取一張影格，最多 30 張
+            const stem = name.replace(/\.[^.]+$/, '');
+            const r = spawnSync(ffmpeg, ['-loglevel', 'error', '-y', '-i', file, '-vf', 'fps=1/5', '-frames:v', '30', '-q:v', '3', join(dir, `${stem}-影格-%02d.jpg`)], { windowsHide: true });
+            if (r.status === 0) files.push(...readdirSync(dir).filter(f => f.startsWith(`${stem}-影格-`)).sort());
+          }
+          return json(200, { token, files });
+        }
+        if (a === 'projects' && !id) {
+          if (req.method === 'POST') {
+            const v = await jbody();
+            if (!/^[\w][\w .-]*$/.test(v.id || '')) return json(400, { error: '專案名稱請用英數、空白、- 或 _' });
+            if (existsSync(projectPaths(ws, v.id).dir)) return json(400, { error: `專案已存在：${v.id}` });
+            const dir = v.token ? join(P.ws, '.studio', 'uploads', v.token.replace(/[^\w-]/g, '')) : null;
+            const files = dir && existsSync(dir) ? readdirSync(dir).filter(f => !VIDEO.test(f)).map(f => join(dir, f)) : [];
+            const promptFile = join(P.ws, '.studio', 'uploads', `${randomUUID()}.txt`); mkdirSync(join(P.ws, '.studio', 'uploads'), { recursive: true });
+            writeFileSync(promptFile, v.prompt || '');
+            const args = ['--title', v.title || v.id, '--prompt-file', promptFile, ...(files.length ? ['--files', ...files] : [])];
+            if (v.cli) args.push('--cli', v.cli);
+            if (v.model) args.push('--model', v.model);
+            if (v.effort) args.push('--effort', v.effort);
+            if (v.autoApprove) args.push('--auto-approve');
+            if (v.pick) args.push('--pick');
+            runner.start('new', v.id, args);
+            return json(200, { started: true });
+          }
+          return json(200, { projects: projectIds().map(summary).sort((x, y) => y.updated - x.updated), running: runner.current });
+        }
+        if (a === 'projects' && id) {
+          if (!projectIds().includes(id)) return json(404, { error: `找不到專案：${id}` });
+          if (!b) return json(200, detail(id));
+          if (b === 'answer' && req.method === 'POST') {
+            const v = await jbody(), J = projectPaths(ws, id), q = loadQuestions(J).list.find(x => x.id === v.qid);
+            if (!q) return json(404, { error: `找不到問題 ${v.qid}` });
+            const parsed = v.text ? { choices: [], text: v.text } : parseChoice(q, (v.choices || []).map(i => i + 1).join(','));
+            recordAnswer(J, q, { ...parsed, note: v.note || '' });
+            resumeIfReady(id);
+            return json(200, { ok: true, running: runner.current });
+          }
+          if (b === 'run' && req.method === 'POST') {
+            const v = await jbody(), cmd = ['resume', 'review', 'render'].includes(v.cmd) ? v.cmd : 'resume';
+            runner.start(cmd, id, [...(v.pick ? ['--pick'] : []), ...(v.focus ? ['--focus', v.focus] : [])]);
+            return json(200, { started: true });
+          }
+        }
+        return json(404, { error: '未知的 API' });
+      }
+      if (seg[0] === 'files' && seg[1]) {
+        const J = projectPaths(ws, seg[1]), relPath = seg.slice(2).join('/');
+        const file = normalize(join(J.dir, relPath));
+        if (!FILE_AREAS.test(relPath) || !inside(J.dir, file) || !existsSync(file) || statSync(file).isDirectory()) { res.writeHead(404); res.end('404'); return; }
+        res.writeHead(200, { 'Content-Type': MIME[extname(file).toLowerCase()] || 'application/octet-stream', 'Cache-Control': 'no-store' });
+        createReadStream(file).pipe(res); return;
+      }
+      // 前端（studio/ui/dist），單頁應用：找不到的路徑都回 index.html
+      if (!existsSync(dist)) { res.writeHead(200, { 'Content-Type': MIME['.html'] }); res.end('<meta charset="utf-8"><p>前端還沒建置：<code>npm --prefix studio/ui install</code> 後 <code>npm --prefix studio/ui run build</code>。</p>'); return; }
+      let file = normalize(join(dist, ...seg));
+      if (!inside(dist, file) || !existsSync(file) || statSync(file).isDirectory()) file = join(dist, 'index.html');
+      res.writeHead(200, { 'Content-Type': MIME[extname(file).toLowerCase()] || 'application/octet-stream', 'Cache-Control': file.endsWith('index.html') ? 'no-store' : 'max-age=3600' });
+      createReadStream(file).pipe(res);
+    } catch (e) { json(500, { error: String(e.message || e) }); }
+  });
+  await new Promise((ok, fail) => server.listen(port, '127.0.0.1', ok).on('error', fail));
+  log(`vs3d 介面：http://127.0.0.1:${port}/（工作區 ${ws}；預覽 port ${previewPort}；ffmpeg ${ffmpeg ? '可用' : '找不到，影片不會擷取影格'}）`);
+  const close = () => { preview.kill(); runner.stop(); for (const c of clients) c.end(); server.close(); };
+  return { server, port, previewPort, close, runner };
+}

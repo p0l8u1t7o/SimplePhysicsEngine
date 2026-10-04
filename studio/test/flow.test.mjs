@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawn } from 'node:child_process';
 import { ADAPTERS } from '../lib/adapters/index.mjs';
-import { claude } from '../lib/adapters/claude.mjs';
+import { adapters as fakeAdapters } from './fake-adapters.mjs';
 import { initWorkspace, createProject, projectPaths, paths, setReadOnly } from '../lib/workspace.mjs';
 import { snapshot, verifyAndRestore } from '../lib/isolation.mjs';
 import { runProject, loadState, pickItems } from '../lib/loop.mjs';
@@ -15,8 +15,7 @@ import { recordAnswer, loadQuestions } from '../lib/questions.mjs';
 import { runChecks } from '../lib/checks.mjs';
 import { STUDIO, git } from '../lib/util.mjs';
 
-ADAPTERS.fake = { ...claude, name: 'fake', label: '假代理', models: [],
-  command: ({ prompt, sessionId }) => ({ cmd: process.execPath, args: [join(STUDIO, 'test', 'fake-agent.mjs')], input: prompt, env: { FAKE_SESSION: sessionId || '' } }) };
+Object.assign(ADAPTERS, fakeAdapters);
 
 let ws;
 after(() => { for (const d of [paths(ws).core, paths(ws).pristine]) setReadOnly(d, false); rmSync(ws, { recursive: true, force: true }); });
