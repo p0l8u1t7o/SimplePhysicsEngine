@@ -19,7 +19,14 @@ import { readdirSync } from 'node:fs';
 
 const REVIEW_LIMIT = 3, RENDER_TRIES = 3;
 const pngs = dir => dir && existsSync(dir) ? readdirSync(dir).filter(f => f.endsWith('.png') && !f.endsWith('.diff.png')).sort().map(f => join(dir, f)) : [];
-const refImages = J => existsSync(J.docs) ? readdirSync(J.docs).filter(f => /\.(png|jpe?g|webp)$/i.test(f)).sort().slice(0, 12).map(f => join(J.docs, f)) : [];
+// 審查的參考圖：docs/ 第一層的圖優先，再補 Office 檔抽出的圖（docs/<檔名>.extract/），最多 12 張
+const IMG = /\.(png|jpe?g|webp)$/i;
+const refImages = J => {
+  if (!existsSync(J.docs)) return [];
+  const top = readdirSync(J.docs).filter(f => IMG.test(f)).sort().map(f => join(J.docs, f));
+  const ext = readdirSync(J.docs).filter(f => f.endsWith('.extract')).sort().flatMap(d => readdirSync(join(J.docs, d)).filter(f => IMG.test(f)).sort().map(f => join(J.docs, d, f)));
+  return [...top, ...ext].slice(0, 12);
+};
 
 const STREAK_LIMIT = 3;
 const GIT_ID = ['-c', 'user.name=vs3d', '-c', 'user.email=vs3d@localhost'];

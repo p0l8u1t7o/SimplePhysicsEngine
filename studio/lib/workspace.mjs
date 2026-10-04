@@ -8,6 +8,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync, chm
 import { basename, join } from 'node:path';
 import { SOURCE_CORE, STUDIO, git, readJson, writeJson, writeText, walk, now, run } from './util.mjs';
 import { DEFAULT_STUDIO_JSON } from './roles.mjs';
+import { extractUploads } from './office.mjs';
 
 export const paths = ws => ({
   ws, marker: join(ws, 'studio-workspace.json'), core: join(ws, 'core'), pristine: join(ws, '.studio', 'core-pristine'),
@@ -63,7 +64,8 @@ export function initWorkspace(ws, { log = console.log, refreshCore = false } = {
   return P;
 }
 
-// 由 core 範本建立專案，換成 studio 用的規則檔，複製上傳檔，git init
+// 由 core 範本建立專案，換成 studio 用的規則檔，複製上傳檔（Office 檔抽出文字與圖片），git init
+//   J.notes：給使用者看的訊息（抽取結果、舊格式提示、失敗警告）
 export async function createProject(ws, { id, title, summary = '', prompt = '', files = [], cli }) {
   const P = paths(ws), J = projectPaths(ws, id);
   if (existsSync(J.dir)) throw new Error(`專案已存在：${J.dir}`);
@@ -74,10 +76,12 @@ export async function createProject(ws, { id, title, summary = '', prompt = '', 
   mkdirSync(J.docs, { recursive: true });
   const copied = [];
   for (const f of files) { const dest = join(J.docs, basename(f)); copyFileSync(f, dest); copied.push(basename(f)); }
+  const office = extractUploads(J.docs, copied);      // 代理讀不了 Office 檔：抽到 docs/<檔名>.extract/
+  J.notes = office.notes;
   const quote = prompt.trim() ? prompt.trim().split('\n').map(l => '> ' + l).join('\n') : '（未提供）';
   const tpl = readFileSync(join(STUDIO, 'templates', 'project-AGENTS.md'), 'utf8');
   writeText(J.agents, tpl.replace('{{title}}', title).replace('{{id}}', id).replace('{{prompt}}', quote)
-    .replace('{{files}}', copied.length ? copied.map(f => `- \`docs/${f}\``).join('\n') : '- （沒有）'));
+    .replace('{{files}}', copied.length ? copied.map(f => `- \`docs/${f}\`${office.info[f] ? `（${office.info[f]}）` : ''}`).join('\n') : '- （沒有）'));
   writeText(join(J.dir, 'CLAUDE.md'), '@AGENTS.md\n');
   writeText(join(J.dir, '.gitignore'), '# 使用者上傳檔只留本機；TEMP 與 app 狀態不進版控\ndocs/\nTEMP/\n.studio/\n');
   writeJson(J.studioJson, { ...(cli ? { defaultCli: cli } : {}), ...DEFAULT_STUDIO_JSON });

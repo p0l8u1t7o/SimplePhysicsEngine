@@ -83,6 +83,7 @@ switch (cmd) {
     }
     writeJson(J.studioJson, sj);
     console.log(`已建立專案：${J.dir}`);
+    for (const n of J.notes || []) console.log(n);
     if (!o['create-only']) report(await runProject(ws, name, runOpts()));
     break;
   }

@@ -14,7 +14,7 @@ node studio/vs3d.mjs ui               # 開啟 http://127.0.0.1:8780/（--port�
 
 也可以用根目錄的腳本在背景啟動與停止（第一次會自動安裝並建置前端）：`scripts\start.cmd -Studio [-Workspace <資料夾>]`、`scripts\stop.cmd -Studio`。
 
-- 專案清單、新建（拖放規格、圖面、照片、影片；影片自動每 5 秒擷取影格）、即時進度、提問卡片（補強項目是勾選清單）、提案、審查結果、3D 預覽、截圖、補強前後對照、設定（兩種 CLI 的狀態與各角色的 CLI＋模型）。
+- 專案清單、新建（拖放規格、圖面、照片、影片、Office 檔；影片自動每 5 秒擷取影格，Office 檔自動抽出文字與圖片）、即時進度、提問卡片（補強項目是勾選清單）、提案、審查結果、3D 預覽、截圖、補強前後對照、設定（兩種 CLI 的狀態與各角色的 CLI＋模型）。
 - 介面用子程序執行 `vs3d` 命令列，流程和終端機完全相同；回答完全部問題會自動續跑。伺服器只聽 127.0.0.1，`/files/` 只開放專案的 `TEMP/`、`docs/`、`.studio/plan|reviews|render/`。
 - 開發時 `npm --prefix studio/ui run dev`（Vite 5173，`/api` 轉給 8780 的 `vs3d ui`）。
 - 端對端測試：`node studio/test/ui-e2e.mjs [--shots 資料夾]`（暫存工作區＋假代理，在網頁上點完整個流程，約 2 分鐘）。
@@ -88,10 +88,12 @@ new → 規劃（配置提案＋問題）⇄ 使用者回答 → 確認提案 �
 └── projects/<專案>/         每個專案一個 git 庫
     ├── AGENTS.md            需求、已拍板事項（app 寫入）
     ├── studio.json          角色與模型、效能預算
-    ├── docs/                上傳檔（不進版控）
+    ├── docs/                上傳檔（不進版控）；Office 檔另有 <檔名>.extract/（text.md＋圖片）
     ├── .studio/             狀態、問題與回答、配置提案、每輪紀錄與事件記錄（不進版控）
     └── web/ tools/ review/  與本庫各站相同
 ```
+
+代理 CLI 讀不了 Office 檔，所以建立專案時（`new --files` 與網頁上傳都一樣）由 `lib/office.mjs` 自動抽出（純 Node，自己解 zip，不用套件）：pptx 依投影片順序抽文字（含表格、SmartArt、備忘稿），圖片命名 `slideNN-…` 標出所在投影片；docx 抽段落、標題、清單、表格，圖片位置以 `[圖片：…]` 標在本文；xlsx 每個工作表轉成 Markdown 表格（列號＋欄字母，日期與百分比依儲存格格式，最多 2000 列），圖片標出錨點儲存格。結果寫到 `docs/<檔名>.extract/text.md`，專案 `AGENTS.md` 的上傳檔清單會標出路徑。檔案損壞只記警告；舊格式（.ppt／.doc／.xls）不處理，建立時提示另存成新格式。圖表數據、版面位置不會保留。
 
 角色指派的優先順序：app 預設（`lib/roles.mjs`）＜ 工作區 `.studio/settings.json` ＜ 專案 `studio.json` ＜ 命令列。正式預設（2026-10-04 拍板）：規劃、開發、修正、審查用 Claude `opus`；渲染與細節補強用 Codex `gpt-6-astra` 高推理（`lib/roles.mjs` 的 `ROLE_DEFAULTS`）。這是使用者的實務分工：opus 做規劃與主體實作，gpt-6 補強渲染、電盤、電線與細節；P4 第二段的電控與配線也預設交給 gpt-6。命令列 `--cli` 會讓所有角色改用同一種 CLI。`new` 時指定的 `--cli`、`--model`、`--effort`、`--role` 會寫進專案 `studio.json`，之後 `resume` 沿用。
 
@@ -129,7 +131,7 @@ new → 規劃（配置提案＋問題）⇄ 使用者回答 → 確認提案 �
 ## 測試
 
 ```powershell
-node --test "studio/test/*.test.mjs"   # 不耗額度：事件解析、角色、提問、隔離，以及用假代理跑完整流程
+node --test "studio/test/*.test.mjs"   # 不耗額度：事件解析、角色、提問、隔離、Office 抽取，以及用假代理跑完整流程
 ```
 
-`test/fixtures/` 是實際錄下、去掉本機資訊的兩種 CLI 事件。
+`test/fixtures/` 是實際錄下、去掉本機資訊的兩種 CLI 事件；測試用的 Office 檔由 `test/office-fixtures.mjs` 在記憶體裡組出。

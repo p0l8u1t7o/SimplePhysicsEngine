@@ -4,7 +4,7 @@
 //   GET  /api/settings ／ PUT        工作區 .studio/settings.json（defaultCli、roles）與各角色目前的指派
 //   GET  /api/projects              專案清單與狀態
 //   GET  /api/projects/:id          單一專案：狀態、每輪紀錄、問題、提案、審查、補強、截圖、最近輸出
-//   POST /api/uploads?token=&name=  原始位元組上傳到暫存（影片會自動每 5 秒擷取一張影格）
+//   POST /api/uploads?token=&name=  原始位元組上傳到暫存（影片會自動每 5 秒擷取一張影格；Office 檔在建立時抽出文字與圖片）
 //   POST /api/projects              新建並開始（{ id, title, prompt, token, cli, model, effort, autoApprove, pick }）
 //   POST /api/projects/:id/answer   回答問題（{ qid, choices, text, note }）；全部回答完就自動續跑
 //   POST /api/projects/:id/run      { cmd: resume｜review｜render, pick, focus }
@@ -23,6 +23,7 @@ import { loadQuestions, recordAnswer, parseChoice } from './questions.mjs';
 import { ADAPTERS } from './adapters/index.mjs';
 import { ROLES, resolveRole, loadRoleContext } from './roles.mjs';
 import { createRunner } from './runner.mjs';
+import { OFFICE, OLD_OFFICE } from './office.mjs';
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp',
@@ -66,7 +67,8 @@ export async function startUi(ws, { port = 8780, log = console.log } = {}) {
     return {
       ...summary(id), state: s, rounds, questions: qs.list, invalid: qs.invalid,
       proposal: readText(join(J.plan, 'proposal.md')), agents: readText(J.agents), studio: readJson(J.studioJson, {}),
-      docs: existsSync(J.docs) ? readdirSync(J.docs) : [], shots: shots.map(f => rel(join(shotDir, f))),
+      // Office 抽取資料夾列出它的 text.md（資料夾本身不能開）
+      docs: existsSync(J.docs) ? readdirSync(J.docs).map(f => f.endsWith('.extract') && existsSync(join(J.docs, f, 'text.md')) ? `${f}/text.md` : f) : [], shots: shots.map(f => rel(join(shotDir, f))),
       compare: existsSync(join(J.temp, 'render-compare', 'index.html')) ? 'TEMP/render-compare/index.html' : null,
       log: runner.history(id), previewUrl: `http://127.0.0.1:${previewPort}/${encodeURIComponent(id)}/`,
     };
@@ -104,7 +106,10 @@ export async function startUi(ws, { port = 8780, log = console.log } = {}) {
             const r = spawnSync(ffmpeg, ['-loglevel', 'error', '-y', '-i', file, '-vf', 'fps=1/5', '-frames:v', '30', '-q:v', '3', join(dir, `${stem}-影格-%02d.jpg`)], { windowsHide: true });
             if (r.status === 0) files.push(...readdirSync(dir).filter(f => f.startsWith(`${stem}-影格-`)).sort());
           }
-          return json(200, { token, files });
+          // Office 檔在建立專案時才抽取（createProject）；舊格式先提示
+          const notice = OLD_OFFICE.test(name) ? '舊版格式：代理讀不了，請另存成新格式（.pptx／.docx／.xlsx）後重新上傳'
+            : OFFICE.test(name) ? '建立專案時會自動抽出文字與圖片' : '';
+          return json(200, { token, files, notice });
         }
         if (a === 'projects' && !id) {
           if (req.method === 'POST') {

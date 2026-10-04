@@ -34,7 +34,7 @@ export function handoff({ J, check, shotsDir, notes = [], violations = [] }) {
 export const TASK = {
   plan: () => `## 任務：配置提案
 
-讀 \`AGENTS.md\` 的需求與 \`docs/\` 裡的資料（圖片、PDF 也要看），寫出配置提案到 \`.studio/plan/proposal.md\`，章節如下：
+讀 \`AGENTS.md\` 的需求與 \`docs/\` 裡的資料（圖片、PDF 也要看；Office 檔看 app 抽出的 \`docs/<檔名>.extract/text.md\` 與同資料夾的圖片），寫出配置提案到 \`.studio/plan/proposal.md\`，章節如下：
 
 1. 製程流程：工站與順序
 2. 站位配置：各設備的位置與尺寸範圍（mm）

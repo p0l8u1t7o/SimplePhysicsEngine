@@ -14,6 +14,7 @@ import { runProject, loadState, pickItems } from '../lib/loop.mjs';
 import { recordAnswer, loadQuestions } from '../lib/questions.mjs';
 import { runChecks } from '../lib/checks.mjs';
 import { STUDIO, git } from '../lib/util.mjs';
+import { pptx } from './office-fixtures.mjs';
 
 Object.assign(ADAPTERS, fakeAdapters);
 
@@ -41,6 +42,19 @@ test('專案建立：規則檔、git、.gitignore、移除本庫的寫檔關卡'
   assert.equal(git(J.dir, ['log', '--oneline']).trim().split('\n').length, 1);
   assert.equal(git(J.dir, ['config', 'core.autocrlf']).trim(), 'false');
   assert.match(readFileSync(join(J.dir, '.gitignore'), 'utf8'), /docs\//);
+});
+
+test('專案建立：Office 上傳檔抽到 docs/*.extract，AGENTS.md 標出 text.md；舊格式提示另存', async () => {
+  const src = mkdtempSync(join(tmpdir(), 'vs3d-up-')), pf = join(src, '規格.pptx'), old = join(src, '舊.doc');
+  writeFileSync(pf, pptx()); writeFileSync(old, 'x');
+  const J = await createProject(ws, { id: 'Office', title: '測試 O', prompt: 'x', files: [pf, old] });
+  rmSync(src, { recursive: true, force: true });
+  const agents = readFileSync(J.agents, 'utf8');
+  assert.match(agents, /- `docs\/規格\.pptx`（已抽出文字與圖片：`docs\/規格\.pptx\.extract\/text\.md`，2 張投影片、3 張圖）/);
+  assert.match(agents, /- `docs\/舊\.doc`（舊版格式/);
+  assert.ok(existsSync(join(J.docs, '規格.pptx.extract', 'slide01-image1.png')));
+  assert.ok(J.notes.some(n => /舊\.doc.*另存成 \.docx/.test(n)));
+  assert.equal(git(J.dir, ['status', '--porcelain']).trim(), '');      // docs/ 不進版控
 });
 
 test('隔離：core、規則檔、其他專案被改會被偵測並還原', () => {

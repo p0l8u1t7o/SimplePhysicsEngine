@@ -1,4 +1,4 @@
-// 新建專案：拖放規格、圖面、照片、影片（伺服器會自動擷取影格），輸入需求，選 CLI 與模型後開始。
+// 新建專案：拖放規格、圖面、照片、影片（伺服器會自動擷取影格）、Office 檔（建立時抽出文字與圖片），輸入需求，選 CLI 與模型後開始。
 import { useState } from 'react';
 import { api } from './api.js';
 
@@ -19,7 +19,7 @@ export function NewProject({ info, running, onCreated }) {
       try {
         const r = await api.upload(token, file);
         const frames = r.files.filter(n => n !== file.name);
-        setFiles(fs => fs.map(x => x.name === file.name ? { ...x, status: '✓', extra: frames.length ? `已擷取 ${frames.length} 張影格` : '' } : x));
+        setFiles(fs => fs.map(x => x.name === file.name ? { ...x, status: '✓', extra: frames.length ? `已擷取 ${frames.length} 張影格` : r.notice || '' } : x));
       } catch (e) { setFiles(fs => fs.map(x => x.name === file.name ? { ...x, status: `✗ ${e.message}` } : x)); }
     }
   }
@@ -47,7 +47,7 @@ export function NewProject({ info, running, onCreated }) {
           <div className={`drop ${over ? 'over' : ''}`}
             onDragOver={e => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
             onDrop={e => { e.preventDefault(); setOver(false); add([...e.dataTransfer.files]); }}>
-            把規格 PDF、圖面、照片、影片拖到這裡，或 <label style={{ color: 'var(--accent)', cursor: 'pointer' }}>選擇檔案<input type="file" multiple hidden onChange={e => add([...e.target.files])} /></label>
+            把規格 PDF、Office 檔、圖面、照片、影片拖到這裡，或 <label style={{ color: 'var(--accent)', cursor: 'pointer' }}>選擇檔案<input type="file" multiple hidden onChange={e => add([...e.target.files])} /></label>
             {!info?.ffmpeg && <div className="warn" style={{ marginTop: 6 }}>找不到 ffmpeg：影片不會自動擷取影格（代理看不了影片）</div>}
           </div>
           {files.length > 0 && <table style={{ marginTop: 8 }}><tbody>{files.map(f => <tr key={f.name}><td>{f.name}</td><td className="mute">{mb(f.size)}</td><td>{f.status} <span className="mute">{f.extra}</span></td></tr>)}</tbody></table>}
