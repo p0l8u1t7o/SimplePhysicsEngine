@@ -44,7 +44,7 @@
 - [x] 現有 5 站（酸鹼、MGPC、PCB、SSD、快門）的配線檢查改由 core 的 `electrical`（`verify.cables`）執行，根目錄 verify-cable-routing／verify-cables／verify-electrical-plan 退役；退役前逐情境比對完全一致（2026-10-04，core 1.5.0）。
 - [x] P4 第二段驗收（2026-10-04）：MGPC（P2 Codex 版）與回收物分揀都跑完第二段，結果見 `studio/README.md`「P4 第二段驗收」；回收物分揀成品已匯入本庫。快門不跑（使用者決定）。
 - [ ] 回收物分揀：光幕依 ISO 13855 的安全距離 668 mm 在現有框架內不成立，畫面只畫示意；實機防護位置待風險評估（對客戶說明時要提）。
-- [ ] 回收物分揀的「電盤配線」視角離櫃子太近，相機子畫面蓋住櫃子右半邊；調視角或在這個視角收起子畫面。
+- [x] 回收物分揀的「電盤配線」視角改從機台後緣上方往下看，進入時收起相機子畫面（2026-10-04，在 `recyclesorter/electrical-view` 分支，用來確認 scope.yml）。
 - [ ] P2 MGPC 的第二段成品：右上角「外觀檢查」面板被電控檢視器面板蓋住（第一段就有），之後若要拿這版展示再修。
   - 推送：驗收結束後一起推。推送前改寫 origin/main 之後的本機 commit，清掉歷史裡的用戶名稱（`git filter-branch`，原歷史備份在 `refs/original`）。
 - 第二段的拍板內容（2026-10-04）：
