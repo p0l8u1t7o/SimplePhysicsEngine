@@ -148,7 +148,8 @@ switch (cmd) {
     for (const a of Object.values(ADAPTERS)) console.log(`${a.label}：${a.listModels().join('、') || '（帳號預設模型；可在 studio.json 指定名稱）'}`);
     const ctx = loadRoleContext(paths(ws).settings, name ? projectPaths(ws, name).studioJson : '', override);
     console.log(`\n角色指派${name ? `（${name}）` : ''}：`);
-    for (const [r, desc] of Object.entries(ROLES)) { const x = resolveRole(r, ctx); console.log(`  ${r.padEnd(6)} ${x.cli}${x.model ? ' ' + x.model : '（預設模型）'}${x.effort ? ` effort=${x.effort}` : ''}　${desc}`); }
+    const fmt = x => `${x.cli}${x.model ? ' ' + x.model : '（預設模型）'}${x.effort ? ` effort=${x.effort}` : ''}`;
+    for (const [r, desc] of Object.entries(ROLES)) { const x = resolveRole(r, ctx), y = resolveRole(r, ctx, 2); console.log(`  ${r.padEnd(6)} ${fmt(x)}${fmt(y) !== fmt(x) ? `；第二段 ${fmt(y)}` : ''}　${desc}`); }
     break;
   }
   case 'ui': {
