@@ -9,7 +9,7 @@
 子專案規則已於 2026-10-04 完成（規則見 `AGENTS.md`「範圍」），以下是只用模擬輸入測過、還沒實際操作確認的部分：
 
 - [x] 寫檔關卡實機確認（2026-10-04）：從 `project-site/RobotArmPressSSD/` 啟動 Claude Code（-p），Write 到 `../../core/` 被擋下並顯示範圍說明，寫本站檔案正常。
-- [ ] 第一個依 `<範圍>/…` 命名的 PR 上，確認 `scope.yml` 正常執行。
+- [x] scope.yml 實機確認（2026-10-04）：PR #1（`recyclesorter/electrical-view`）的 Scope check 判定為 RecycleSorter 範圍並通過，PR 的快速檢查也通過。
 
 ### 2. 3D 動畫生成應用程式
 
