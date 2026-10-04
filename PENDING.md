@@ -63,6 +63,8 @@
 - [x] P2 新案：回收物分揀展示機（`TEMP/demo`），用正式預設跑完：opus 開發 3 輪、審查抓到 2 項違反拍板的必修並自動修正、gpt-6 補強兩次都通過守門檢查（2026-10-04）。依使用者拍板偏離客戶規格三處：抓取寬 280 mm（規格 600）、混合料流 1.5～1.6 s（規格 1.4）、機台寬 1460 mm（規格 1300），對客戶說明時要提。
 - [ ] 觀察修正迴圈的實際表現：P1、P2 共 8 次實測都第一次就通過檢查，修正迴圈只用假代理測過。
 - [x] P1、P2 實測的工作區已刪除（2026-10-04，對照截圖留在本機 `TEMP/seg2-accept/`、`TEMP/p2-report/`）。
+- [x] 匯出擴充（2026-10-04，core 1.6.0）：`core/tools/export.mjs`（網站壓縮檔附離線啟動、單一 HTML 全部內嵌、MP4 全自動），`vs3d export`／`handoff`／`import` 與介面按鈕；Python 錄影接收端退役。推到內部 Pages 等發布目標定了再接。
+- [ ] 錄影的改進（2026-10-04 錄影代理提出）：讓 `offset` 能依步驟或時間改變（廠房級的站有些站位要從反方向拍，例如化學桶 AGV 進貨架）；讓專案指定變速倍率（化學桶片長 15 分鐘、約 7 成是沖洗站）。
 - [ ] 內部 Pages 的發布目標：內部網頁伺服器／NAS 共用資料夾，或公司 GitHub 組織的 Pages（P4 前定）
 - [ ] STEP 選用元件的安裝來源：內部共用資料夾或內部套件伺服器（P4 實作前）
 
@@ -71,5 +73,6 @@
 - [ ] **PCB-CopperAssembly**：S1、S3 相機與 S2 Y 軌的間隙只剩 1.75 mm，待實機確認。
 - [ ] **MilitaryGradePC**：用 DENSO CAD 核對關節零點與尺寸。
 - [ ] **ChemicalTankWashing**：西牆捲門待現場確認。
+- [ ] **ChemicalTankWashing**：`web/js/storage.js` 的 `zAt` 寫成 `Math.max(0, Math.min(2.999, Math.floor(pos)))`，會取到 `RACK.pos[2.999]`，示範車道第 4 位的棧板（含 4 桶）一直是 NaN 位置、畫面上看不到，穿梭車停在那一位時也會消失。正確應為 `Math.floor(Math.min(2.999, pos))`。修了外觀會改變、可能影響干涉檢查，待使用者拍板；修好後拿掉 `main.js` 錄影區塊的 `hideInvalid()` 暫代。
 - [ ] **shutter assembly**：待使用者提供葉片圖面。
 - [ ] **WorkpieceMeasurement**：規格 A 底孔、規格 C 口部是依圖面判讀的，待原始圖檔確認。

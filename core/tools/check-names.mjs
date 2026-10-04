@@ -43,7 +43,7 @@ export const scanDirs = (dirs, names = clientNames()) => scan(dirs.filter(exists
 // 名稱只顯示第一個字（輸出也不要把名稱完整印出來）
 const mask = n => n[0] + '○'.repeat(Math.max(1, n.length - 1));
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const argv = process.argv.slice(2), names = clientNames();
   let hits;
   if (argv.includes('--staged')) {

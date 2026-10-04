@@ -282,3 +282,83 @@ exposeSim({
   seekTo, setView, views: Object.keys(VIEWS), play: () => player.play(), pause: () => player.pause(),
   get T() { return player.T; }, seq, get state() { return S; }, robot, total, focus, cameraWindow, camera, controls, focusPosition, player, workspace, stage,
 });
+
+// ---------------------------------------------------------------- 錄影（?movie：core/movie 依步驟逐格取樣運鏡；core/tools/export-mp4.mjs 用 ?movie&auto 全自動輸出 MP4）
+// 只在 ?movie 時執行，一般網頁行為不變。stage 在 ?movie 時不啟動畫面迴圈，每格由錄影程式呼叫 sample(t) 再 render()。
+if (qp.has('movie')) {
+  const { installMovie } = await import('@core/movie/movie.js');
+  // 錄影步驟：seq.events 是各設備動作的起點（多軌並行、彼此重疊）；錄影要時間連續、不重疊的片段，
+  // 所以以事件起點切段，片段內的畫面仍是當下全廠設備的真實並行狀態。
+  //  · 片段不到 MIN_SEG 秒就有下一事件：由下一事件接手（起點不變），避免鏡頭來回甩。
+  //  · 非清洗站的事件做完 HOLD 秒後手臂仍夾著桶在清洗（整線瓶頸）：切出一段回到清洗手臂。
+  //  · 手臂清洗中的 AGV 單獨動作（入架、回充電板）不另切鏡頭：AGV 在貨架深處，固定的西北偏移只拍得到頂層的桶。
+  const MIN_SEG = 2, HOLD = 6, AT_BOOTH = new Set(['robot', 'waste']);
+  const stName = id => { const s = STATIONS.find(x => x.id === id); return `${s.short} ${s.name}`; };
+  const heldAt = t => { const st = seq.sample(t).st; return DRUM_IDS.findIndex((_, k) => st['drum' + k].mode === 'robot'); };
+  const segs = [];
+  const cut = (start, station, action) => {
+    const last = segs.at(-1);
+    if (last && start - last.start < MIN_SEG) Object.assign(last, { station, action });
+    else segs.push({ start, station, action });
+  };
+  seq.events.forEach((e, i) => {
+    if (e.station === 'agv' && heldAt(e.time) >= 0) return;
+    cut(i ? e.time : 0, e.station, `${stName(e.station)} · ${e.label}`);
+    const next = seq.events[i + 1]?.time ?? total, back = e.time + e.dur + HOLD;
+    if (AT_BOOTH.has(e.station) || next - back < MIN_SEG) return;
+    const k = heldAt(back);
+    if (k >= 0) cut(back, 'robot', `${stName('robot')} · ${DRUM_IDS[k]} 沖洗、抽乾與熱風吹乾`);
+  });
+  const steps = segs.map((s, i) => ({ ...s, dur: (segs[i + 1]?.start ?? total) - s.start }));
+
+  // 追焦對象：依目前片段的站別，看該站正在處理的桶（或設備）；目標暫時不在時用該站的固定點
+  let movieT = 0;
+  // 鏡頭偏移（由西北斜上方看，沖洗站開口朝北，約 4.4 m）；錄影程式整段製程只用一個偏移
+  const OFFSET = [-2200, 2800, -2600], O = new THREE.Vector3(...OFFSET), WIDE = .6, up = new THREE.Vector3(0, 400, 0);
+  // 拉遠：注視點沿偏移方向往鏡頭移 WIDE 倍，目標仍在畫面中心，鏡頭變成 (1 + WIDE) 倍距離、更高
+  const wide = p => p.addScaledVector(O, WIDE);
+  const drumIn = (...modes) => {
+    for (const m of modes) { const k = DRUM_KEYS.findIndex(key => S.st[key].mode === m); if (k >= 0 && drums[k].root.visible) return drums[k].root.position.clone().add(up); }
+    return null;
+  };
+  const FIXED = {
+    label: new THREE.Vector3(LABEL.x, LYING.y, LYING.z), upender: new THREE.Vector3(UPRIGHT.x, 900, LYING.z),
+    decap: new THREE.Vector3(UPRIGHT.x, UPRIGHT.top + 600, DECAP.z), inbound: new THREE.Vector3(INBOUND.x, 700, INBOUND.z),
+  };
+  function movieFocus() {
+    const station = steps.findLast(s => s.start <= movieT)?.station ?? 'agv';
+    // AGV 與入庫在貨架、懸臂吊旁：拉遠到約 7 m、高約 5.2 m，鏡頭在貨架頂層桶（約 3.75 m）與吊臂之上，不穿過貨架、桶與吊臂
+    if (station === 'agv') return wide(agv.root.position.clone().add(new THREE.Vector3(0, 750, 0)));
+    if (station === 'gantry') return drumIn('gantry') ?? line.gantryPivot.getWorldPosition(new THREE.Vector3());
+    if (station === 'upender') return drumIn('upender') ?? FIXED.upender.clone();
+    if (station === 'inbound') return wide(drumIn('jib', 'dolly') ?? FIXED.inbound.clone());
+    if (AT_BOOTH.has(station)) return drumIn('robot') ?? focusPosition('gripper');
+    return FIXED[station].clone();
+  }
+
+  // 暫代：storage.js 的 zAt(3) 取到 RACK.pos[2.999]，示範車道最後一位的棧板（與停在該位的穿梭車）位置是 NaN，
+  // 網頁上本來就畫不出來；但錄影的全景外框會被 NaN 汙染成整片空白。錄影時把這些物件隱藏（畫面與網頁相同），修正待拍板。
+  const { storage } = plant;
+  function hideInvalid() {
+    for (const d of storage.demo) if (!Number.isFinite(d.group.position.z)) d.group.visible = false;
+    storage.shuttle.visible = Number.isFinite(storage.shuttle.position.z);
+  }
+
+  installMovie({
+    project: decodeURIComponent(location.pathname.split('/').filter(Boolean).at(-1)),   // 網址的專案資料夾名稱
+    title: document.querySelector('.brand .title')?.textContent || document.title,
+    far: 150000,   // 廠房以 mm 計、全景距離約 30 m（錄影預設 16 m 是工作站尺度）
+    scene, renderer, camera, controls, setView, total, steps,
+    // 與網頁同一路徑取樣（seq.sample → applyPlant）；錄影中視為自動運轉（燈塔亮運轉燈）
+    sample: t => { movieT = t; S = seq.sample(t); applyPlant(plant, S, { playing: true }); hideInvalid(); },
+    render: () => {
+      washing.tick(movieT);
+      // 按需重繪時陰影不自動更新（stage 設 shadowMap.autoUpdate = false）；錄影每格都重算陰影，不依賴下一格補正
+      renderer.shadowMap.needsUpdate = true;
+      renderer.setScissorTest(false);
+      renderer.render(scene, camera);
+    },
+    focus: movieFocus,
+    offset: OFFSET,
+  });
+}

@@ -102,3 +102,16 @@ $('loading').classList.add('hide');
 stage.loop(dt => { const changed = player.update(dt); workspace.follow(); stage.updateLabels(); return changed; }, { render });
 
 exposeSim({ seekTo: player.seekTo, setView, views: VIEWS, total: project.total, play: player.play, pause: player.pause, get T() { return player.T; }, stationStart, project });
+
+// ---------------------------------------------------------------- 錄影（?movie：core/movie 依時間軸步驟運鏡；core/tools/export-mp4.mjs 用 ?movie&auto 全自動輸出 MP4）
+if (qp.has('movie')) {
+  const { installMovie } = await import('@core/movie/movie.js');
+  installMovie({
+    project: decodeURIComponent(location.pathname.split('/').filter(Boolean).at(-1)),   // 網址的專案資料夾名稱
+    title: document.querySelector('.brand .title')?.textContent || document.title,
+    scene, renderer, camera, controls, render, setView, total: project.total, steps: timeline.events,
+    sample: t => { project.apply(t); updatePanels(t); },
+    focus: () => part.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, LAYOUT.part[1] / 2, 0)),   // 追焦對象：工件
+    offset: [-900, 800, 1200],
+  });
+}

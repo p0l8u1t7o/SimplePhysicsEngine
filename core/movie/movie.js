@@ -2,16 +2,17 @@ import * as THREE from 'three';
 import {smooth,filterTargets,atFrame} from './camera-path.mjs';
 
 /** One absolute-time renderer for preview, audit and recording.
- *  各專案在 main.js 以 ?movie 呼叫：installMovie({ project, scene, renderer, camera, controls, render, setView, total, steps, sample, focus, offset, detailShots, electricalMode, keepGuards })。
+ *  各專案在 main.js 以 ?movie 呼叫：installMovie({ project, title, scene, renderer, camera, controls, render, setView, total, steps, sample, focus, offset, detailShots, electricalMode, keepGuards, glandShots, far })。
  *  網頁本身的畫面迴圈在 ?movie 時不啟動（core/ui/stage.js 已處理；未用 stage 的專案在自己的迴圈開頭判斷）。 */
-export async function installMovie({project,scene,renderer,camera,controls,render,setView,total,steps,sample,focus,offset,detailShots=[],electricalMode,keepGuards=false}) {
+export async function installMovie({project,title,scene,renderer,camera,controls,render,setView,total,steps,sample,focus,offset,detailShots=[],electricalMode,keepGuards=false,glandShots=true,far=16000}) {
   const setElectricalMode=electricalMode||(await import('@core/electrical/electrical-cabinet.js')).setElectricalMode;
   const W=1920,H=1080,FPS=30,SSAA=2,shots=[];
   const acid=project==='AutomaticAcid-BaseTitration',pcb=project==='PCB-CopperAssembly';
   const names={'AutomaticAcid-BaseTitration':'自動酸鹼滴定','MilitaryGradePC':'軍規電腦檢測','PCB-CopperAssembly':'PCB 散熱板組裝','RobotArmPressSSD':'SSD USB 銀腳壓合','shutter assembly':'快門葉片與上蓋組裝','WorkpieceMeasurement':'杯體加工件 AOI＋共焦量測'};
   let frames=0;
   const add=(kind,seconds,data={})=>{const frameCount=Math.max(1,Math.round(seconds*FPS));shots.push({kind,startFrame:frames,frameCount,...data});frames+=frameCount;};
-  add('overview',12,{t:0,label:names[project]+' · 全景到製程',intro:true});
+  // 片頭標題：專案傳入的 title ＞ 現有各站的對照表 ＞ 專案名稱
+  add('overview',12,{t:0,label:(title||names[project]||project)+' · 全景到製程',intro:true});
   let previousPhase=null;
   steps.forEach((s,index)=>{
     const phase=s.station??(acid?Math.floor(s.start/600):0),firstInPhase=phase!==previousPhase;
@@ -21,13 +22,15 @@ export async function installMovie({project,scene,renderer,camera,controls,rende
     add('process',seconds,{simStart:s.start,simDuration:s.dur,label:s.action||s.label||'製程',phase,firstInPhase,step:index});previousPhase=phase;
   });
   for(const shot of detailShots)add('station',Math.max(6,shot.simDuration*1.2),shot);
-  add('electrical',9,{t:total,label:'電盤配置 · 剖視'});
   const devices=[],glands=[];scene.updateMatrixWorld(true);
   scene.traverse(o=>{if(o.userData.electrical)devices.push(o);if(o.userData.feedThrough)glands.push(o);});
+  // 還沒做第二段（沒有電控元件）的專案略過電盤與整線鏡頭
+  if(devices.length)add('electrical',9,{t:total,label:'電盤配置 · 剖視'});
   const picks=[devices.find(o=>o.userData.electrical.id==='PLC1'),devices.find(o=>o.userData.electrical.id==='RC1'),devices.find(o=>o.userData.electrical.role==='motion'),devices.find(o=>o.userData.electrical.id==='PS1')].filter((o,i,a)=>o&&a.indexOf(o)===i);
   for(const d of picks.slice(0,3))add('device',5,{id:d.userData.electrical.id,label:d.userData.electrical.id+' · '+d.userData.electrical.title,t:total});
-  add('wiring',9,{t:total,label:'整線 · 固定線槽、線夾與活動線束'});
-  for(let i=0;i<Math.min(2,glands.length);i++)add('gland',5,{gland:i,t:total,label:'桌板穿線孔 · 接頭與下方電盤走線'});
+  if(devices.length)add('wiring',9,{t:total,label:'整線 · 固定線槽、線夾與活動線束'});
+  // 穿板接頭特寫假設接頭在桌板上；接頭在電盤頂板或被遮住的站傳 glandShots: false
+  if(glandShots)for(let i=0;i<Math.min(2,glands.length);i++)add('gland',5,{gland:i,t:total,label:'桌板穿線孔 · 接頭與下方電盤走線'});
   add('overview',7,{t:total,label:'完整流程展示完成'});
 
   const style=document.createElement('style');style.textContent=`#app{position:fixed!important;inset:0!important}#app>canvas{width:${W}px!important;height:${H}px!important;position:fixed!important;left:0!important;top:0!important}#film{position:fixed;inset:0;z-index:99999;background:#07111b;display:flex;align-items:center;justify-content:center}#film canvas{width:100%;height:100%;object-fit:contain}#filmControls{position:absolute;bottom:6px;left:8px;padding:8px;background:#132333ed;color:#d8e7ed;font:13px system-ui;display:flex;gap:10px;flex-wrap:wrap}#filmControls button{padding:5px 12px}#filmControls input{width:180px}`;document.head.append(style);
@@ -39,7 +42,7 @@ export async function installMovie({project,scene,renderer,camera,controls,rende
   for(const [k,v] of Object.entries({width:W+'px',height:H+'px','min-width':W+'px','max-width':W+'px','min-height':H+'px','max-height':H+'px',left:'0px',top:'0px',right:'auto',bottom:'auto'}))renderer.domElement.style.setProperty(k,v,'important');
   // Allocate once; render at 4K and downsample to stabilize fine cables/edges.
   renderer.setPixelRatio(SSAA);renderer.setSize(W,H,false);controls.enableDamping=false;
-  camera.aspect=W/H;camera.near=2;camera.far=16000;camera.updateProjectionMatrix();
+  camera.aspect=W/H;camera.near=2;camera.far=far;camera.updateProjectionMatrix();   // far 預設 16 m（工作站尺度）；廠房級的站傳 far
   ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
   const strobes=[];
   scene.traverse(o=>{
@@ -171,7 +174,7 @@ export async function installMovie({project,scene,renderer,camera,controls,rende
     if(dissolve){ctx.globalAlpha=1-smooth(local/.8);ctx.drawImage(transition,0,0);ctx.globalAlpha=1;}
     if(sh.kind!=='process'||sh.firstInPhase){
       const a=Math.min(1,Math.max(0,(2-local)*3));
-      if(a>0){ctx.globalAlpha=a;ctx.fillStyle='#081722e8';ctx.fillRect(32,30,1220,126);ctx.fillStyle='#72e3cd';ctx.fillRect(32,30,5,126);ctx.fillStyle='#f2f6f8';ctx.font='600 30px "Microsoft JhengHei",sans-serif';ctx.fillText(sh.kind==='process'?names[project]+' · '+sh.label:sh.label,56,79,1160);ctx.fillStyle='#adbdc9';ctx.font='20px "Microsoft JhengHei",sans-serif';ctx.fillText(acid?'工程模擬 · 全批次依序呈現，動作 12×／等待 100× 加速':pcb?'工程模擬 · 五站並行節拍；後段分站展示':'工程模擬 · 完整動作順序，展示變速',56,122);ctx.globalAlpha=1;}
+      if(a>0){ctx.globalAlpha=a;ctx.fillStyle='#081722e8';ctx.fillRect(32,30,1220,126);ctx.fillStyle='#72e3cd';ctx.fillRect(32,30,5,126);ctx.fillStyle='#f2f6f8';ctx.font='600 30px "Microsoft JhengHei",sans-serif';ctx.fillText(sh.kind==='process'?(title||names[project]||project)+' · '+sh.label:sh.label,56,79,1160);ctx.fillStyle='#adbdc9';ctx.font='20px "Microsoft JhengHei",sans-serif';ctx.fillText(acid?'工程模擬 · 全批次依序呈現，動作 12×／等待 100× 加速':pcb?'工程模擬 · 五站並行節拍；後段分站展示':'工程模擬 · 完整動作順序，展示變速',56,122);ctx.globalAlpha=1;}
     }
     slider.value=index;seek.value=index;status.textContent=`${project} · ${index+1}/${frames} · ${sh.label}`;
     return {frame:index,kind:sh.kind,simulationTime:v.t,camera:v.p.toArray(),target:v.target.toArray(),near:camera.near};

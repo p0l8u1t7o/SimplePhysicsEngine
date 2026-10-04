@@ -48,6 +48,7 @@ node core/tools/ui-check.mjs <專案> --port <p> --shots TEMP/<資料夾>   # �
 node core/tools/shots.mjs [專案…] --out TEMP/<新> --compare TEMP/<基準> --port <p>   # 桌面截圖回歸
 python core/tools/compare-review.py TEMP/<review 基準>   # review JSON 比對（忽略時間與雜湊）
 node core/tools/new-project.mjs <資料夾> "<標題>" ["一句說明"]   # 由範本建立新專案（含規則檔與寫檔關卡）
+node core/tools/export.mjs <專案> [--zip] [--html] [--mp4]   # 成品匯出到 TEMP/exports/：網站壓縮檔（雙擊離線開）、單一 HTML、MP4（全自動）
 node core/tools/install-hooks.mjs                 # 安裝 pre-commit 範圍檢查（clone 後一次）
 node core/tools/check-scope.mjs --scope <範圍> <路徑…>   # 手動檢查路徑是否在範圍內
 node --import ./core/tools/register.mjs tools/verify-interference.mjs   # 四站干涉回歸；配線與電盤檢查是 check.mjs 內建的 electrical

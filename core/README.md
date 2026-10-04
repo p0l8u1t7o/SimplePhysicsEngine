@@ -18,7 +18,7 @@
 | `ui/` | `stage.js`（renderer／場景／相機／燈光／3D 標籤／視角轉場／畫面迴圈／`exposeSim`）、`player.js`（標準播放列）、`viewer-workspace`（相機視窗與焦點追隨，所有專案共用）、`vision-overlay` |
 | `verify/` | 統一檢查：`scene.mjs`（全場干涉＋重合面閃爍）、`electrical.mjs`（電控配置）、`cables.mjs`（配線動態取樣）、`feedthroughs.mjs`（穿板孔）、`clearance.mjs`（有向包圍盒間距）、`determinism.mjs`（倒序一致）、`fingerprint.mjs`／`fingerprint-compare.mjs`（排程指紋，渲染補強前後比對）、`run.mjs`（執行入口）、`dom-stub.mjs` |
 | `template/` | 新專案範本（`tools/new-project.mjs` 複製） |
-| `tools/` | 伺服器、檢查執行器、截圖比對、效能量測（`perf-check.mjs`）、Pages 建置、建立新專案、範圍檢查（`check-scope.mjs`、`scope-guard.mjs`、`install-hooks.mjs`）、用戶名稱檢查（`check-names.mjs`）（不發布） |
+| `tools/` | 伺服器、檢查執行器、截圖比對、效能量測（`perf-check.mjs`）、Pages 建置、成品匯出（`export.mjs`：網站壓縮檔、單一 HTML、MP4）、建立新專案、範圍檢查（`check-scope.mjs`、`scope-guard.mjs`、`install-hooks.mjs`）、用戶名稱檢查（`check-names.mjs`）（不發布） |
 | `VERSION`、`REQUESTS.md` | core 版本號（語意化版本，改版紀錄在 `MIGRATION.md`）；子專案提出的 core 需求登記 |
 
 ## 新專案
@@ -126,7 +126,10 @@ exposeSim({ seekTo, setView, views, total, play, pause, get T() { return T; } })
 
 - 網址參數一致：`?shadow=0`、`?aa=0`、`?logdepth=0/1`、`?movie`（錄影：不跑迴圈、不聽 resize、強制對數深度）。
 - `loop(tick, { render })`：多畫面專案（主畫面＋相機子畫面＋疊圖）傳自己的整格繪製；不傳則只畫主畫面。
-- 錄影：`?movie` 時在 main.js 呼叫 `installMovie({...})`（`core/movie/movie.js`），各站的取樣、追焦、細節重播設定寫在專案裡；`tools/movie-export/prepare.py` 只建網站副本。
+- 錄影：`?movie` 時在 main.js 呼叫 `installMovie({...})`（`core/movie/movie.js`），各站的取樣、追焦、細節重播設定寫在專案裡；`?movie&auto` 自動開始輸出。
+- 成品匯出總入口：`node core/tools/export.mjs <專案> [--zip] [--html] [--mp4] [--out 資料夾]`（不指定時輸出壓縮檔＋單一 HTML，預設 `TEMP/exports/`）。`--zip` 是首頁＋本站＋core 的網站壓縮檔，附 `open-demo.cmd`（雙擊用 Windows 內建 PowerShell 的本機伺服器 `tools/offline/serve.ps1` 開啟，客戶電腦不必安裝軟體）；匯出前後都做用戶名稱檢查，有名稱就不留下成品。zip 讀寫在 `tools/zip.mjs`（交接包也用）。
+- MP4 匯出：`node core/tools/export-mp4.mjs <專案> [輸出資料夾]`（全自動：建單站網站副本、本機接收端、無頭 Chrome＋GPU、ffmpeg NVENC／libx264，結束時核對影格數；預設輸出 `TEMP/videos/<專案>-<日期>/`）。程式內用 `import { exportMp4 } from './export-mp4.mjs'`。
+- 單一 HTML 匯出：`node core/tools/export-html.mjs <專案> [輸出檔] [--verify]`（預設 `TEMP/exports/<專案>.html`），模組、css、圖示與 `new URL('…', import.meta.url)` 資源全部內嵌，離線雙擊（file://）可開；`--verify` 用 Chrome／Edge 以 file:// 開啟，確認無錯誤、`window.sim` 可跳播、畫布有畫面。程式內用 `exportHtml(專案, 輸出檔)`、`verifyHtml(檔案)`。
 
 ## 統一寫法（新專案與既有專案都照這個）
 

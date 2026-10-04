@@ -103,11 +103,19 @@ Node 端由 `core/tools/loader.mjs` 解析相同的三種名稱，檢查程式�
   - 新增 `core/anim/sampling.js`（`sampleTimes`、`stepTimes(steps, interval)`，網頁也能載入）；`core/verify/clearance.mjs` 的 `sampleTimes` 改成轉匯出它。`cable-routing.js` 匯出 `solidMeshes(root)`（去掉配線五金與平面的實體網格，給 `verify.cables.obstacles` 用）。
   - 酸鹼、MGPC、PCB、SSD、快門的 `project.js` 宣告 `verify.cables`（取樣間隔 0.1 s，快速檢查就會跑）。退役前逐情境比對：線路、支架、拖鏈、取樣數與穿板孔統計都和根目錄版相同，0 個失敗。
   - 退役：根目錄 `tools/verify-cable-routing.mjs`、`verify-cables.mjs`、`verify-electrical-plan.mjs`、`check-feedthroughs.mjs` 與 `tools/review/cable-checks.json`、`electrical-plan-checks.json`、各站 `review/cables.json`；`electricalActivity` 的斷言移到 `core/examples/segment2/check.mjs`。`tools/geometry-clearance.mjs` 轉接檔保留（各站工具還在用）。
+- 2026-10-04 core 1.6.0（成品匯出：網站壓縮檔、單一 HTML、MP4）：
+  - `core/tools/export.mjs`：匯出總入口（`--zip`、`--html`、`--mp4`，預設輸出 `TEMP/exports/`），匯出前後做用戶名稱檢查，有名稱就不留下成品。
+  - 網站壓縮檔：`build-site.mjs` 可以只建指定專案；壓縮檔附 `open-demo.cmd`＋`tools/offline/serve.ps1`（Windows 內建 PowerShell 的本機伺服器，只聽 localhost），客戶電腦不必安裝軟體。zip 讀寫在 `tools/zip.mjs`（沒有 npm 套件，studio 的交接包也用）。
+  - `tools/export-html.mjs`：單一 HTML，模組以 Blob URL＋importmap 內嵌、CSS 與 `new URL('…', import.meta.url)` 資源轉 data URL，`file://` 雙擊可開；附 `verifyHtml`（Chrome 以 file:// 開啟檢查錯誤、`window.sim`、畫布）。8 站約 1.5 MB，全部驗證通過。
+  - `tools/export-mp4.mjs`：Node 版錄影接收端（取代 Python 的 `tools/movie-export/server.py`、`prepare.py`，已刪除），無頭 Chrome（GPU）開 `?movie&auto` 全自動錄製，ffmpeg NVENC／libx264，結束時用 ffprobe 核對影格數。`audit.py`、`verify.py` 保留。
+  - `movie/movie.js`：`installMovie` 新增 `title`（片頭標題，原本只有 6 站的對照表）；沒有電控元件的專案略過電盤與整線鏡頭。現有各站的鏡頭不變。
+  - 範本 `main.js` 接好 `?movie` 錄影（依時間軸事件運鏡、追焦工件），新專案建好就能匯出 MP4。
 
 ## 版本
 
 | 版本 | 日期 | 內容 |
 |---|---|---|
+| 1.6.0 | 2026-10-04 | 成品匯出（`export.mjs`：網站壓縮檔、單一 HTML、MP4）、`zip.mjs`、離線伺服器、範本接上錄影；Python 錄影接收端退役 |
 | 1.5.0 | 2026-10-04 | `verify.cables` 的 variants／apply／times、結果判斷修正、`core/anim/sampling.js`、`solidMeshes`；根目錄配線與電盤工具退役 |
 | 1.4.0 | 2026-10-04 | 通用電控與配線檢查（`electrical`）、元件表 `schedule`、相機模型、第二段範例、用戶名稱檢查（`names`） |
 | 1.3.0 | 2026-10-04 | 專案搬進 `project-site/`；`REPO`、`PROJECTS_DIR`、`scopeOf` |

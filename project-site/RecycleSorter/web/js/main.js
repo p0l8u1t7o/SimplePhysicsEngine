@@ -224,3 +224,64 @@ exposeSim({
   seekTo: player.seekTo, setView, views: VIEWS, total: project.total, play: player.play, pause: player.pause,
   get T() { return player.T; }, stationStart, project, chapters: CHAPTERS, kindList,
 });
+
+// ---------------------------------------------------------------- 錄影（?movie：core/movie 依敘事段落運鏡；core/tools/export-mp4.mjs 用 ?movie&auto 全自動輸出 MP4）
+// 時間軸用網頁的主時間（0～96 s），不用製程時間 τ：project.apply 吃的就是主時間，慢動作段的帶速、手臂與節拍
+// 一起放慢、AI 分析段整體凍結，錄影和網頁播放看到同一套敘事。每個敘事段落（CHAPTERS）是一個步驟，
+// station 填段落序號，讓每段各有一張標題卡（movie.js 以 station 判斷換段）。兩處只剪掉完全靜止的畫面：
+//   開頭待機 0～8 s（帶子與手臂都不動）由片頭全景取代，第一步從 8 s 起、含 9.5～10.3 s 的啟動；
+//   AI 分析段 30.8～41 s 整段凍結（狀態與畫面逐格相同），只留前 4 s。
+// 只擷取 3D 畫布：相機子畫面與疊圖是 DOM／離屏繪製，進不了影片，所以 render 不畫相機子畫面。
+if (qp.has('movie')) {
+  player.pause();
+  const { installMovie } = await import('@core/movie/movie.js');
+  const MOVIE_START = 8, AI_HOLD = 4;
+  const steps = CHAPTERS.flatMap((c, i) => {
+    if (c.id === 'overview') return [];
+    const t0 = c.id === 'infeed' ? MOVIE_START : c.t[0], t1 = c.id === 'ai' ? c.t[0] + AI_HOLD : c.t[1];
+    return [{ start: t0, dur: t1 - t0, action: c.name, station: i }];
+  });
+  // 追焦：手臂正在取放的瓶罐（吸附中就是吸盤組的位置）；還在上游時夾在取像站 X −700（入料端仍在畫面左側），
+  // 全部取放完之後改看分流出料區。movie.js 會再做數秒的平滑，連抓時在抓取點與投放點之間不會來回甩。
+  // 夾住 X 下限讓視線不必穿過背面左立柱；Z 上限夾在手臂底座一線、高度上限 900，投放到分流帶與吸附搬運時
+  // 鏡頭仍在背面頂樑（Y 1740）以下，頂樑不會橫過畫面（見下方 offset）。
+  const focusPoint = new THREE.Vector3(), OUTFEED = new THREE.Vector3(175, 760, 150);
+  const FOCUS_X = [L.vision.x, b.x[1] - 300], FOCUS_Z = [b.z, a.z + 10], FOCUS_Y_MAX = 900;
+  const movieFocus = () => {
+    const st = project.state;
+    const job = st.job ?? jobs.find(j => j.endTau > st.tau);
+    if (!job) return OUTFEED.clone();
+    const it = project.itemById.get(job.item.id);
+    if (it.grp.visible) it.grp.getWorldPosition(focusPoint);
+    else focusPoint.set(it.off + st.s, b.top + 2, b.z);
+    focusPoint.x = THREE.MathUtils.clamp(focusPoint.x, ...FOCUS_X);
+    focusPoint.z = THREE.MathUtils.clamp(focusPoint.z, ...FOCUS_Z);
+    return focusPoint.clone().setY(Math.min(FOCUS_Y_MAX, focusPoint.y + it.H / 2));
+  };
+  // movie.js 要的視角：iso（全景）對到本站的 overview；wiring（整線）本站沒有對應按鈕，在這裡給一個
+  // 從 +X 側看後方走道：電盤、地面線槽到機台背面的視角；其餘（electrical）照網頁的 setView。
+  const WIRING = [[2300, 1500, -900], [250, 380, -1350]];
+  const movieView = (name, instant) => {
+    if (name === 'wiring') { setElectricalCutaway(scene, false); workspace.stopFollowing(); stage.goTo(WIRING[0], WIRING[1], true); return; }
+    setView(name === 'iso' ? 'overview' : name, instant, true);
+  };
+  let movieT = 0;
+  installMovie({
+    project: decodeURIComponent(location.pathname.split('/').filter(Boolean).at(-1)),   // 網址的專案資料夾名稱
+    title: document.querySelector('.brand .title')?.textContent || document.title,
+    glandShots: false,   // 穿板接頭在電盤頂板、上方有防塵簷，「桌板穿線孔」特寫只拍得到簷板
+    scene, renderer, camera, controls, setView: movieView, total: project.total, steps,
+    sample: t => { movieT = t; project.apply(t); updatePanels(t); },
+    // 每格繪製：電盤指示燈依當下狀態更新 → 主畫面
+    render: () => {
+      const st = project.state;
+      electrical.update({ time: movieT, playing: true, action: st.action, motion: st.rate > .01, vision: st.electrical.capture || st.electrical.analysis });
+      workspace.renderOverview(renderer, scene);
+    },
+    focus: movieFocus,
+    // 從機台背側（電盤走道上方）斜下約 30° 看：抓取區在手臂底座的背側（−Z），從操作面看會被底座擋住，操作面又有
+    // HMI、光幕立柱與標牌；從背側看，主帶面與抓取區在近處、手臂朝鏡頭伸過來、分流帶在後方。追焦 X 在 −700…+600 之間時，
+    // 視線穿過背面（Z −730）的位置落在兩根背面立柱（X ±850）之間、頂樑以下，電盤在鏡頭下後方。
+    offset: [500, 800, -1300],
+  });
+}
