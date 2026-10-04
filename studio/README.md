@@ -65,7 +65,16 @@ new → 規劃（配置提案＋問題）⇄ 使用者回答 → 確認提案 �
     └── web/ tools/ review/  與本庫各站相同
 ```
 
-角色指派的優先順序：app 預設（`lib/roles.mjs`）＜ 工作區 `.studio/settings.json` ＜ 專案 `studio.json` ＜ 命令列。P1 的預設是各角色都用中階模型（Claude `sonnet`、Codex 帳號預設模型）；正式預設值等 P2 實測後決定。
+角色指派的優先順序：app 預設（`lib/roles.mjs`）＜ 工作區 `.studio/settings.json` ＜ 專案 `studio.json` ＜ 命令列。正式預設（2026-10-04 依 P2 實測拍板）：維持 Claude，所有角色用 `opus`；選 Codex 時用帳號預設模型，可用 `--effort high` 提高推理強度。`new` 時指定的 `--cli`、`--model`、`--effort`、`--role` 會寫進專案 `studio.json`，之後 `resume` 沿用。
+
+## P2 驗收（2026-10-04）
+
+重做 MGPC 與快門組裝站的第一段，只給原始資料＋一段需求，代理的設計問題依現有拍板紀錄代答。6 次（兩站 × 兩種 CLI 中階，MGPC 再加 Claude opus 與 Codex 高推理）都在 app 的快速＋完整檢查第一次就通過；對照報告在本機 `TEMP/p2-report/index.html`。重點：
+
+- 檢查擋不住「做錯東西」：快門 × Claude sonnet 把葉片層序做反（拍板先小後大），MGPC × opus 顯示了第一段不該有的相機子畫面。P4b 的審查角色要比對「實作是否照已拍板事項與規則」。
+- 成品與速度：Codex 三次成品最完整、代理時間約 22～30 分；Claude sonnet 兩站都偏弱（42～52 分），opus 介於中間（57 分，API 等值約 $22）。MGPC 的動作細節都比現有版本（347.75 s）簡化，Claude 只有 64～68 s。
+- 規則遵守：Claude 兩次自己跑 ui／截圖，其中一次寫到工作區根目錄，由雜湊比對偵測；Codex 的沙箱在第一層就擋下寫入。
+- 實測中修掉的 bug：`--model`／`--effort` 沒有保存，續接時退回預設（受影響的兩次已用正確設定重跑）。
 
 ## 代理 CLI 的實測重點（2026-10-04，Claude Code 2.1.266、codex-cli 0.154.0）
 

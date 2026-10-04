@@ -28,7 +28,7 @@ export const claude = {
   name: 'claude',
   label: 'Claude Code',
   loadsParentRules: true,          // 會一路往上載入 CLAUDE.md，所以工作區規則不必放進提示
-  models: ['sonnet', 'opus', 'haiku'],
+  models: ['opus', 'sonnet', 'haiku'],
 
   detect() {
     try {

@@ -3,7 +3,8 @@
 //   2. 工作區設定 <工作區>/.studio/settings.json 的 { defaultCli, roles }
 //   3. 專案設定 projects/<專案>/studio.json 的 roles
 //   4. 單次指定（命令列 --cli、--model、--role plan=opus,fix=haiku）
-// P1 暫定：各角色都用中階模型先把流程跑通；正式預設值在 P2 實測後決定。
+// 正式預設（2026-10-04 依 P2 實測，使用者拍板）：維持 Claude，所有角色用 opus。
+// P2 中 sonnet 在兩站都明顯較弱，而且規劃時容易偏離範圍；Codex 成品較好、較快，但不強制同事安裝。
 import { readJson } from './util.mjs';
 
 export const ROLES = {
@@ -16,7 +17,7 @@ export const ROLES = {
 
 // 空字串的 model 代表用該 CLI 帳號的預設模型
 export const PRESETS = {
-  claude: { plan: 'sonnet', build: 'sonnet', fix: 'sonnet', review: 'sonnet', render: 'sonnet' },
+  claude: { plan: 'opus', build: 'opus', fix: 'opus', review: 'opus', render: 'opus' },
   codex: { plan: '', build: '', fix: '', review: '', render: '' },
 };
 

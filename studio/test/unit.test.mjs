@@ -60,7 +60,7 @@ test('角色指派的優先順序', () => {
   const ws = { defaultCli: 'claude', roles: { plan: { model: 'opus' } } };
   const sj = { roles: { fix: { cli: 'codex', model: 'gpt-x' } } };
   assert.deepEqual(resolveRole('plan', { workspaceSettings: ws, studioJson: sj }), { cli: 'claude', model: 'opus', effort: '' });
-  assert.deepEqual(resolveRole('build', { workspaceSettings: ws, studioJson: sj }), { cli: 'claude', model: 'sonnet', effort: '' });
+  assert.deepEqual(resolveRole('build', { workspaceSettings: ws, studioJson: sj }), { cli: 'claude', model: 'opus', effort: '' });
   assert.deepEqual(resolveRole('fix', { workspaceSettings: ws, studioJson: sj }), { cli: 'codex', model: 'gpt-x', effort: '' });
   // 單次指定 --cli codex：所有角色改用 codex，模型名稱不沿用 claude 的
   assert.deepEqual(resolveRole('plan', { workspaceSettings: ws, studioJson: sj, override: { cli: 'codex', roles: {} } }), { cli: 'codex', model: '', effort: '' });
