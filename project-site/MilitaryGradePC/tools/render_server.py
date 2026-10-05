@@ -46,7 +46,7 @@ class ReusableTCPServer(http.server.ThreadingHTTPServer):
 
 PORT = 8766
 OUTPUT = ROOT / 'videos'
-FFMPEG = ROOT / 'tools' / 'bin' / 'ffmpeg.exe'
+FFMPEG = ROOT.parents[1] / 'tools' / 'bin' / 'ffmpeg.exe'      # 各站共用，在庫根目錄的 tools/bin
 LOCK = threading.Lock()
 JOB = None
 

@@ -11,7 +11,7 @@
       "tools/verify-camera.mjs",
       "tools/verify-clearance.mjs",
       "tools/verify-self-clearance.mjs",
-      "tools/verify-vision.mjs"
+      "../../tools/verify-vision.mjs"
     ]
   }
 }

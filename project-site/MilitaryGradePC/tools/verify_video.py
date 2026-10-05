@@ -5,7 +5,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageStat, ImageChops
 
 ROOT = Path(__file__).resolve().parents[1]
-BIN = ROOT / 'tools' / 'bin'
+BIN = ROOT.parents[1] / 'tools' / 'bin'      # ffmpeg／ffprobe 各站共用，在庫根目錄的 tools/bin
 VIDEO = ROOT / 'videos' / 'V110_QC_1080p30.mp4'
 SPEC = json.loads(VIDEO.with_suffix('.shots.json').read_text(encoding='utf-8'))
 REVIEW = ROOT / 'review' / 'video'

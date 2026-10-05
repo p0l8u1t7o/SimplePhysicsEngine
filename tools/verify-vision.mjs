@@ -1,11 +1,12 @@
-// Run from RobotArmPressSSD with the existing Three.js loader.
+// 跨站的視覺標記檢查（SSD 壓合、PCB 散熱板、軍規筆電、酸鹼滴定四站的取像與結果標記）；放在共用的 tools/，任何目錄都能執行：
+//   node --import ./core/tools/register.mjs tools/verify-vision.mjs
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { projectPoint, projectRegion } from '@core/ui/vision-overlay.js';
-import { ssdResults } from '../web/js/vision-results.js';
-import { createStation } from '../web/js/station.js';
-import { createSequence } from '../web/js/sequence.js';
-import { RECIPES } from '../web/js/recipes.js';
+import { ssdResults } from '../project-site/RobotArmPressSSD/web/js/vision-results.js';
+import { createStation } from '../project-site/RobotArmPressSSD/web/js/station.js';
+import { createSequence } from '../project-site/RobotArmPressSSD/web/js/sequence.js';
+import { RECIPES } from '../project-site/RobotArmPressSSD/web/js/recipes.js';
 globalThis.document={createElement:()=>({getContext:()=>({fillRect(){},fillText(){}})})};
 let checks=0;
 const check=(v,msg)=>{assert.ok(v,msg);checks++;};
@@ -30,8 +31,8 @@ for(const recipe of Object.values(RECIPES)){
     check(ng[0].status==='ng','gap above recipe limit is NG');
   }
 }
-const {createSim:createCopper}=await import('../../PCB-CopperAssembly/web/js/sim.js');
-const {copperResults}=await import('../../PCB-CopperAssembly/web/js/vision-results.js');
+const {createSim:createCopper}=await import('../project-site/PCB-CopperAssembly/web/js/sim.js');
+const {copperResults}=await import('../project-site/PCB-CopperAssembly/web/js/vision-results.js');
 const c=createCopper(new THREE.Scene()),{plan,machine:M,boards}=c;
 // PCB 散熱板站改用共用時間軌後：曝光步驟用 steps（start＋dur，舊為 segs 的 t1）、逐顆紀錄在 log（舊為 events），兩種都相容
 const flashEnd=tr=>{const s=(tr.steps||tr.segs).find(s=>s.flash);return s.t1??s.start+s.dur;};
@@ -52,15 +53,15 @@ for(const src of ['s1','s3']){
   check(r.marks.some(m=>projectRegion(m.points,cam,600,400)),src+' ROI follows the correct conveyor board');
   c.apply(0);check(copperResults(src,0,plan,M,boards).marks.every(m=>m.status==='preview'),'scan no premature pass');
 }
-const {createNotebook}=await import('../../MilitaryGradePC/web/js/notebook.js');
-const {notebookResults}=await import('../../MilitaryGradePC/web/js/vision-results.js');
+const {createNotebook}=await import('../project-site/MilitaryGradePC/web/js/notebook.js');
+const {notebookResults}=await import('../project-site/MilitaryGradePC/web/js/vision-results.js');
 const nb=createNotebook();nb.root.updateMatrixWorld(true);
 for(const action of ['D1 連接器取像','BAT1 門面取像','底殼法規印刷','SN 與警語','外露 Docking 接點','螺絲／腳墊區域 1']){
   check(notebookResults(nb,{action},true,0).marks.length>0,action+' ROI');
   check(notebookResults(nb,{action},false,0).marks.length===0,'moving camera has no stale result');
 }
-const {createSim:createAcid}=await import('../../AutomaticAcid-BaseTitration/web/js/sim.js');
-const {liquidResults}=await import('../../AutomaticAcid-BaseTitration/web/js/vision-results.js');
+const {createSim:createAcid}=await import('../project-site/AutomaticAcid-BaseTitration/web/js/sim.js');
+const {liquidResults}=await import('../project-site/AutomaticAcid-BaseTitration/web/js/vision-results.js');
 const acid=createAcid(new THREE.Scene());
 for(const job of acid.plan.jobs){
   const t=job.start+90,info=acid.apply(t),r=liquidResults(acid.lab,info,t,'meniscus');

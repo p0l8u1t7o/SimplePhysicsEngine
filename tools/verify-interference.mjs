@@ -3,7 +3,7 @@ import { REGISTER } from '../core/tools/run.mjs';
 import { spawn } from 'node:child_process';
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { dirname, join, relative } from 'node:path';
+import { basename, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -11,7 +11,7 @@ const projects = {
   'AutomaticAcid-BaseTitration': ['verify.mjs', 'verify-clearance.mjs', 'verify-self-clearance.mjs', 'verify-render.mjs'],
   'MilitaryGradePC': ['verify.mjs', 'verify-clearance.mjs', 'verify-self-clearance.mjs', 'verify-camera.mjs'],
   'PCB-CopperAssembly': ['verify.mjs', 'verify-clearance.mjs', 'verify-geometry.mjs'],
-  'RobotArmPressSSD': ['verify.mjs', 'verify-clearance.mjs', 'verify-self-clearance.mjs', 'verify-camera.mjs', 'verify-vision.mjs'],
+  'RobotArmPressSSD': ['verify.mjs', 'verify-clearance.mjs', 'verify-self-clearance.mjs', 'verify-camera.mjs', '../../tools/verify-vision.mjs'],     // 視覺檢查跨四站，放在共用的 tools/
 };
 const selected = process.argv.slice(2);
 if (selected.some(p => !Object.hasOwn(projects, p))) {
@@ -30,21 +30,21 @@ async function sourceHash(project) {
     }
   }
   await walk(join(root, 'project-site', project, 'web', 'js')); await walk(join(root, 'project-site', project, 'tools'));
-  files.push(join(root, 'tools', 'geometry-clearance.mjs'),join(root,'core','vendor','three.module.js'));
+  files.push(join(root, 'tools', 'geometry-clearance.mjs'), join(root, 'tools', 'verify-vision.mjs'), join(root,'core','vendor','three.module.js'));
   for (const path of files.sort()) hash.update(relative(root, path)).update(await readFile(path));
   return hash.digest('hex');
 }
 async function run(project, script) {
   const start = Date.now();
   const result = await new Promise(resolve => {
-    const child = spawn(process.execPath, ['--no-warnings', '--import', REGISTER, './tools/' + script],
+    const child = spawn(process.execPath, ['--no-warnings', '--import', REGISTER, script.includes('/') ? script : './tools/' + script],
       { cwd: join(root, 'project-site', project), windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = '', stderr = '', settled = false;
     child.stdout.on('data', chunk => { stdout += chunk; }); child.stderr.on('data', chunk => { stderr += chunk; });
     child.on('error', error => { if (!settled) { settled = true; resolve({ code: null, stdout, stderr: stderr + error.message }); } });
     child.on('close', code => { if (!settled) { settled = true; resolve({ code, stdout, stderr }); } });
   });
-  const log = join(root, 'project-site', project, 'review', 'checks', script.replace('.mjs', '.log'));
+  const log = join(root, 'project-site', project, 'review', 'checks', basename(script).replace('.mjs', '.log'));
   await mkdir(dirname(log), { recursive: true });
   await writeFile(log, result.stdout + (result.stderr ? '\nSTDERR:\n' + result.stderr : ''));
   const passed = result.code === 0;

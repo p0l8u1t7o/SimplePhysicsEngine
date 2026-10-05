@@ -36,6 +36,18 @@ node core/tools/check.mjs --only electrical          # 全部專案；結果在�
 
 `core/ui/viewer-workspace.js`、`viewer-workspace.css` 管理相機拖曳、獨立視窗與產品焦點，五站直接引用同一份。詳見[操作說明](docs/viewer-controls.md)與[瀏覽器驗證紀錄](review/viewer-workspace-checks.json)。
 
+## 跨站視覺檢查
+
+`verify-vision.mjs` 檢查 SSD 壓合、PCB 散熱板、軍規筆電、酸鹼滴定四站的取像與結果標記（投影、曝光前不顯示結果、NG 門檻、液面追蹤）。它同時引用四站的程式，所以放在這裡，不放在某一站底下；四站干涉回歸與 RobotArmPressSSD 的完整檢查都會跑它。說明見 [視覺標記檢視](docs/vision-review.md)。
+
+```powershell
+node --import ./core/tools/register.mjs tools/verify-vision.mjs
+```
+
+## 共用執行檔（bin/）
+
+`bin/` 放各站共用的 ffmpeg／ffprobe（錄影輸出與影片驗證用），由 `scripts\setup.ps1 -Ffmpeg` 下載，不進版控。core 的 `export-mp4.mjs`、studio、`movie-export/verify.py` 與軍規專案的錄影工具都從這裡找；也可以用環境變數 `FFMPEG_PATH` 指到別的位置。
+
 ## MP4 展示影片
 
 [movie-export](movie-export/README.md) 使用五站網站的本機副本逐格渲染完整流程，並以 NVIDIA NVENC 編碼 1080p／30 fps MP4。包含產品追隨、電盤剖視、整線與穿板接頭。影片與抽查影格集中於忽略版控的 `TEMP/videos/`，不放進 GitHub Pages。

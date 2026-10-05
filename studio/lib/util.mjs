@@ -1,6 +1,6 @@
 // 共用小工具：路徑、JSON 讀寫、雜湊、子程序、空閒 port。
 import { createHash } from 'node:crypto';
-import { spawn, execFileSync } from 'node:child_process';
+import { spawn, spawnSync, execFileSync } from 'node:child_process';
 import { createServer } from 'node:net';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve, relative, sep, isAbsolute } from 'node:path';
@@ -59,6 +59,13 @@ export function run(cmd, args, { cwd, env, input, echo = false, signal } = {}) {
 export const freePort = () => new Promise((ok, fail) => {
   const s = createServer().listen(0, '127.0.0.1', () => { const { port } = s.address(); s.close(() => ok(port)); }).on('error', fail);
 });
+
+// ffmpeg：環境變數 FFMPEG_PATH ＞ 本庫共用的 tools/bin（scripts/setup.ps1 -Ffmpeg 下載）＞ PATH；找不到回傳 null
+export function findFfmpeg() {
+  const cands = [process.env.FFMPEG_PATH, join(REPO, 'tools', 'bin', process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg')].filter(Boolean);
+  for (const c of cands) if (existsSync(c)) return c;
+  return spawnSync('ffmpeg', ['-version'], { windowsHide: true }).status === 0 ? 'ffmpeg' : null;
+}
 
 export const now = () => new Date().toISOString();
 export const sleep = ms => new Promise(r => setTimeout(r, ms));

@@ -28,7 +28,7 @@
 |---|---|
 | `core/` | 共用框架（以 importmap `@core/` 引用）：geom（形狀、材質、五金、地面）、models（13 個參數化模型＋目錄頁，含工業相機）、anim 的 sampling（取樣時間）、examples（第二段範例：電控、配線、相機）、anim（時間軸、步驟序列、到位閘門）、ui（stage、player、viewer-workspace）、electrical、movie、verify、template、tools；版本號在 `core/VERSION`，core 需求登記在 `core/REQUESTS.md` |
 | `project-site/<專案>/` | 所有展示專案（之後新增的也放這裡）。`web/`（網站；`web/js/project.js` 是網頁與檢查共用的場景）、`project.json`（首頁說明、`coreVersion`、`checks.quick`／`checks.full`、`variants`、`ui`）、`tools/`（專案自有檢查）、`review/`（檢查結果，進版控）、`docs/`（只留本機）、`AGENTS.md`／`CLAUDE.md`（該站規則）、`.claude/settings.json`（寫檔關卡） |
-| `tools/` | 跨專案工具：干涉回歸、電路圖、錄影輸出（配線與電盤檢查已移到 core 的 `electrical`） |
+| `tools/` | 跨專案工具：干涉回歸、跨站視覺檢查（`verify-vision.mjs`）、電路圖、錄影輸出（配線與電盤檢查已移到 core 的 `electrical`）；`bin/` 是各站共用的 ffmpeg／ffprobe（`setup.ps1 -Ffmpeg` 下載，不進版控） |
 | `scripts/` | 腳本：`setup.ps1`（環境設定）、`start`／`stop`（`.ps1`＋可點兩下的 `.cmd`，網頁啟動與停止，PID 與輸出在 `logs/`）、`migrate/`（搬庫腳本） |
 | `studio/` | 3D 動畫生成應用程式（從本庫啟動介面時也能對 `project-site/` 的站下指令：本庫模式，只提交該站路徑、每次開本機分支）：目前是 P1 命令列原型 `node studio/vs3d.mjs`（說明見 `studio/README.md`，測試 `node --test "studio/test/*.test.mjs"`）；計畫書在本機 `TEMP/3d-app-plan.md`；元件資料庫（介面「元件庫」、`vs3d parts`，SQLite 檔 `studio/data/parts.db` 只留本機） |
 | `.githooks/` | pre-commit 範圍檢查 |
@@ -94,6 +94,7 @@ node --import ./core/tools/register.mjs tools/verify-interference.mjs   # 四站
   - 專案 CSS 不要再寫隱藏或縮小這些區塊的窄螢幕規則。
 - `window.sim` 用 `exposeSim(...)`；錄影在 `?movie` 時呼叫 `installMovie`。每頁都要連 `../core/favicon.svg`。
 - **共用功能優先放 core**：專案內發現可共用的寫法，先在專案暫代，再搬進 core，然後各站改用。
+- **共用的東西不放在某一站的資料夾**（2026-10-05 拍板）：多站會用到的執行檔（ffmpeg／ffprobe 在 `tools/bin/`）、跨站的檢查與工具放根目錄 `tools/`；站的 `tools/` 只放該站自己的檢查與產生器。
 
 ## 檢查與回歸的做法
 

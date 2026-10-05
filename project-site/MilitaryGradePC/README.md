@@ -98,7 +98,7 @@ node ../../core/tools/check.mjs MilitaryGradePC
 python tools/render_server.py
 ```
 
-開啟 [影片輸出頁](http://127.0.0.1:8766/?capture=1)，按「輸出 1080p / 30 fps MP4」。頁面須保持開啟直到顯示完成。使用本機 `tools/bin/ffmpeg.exe`（需支援 `h264_nvenc`）及 NVIDIA 驅動；不需 Playwright 或網際網路。
+開啟 [影片輸出頁](http://127.0.0.1:8766/?capture=1)，按「輸出 1080p / 30 fps MP4」。頁面須保持開啟直到顯示完成。使用庫根目錄共用的 `tools/bin/ffmpeg.exe`（需支援 `h264_nvenc`）及 NVIDIA 驅動；不需 Playwright 或網際網路。
 
 - `web/js/video.js`：從實際工序生成分鏡，以確定時間取樣，合成 1080p 字幕與畫面。
 - `tools/render_server.py`：僅監聽 127.0.0.1:8766，驗證影格順序與總數，交給 NVENC 編碼。

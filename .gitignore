@@ -22,7 +22,7 @@ _site/
 node_modules/
 
 # 錄影用 ffmpeg／ffprobe（setup.ps1 -Ffmpeg 下載，不進版控）
-/project-site/MilitaryGradePC/tools/bin/
+/tools/bin/
 
 # 本機筆記與個人設定
 question_log.txt

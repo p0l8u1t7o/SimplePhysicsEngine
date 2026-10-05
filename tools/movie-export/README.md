@@ -5,7 +5,7 @@
 全自動，不必開瀏覽器按按鈕：用 `core/tools/build-site.mjs` 建單站網站副本（`TEMP/mp4-export-*`，結束即刪），在 127.0.0.1:8810～8819 開接收端（端點與資料格式同 `server.py`），以無頭 Chrome／Edge（新模式、D3D11 GPU）開 `/<專案>/?pause&movie&auto`，影格送進 ffmpeg（NVENC 可用就用，否則 libx264），最後用 ffprobe 核對影格數。
 
 - 成品預設在 `TEMP/videos/<專案>-<日期>/<專案>_1080p30.mp4`＋`.shots.json`（`verify.py --output` 可直接用），也可指定 `node core/tools/export-mp4.mjs <專案> <輸出資料夾>`。已有成品時不覆寫。
-- 選項：`--port`、`--encoder auto|h264_nvenc|libx264`、`--ffmpeg`（否則 `FFMPEG_PATH` ＞ 軍規專案 `tools/bin/ffmpeg.exe` ＞ PATH）、`--chrome`（否則 `CHROME_PATH`）、`--samples`（另存抽查影格）、`--manual`（只開接收端，用自己的瀏覽器按「檢查鏡頭與固定影格」等按鈕）。
+- 選項：`--port`、`--encoder auto|h264_nvenc|libx264`、`--ffmpeg`（否則 `FFMPEG_PATH` ＞ 共用的 `tools/bin/ffmpeg.exe` ＞ PATH）、`--chrome`（否則 `CHROME_PATH`）、`--samples`（另存抽查影格）、`--manual`（只開接收端，用自己的瀏覽器按「檢查鏡頭與固定影格」等按鈕）。
 - 每 5% 印一行進度；Ctrl+C 會關掉 Chrome、ffmpeg 與伺服器並刪掉未完成的成品。
 - 程式內使用：`import { exportMp4 } from './core/tools/export-mp4.mjs'`，`await exportMp4(專案, 輸出資料夾, { log, port, ffmpeg, encoder, chrome, signal })` 回傳 `{ file, frames, seconds, duration, size, encoder, gpu, warnings }`。
 
@@ -16,7 +16,7 @@ Python 版的接收端（`prepare.py`、`server.py`）已於 2026-10-04 退役�
 錄影程式在 `core/movie/movie.js`：各專案在自己的 `main.js` 於網址帶 `?movie` 時呼叫 `installMovie()`，並在那裡提供本站的取樣、追焦與細節重播設定（範本已經接好）。手動預覽可以在 `node core/tools/export-mp4.mjs <專案> --manual` 開的頁面拖曳時間軸、按「檢查鏡頭與固定影格」。
 
 - 網站副本在 `TEMP/mp4-export-*`（結束即刪），成品與抽查影格在 `TEMP/videos/`，均由 `.gitignore` 排除。
-- GPU WebGL 以 3840×2160 取樣後縮至 1920×1080、30 fps，改善細線與金屬邊緣閃爍。接收器實際試編碼後優先使用 NVENC H.264；不可用時回退 libx264。使用軍規專案既有的 `tools/bin/ffmpeg.exe`。
+- GPU WebGL 以 3840×2160 取樣後縮至 1920×1080、30 fps，改善細線與金屬邊緣閃爍。接收器實際試編碼後優先使用 NVENC H.264；不可用時回退 libx264。使用共用的 `tools/bin/ffmpeg.exe`（`scripts\setup.ps1 -Ffmpeg` 下載，不進版控）。
 - 每一步依絕對時間渲染、確認影格順序後送入編碼器，不依賴螢幕更新率。保留完整製程順序，長製程展示加速，短動作延長供觀察。
 - 開場 12 秒：依設備外廓自動框入整機，先停留 3 秒，再以 9 秒緩慢拉近。拉遠製程追焦距離，以絕對時間預算並平滑焦點，避免取放對象切換時跳鏡頭。
 - 錄製副本使用對數深度及合理 near plane，固定繪圖緩衝區大小，提高陰影解析度並抑制過尖的金屬高光。取像頻閃的製程事件／LED 保留，影片不使用頻閃聚光燈照亮整個場景。

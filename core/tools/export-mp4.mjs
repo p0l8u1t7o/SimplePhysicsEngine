@@ -38,10 +38,10 @@ const wait = (ms, v) => new Promise(r => setTimeout(() => r(v), ms).unref());   
 const isJpeg = b => b.length > 2 && b[0] === 0xff && b[1] === 0xd8;
 const clock = s => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
 
-// ffmpeg：參數 ＞ FFMPEG_PATH ＞ 軍規專案 tools/bin ＞ PATH（同 studio/lib/server.mjs 的 findFfmpeg）
+// ffmpeg：參數 ＞ FFMPEG_PATH ＞ 本庫共用的 tools/bin ＞ PATH（同 studio/lib/util.mjs 的 findFfmpeg）
 export function findFfmpeg(given) {
   if (given) { if (!existsSync(given)) throw new Error(`找不到 ffmpeg：${given}`); return given; }
-  for (const c of [process.env.FFMPEG_PATH, join(REPO, 'project-site', 'MilitaryGradePC', 'tools', 'bin', 'ffmpeg' + EXE)].filter(Boolean)) if (existsSync(c)) return c;
+  for (const c of [process.env.FFMPEG_PATH, join(REPO, 'tools', 'bin', 'ffmpeg' + EXE)].filter(Boolean)) if (existsSync(c)) return c;
   return spawnSync('ffmpeg', ['-version'], { windowsHide: true }).status === 0 ? 'ffmpeg' : null;
 }
 

@@ -124,6 +124,7 @@ Node 端由 `core/tools/loader.mjs` 解析相同的三種名稱，檢查程式�
 
 | 版本 | 日期 | 內容 |
 |---|---|---|
+| 1.8.1 | 2026-10-05 | ffmpeg／ffprobe 的預設位置改成共用的 `tools/bin/`（原本在軍規專案的 `tools/bin/`）；`setup.ps1 -Ffmpeg` 會把舊位置的搬過去 |
 | 1.8.0 | 2026-10-04 | 結構檢查 `structure`（check、pre-commit）、`docs/` 萬用忽略規則 |
 | 1.7.0 | 2026-10-04 | 錄影步驟 `offset`／`speed`、`targetSeconds`、`far`、`glandShots` |
 | 1.6.0 | 2026-10-04 | 成品匯出（`export.mjs`：網站壓縮檔、單一 HTML、MP4）、`zip.mjs`、離線伺服器、範本接上錄影；Python 錄影接收端退役 |

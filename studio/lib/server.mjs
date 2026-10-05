@@ -17,7 +17,7 @@ import { createReadStream, existsSync, mkdirSync, readdirSync, statSync, writeFi
 import { join, extname, normalize, basename } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { STUDIO, REPO, readJson, writeJson, readText, inside, freePort } from './util.mjs';
+import { STUDIO, readJson, writeJson, readText, inside, freePort, findFfmpeg } from './util.mjs';
 import { paths, projectPaths, initWorkspace } from './workspace.mjs';
 import { loadState } from './loop.mjs';
 import { loadQuestions, recordAnswer, parseChoice } from './questions.mjs';
@@ -33,13 +33,6 @@ const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; cha
   '.md': 'text/markdown; charset=utf-8', '.txt': 'text/plain; charset=utf-8', '.pdf': 'application/pdf', '.mp4': 'video/mp4', '.ico': 'image/x-icon' };
 const VIDEO = /\.(mp4|mov|avi|mkv|m4v|webm)$/i;
 const FILE_AREAS = /^(TEMP|docs|\.studio\/(plan|reviews|render))(\/|$)/;
-
-// ffmpeg：環境變數 FFMPEG_PATH ＞ 本庫 scripts/setup.ps1 下載的 ＞ PATH
-function findFfmpeg() {
-  const cands = [process.env.FFMPEG_PATH, join(REPO, 'project-site', 'MilitaryGradePC', 'tools', 'bin', process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg')].filter(Boolean);
-  for (const c of cands) if (existsSync(c)) return c;
-  return spawnSync('ffmpeg', ['-version'], { windowsHide: true }).status === 0 ? 'ffmpeg' : null;
-}
 
 // repo：本庫根目錄（本庫模式，計畫書 4.10）；給了就同時列出 project-site/ 的各站，專案代號用 @<名稱>
 export async function startUi(ws, { port = 8780, log = console.log, repo = null, partsDb } = {}) {

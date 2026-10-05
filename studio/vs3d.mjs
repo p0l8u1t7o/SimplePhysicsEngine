@@ -45,7 +45,7 @@ import { isolationProbe } from './lib/probe.mjs';
 import { defaultWorkspace, readText, readJson, writeJson } from './lib/util.mjs';
 import { exportHandoff, importHandoff } from './lib/handoff.mjs';
 import * as repoGit from './lib/repo.mjs';
-import { REPO, git } from './lib/util.mjs';
+import { REPO, git, findFfmpeg } from './lib/util.mjs';
 
 const VALUE = new Set(['--text', '--text-file', '--workspace', '--private', '--prompt', '--prompt-file', '--title', '--summary', '--cli', '--model', '--role', '--effort', '--note', '--max-rounds', '--timeout', '--other', '--focus', '--port', '--out', '--name', '--category', '--project', '--db']);
 
@@ -127,7 +127,9 @@ switch (cmd) {
     const tool = join(paths(ws).core, 'tools', 'export.mjs');
     if (!existsSync(tool)) fail('工作區的 core 太舊，沒有匯出工具：先執行 vs3d init --refresh-core');
     const formats = ['zip', 'html', 'mp4'].filter(f => o[f]).map(f => '--' + f);
-    const child = spawn(process.execPath, [tool, name, ...formats, '--out', projectPaths(ws, name).temp + '/exports'], { cwd: ws, stdio: 'inherit', windowsHide: true });
+    // 工作區的 core 找不到本庫共用的 tools/bin，所以把 ffmpeg 的位置用環境變數交給它
+    const ff = findFfmpeg();
+    const child = spawn(process.execPath, [tool, name, ...formats, '--out', projectPaths(ws, name).temp + '/exports'], { cwd: ws, stdio: 'inherit', windowsHide: true, env: { ...process.env, ...(ff && ff !== 'ffmpeg' ? { FFMPEG_PATH: ff } : {}) } });
     process.exitCode = await new Promise(r => child.on('close', r));
     break;
   }
