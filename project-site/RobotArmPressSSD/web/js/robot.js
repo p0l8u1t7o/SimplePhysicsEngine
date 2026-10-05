@@ -4,11 +4,13 @@
 import * as THREE from 'three';
 import { createVS068, VS068_MAT, JOINTS, JOINT_SPEED } from '@core/models/robots/denso-vs068.js';
 import { cable, CABLE } from '@core/electrical/cable-routing.js';
-import { bevelBox, block, cylinder, decal, screw, tube } from '@core/geom/shapes.js';
+import { block, cylinder, decal, screw, tube } from '@core/geom/shapes.js';
 import { MAT } from '@core/geom/materials.js';
 // 市購小件用 core 共用模型（core 1.9.0）：力覺感測器、手腕條形光
 import { ftSensor } from '@core/models/sensors.js';
 import { barLight } from '@core/models/lights.js';
+// core 1.10.0：手腕斜視相機（機身、鏡頭、調焦環、保護玻璃、螺絲、閃光燈、虛擬相機）
+import { visionCamera } from '@core/models/vision.js';
 
 const matArmD  = VS068_MAT.dark;
 const matJoint = VS068_MAT.joint;
@@ -18,9 +20,6 @@ const matAnod  = MAT.steelDark;   // 陽極處理件（力感測器、快拆介�
 const matPU    = MAT.pu;          // PU 壓墊
 const matGlass = MAT.glass;       // 鏡頭玻璃
 const D2R = Math.PI / 180;
-
-function cyl(r1, r2, h, mat, seg = 32) { const m = new THREE.Mesh(new THREE.CylinderGeometry(r1, r2, h, seg), mat); m.castShadow = m.receiveShadow = true; return m; }
-function box(w, h, d, mat) { return bevelBox(w,h,d,mat,Math.min(6,w*.08)); }
 
 // 工具幾何（供序列與驗證共用）
 export const TOOL = {
@@ -75,16 +74,24 @@ export function createRobot() {
   cameraBracket.name = 'camera-bracket';
   const camAxis = new THREE.Vector3(0, -Math.sin(TOOL.camTilt * D2R), Math.cos(TOOL.camTilt * D2R));
   const camCenter = new THREE.Vector3(0, TOOL.camY, TOOL.camZ);
-  const camMount = new THREE.Group(); camMount.position.copy(camCenter);
+  // 相機本體用 core 共用模型 visionCamera：光軸 +Z、原點在機身中心；root 就是原本的 camMount 群組。
+  // 機身（倒角）、鏡頭、保護玻璃、調焦環 ×5、固定螺絲 ×4、閃光燈、子畫面用的虛擬相機都在模型裡。
+  const cam = visionCamera.create({
+    name: 'wrist-camera', axis: '+z',
+    body: { size: [44, 34], length: 47, at: 0, bevel: Math.min(6, 44 * .08), material: matArmD, name: 'camera-body' },
+    lens: { r: 16, length: 40, at: 23.5 + 20, material: matJoint },
+    glass: { r: 12, length: 1, at: TOOL.camReach + 0.4, material: matGlass },   // 前面離鏡筒端面 0.9 mm
+    bands: { ats: [28, 34, 49, 56, 62], r: 16, tube: .7, segments: [6, 40], material: matTool },
+    screws: { points: [[-18, -12, 23.5], [-18, 12, 23.5], [18, -12, 23.5], [18, 12, 23.5]], r: 1.5, axis: 'z' },
+    ring: false, spot: { distance: 500, angle: .5, at: 60, target: 260, power: 300 },
+    // 手臂相機視角（子畫面用）：IMX183 1 吋（13.2 × 8.8 mm）、25 mm 鏡頭
+    view: { fov: 2 * Math.atan(8.8 / 2 / 25) / D2R, near: 5, at: TOOL.camReach, up: [0, 1, 0], name: '' },   // name ''：原本的虛擬相機沒有名稱
+  });
+  const camMount = cam.root; camMount.position.copy(camCenter);
   camMount.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), camAxis); tool.add(camMount);
-  camMount.name = 'wrist-camera';
-  const cameraBody = box(44, 34, 47, matArmD); cameraBody.name = 'camera-body'; camMount.add(cameraBody);
-  const lens = cyl(16, 16, 40, matJoint); lens.rotation.x = Math.PI / 2; lens.position.z = 23.5 + 20; camMount.add(lens);
-  const lensGlass = cyl(12, 12, 1, matGlass); lensGlass.rotation.x = Math.PI / 2; lensGlass.position.z = TOOL.camReach + 0.4; camMount.add(lensGlass);   // 前面離鏡筒端面 0.9 mm
-  for(const z of [28,34,49,56,62]) {
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(16,.7,6,40),matTool); ring.position.z=z; camMount.add(ring);
-  }
-  for(const x of [-18,18]) for(const y of [-12,12]) screw(camMount,[x,y,23.5],1.5,'z');
+  const pipCam = cam.camera;
+  // 機身標籤留在站內（不用模型的 label 選項）：模型只在載入時已有 document 才建立標籤，
+  // 而本站與根目錄的 verify 腳本是載入模組之後才補 document，交給模型的話那些檢查會少一個相機零件
   decal(camMount,25,12,[0,17.7,-3],[-Math.PI/2,0,0],['VISION','20 MP'],{color:'#c5d0d8',center:true});
   // Route along the outside of the mounting plate, on the tool side of the
   // flange; the previous rearward loop entered the rotating wrist envelope.
@@ -94,12 +101,6 @@ export function createRobot() {
   // 100 mm 條形光（core 共用模型：只有發光條、倒角 6；亮暗由 setFlash 直接改 lightMat）
   const wristLight = barLight.create({ axis: 'x', housing: false, length: 100, lensT: 10, lensW: 16, bevel: 6, lensMaterial: lightMat });
   wristLight.root.position.set(0, 30, 52); camMount.add(wristLight.root);
-  const flash = new THREE.SpotLight(0xffffff, 0, 500, 0.5, 0.5, 1); flash.position.set(0, 0, 60); flash.target.position.set(0, 0, 260); camMount.add(flash, flash.target);
-  // 手臂相機視角（子畫面用）：IMX183 1"（13.2 × 8.8 mm）、25 mm 鏡頭
-  const pipCam = new THREE.PerspectiveCamera(2 * Math.atan(8.8 / 2 / 25) / D2R, 1.5, 5, 3000);
-  pipCam.position.set(0, 0, TOOL.camReach);
-  pipCam.quaternion.setFromRotationMatrix(new THREE.Matrix4().lookAt(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 1, 0)));
-  camMount.add(pipCam);
   const cameraParts = [cameraBracket, cameraCable];
   camMount.traverse(o => { if (o.isMesh) cameraParts.push(o); });
 
@@ -211,7 +212,7 @@ export function createRobot() {
   }
 
   const setForceColor = ft.setForce;   // 力值色環：< 2 N 綠、< 45 N 黃、其餘紅
-  function setFlash(on) { flash.intensity = on ? 300 : 0; lightMat.emissiveIntensity = on ? 1.1 : 0.05; }
+  function setFlash(on) { cam.set(on); lightMat.emissiveIntensity = on ? 1.1 : 0.05; }   // 閃光燈 300／0
   /** 快拆壓墊：'bar'（標準 8 頭整排）或 'single'（單顆機種的單點壓頭） */
   function setInsert(kind) { single.visible = kind !== 'bar'; bar.visible = kind === 'bar'; }
   /** 壓頭彈簧壓縮量（mm）；8 頭時可逐顆給值 */

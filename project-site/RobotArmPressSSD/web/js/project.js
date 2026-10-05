@@ -81,7 +81,7 @@ export function createProject({ scene, headless = false, recipe: recipeKey, inse
       rows.push({ group: '輸送', name: '載盤前緣靠止擋面', ok: Math.abs(place.x + w / 2 - LAYOUT.stopFace) < 1e-6, value: +(place.x + w / 2).toFixed(1), note: `止擋面 x=${LAYOUT.stopFace}` });
       rows.push({ group: '輸送', name: '載盤後緣貼後軌基準邊', ok: Math.abs(place.z - d / 2 - LAYOUT.rearInner) < 1e-6, value: +(place.z - d / 2).toFixed(1) });
       // 全局相機：頂升後整盤（含接頭高度）都在視野內
-      const cam = cell.globalCam; cam.aspect = 1.5; cam.updateProjectionMatrix(); cam.updateMatrixWorld(true);
+      const cam = cell.globalCam; cam.aspect = 1.5; cam.updateProjectionMatrix(); cam.updateWorldMatrix(true, false);   // 相機是模型 root 的子物件：連父層一起更新
       const y = LAYOUT.conveyorTop + LAYOUT.liftStroke, corners = [];
       for (const sx of [-1, 1]) for (const sz of [-1, 1]) for (const dy of [0, pt + 12]) corners.push(new THREE.Vector3(place.x + sx * w / 2, y + dy, place.z + sz * d / 2).project(cam));
       const margin = Math.max(...corners.map(p => Math.max(Math.abs(p.x), Math.abs(p.y))));

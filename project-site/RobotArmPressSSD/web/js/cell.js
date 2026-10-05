@@ -5,13 +5,17 @@ import {robotController,controllerLeads} from '@core/electrical/electrical-compo
 import * as THREE from 'three';
 import {cabinetShell,controlPanel,entryGland,panelFeed} from '@core/electrical/electrical-cabinet.js';
 import { cable, cableTray, support, CABLE } from '@core/electrical/cable-routing.js';
-import { block, cylinder, decal, screw } from '@core/geom/shapes.js';
+import { block, decal } from '@core/geom/shapes.js';
 import { MAT, finished } from '@core/geom/materials.js';
 import { floor } from '@core/geom/environment.js';
 // 市購小件用 core 共用模型（core 1.9.0）：三色燈、HMI、急停、盒型感測器、條形光
 import { signalTower, hmi, estop } from '@core/models/indicators.js';
 import { boxSensor } from '@core/models/sensors.js';
 import { barLight } from '@core/models/lights.js';
+// core 1.10.0：邊皮帶雙軌輸送段（含調寬機構）、止擋、頂升氣缸、門互鎖開關、全局相機
+import { edgeBeltConveyor, stopper } from '@core/models/transport.js';
+import { airCylinder, doorSwitch } from '@core/models/motion.js';
+import { visionCamera } from '@core/models/vision.js';
 
 export const LAYOUT = {
   conveyorTop: 900,                   // SMT 輸送面（載盤底面）
@@ -35,11 +39,9 @@ export function palletPlacement(recipe) {
 const matFrame = MAT.frame;       // 鋁擠型框架、橫樑、立柱
 const matDark  = MAT.black;       // 黑色件（氣缸、感測器座、相機本體）
 const matCab   = MAT.cabinet;     // 機台底櫃烤漆
-const matBlue  = MAT.steelBlue;   // 藍色烤漆（皮帶驅動、感測器）
 const matYellow= MAT.yellow;      // 地面標線、按鈕座
 const matAlu   = finished(MAT.alu, 'metal');   // 拉絲鋁：軌道、壓邊、頂升支撐板
 const matBelt  = new THREE.MeshStandardMaterial({ color: 0x2e7d56, roughness: 0.75 });
-const matPin   = MAT.chrome;      // 拋光銷：橫向導桿、止擋銷
 const matPC    = new THREE.MeshPhysicalMaterial({ color: 0xcfe3ff, roughness: 0.1, transmission: 0.3, transparent: true, opacity: 0.12, depthWrite: false, side: THREE.DoubleSide });
 
 export function createCell(scene, recipe) {
@@ -51,38 +53,27 @@ export function createCell(scene, recipe) {
   for (const z of [900, -1100]) block(g, [4200, 1, 40], [0, 1, z], matYellow);
 
   // ---- 輸送段：後軌固定、前軌依配方寬度；平皮帶、壓邊、端輪、腳架 ----
-  const beltMarks = [];
-  const railZ = { rear: { rail: rearInner - 10, lip: rearInner + 3, belt: rearInner + 4 }, front: { rail: frontInner + 10, lip: frontInner - 3, belt: frontInner - 4 } };
+  // 每段一個 edgeBeltConveyor（core 共用模型）：root 只移到兩軌中心線（Z），本地 X 就是站的座標。
+  // 軌道、壓邊、鎖付螺絲、外側飾條、皮帶、端輪、支腳＋腳座、橫撐、皮帶驅動、皮帶刻線都在模型裡；
+  // 本站段（si === 1）另外帶寬度調整機構（伺服＋滾珠螺桿的導桿與伺服座，依配方自動調寬）。站名與軌寬貼紙留在站內。
+  const beltMarks = [], railGap = frontInner - rearInner, railMid = (rearInner + frontInner) / 2;
   LAYOUT.segments.forEach(([x0, x1], si) => {
-    const len = x1 - x0, cx = (x0 + x1) / 2, station = si === 1;
-    for (const side of ['rear', 'front']) {
-      const z = railZ[side];
-      const rail = block(g, [len, 50, 20], [cx, top - 13, z.rail], matAlu);
-      const lip = block(g, [len, 3, 6], [cx, top + LAYOUT.liftStroke + 7.5, z.lip], matAlu);
-      for(let x=x0+65;x<x1-25;x+=130) screw(g,[x,top+12.3,z.rail],3.2);
-      block(g,[len-4,1.4,1],[cx,top-7,z.rail+(side==='front'?10.5:-10.5)],matDark);   // 外側面距軌面 1 mm，避免重合面閃爍
-      block(g, [len - 30, 2, 8], [cx, top - 1, z.belt], matBelt);
-      for (const x of [x0 + 15, x1 - 15]) cylinder(g, 14, 10, [x, top - 15, z.belt], matDark, 'z');
-      if (station) { ko(rail, side === 'rear' ? '後軌' : '前軌'); ko(lip, side === 'rear' ? '後軌壓邊' : '前軌壓邊'); }
-      for (const x of [x0 + 40, x1 - 40]) { block(g, [40, top - 38, 40], [x, (top - 38) / 2, z.rail], matFrame); block(g, [90, 10, 70], [x, 5, z.rail], matDark); }
-    }
-    for (const x of [x0 + 40, x1 - 40]) block(g, [30, 30, frontInner - rearInner + 40], [x, top - 60, (rearInner + frontInner) / 2], matFrame);
-    block(g, [120, 90, 80], [x1 - 120, top - 95, rearInner - 70], matBlue);            // 皮帶驅動
-    const marks = new THREE.Group(); g.add(marks); beltMarks.push(marks);
-    for (let x = x0 + 30; x < x1 - 30; x += 60) for (const side of ['rear', 'front']) block(marks, [3, 0.6, 7], [x, top + 0.3, railZ[side].belt], matAlu);
-    decal(g, 150, 22, [cx, top - 20, frontInner + 21.2], [0, 0, 0], si === 0 ? '上游 · 前站放置 USB' : si === 1 ? 'USB 壓合＋檢查站' : '下游 · 迴焊爐', { bg: '#122d3c', color: '#9fd8ff', center: true });
+    const c = edgeBeltConveyor.create({ span: [x0, x1], width: railGap, top,
+      rail: { material: matAlu }, lip: { y: top + LAYOUT.liftStroke + 7.5, material: matAlu }, fasteners: { y: top + 12.3 }, strip: true,   // 飾條外側面距軌面 1 mm，避免重合面閃爍
+      belt: { material: matBelt }, marks: { material: matAlu }, adjust: si === 1 ? { x: [-450, 450] } : false });
+    c.root.position.z = railMid; g.add(c.root); beltMarks.push(c.marks);
+    // keepout 順序與原本相同：後軌、後軌壓邊、前軌、前軌壓邊（模型的 rails／lips 依 [−Z, +Z] 排列）
+    if (si === 1) { ko(c.rails[0], '後軌'); ko(c.lips[0], '後軌壓邊'); ko(c.rails[1], '前軌'); ko(c.lips[1], '前軌壓邊'); }
+    decal(g, 150, 22, [(x0 + x1) / 2, top - 20, frontInner + 21.2], [0, 0, 0], si === 0 ? '上游 · 前站放置 USB' : si === 1 ? 'USB 壓合＋檢查站' : '下游 · 迴焊爐', { bg: '#122d3c', color: '#9fd8ff', center: true });
   });
-  // 寬度調整：伺服＋滾珠螺桿（依配方自動調寬）
-  for (const x of [-450, 450]) { cylinder(g, 8, frontInner - rearInner + 80, [x, top - 55, (rearInner + frontInner) / 2 + 10], matPin, 'z', 12); block(g, [50, 50, 60], [x, top - 55, frontInner + 70], matBlue); }
   decal(g, 120, 16, [450, top - 20, frontInner + 101], [0, 0, 0], `軌寬 ${recipe.pallet.d} mm`, { bg: '#102635', color: '#9fd8ff', center: true });
 
   // ---- 本站：止擋（前緣定位）、頂升支撐板（無定位銷，後軌為基準邊）、感測器 ----
-  block(g, [30, 40, 30], [LAYOUT.stopFace + 12, top - 40, place.z], matDark);
-  const stopPin = new THREE.Group(); g.add(stopPin);
-  ko(cylinder(stopPin, 6, 26, [LAYOUT.stopFace + 6, top - 1, place.z], matPin, 'y', 16), '止擋');
+  // 止擋（core 共用模型 stopper：氣缸本體＋升降的止擋銷，行程 24）；keepout 登記的是止擋銷網格
+  const stop = stopper.create({ partName: '止擋' }); stop.root.position.set(LAYOUT.stopFace + 6, top, place.z); g.add(stop.root); keepout.push(stop.part);
   const lift = new THREE.Group(); g.add(lift);
   block(lift, [240, 8, 155], [10, top - 8, rearInner + 87.5], matAlu);               // 支撐板：取最小載盤可涵蓋的範圍；後緣離後皮帶 2 mm，頂升時不穿過皮帶
-  for (const x of [-80, 100]) block(g, [40, 60, 40], [x, top - 50, rearInner + 85], matDark);  // 頂升氣缸
+  for (const x of [-80, 100]) { const c = airCylinder.create({ rod: false, bodyMaterial: matDark }); c.root.position.set(x, top - 50, rearInner + 85); g.add(c.root); }  // 頂升氣缸（core 共用模型，只有本體 40×60×40）
   const sensors = [];
   for (const [x, name] of [[LAYOUT.entrySensorX, '入口'], [LAYOUT.posSensorX, '到位']]) {
     const s = boxSensor.create(); s.root.position.set(x, top + 22, rearInner - 14); g.add(s.root);   // 盒型光電＋頂面動作指示燈
@@ -108,18 +99,21 @@ export function createCell(scene, recipe) {
   const [gx, gy, gz] = LAYOUT.globalCam;
   ko(block(g, [40, 40, z1 - z0], [gx, h - 60, (z0 + z1) / 2], matFrame), '全局相機橫樑');
   ko(block(g, [30, h - 80 - (gy + 90), 30], [gx, (h - 80 + gy + 90) / 2, gz], matFrame), '全局相機吊桿');
-  const gcam = new THREE.Group(); gcam.position.set(gx, gy, gz); g.add(gcam);
-  ko(block(gcam, [44, 47, 34], [0, 60, 0], matDark), '全局相機');
-  ko(cylinder(gcam, 16, 36, [0, 18, 0], MAT.black, 'y', 20), '全局相機鏡頭');
+  // 相機本體（core 共用模型 visionCamera）：光軸朝下、原點在鏡頭前緣；機身、鏡頭、閃光燈、虛擬相機都在 root（gcam）裡
+  const cam = visionCamera.create({
+    material: matDark, body: { at: -60 }, lens: { r: 16, segments: 20 }, glass: false, ring: false,
+    spot: { distance: 1400, angle: .45, at: -1, target: 800, power: 1800 },   // at −1：原本的聚光燈沒設位置（three.js 預設在後方 1 mm）
+    view: { fov: 2 * Math.atan(8.8 / 2 / 20) * 180 / Math.PI, near: 50, at: 0, up: [0, 0, -1], name: '' },   // name ''：原本的虛擬相機沒有名稱
+  });
+  const gcam = cam.root; gcam.position.set(gx, gy, gz); g.add(gcam);
+  ko(cam.body, '全局相機'); ko(cam.lens, '全局相機鏡頭');
   const gLightMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.05 });
   for (const s of [-1, 1]) {
     // 條形光 ×2（只有發光條，兩支共用材質一起亮暗）；keepout 登記的是發光條網格
     const bar = barLight.create({ axis: 'x', housing: false, length: 260, lensT: 12, lensW: 30, lensMaterial: gLightMat });
     bar.root.position.set(0, 20, s * 70); gcam.add(bar.root); ko(bar.lens, '全局光源');
   }
-  const gFlash = new THREE.SpotLight(0xffffff, 0, 1400, 0.45, 0.5, 1); gFlash.target.position.set(0, -800, 0); gcam.add(gFlash, gFlash.target);
-  const globalCam = new THREE.PerspectiveCamera(2 * Math.atan(8.8 / 2 / 20) * 180 / Math.PI, 1.5, 50, 3000);
-  globalCam.position.set(gx, gy, gz); globalCam.up.set(0, 0, -1); globalCam.lookAt(gx, top, gz); g.add(globalCam);
+  const globalCam = cam.camera;   // 虛擬相機是 gcam 的子物件（畫面上方＝−Z）；單獨更新矩陣要用 updateWorldMatrix(true, false)
 
   // ---- 外罩：鋁擠型框＋壓克力（可隱藏）、前門互鎖、三色燈、HMI、急停 ----
   const occ = new THREE.Group(); occ.name = 'occluders'; g.add(occ);
@@ -132,7 +126,8 @@ export function createCell(scene, recipe) {
   block(occ, [2 * ex, 40, 30], [0, 1000, z1], matFrame);
   block(occ, [2 * ex, 900, 2], [0, 510, z1], matPC);
   for (const x of [-ex, ex]) { block(occ, [2, h - 980, z1 - z0], [x, 980 + (h - 980) / 2, (z0 + z1) / 2], matPC); block(occ, [2, 780, z1 - z0], [x, 450, (z0 + z1) / 2], matPC); }
-  block(occ, [60, 22, 30], [ex - 120, 1520, z1 + 18], matDark); decal(occ, 70, 14, [ex - 120, 1545, z1 + 34], [0, 0, 0], '前門互鎖', { center: true });
+  const doorSw = doorSwitch.create({ actuator: false }); doorSw.root.position.set(ex - 120, 1520, z1 + 18); occ.add(doorSw.root);   // 門互鎖開關（core 共用模型，60×22×30）
+  decal(occ, 70, 14, [ex - 120, 1545, z1 + 34], [0, 0, 0], '前門互鎖', { center: true });
   // HMI：整塊螢幕色機身＋固定文字貼紙（貼紙在機身前面 1 mm）
   const hmiPanel = hmi.create({ w: 210, h: 150, d: 16, bevel: 0, bodyMaterial: MAT.screen, panel: false,
     text: { lines: ['USB 壓合站', recipe.short, 'SIMULATION'], w: 190, h: 125, options: { bg: '#102635', color: '#65d7b8' } } });
@@ -152,9 +147,9 @@ export function createCell(scene, recipe) {
   return {
     group: g, occluders: occ, keepout, sensors, globalCam, place,
     tower: { set(k) { tower.set(k); } },   // 亮 1.6、暗 0.08（模型預設值）
-    setStop(v) { stopPin.position.y = (v - 1) * 24; },
+    setStop(v) { stop.set(v); },   // 1 升起、0 降下 24 mm
     setLift(v) { lift.position.y = v * (LAYOUT.liftStroke + 4); },
-    setGlobalFlash(on) { gFlash.intensity = on ? 1800 : 0; gLightMat.emissiveIntensity = on ? 1.2 : 0.05; },
+    setGlobalFlash(on) { cam.set(on); gLightMat.emissiveIntensity = on ? 1.2 : 0.05; },   // 閃光燈 1800／0
     updateTransport(x, sensorOn) {
       for (const marks of beltMarks) marks.position.x = ((x % 60) + 60) % 60;
       for (const s of sensors) s.led.material.emissiveIntensity = sensorOn(s) ? 1.4 : 0;
