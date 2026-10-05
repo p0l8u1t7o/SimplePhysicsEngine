@@ -4,11 +4,12 @@
 import * as THREE from 'three';
 import { cable, CABLE } from '@core/electrical/cable-routing.js';
 import { createCobottaPro900, MAT as ARM_MAT, JOINTS } from '@core/models/robots/denso-cobotta-pro900.js';
+import { parallelGripper } from '@core/models/motion.js';
 import { block, cylinder, decal } from '@core/geom/shapes.js';
 import { MAT } from '@core/geom/materials.js';
 
 const matTool  = ARM_MAT.tool;
-const matAnod  = MAT.steelDark;                                              // 陽極處理鋁件（快換盤、導軌、滑座）
+const matAnod  = MAT.steelDark;                                              // 陽極處理鋁件（快換盤；夾爪模型的導軌、滑座預設也是這個材質）
 const matPad   = new THREE.MeshStandardMaterial({ color: 0x1b1d20, roughness: 0.95 });   // 橡膠指墊（霧面，留在本專案）
 const D2R = Math.PI / 180;
 
@@ -28,30 +29,23 @@ export function createRobot() {
   // ---- 末端工具：長行程電動平行夾爪（燒杯 Ø65、樣品瓶 Ø56／Ø86、瓶蓋 GL45、移液模組夾持環共用）----
   const tool = arm.mount;
   cylinder(tool, 32, 10, [0, 0, 5], matAnod, 'z', 28);                                       // 快換轉接盤
-  const [bw, bt, bh] = TOOL.body;
-  block(tool, [bw, bt, bh], [0, 0, TOOL.bodyZ + bh / 2], matTool);
-  block(tool, [bw - 20, bt + 4, 8], [0, 0, TOOL.bodyZ + bh - 5], matAnod);                    // 導軌（底面內縮 1 mm，不與本體底面重合）
+  // 夾爪本體、導軌（底面內縮 1 mm，不與本體底面重合）、滑座與手指用 core 的 parallelGripper（導軌與滑座預設就是陽極處理鋁件的深色鋼材質）
+  const [bw, bt, bh] = TOOL.body, [ft, fw, fl] = TOOL.finger;
+  const grip = parallelGripper.create({ bodyU: bw, bodyV: bt, bodyW: bh, bodyOffset: TOOL.bodyZ, bodyMaterial: matTool, jawU: ft, jawV: fw + 6, jawW: 16, jaw: { w: TOOL.fingerZ + 8 },
+    finger: { size: [ft, fw, fl - 16], w: TOOL.fingerZ + 16 + (fl - 16) / 2, material: matTool }, pad: 3, maxWidth: TOOL.maxWidth, width: 100 });
+  tool.add(grip.root);
   decal(tool, 90, 22, [0, -bt / 2 - 0.5, TOOL.bodyZ + 30], [Math.PI / 2, Math.PI, 0], 'GRIPPER', { color: '#20242a', center: true, bold: true });
-  const fingers = [];
-  for (const s of [-1, 1]) {
-    const f = new THREE.Group(); tool.add(f);
-    const [ft, fw, fl] = TOOL.finger;
-    block(f, [ft, fw + 6, 16], [0, 0, TOOL.fingerZ + 8], matAnod);                            // 滑座
-    block(f, [ft, fw, fl - 16], [0, 0, TOOL.fingerZ + 16 + (fl - 16) / 2], matTool);
-    block(f, [3, fw - 4, 30], [-s * (ft / 2 + 1.5), 0, TOOL.tcp], matPad);                  // V 槽指墊（下緣與指尖齊平）
-    f.userData.side = s; fingers.push(f);
-  }
+  const fingers = grip.fingers;                                                                // 兩個手指群組（userData.side＝−1／+1）
+  // 手指群組掛回 tool（和換用前一樣是 tool 的子群組；模型已標 cableHost = false，走線不拿它當固定面）；橡膠指墊留在本專案
+  for (const f of fingers) { tool.add(f); block(f, [3, fw - 4, 30], [-f.userData.side * (ft / 2 + 1.5), 0, TOOL.tcp], matPad); }   // V 槽指墊（下緣與指尖齊平）
 
   // TCP：夾持中心
   const tcpGrip = new THREE.Object3D(); tcpGrip.position.set(0, 0, TOOL.tcp); tool.add(tcpGrip);
   const tcps = { grip: tcpGrip };
   let width = 100;
+  // 指墊厚 3 mm、貼在手指內側：width 為兩指墊內側面距離（全閉時兩指墊剛好相貼）；手指位置＝side × (width/2 + 滑座寬/2 + 3)
   /** 夾爪開口（兩指墊內側距離，mm） */
-  function setGripper(w) {
-    width = THREE.MathUtils.clamp(w, 0, TOOL.maxWidth);
-    // 指墊厚 3 mm、貼在手指內側：width 為兩指墊內側面距離（全閉時兩指墊剛好相貼）
-    for (const f of fingers) f.position.x = f.userData.side * (width / 2 + TOOL.finger[0] / 2 + 3);
-  }
+  function setGripper(w) { grip.set(w); width = grip.width; }
   setGripper(width);
   const toolParts = [];
   tool.traverse(m => { if (m.isMesh && m.geometry.type !== 'PlaneGeometry') toolParts.push(m); });
