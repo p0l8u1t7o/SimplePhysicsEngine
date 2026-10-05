@@ -145,5 +145,6 @@ node ../../core/tools/check.mjs "RecycleSorter" --quick  # 部署前快速檢查
 | `web/js/main.js` | 舞台（`look`／`extent`）、`createViewerWorkspace`、視角、站別按鈕、3D 標籤、播放列、面板、`exposeSim` |
 | `tools/verify.mjs` | 本專案的製程規則檢查（節拍、類別與目的地、落料位置、導料板開口、漏抓警報、前段 ABB 的抓取與放行） |
 | `tools/render-audit.mjs`、`tools/render-b-audit.mjs` | 兩輪渲染補強的守門工具（狀態／動件回歸、配置比對、幾何預算、實例展開干涉檢查）；基準是補上前段之前的版本 |
+| `tools/build_integration_cost.py` | 產生本機的 `docs/integration-cost.xlsx`（ABB 追蹤整合與視覺／錄影／遠端訓練架構的預算級成本表）；需要 Python 與 openpyxl。評估文件是 `docs/integration-evaluation.md`（只留本機） |
 | `AGENTS.md`／`CLAUDE.md` | 本站規則：範圍、規格摘要、已拍板事項（`CLAUDE.md` 以 `@AGENTS.md` 引用） |
 | `.claude/settings.json` | 寫檔關卡：從本資料夾啟動的 Claude Code 只能改本站 |

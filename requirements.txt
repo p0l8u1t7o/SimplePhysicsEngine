@@ -5,7 +5,7 @@
 #
 # 誰會用到：
 #   pillow、numpy   tools/movie-export（audit、verify）、MilitaryGradePC/tools/verify_video.py、tools/circuit-drawings/verify.py
-#   openpyxl        shutter assembly/tools/build_cost_estimate.py（成本估算表）
+#   openpyxl        shutter assembly/tools/build_cost_estimate.py、RecycleSorter/tools/build_integration_cost.py（成本估算表）
 #   reportlab       tools/circuit-drawings（電路圖 PDF；中文字型見 REQUIREMENTS.md）
 #   pypdf           tools/circuit-drawings/verify.py
 # core/tools/compare-review.py、core/tools/codemod-shapes.py 只用標準函式庫。
