@@ -126,4 +126,32 @@ table.roles select { width: 100%; min-width: 120px; }
 .pre { white-space: pre-wrap; }
 .zoom { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: flex; align-items: center; justify-content: center; z-index: 10; cursor: zoom-out; }
 .zoom img { max-width: 96vw; max-height: 94vh; }
+/* 元件資料庫：清單、逐列編輯的表格、右側的編輯面板 */
+.page.wide { max-width: none; }
+.side .actions button { padding: 0 8px; }
+.side .actions button.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.filters select { max-width: 220px; }
+.filters input[type=search] { min-width: 240px; }
+table.parts { font-size: 13px; }
+table.parts th, table.parts .chip { white-space: nowrap; }
+table.parts td:nth-child(2) { min-width: 140px; }
+table.parts tbody tr { cursor: pointer; }
+table.parts tbody tr:not(.none):hover, table.parts tbody tr:focus-visible { background: var(--accent-soft); outline: none; }
+table.parts thead th { position: sticky; top: 0; background: var(--bg); }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.nowrap { white-space: nowrap; }
+.clip { max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip.proj { margin: 1px 3px 1px 0; white-space: nowrap; }
+table.records { font-size: 13px; }
+table.records td { vertical-align: top; }
+table.records tr.editing td { background: var(--accent-soft); padding: 4px; }
+table.records input, table.records select { width: 100%; min-width: 96px; }
+table.records input[type=number] { min-width: 84px; }
+td.ops { white-space: nowrap; width: 1%; text-align: right; }
+td.ops button { min-height: 28px; padding: 0 9px; margin-left: 4px; }
+.modal { position: fixed; inset: 0; background: rgba(10, 14, 22, .5); display: flex; justify-content: flex-end; z-index: 9; }
+.modal .panel { width: min(1120px, 100%); height: 100%; overflow: auto; background: var(--bg); padding: 20px 24px 40px; box-shadow: -8px 0 24px rgba(0, 0, 0, .2); }
+.lbl { font-weight: 600; font-size: 13px; margin-bottom: 4px; }
+.lbl small { display: inline; font-weight: normal; margin-left: 8px; }
+.attr { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(160px, 2fr) auto; gap: 6px; margin-bottom: 6px; }
 @media (max-width: 800px) { .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; } .side { max-height: 40vh; border-right: none; border-bottom: 1px solid var(--line); } .page { padding: 14px 16px 30px; } }

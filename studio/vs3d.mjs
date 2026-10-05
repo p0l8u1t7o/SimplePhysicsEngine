@@ -21,6 +21,11 @@
 //   node studio/vs3d.mjs probe <名稱> [--cli …] [--other <專案>] [--simulate]   寫入隔離自我測試（--simulate：app 另外模擬越界寫入）
 //   node studio/vs3d.mjs models                                   各 CLI 可用的模型與各角色目前的指派
 //   node studio/vs3d.mjs ui [--port 8780] [--no-open]             開啟網頁介面（http://127.0.0.1:8780/）
+//   node studio/vs3d.mjs parts [search <關鍵字…>] [--category 類別] [--project 專案] [--json]   查元件資料庫（選型、單價、哪些專案用過）
+//   node studio/vs3d.mjs parts show <id> [--json]                 單一元件的規格、價格紀錄、使用紀錄
+//   node studio/vs3d.mjs parts seed [--dry-run]                   從各站 docs/ 的成本表匯入採購品項（可重複執行，已匯入的列會跳過）
+//   node studio/vs3d.mjs parts merge <保留 id> <併入 id>           合併重複的元件
+//                                                                 資料庫檔只留本機：studio/data/parts.db（--db 或環境變數 VS3D_PARTS_DB 可以改位置）
 // 共通選項：--workspace <資料夾>（預設 %USERPROFILE%\Documents\3D-Studio，或環境變數 VS3D_WORKSPACE）
 //   --cli、--model（所有角色）、--role plan=opus,fix=haiku（個別角色；可寫 codex:<模型>）、--effort
 //   --no-wait（有問題時寫出後結束，不在終端機詢問）、--auto-approve（配置提案不必確認）、--max-rounds 40、--timeout 90（分鐘／輪）
@@ -42,7 +47,7 @@ import { exportHandoff, importHandoff } from './lib/handoff.mjs';
 import * as repoGit from './lib/repo.mjs';
 import { REPO, git } from './lib/util.mjs';
 
-const VALUE = new Set(['--text', '--text-file', '--workspace', '--private', '--prompt', '--prompt-file', '--title', '--summary', '--cli', '--model', '--role', '--effort', '--note', '--max-rounds', '--timeout', '--other', '--focus', '--port', '--out', '--name']);
+const VALUE = new Set(['--text', '--text-file', '--workspace', '--private', '--prompt', '--prompt-file', '--title', '--summary', '--cli', '--model', '--role', '--effort', '--note', '--max-rounds', '--timeout', '--other', '--focus', '--port', '--out', '--name', '--category', '--project', '--db']);
 
 // 測試用：VS3D_EXTRA_ADAPTERS 指向一個匯出 { adapters: { 名稱: adapter } } 的模組（例如假代理），讓介面的端對端測試走真正的命令列
 if (process.env.VS3D_EXTRA_ADAPTERS) Object.assign(ADAPTERS, (await import(pathToFileURL(resolve(process.env.VS3D_EXTRA_ADAPTERS)).href)).adapters);
@@ -211,11 +216,49 @@ switch (cmd) {
     for (const [r, desc] of Object.entries(ROLES)) { const x = resolveRole(r, ctx), y = resolveRole(r, ctx, 2); console.log(`  ${r.padEnd(6)} ${fmt(x)}${fmt(y) !== fmt(x) ? `；第二段 ${fmt(y)}` : ''}　${desc}`); }
     break;
   }
+  case 'parts': {
+    // 元件資料庫（node:sqlite，Node.js 22.13 以上）；新增、修改、刪除在網頁介面的「元件庫」做
+    const { openPartsDb, defaultPartsDb, PartsError } = await import('./lib/partsdb.mjs');
+    const db = openPartsDb(resolve(o.db || defaultPartsDb())), sub = name || 'search';
+    const money = p => p.unit_price == null ? '（沒有價格）' : `${p.currency === 'TWD' ? 'NT$' : p.currency + ' '}${p.unit_price.toLocaleString('en-US')}${p.grade ? `（${p.grade}）` : ''}`;
+    try {
+      if (sub === 'search' || sub === 'list') {
+        const r = db.listParts({ q: rest.join(' '), category: o.category || '', project: o.project || '' });
+        if (o.json) console.log(JSON.stringify(r.parts, null, 2));
+        else {
+          for (const p of r.parts) console.log(`#${String(p.id).padEnd(4)} [${p.category || '未分類'}] ${p.name}${p.model ? `｜${p.model}` : ''}｜${money(p)}${p.unit ? `／${p.unit}` : ''}${p.projects.length ? `｜${p.projects.join('、')}` : ''}`);
+          console.log(`${r.total} 個元件${r.total > r.parts.length ? `（只列出前 ${r.parts.length} 個）` : ''}；資料庫：${db.file}`);
+        }
+      } else if (sub === 'show') {
+        const p = db.getPart(rest[0]);
+        if (o.json) console.log(JSON.stringify(p, null, 2));
+        else {
+          console.log(`#${p.id} [${p.category || '未分類'}] ${p.name}`);
+          for (const [label, v] of [['廠牌', p.brand], ['型號／選型', p.model], ['規格', p.spec], ...Object.entries(p.attrs), ['單位', p.unit], ['選型備註', p.selection_note], ['替代方案', p.alternatives], ['標籤', p.tags], ['連結', p.url], ['備註', p.note]]) if (v) console.log(`  ${label}：${v}`);
+          console.log('  價格紀錄：' + (p.prices.length ? '' : '（無）'));
+          for (const x of p.prices) console.log(`    ${x.quoted_on || '（無日期）'}  ${money(x)}${x.supplier ? `  ${x.supplier}` : ''}${x.source ? `  ${x.source}` : ''}${x.valid_until ? `  有效至 ${x.valid_until}` : ''}${x.note ? `  ${x.note}` : ''}`);
+          console.log('  使用紀錄：' + (p.usages.length ? '' : '（無）'));
+          for (const u of p.usages) console.log(`    ${u.project} ${u.source} ${u.item_code}${u.qty != null ? `  ×${u.qty}` : ''}${u.note ? `（${u.note}）` : ''}${u.reason ? `  ${u.reason}` : ''}`);
+        }
+      } else if (sub === 'seed') {
+        const { collectCostTables, seedFromCostTables } = await import('./lib/parts-seed.mjs');
+        const names = readText(join(REPO, '.private', 'client-names.txt')).split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+        const r = seedFromCostTables(db, collectCostTables(REPO), { names, dryRun: !!o['dry-run'] });
+        for (const t of r.tables) console.log(`${t.project}／${t.source}：${t.rows} 列，匯入 ${t.imported}、已匯入過 ${t.existing}、不匯入 ${t.skipped}`);
+        console.log(`${o['dry-run'] ? '（試跑，沒有寫入）' : ''}新增元件 ${r.parts}、併入既有元件 ${r.merged}、價格紀錄 ${r.prices}、使用紀錄 ${r.usages}；不匯入：${Object.entries(r.skipped).map(([k, n]) => `${k} ${n}`).join('、') || '無'}`);
+      } else if (sub === 'merge') {
+        if (rest.length !== 2) fail('用法：vs3d parts merge <保留 id> <併入 id>');
+        const p = db.mergeParts(rest[0], rest[1]);
+        console.log(`已合併到 #${p.id} ${p.name}：${p.prices.length} 筆價格、${p.usages.length} 筆使用紀錄`);
+      } else fail('用法：vs3d parts [search <關鍵字…>｜show <id>｜seed｜merge <保留 id> <併入 id>]');
+    } catch (e) { if (e instanceof PartsError) fail(e.message); throw e; } finally { db.close(); }
+    break;
+  }
   case 'ui': {
     const { startUi } = await import('./lib/server.mjs');
     // 從本庫執行時同時列出 project-site/ 的各站（本庫模式）；--no-repo 只看工作區
     const repoRoot = o['no-repo'] ? null : isRepo(REPO) ? REPO : null;
-    const ui = await startUi(o.repo ? defaultWorkspace() : ws, { port: +(o.port || 8780), repo: repoRoot });
+    const ui = await startUi(o.repo ? defaultWorkspace() : ws, { port: +(o.port || 8780), repo: repoRoot, partsDb: o.db ? resolve(o.db) : undefined });
     if (!o['no-open'] && process.platform === 'win32') spawn('cmd', ['/c', 'start', '', `http://127.0.0.1:${ui.port}/`], { windowsHide: true, detached: true, stdio: 'ignore' }).unref();
     process.on('SIGINT', () => { ui.close(); process.exit(0); });
     break;

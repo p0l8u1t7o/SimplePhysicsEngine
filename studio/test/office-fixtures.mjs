@@ -77,3 +77,13 @@ export const xlsx = () => zip({
   'xl/drawings/_rels/drawing1.xml.rels': rels([['rId1', 'image', '../media/image1.png']]),
   'xl/media/image1.png': PNG, 'xl/media/image2.png': PNG,
 }, { deflate: false });
+
+// 只有一個工作表的 xlsx（成本表匯入測試用）：rows 是二維陣列，字串寫成 inlineStr、數字寫成數值、空字串不寫
+const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const col = i => { let s = ''; for (i++; i; i = Math.floor((i - 1) / 26)) s = String.fromCharCode(65 + (i - 1) % 26) + s; return s; };
+export const sheetXlsx = (name, rows) => zip({
+  'xl/workbook.xml': `<workbook ${X}><sheets><sheet name="${esc(name)}" sheetId="1" r:id="rId1"/></sheets></workbook>`,
+  'xl/_rels/workbook.xml.rels': rels([['rId1', 'worksheet', 'worksheets/sheet1.xml']]),
+  'xl/worksheets/sheet1.xml': `<worksheet ${X}><sheetData>${rows.map((r, y) => `<row r="${y + 1}">${r.map((v, x) => v === '' || v == null ? ''
+    : typeof v === 'number' ? `<c r="${col(x)}${y + 1}"><v>${v}</v></c>` : `<c r="${col(x)}${y + 1}" t="inlineStr"><is><t>${esc(v)}</t></is></c>`).join('')}</row>`).join('')}</sheetData></worksheet>`,
+});

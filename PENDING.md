@@ -60,6 +60,9 @@
 - [x] P3 網頁介面 `vs3d ui`（含 P4c 補強勾選與前後對照），端對端測試通過（2026-10-04）。
 - [x] 本庫模式（2026-10-04）：介面與命令列可以對 `project-site/` 的站下審查＋補強、修改指令、第二段、檢查與匯出；開工檢查、每次開本機分支、只提交該站路徑、逐檔寫回、不 checkout／reset／stash（說明在 `studio/README.md`「本庫模式」）。
 - [x] 別的工具（Claude Code、Codex 桌面版等）做的站也要符合架構（2026-10-04，core 1.8.0）：結構檢查 `structure`（check、pre-commit、CI）、`docs/` 萬用忽略規則、`GEMINI.md`／`.github/copilot-instructions.md` 指向檔；studio 清單與站頁標出「N 個未提交」（別的工具改過、還沒提交的檔案），有未提交改動時停用會開分支的指令。
+- [x] 元件資料庫（2026-10-05）：SQLite（`studio/data/parts.db`，只留本機）＋介面「元件庫」的新增／刪除／編輯／查詢＋`vs3d parts`；已從 8 份成本表匯入 239 個採購品項（說明在 `studio/README.md`「元件資料庫」）。
+- [ ] 元件資料庫的資料整理（使用者在介面上做）：類別與廠牌是匯入時從文字猜的，要校正；供應商主檔還是空的（成本表沒有供應商資料）；不同專案寫法不同的同一種元件要合併（`vs3d parts merge`，目前只併了型號完全相同的 2 組）。
+- [ ] 成本表產生器改由元件資料庫取單價：各站 `tools/build_*.py` 的單價還寫在程式裡，之後改成讀 `part_latest`（要先定資料庫不在時的處理方式）。
 - [ ] 本庫模式的併改偵測：代理執行中使用者也改了本站同一個檔案時，停下來轉成提問（目前會一起提交）。
 - [x] 上傳 pptx／xlsx／docx 時自動抽出文字與圖片到 `docs/<檔名>.extract/`（純 Node，2026-10-04）。沒做：pptx 內嵌影片的影格、圖表數據、EMF／WMF 向量圖。
 - [x] 7 站與 RecycleSorter 搬進 `project-site/`，新案已匯入本庫（`project-site/RecycleSorter/`，2026-10-04，core 1.3.0）；之後的新專案都放在 `project-site/`。

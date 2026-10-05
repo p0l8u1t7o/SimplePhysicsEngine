@@ -1,9 +1,10 @@
-// 版面：左側專案清單（新建、設定），右側是選取的畫面。網址 hash 記住目前的畫面（#new、#settings、#p/<專案>）。
+// 版面：左側專案清單（新建、元件庫、設定），右側是選取的畫面。網址 hash 記住目前的畫面（#new、#parts、#settings、#p/<專案>）。
 import { useCallback, useEffect, useState } from 'react';
 import { api, useEvents, STAGE } from './api.js';
 import { NewProject } from './NewProject.jsx';
 import { ProjectView } from './ProjectView.jsx';
 import { Settings } from './Settings.jsx';
+import { Parts } from './Parts.jsx';
 
 const readHash = () => { const h = decodeURIComponent(location.hash.slice(1)); return h.startsWith('p/') ? { view: 'project', id: h.slice(2) } : { view: h || 'home' }; };
 
@@ -35,6 +36,7 @@ export function App() {
         </header>
         <div className="actions">
           <button className="primary" onClick={() => go({ view: 'new' })}>＋ 新建</button>
+          <button className={route.view === 'parts' ? 'on' : ''} onClick={() => go({ view: 'parts' })}>元件庫</button>
           <button onClick={() => go({ view: 'settings' })}>⚙ 設定</button>
         </div>
         <div className="list">
@@ -60,6 +62,7 @@ export function App() {
       <main className="main">
         {route.view === 'new' && <NewProject info={info} running={running} onCreated={id => { refresh(); go({ view: 'project', id }); }} />}
         {route.view === 'settings' && <Settings info={info} />}
+        {route.view === 'parts' && <Parts projectNames={projects.filter(p => p.repo).map(p => p.name)} />}
         {route.view === 'project' && <ProjectView key={route.id} id={route.id} tick={tick} running={running} onChange={refresh} />}
         {route.view === 'home' && (
           <div className="page">
@@ -68,6 +71,7 @@ export function App() {
             <div className="tiles">
               <button className="tile" onClick={() => go({ view: 'new' })}><b>＋ 新建專案</b><span>從規格與資料開始，代理規劃、開發、檢查、審查與補強。</span></button>
               {projects.some(p => p.repo) && <div className="tile static"><b>本庫的站</b><span>左側「本庫 project-site」可以直接下審查、修改指令、第二段、檢查與匯出；每次開本機分支、只提交該站。</span></div>}
+              <button className="tile" onClick={() => go({ view: 'parts' })}><b>元件資料庫</b><span>查元件的規格、歷次價格、供應商，以及哪些專案用過；設計、選型與成本表共用。</span></button>
               <button className="tile" onClick={() => go({ view: 'settings' })}><b>⚙ 設定</b><span>檢查 CLI 安裝與登入，選各角色的 CLI、模型與推理強度。</span></button>
             </div>
           </div>

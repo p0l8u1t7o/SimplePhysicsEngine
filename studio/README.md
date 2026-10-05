@@ -18,6 +18,7 @@ node studio/vs3d.mjs ui               # 開啟 http://127.0.0.1:8780/（--port�
 - 介面用子程序執行 `vs3d` 命令列，流程和終端機完全相同；回答完全部問題會自動續跑。伺服器只聽 127.0.0.1，`/files/` 只開放專案的 `TEMP/`、`docs/`、`.studio/plan|reviews|render/`。
 - 開發時 `npm --prefix studio/ui run dev`（Vite 5173，`/api` 轉給 8780 的 `vs3d ui`）。
 - 端對端測試：`node studio/test/ui-e2e.mjs [--shots 資料夾]`（暫存工作區＋假代理，在網頁上點完整個流程，約 2 分鐘）。
+- 「元件庫」：元件資料庫的查詢、新增、編輯、刪除（見「元件資料庫」）。
 - 介面維持網頁版：用瀏覽器開，檔案用拖放或「選擇檔案」上傳（2026-10-04 決議不做 Electron）。
 
 ## 用法
@@ -37,6 +38,7 @@ node studio/vs3d.mjs handoff Conveyor                         # 交接包：git 
 node studio/vs3d.mjs import Conveyor-handoff-20261004.zip --name Conveyor2   # 匯入交接包，之後 resume 續跑
 node studio/vs3d.mjs probe Conveyor --cli codex --other <另一個專案>   # 寫入隔離自我測試
 node studio/vs3d.mjs models Conveyor                          # 各角色目前的 CLI 與模型
+node studio/vs3d.mjs parts search 相機 GigE                    # 查元件資料庫（選型、單價、哪些專案用過），見「元件資料庫」
 ```
 
 共通選項：
@@ -144,6 +146,46 @@ node studio/vs3d.mjs push RecycleSorter --repo                            # 推�
 - **交接包**：`vs3d handoff` 產生 `TEMP/exports/<專案>-handoff-<日期>.zip`，內容是專案 git 全部歷史（bundle）、`docs/` 上傳檔、`.studio/` 的狀態、提問、回答、提案、審查與每輪紀錄（不含代理的完整對話記錄），以及這個專案不得顯示的用戶名稱。對方用 `vs3d import`（或介面「新建專案」頁的「匯入交接包」）匯入後，名稱加進他的工作區名單，代理的工作階段清掉（屬於原本的電腦），可以直接 `resume`。
 - 專案自己的名單在 `.studio/client-names.txt`：建立時的 `--private` 與規劃角色列出的名稱都會記在這裡，交接包靠它把名稱保護帶給接手的人。
 
+## 元件資料庫（2026-10-05）
+
+各站做設計、選型與成本表時共用的參考：元件的規格、歷次價格、供應商，以及哪些專案用過。用 Node 內建的 `node:sqlite`（Node.js 22.13 以上，沒有 npm 套件）。
+
+- **資料庫檔只留本機，不進版控**（2026-10-05 拍板）：`studio/data/parts.db`，環境變數 `VS3D_PARTS_DB` 或 `--db <檔案>` 可以改位置。換電腦或給別人用時自己複製這個檔案。
+- **介面**：`vs3d ui` 左上的「元件庫」（`#parts`）。「元件」分頁可以搜尋（空白分隔多個關鍵字，比對名稱、廠牌、型號、規格、自由規格欄位、專案、編號、供應商、報價來源）、依類別／專案／供應商篩選、新增、編輯、刪除；點一列開啟編輯面板，裡面逐列管理價格紀錄與專案使用紀錄。「供應商」分頁管理供應商主檔。刪除都要按兩次確認。
+- **命令列**（代理與腳本查詢用，`--json` 輸出完整欄位）：
+
+```powershell
+node studio/vs3d.mjs parts search 相機 GigE --project RecycleSorter   # 查詢；不給關鍵字就列全部，--category 篩類別
+node studio/vs3d.mjs parts show 132                                   # 單一元件的規格、價格紀錄、使用紀錄
+node studio/vs3d.mjs parts seed [--dry-run]                           # 從各站 docs/ 的成本表匯入
+node studio/vs3d.mjs parts merge <保留 id> <併入 id>                   # 合併重複的元件（價格與使用紀錄都移過去）
+```
+
+| 資料表 | 內容 |
+|---|---|
+| `parts` | 元件：類別、名稱、廠牌、型號／建議選型、規格、`attrs`（自由規格欄位，JSON）、單位、選型備註、替代方案、標籤、資料連結、備註 |
+| `prices` | 價格紀錄，一個元件多筆：報價日、單價、幣別、等級（成本表的 A／B／C）、供應商、來源或報價單號、有效期限、備註 |
+| `usages` | 專案使用紀錄：專案、來源檔、成本表編號、子系統、數量、選型理由、備註 |
+| `suppliers` | 供應商：名稱、類型（原廠／代理商／經銷商／加工廠／網購）、聯絡窗口、電話、Email、網站、交期、付款條件、備註 |
+| `part_latest` | 檢視表：元件＋報價日最新的一筆價格＋供應商（清單的「參考單價」就是它） |
+
+**成本表匯入**（`parts seed`，`lib/parts-seed.mjs`）：讀 `project-site/<專案>/docs/*.xlsx` 裡表頭有「編號、項目或品項、單位」的工作表（各站的 `cost-estimate.xlsx`、回收物分揀的 `integration-cost.xlsx` 與 `vision-items.xlsx`）。
+
+- 只匯採購品項：工程人日、工程類的列、選型只寫「自製」的一式項目不匯入（2026-10-05 拍板）；數量 0 的選配照樣匯入，使用紀錄標「選配」。
+- 每一列變成一筆使用紀錄（專案、來源檔、編號）和一筆價格紀錄（報價日用成本表檔案的修改日，來源寫「專案 檔名 編號」）。同名同選型的列併成同一個元件；品項表「對應成本表」欄指到的列、規格寫「同 V-01」的列也併到那個元件。
+- 可以重複執行：同一個專案、來源檔、編號已經有使用紀錄的列會跳過，介面上改過的內容不會被蓋掉。成本表改版後想重匯某一列，先在介面刪掉那筆使用紀錄。
+- 類別與廠牌是從名稱與選型文字猜的，匯入後在介面上校正；成本表沒有供應商資料，供應商要自己建。文字裡出現 `.private/client-names.txt` 的用戶名稱會換成「（用戶）」。
+
+**其他工具讀資料庫**：同一個檔案可以直接讀，例如成本表產生器（Python 內建 `sqlite3`）：
+
+```python
+import sqlite3
+db = sqlite3.connect("studio/data/parts.db")
+price, grade = db.execute("select unit_price, grade from part_latest where id = ?", (132,)).fetchone()
+```
+
+寫入請走介面或 `lib/partsdb.mjs`（有欄位驗證）。資料庫結構的版本記在 `PRAGMA user_version`，改結構時在 `partsdb.mjs` 加升級步驟。
+
 ## P4 第二段驗收（2026-10-04）
 
 拿 P2 的 MGPC（Codex 版）與回收物分揀實際跑第二段，正式預設：規劃、審查 Claude opus，開發、修正、補強 Codex gpt-6-astra 高推理。代理的設計問題與最後的補強卡片由主 session 依建議項代答。前後對照截圖存在本機 `TEMP/seg2-accept/`。
@@ -196,7 +238,8 @@ node studio/vs3d.mjs push RecycleSorter --repo                            # 推�
 ## 測試
 
 ```powershell
-node --test "studio/test/*.test.mjs"   # 不耗額度：事件解析、角色、提問、隔離、Office 抽取，以及用假代理跑完整流程
+node --test "studio/test/*.test.mjs"   # 不耗額度：事件解析、角色、提問、隔離、Office 抽取、元件資料庫，以及用假代理跑完整流程
+node studio/test/parts-e2e.mjs          # 元件資料庫的介面測試（無頭 Chrome，約 10 秒；先建置前端）
 ```
 
 `test/fixtures/` 是實際錄下、去掉本機資訊的兩種 CLI 事件；測試用的 Office 檔由 `test/office-fixtures.mjs` 在記憶體裡組出。

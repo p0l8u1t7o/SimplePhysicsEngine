@@ -1,0 +1,235 @@
+// 元件資料庫（SQLite，用 Node 內建的 node:sqlite，不需要 npm 套件；Node 22.13 以上）。
+//   suppliers  供應商主檔（類型、聯絡窗口、交期、付款條件）
+//   parts      元件主表（類別、名稱、廠牌、型號、規格、自由規格欄位 attrs、選型備註、替代方案、標籤、資料連結）
+//   prices     價格紀錄：一個元件多筆（日期、單價、幣別、等級 A/B/C、供應商、來源或報價單號、有效期限）
+//   usages     專案使用紀錄：哪個專案的哪一列成本表用過（專案、來源檔、編號、子系統、數量、選型理由）
+//   part_latest 檢視表：元件＋最新一筆價格＋供應商。各站的成本表產生器可以直接讀（Python 用內建的 sqlite3）
+// 資料庫檔只留本機，不進版控（2026-10-05 拍板）：預設 studio/data/parts.db，環境變數 VS3D_PARTS_DB 可以改位置；換電腦時複製這個檔案。
+import { DatabaseSync } from 'node:sqlite';
+import { mkdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { STUDIO, now } from './util.mjs';
+
+export const defaultPartsDb = () => process.env.VS3D_PARTS_DB || join(STUDIO, 'data', 'parts.db');
+export const GRADES = ['A', 'B', 'C'];
+export const SUPPLIER_KINDS = ['原廠', '代理商', '經銷商', '加工廠', '網購', '其他'];
+
+const SCHEMA_VERSION = 1;
+const SCHEMA = `
+CREATE TABLE suppliers (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  kind TEXT NOT NULL DEFAULT '',
+  contact TEXT NOT NULL DEFAULT '', phone TEXT NOT NULL DEFAULT '', email TEXT NOT NULL DEFAULT '', website TEXT NOT NULL DEFAULT '',
+  lead_time TEXT NOT NULL DEFAULT '', payment_terms TEXT NOT NULL DEFAULT '', note TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE TABLE parts (
+  id INTEGER PRIMARY KEY,
+  category TEXT NOT NULL DEFAULT '',
+  name TEXT NOT NULL,
+  brand TEXT NOT NULL DEFAULT '', model TEXT NOT NULL DEFAULT '', spec TEXT NOT NULL DEFAULT '',
+  attrs TEXT NOT NULL DEFAULT '{}',
+  unit TEXT NOT NULL DEFAULT '',
+  selection_note TEXT NOT NULL DEFAULT '', alternatives TEXT NOT NULL DEFAULT '',
+  tags TEXT NOT NULL DEFAULT '', url TEXT NOT NULL DEFAULT '', note TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE TABLE prices (
+  id INTEGER PRIMARY KEY,
+  part_id INTEGER NOT NULL REFERENCES parts(id) ON DELETE CASCADE,
+  supplier_id INTEGER REFERENCES suppliers(id) ON DELETE SET NULL,
+  quoted_on TEXT NOT NULL DEFAULT '',
+  unit_price REAL NOT NULL,
+  currency TEXT NOT NULL DEFAULT 'TWD',
+  grade TEXT NOT NULL DEFAULT '',
+  source TEXT NOT NULL DEFAULT '', valid_until TEXT NOT NULL DEFAULT '', note TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL
+);
+CREATE TABLE usages (
+  id INTEGER PRIMARY KEY,
+  part_id INTEGER NOT NULL REFERENCES parts(id) ON DELETE CASCADE,
+  project TEXT NOT NULL,
+  source TEXT NOT NULL DEFAULT '', item_code TEXT NOT NULL DEFAULT '', subsystem TEXT NOT NULL DEFAULT '',
+  qty REAL,
+  reason TEXT NOT NULL DEFAULT '', note TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL
+);
+CREATE INDEX prices_part ON prices(part_id, quoted_on);
+CREATE INDEX usages_part ON usages(part_id);
+CREATE INDEX usages_project ON usages(project, source, item_code);
+CREATE VIEW part_latest AS
+  SELECT p.*, pr.id AS price_id, pr.unit_price, pr.currency, pr.grade, pr.quoted_on, pr.valid_until, pr.source AS price_source, pr.supplier_id, s.name AS supplier
+  FROM parts p
+  LEFT JOIN prices pr ON pr.id = (SELECT id FROM prices WHERE part_id = p.id ORDER BY quoted_on DESC, id DESC LIMIT 1)
+  LEFT JOIN suppliers s ON s.id = pr.supplier_id;
+`;
+
+export class PartsError extends Error { constructor(message, status = 400) { super(message); this.status = status; } }
+const bad = msg => { throw new PartsError(msg); };
+
+const PART_TEXT = ['category', 'name', 'brand', 'model', 'spec', 'unit', 'selection_note', 'alternatives', 'tags', 'url', 'note'];
+const PRICE_TEXT = ['quoted_on', 'currency', 'grade', 'source', 'valid_until', 'note'];
+const USAGE_TEXT = ['project', 'source', 'item_code', 'subsystem', 'reason', 'note'];
+const SUPPLIER_TEXT = ['name', 'kind', 'contact', 'phone', 'email', 'website', 'lead_time', 'payment_terms', 'note'];
+// 搜尋比對的欄位
+const SEARCH_PART = ['name', 'brand', 'model', 'spec', 'category', 'tags', 'selection_note', 'alternatives', 'note', 'attrs'];
+
+const text = v => v == null ? '' : String(v).trim();
+const pickText = (v, keys) => Object.fromEntries(keys.map(k => [k, text(v[k])]));
+const isDate = s => /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s));
+function numberOrNull(v, label) {
+  if (v == null || v === '') return null;
+  const n = Number(v);
+  if (!Number.isFinite(n)) bad(`${label}要是數字`);
+  return n;
+}
+function cleanAttrs(v) {
+  if (typeof v === 'string') { try { v = JSON.parse(v || '{}'); } catch { bad('自由規格欄位的格式不對'); } }
+  if (v == null) return {};
+  if (typeof v !== 'object' || Array.isArray(v)) bad('自由規格欄位要是「名稱：值」的組合');
+  return Object.fromEntries(Object.entries(v).map(([k, x]) => [text(k), text(x)]).filter(([k]) => k));
+}
+function cleanPart(v) {
+  const p = pickText(v, PART_TEXT);
+  if (!p.name) bad('請輸入元件名稱');
+  return { ...p, attrs: JSON.stringify(cleanAttrs(v.attrs)) };
+}
+function cleanPrice(v) {
+  const p = pickText(v, PRICE_TEXT), price = numberOrNull(v.unit_price, '單價');
+  if (price == null) bad('請輸入單價');
+  if (price < 0) bad('單價不能是負數');
+  if (p.quoted_on && !isDate(p.quoted_on)) bad('報價日期的格式是 YYYY-MM-DD');
+  if (p.valid_until && !isDate(p.valid_until)) bad('有效期限的格式是 YYYY-MM-DD');
+  p.grade = p.grade.toUpperCase();
+  if (p.grade && !GRADES.includes(p.grade)) bad('等級只能是 A、B、C 或留白');
+  p.currency = (p.currency || 'TWD').toUpperCase();
+  return { ...p, unit_price: price, supplier_id: numberOrNull(v.supplier_id, '供應商') };
+}
+function cleanUsage(v) {
+  const u = pickText(v, USAGE_TEXT);
+  if (!u.project) bad('請輸入專案');
+  return { ...u, qty: numberOrNull(v.qty, '數量') };
+}
+function cleanSupplier(v) {
+  const s = pickText(v, SUPPLIER_TEXT);
+  if (!s.name) bad('請輸入供應商名稱');
+  return s;
+}
+const likeEscape = s => `%${s.replace(/[\\%_]/g, c => '\\' + c)}%`;
+
+export function openPartsDb(file = defaultPartsDb()) {
+  if (file !== ':memory:') mkdirSync(dirname(file), { recursive: true });
+  const db = new DatabaseSync(file);
+  db.exec('PRAGMA foreign_keys = ON');
+  const version = db.prepare('PRAGMA user_version').get().user_version;
+  if (version > SCHEMA_VERSION) { db.close(); throw new PartsError(`元件資料庫的版本（${version}）比這個程式新（${SCHEMA_VERSION}），請更新程式：${file}`, 500); }
+  if (version === 0) tx(() => { db.exec(SCHEMA); db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`); });
+
+  function tx(fn) {
+    db.exec('BEGIN');
+    try { const r = fn(); db.exec('COMMIT'); return r; } catch (e) { db.exec('ROLLBACK'); throw e; }
+  }
+  const all = (sql, ...a) => db.prepare(sql).all(...a).map(r => ({ ...r }));
+  const get = (sql, ...a) => { const r = db.prepare(sql).get(...a); return r ? { ...r } : null; };
+  const run = (sql, ...a) => db.prepare(sql).run(...a);
+  const insert = (table, v) => { const k = Object.keys(v); return Number(run(`INSERT INTO ${table} (${k.join(', ')}) VALUES (${k.map(() => '?').join(', ')})`, ...k.map(x => v[x])).lastInsertRowid); };
+  const update = (table, id, v) => { const k = Object.keys(v); run(`UPDATE ${table} SET ${k.map(x => `${x} = ?`).join(', ')} WHERE id = ?`, ...k.map(x => v[x]), id); };
+  function need(table, id, label) {
+    const row = Number.isInteger(Number(id)) ? get(`SELECT * FROM ${table} WHERE id = ?`, Number(id)) : null;
+    if (!row) throw new PartsError(`找不到${label}（${id}）`, 404);
+    return row;
+  }
+  const touch = partId => run('UPDATE parts SET updated_at = ? WHERE id = ?', now(), partId);
+  const needSupplier = id => { if (id != null) need('suppliers', id, '供應商'); };
+  const unique = fn => { try { return fn(); } catch (e) { if (/UNIQUE/.test(e.message)) bad('已經有同名的供應商'); throw e; } };
+  const withAttrs = p => ({ ...p, attrs: JSON.parse(p.attrs || '{}') });
+
+  return {
+    file,
+    close: () => db.close(),
+    tx,
+
+    // q：空白分隔的關鍵字，每個都要出現在元件欄位、使用紀錄（專案、編號、理由）或價格紀錄（來源、供應商）裡
+    listParts({ q = '', category = '', project = '', supplier = '', limit = 500 } = {}) {
+      const params = [], p = v => { params.push(v); return `?${params.length}`; }, where = [];
+      for (const token of text(q).split(/\s+/).filter(Boolean)) {
+        const t = p(likeEscape(token)), like = col => `${col} LIKE ${t} ESCAPE '\\'`;
+        where.push(`(${SEARCH_PART.map(c => like(`pl.${c}`)).join(' OR ')}
+          OR EXISTS (SELECT 1 FROM usages u WHERE u.part_id = pl.id AND (${['u.project', 'u.item_code', 'u.subsystem', 'u.reason', 'u.note'].map(like).join(' OR ')}))
+          OR EXISTS (SELECT 1 FROM prices x LEFT JOIN suppliers s ON s.id = x.supplier_id WHERE x.part_id = pl.id AND (${['x.source', 'x.note', 's.name'].map(like).join(' OR ')})))`);
+      }
+      if (category) where.push(`pl.category = ${p(category === '（未分類）' ? '' : category)}`);
+      if (project) where.push(`EXISTS (SELECT 1 FROM usages u WHERE u.part_id = pl.id AND u.project = ${p(project)})`);
+      if (supplier) where.push(`EXISTS (SELECT 1 FROM prices x WHERE x.part_id = pl.id AND x.supplier_id = ${p(Number(supplier))})`);
+      const cond = where.length ? `WHERE ${where.join(' AND ')}` : '';
+      const total = get(`SELECT count(*) AS n FROM part_latest pl ${cond}`, ...params).n;
+      const parts = all(`SELECT pl.*, (SELECT group_concat(DISTINCT project) FROM usages WHERE part_id = pl.id) AS projects,
+          (SELECT count(*) FROM prices WHERE part_id = pl.id) AS price_count
+        FROM part_latest pl ${cond} ORDER BY pl.category, pl.name, pl.model, pl.id LIMIT ${Math.max(1, Math.min(5000, Number(limit) || 500))}`, ...params)
+        .map(r => ({ ...withAttrs(r), projects: r.projects ? r.projects.split(',').sort() : [] }));
+      return { parts, total, ...this.facets() };
+    },
+    facets: () => ({
+      categories: all('SELECT category AS name, count(*) AS count FROM parts GROUP BY category ORDER BY category'),
+      projects: all('SELECT project AS name, count(DISTINCT part_id) AS count FROM usages GROUP BY project ORDER BY project'),
+      units: all("SELECT DISTINCT unit FROM parts WHERE unit <> '' ORDER BY unit").map(r => r.unit),
+      brands: all("SELECT DISTINCT brand FROM parts WHERE brand <> '' ORDER BY brand").map(r => r.brand),
+    }),
+    getPart(id) {
+      const part = withAttrs(need('parts', id, '元件'));
+      return {
+        ...part,
+        prices: all('SELECT x.*, s.name AS supplier FROM prices x LEFT JOIN suppliers s ON s.id = x.supplier_id WHERE x.part_id = ? ORDER BY x.quoted_on DESC, x.id DESC', part.id),
+        usages: all('SELECT * FROM usages WHERE part_id = ? ORDER BY project, source, item_code, id', part.id),
+      };
+    },
+    createPart(v) { const t = now(); return this.getPart(insert('parts', { ...cleanPart(v), created_at: t, updated_at: t })); },
+    updatePart(id, v) { const p = need('parts', id, '元件'); update('parts', p.id, { ...cleanPart(v), updated_at: now() }); return this.getPart(p.id); },
+    deletePart(id) { const p = need('parts', id, '元件'); run('DELETE FROM parts WHERE id = ?', p.id); return { deleted: p.id }; },
+    // 合併重複的元件：drop 的價格與使用紀錄移到 keep，keep 空白的欄位用 drop 補上，再刪掉 drop
+    mergeParts(keepId, dropId) {
+      const keep = need('parts', keepId, '元件'), drop = need('parts', dropId, '元件');
+      if (keep.id === drop.id) bad('不能和自己合併');
+      return tx(() => {
+        run('UPDATE prices SET part_id = ? WHERE part_id = ?', keep.id, drop.id);
+        run('UPDATE usages SET part_id = ? WHERE part_id = ?', keep.id, drop.id);
+        const fill = Object.fromEntries(PART_TEXT.filter(k => !keep[k] && drop[k]).map(k => [k, drop[k]]));
+        update('parts', keep.id, { ...fill, attrs: JSON.stringify({ ...JSON.parse(drop.attrs || '{}'), ...JSON.parse(keep.attrs || '{}') }), updated_at: now() });
+        run('DELETE FROM parts WHERE id = ?', drop.id);
+        return this.getPart(keep.id);
+      });
+    },
+
+    addPrice(partId, v) {
+      const p = need('parts', partId, '元件'), c = cleanPrice(v); needSupplier(c.supplier_id);
+      const id = insert('prices', { ...c, part_id: p.id, created_at: now() }); touch(p.id);
+      return get('SELECT * FROM prices WHERE id = ?', id);
+    },
+    updatePrice(id, v) {
+      const x = need('prices', id, '價格紀錄'), c = cleanPrice(v); needSupplier(c.supplier_id);
+      update('prices', x.id, c); touch(x.part_id);
+      return get('SELECT * FROM prices WHERE id = ?', x.id);
+    },
+    deletePrice(id) { const x = need('prices', id, '價格紀錄'); run('DELETE FROM prices WHERE id = ?', x.id); touch(x.part_id); return { deleted: x.id }; },
+
+    addUsage(partId, v) {
+      const p = need('parts', partId, '元件'), id = insert('usages', { ...cleanUsage(v), part_id: p.id, created_at: now() }); touch(p.id);
+      return get('SELECT * FROM usages WHERE id = ?', id);
+    },
+    updateUsage(id, v) { const u = need('usages', id, '使用紀錄'); update('usages', u.id, cleanUsage(v)); touch(u.part_id); return get('SELECT * FROM usages WHERE id = ?', u.id); },
+    deleteUsage(id) { const u = need('usages', id, '使用紀錄'); run('DELETE FROM usages WHERE id = ?', u.id); touch(u.part_id); return { deleted: u.id }; },
+    findUsage: (project, source, itemCode) => get('SELECT * FROM usages WHERE project = ? AND source = ? AND item_code = ? ORDER BY id LIMIT 1', project, source, itemCode),
+
+    listSuppliers: () => all(`SELECT s.*, (SELECT count(*) FROM prices WHERE supplier_id = s.id) AS price_count,
+        (SELECT count(DISTINCT part_id) FROM prices WHERE supplier_id = s.id) AS part_count FROM suppliers s ORDER BY s.name`),
+    getSupplier: id => need('suppliers', id, '供應商'),
+    findSupplier: name => get('SELECT * FROM suppliers WHERE name = ?', text(name)),
+    createSupplier(v) { const t = now(), c = cleanSupplier(v); return this.getSupplier(unique(() => insert('suppliers', { ...c, created_at: t, updated_at: t }))); },
+    updateSupplier(id, v) { const s = need('suppliers', id, '供應商'), c = cleanSupplier(v); unique(() => update('suppliers', s.id, { ...c, updated_at: now() })); return this.getSupplier(s.id); },
+    // 刪除供應商：價格紀錄留著，只是不再連到供應商
+    deleteSupplier(id) { const s = need('suppliers', id, '供應商'); run('DELETE FROM suppliers WHERE id = ?', s.id); return { deleted: s.id }; },
+
+    stats: () => get('SELECT (SELECT count(*) FROM parts) AS parts, (SELECT count(*) FROM prices) AS prices, (SELECT count(*) FROM usages) AS usages, (SELECT count(*) FROM suppliers) AS suppliers'),
+  };
+}

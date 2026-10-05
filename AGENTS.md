@@ -7,7 +7,7 @@
 - **語言**：一律用繁體中文（台灣用語）回覆。程式碼、指令、檔名保持英文；程式註解用繁體中文；commit 訊息用英文。
 - **要拍板的事用選項對話**：設計取捨、方案選擇都整理成 1～4 題、每題 2～4 個選項，推薦項放第一並標「（建議）」。有合理預設值的小事不必問。
 - **提交與推送**：階段完成、檢查通過就直接 commit，不必問。**推送只在使用者要求時才做**；推送到 `main` 會觸發 Pages 檢查與發布。
-- **不進版控**：各專案 `docs/`（使用者給的圖面、照片、影片、規劃與成本資料）、`TEMP/`、`question_log.txt`、ffmpeg 執行檔。`.gitignore` 的 `/project-site/*/docs/` 已涵蓋新專案。
+- **不進版控**：各專案 `docs/`（使用者給的圖面、照片、影片、規劃與成本資料）、`TEMP/`、`question_log.txt`、ffmpeg 執行檔、元件資料庫 `studio/data/`。`.gitignore` 的 `/project-site/*/docs/` 已涵蓋新專案。
 - **使用者自己也會改檔、提交**：改檔前先看 `git status`。有未提交改動的檔案**絕對不要** `git checkout`／`restore`／`stash`（曾經這樣弄丟過工作，只能事後重做）。
 - 使用者要求「先討論不改」時，只討論、不動檔案。
 - **不得顯示用戶名稱**（2026-10-04 拍板，所有代理都要遵守）：任何子專案的網頁、標籤、`project.json`、README、`AGENTS.md`、程式註解、review、commit 訊息都不得出現用戶（客戶）名稱，即使評估文件或提示詞裡有；改用中性描述（例如「回收物自動分揀展示機」）。名單只放本機 `.private/client-names.txt`（不進版控，一行一個）；`check.mjs` 的 `names` 檢查與 pre-commit 會擋。新案匯入或產生後，先把用戶名稱加進名單再檢查。設備廠牌與零件供應商（例如手臂型號）不算用戶名稱。
@@ -30,7 +30,7 @@
 | `project-site/<專案>/` | 所有展示專案（之後新增的也放這裡）。`web/`（網站；`web/js/project.js` 是網頁與檢查共用的場景）、`project.json`（首頁說明、`coreVersion`、`checks.quick`／`checks.full`、`variants`、`ui`）、`tools/`（專案自有檢查）、`review/`（檢查結果，進版控）、`docs/`（只留本機）、`AGENTS.md`／`CLAUDE.md`（該站規則）、`.claude/settings.json`（寫檔關卡） |
 | `tools/` | 跨專案工具：干涉回歸、電路圖、錄影輸出（配線與電盤檢查已移到 core 的 `electrical`） |
 | `scripts/` | 腳本：`setup.ps1`（環境設定）、`start`／`stop`（`.ps1`＋可點兩下的 `.cmd`，網頁啟動與停止，PID 與輸出在 `logs/`）、`migrate/`（搬庫腳本） |
-| `studio/` | 3D 動畫生成應用程式（從本庫啟動介面時也能對 `project-site/` 的站下指令：本庫模式，只提交該站路徑、每次開本機分支）：目前是 P1 命令列原型 `node studio/vs3d.mjs`（說明見 `studio/README.md`，測試 `node --test "studio/test/*.test.mjs"`）；計畫書在本機 `TEMP/3d-app-plan.md` |
+| `studio/` | 3D 動畫生成應用程式（從本庫啟動介面時也能對 `project-site/` 的站下指令：本庫模式，只提交該站路徑、每次開本機分支）：目前是 P1 命令列原型 `node studio/vs3d.mjs`（說明見 `studio/README.md`，測試 `node --test "studio/test/*.test.mjs"`）；計畫書在本機 `TEMP/3d-app-plan.md`；元件資料庫（介面「元件庫」、`vs3d parts`，SQLite 檔 `studio/data/parts.db` 只留本機） |
 | `.githooks/` | pre-commit 範圍檢查 |
 | `.github/workflows/` | `pages.yml`：PR 跑快速檢查；推送到 `main` 時快速檢查、建置、發布 Pages（只改 `studio/` 時不跑）。`scope.yml`：PR 範圍檢查 |
 | `PENDING.md` | 待辦事項 |
@@ -51,6 +51,7 @@ node core/tools/new-project.mjs <資料夾> "<標題>" ["一句說明"]   # 由�
 node core/tools/export.mjs <專案> [--zip] [--html] [--mp4]   # 成品匯出到 TEMP/exports/：網站壓縮檔（雙擊離線開）、單一 HTML、MP4（全自動）
 node core/tools/install-hooks.mjs                 # 安裝 pre-commit 範圍檢查（clone 後一次）
 node core/tools/check-scope.mjs --scope <範圍> <路徑…>   # 手動檢查路徑是否在範圍內
+node studio/vs3d.mjs parts search <關鍵字…> [--project 專案] [--json]   # 查元件資料庫：選型、單價、哪些專案用過（show <id> 看單一元件）
 node --import ./core/tools/register.mjs tools/verify-interference.mjs   # 四站干涉回歸；配線與電盤檢查是 check.mjs 內建的 electrical
 ```
 
@@ -127,4 +128,5 @@ node --import ./core/tools/register.mjs tools/verify-interference.mjs   # 四站
 
 - 4 輪統一：P0～P7、第二輪、精進輪、第四輪。第四輪內容是到位閘門、小螢幕、look 加地面、ui-check、favicon。
 - `extent` 推算的燈位對不上各站手調的值，所以各站只用 `look` 省掉配色設定。
+- 元件資料庫（2026-10-05）：SQLite（`node:sqlite`），元件＋價格紀錄＋專案使用紀錄＋供應商；資料庫檔只留本機、不進版控。各站做設計、選型、成本表時先查資料庫（`vs3d parts search`），確定的選型與報價在介面「元件庫」補回去。說明在 `studio/README.md`「元件資料庫」。
 - 各站的拍板紀錄在各站的 `AGENTS.md`。

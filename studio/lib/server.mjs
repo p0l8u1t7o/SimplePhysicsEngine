@@ -10,6 +10,7 @@
 //   POST /api/projects/:id/run      { cmd: resume｜review｜render, pick, focus }
 //   POST /api/stop                  停止目前的執行
 //   GET  /api/events                SSE：line（輸出一行）、exit（執行結束）
+//   GET｜POST｜PUT｜DELETE /api/parts、/api/prices、/api/usages、/api/suppliers   元件資料庫（lib/parts-api.mjs）
 //   GET  /files/:id/<路徑>           專案內的 TEMP/、docs/、.studio/plan|reviews|render/ 檔案（截圖、對照頁）
 import { createServer } from 'node:http';
 import { createReadStream, existsSync, mkdirSync, readdirSync, statSync, writeFileSync, readFileSync } from 'node:fs';
@@ -41,7 +42,7 @@ function findFfmpeg() {
 }
 
 // repo：本庫根目錄（本庫模式，計畫書 4.10）；給了就同時列出 project-site/ 的各站，專案代號用 @<名稱>
-export async function startUi(ws, { port = 8780, log = console.log, repo = null } = {}) {
+export async function startUi(ws, { port = 8780, log = console.log, repo = null, partsDb } = {}) {
   if (!existsSync(paths(ws).marker)) initWorkspace(ws, { log });
   const P = paths(ws), ffmpeg = findFfmpeg(), dist = join(STUDIO, 'ui', 'dist');
   const clients = new Set();
@@ -95,6 +96,9 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null 
       exports: listExports(J), log: runner.history(id), previewUrl: `http://127.0.0.1:${loc(id).repo ? repoPort : previewPort}/${encodeURIComponent(loc(id).name)}/`,
     };
   };
+  // 元件資料庫：第一次用到才載入（node:sqlite 需要 Node.js 22.13 以上，舊版本其他功能照常）
+  let partsApi = null;
+  const parts = async () => partsApi ||= (await import('./parts-api.mjs')).createPartsApi(partsDb);
   const resumeIfReady = id => { const J = Jof(id); if (!runner.current && !loadQuestions(J).list.some(q => !q.answered)) start('resume', id); };
 
   const server = createServer(async (req, res) => {
@@ -185,6 +189,11 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null 
             return json(200, { started: true });
           }
         }
+        if (['parts', 'prices', 'usages', 'suppliers'].includes(a)) {
+          let api; try { api = await parts(); } catch (e) { return json(500, { error: e.code === 'ERR_UNKNOWN_BUILTIN_MODULE' ? '元件資料庫需要 Node.js 22.13 以上（內建 node:sqlite）' : String(e.message || e) }); }
+          const r = await api.handle({ method: req.method, seg: seg.slice(1), query: url.searchParams, body: jbody });
+          return json(r.code, r.body);
+        }
         return json(404, { error: '未知的 API' });
       }
       if (seg[0] === 'files' && seg[1]) {
@@ -204,6 +213,6 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null 
   });
   await new Promise((ok, fail) => server.listen(port, '127.0.0.1', ok).on('error', fail));
   log(`vs3d 介面：http://127.0.0.1:${port}/（工作區 ${ws}${repo ? `；本庫 ${repo}（預覽 port ${repoPort}）` : ''}；預覽 port ${previewPort}；ffmpeg ${ffmpeg ? '可用' : '找不到，影片不會擷取影格'}）`);
-  const close = () => { preview.kill(); repoPreview?.kill(); runner.stop(); for (const c of clients) c.end(); server.close(); };
+  const close = () => { preview.kill(); repoPreview?.kill(); runner.stop(); partsApi?.close(); for (const c of clients) c.end(); server.close(); };
   return { server, port, previewPort, close, runner };
 }

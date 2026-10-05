@@ -19,6 +19,16 @@ export const api = {
   run: (id, v) => call('POST', `/api/projects/${encodeURIComponent(id)}/run`, v),
   stop: () => call('POST', '/api/stop'),
   importHandoff: v => call('POST', '/api/import', v),
+  // 元件資料庫；kind 是 prices（價格紀錄）或 usages（使用紀錄），id 空白是新增
+  parts: query => call('GET', `/api/parts?${new URLSearchParams(query)}`),
+  part: id => call('GET', `/api/parts/${id}`),
+  savePart: (id, v) => id ? call('PUT', `/api/parts/${id}`, v) : call('POST', '/api/parts', v),
+  deletePart: id => call('DELETE', `/api/parts/${id}`),
+  saveRecord: (kind, partId, id, v) => id ? call('PUT', `/api/${kind}/${id}`, v) : call('POST', `/api/parts/${partId}/${kind}`, v),
+  deleteRecord: (kind, id) => call('DELETE', `/api/${kind}/${id}`),
+  suppliers: () => call('GET', '/api/suppliers'),
+  saveSupplier: (id, v) => id ? call('PUT', `/api/suppliers/${id}`, v) : call('POST', '/api/suppliers', v),
+  deleteSupplier: id => call('DELETE', `/api/suppliers/${id}`),
   async upload(token, file) {
     const r = await fetch(`/api/uploads?token=${encodeURIComponent(token)}&name=${encodeURIComponent(file.name)}`, { method: 'POST', body: file });
     const j = await r.json(); if (!r.ok) throw new Error(j.error || r.statusText); return j;

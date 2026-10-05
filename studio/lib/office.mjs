@@ -223,7 +223,8 @@ function serialDate(v, d1904) {
   if (v < 1 && !d1904) return iso.slice(11, 19).replace(/:00$/, '');
   return Number.isInteger(v) ? iso.slice(0, 10) : iso.slice(0, 16).replace('T', ' ');
 }
-function xlsx(zip, out) {
+// 讀出各工作表的儲存格（公式只取快取值；日期與百分比依儲存格格式轉成文字）：[{ name, state, part, rows: [{ no, cells }], maxCol }]；rows 為 null 表示不是一般工作表
+export function xlsxSheets(zip) {
   const wbPart = 'xl/workbook.xml', wb = zip.text(wbPart);
   if (!wb) throw new Error('找不到 xl/workbook.xml');
   const r = rels(zip, wbPart), d1904 = /<(?:\w+:)?workbookPr\b[^>]*date1904="(1|true)"/.test(wb);
@@ -242,15 +243,10 @@ function xlsx(zip, out) {
     if (typeof xfs[s] === 'number') return (x * 100).toFixed(xfs[s]) + '%';
     return String(+x.toPrecision(15));
   };
-  const img = saver(zip, out), media = new Map(), parts = [], warnings = [];
-  const sheets = [...wb.matchAll(/<(?:\w+:)?sheet\b([^>]*)\/?>/g)].map(m => ({ name: attr(m[1], 'name'), state: attr(m[1], 'state'), part: r[attr(m[1], 'r:id')] }));
-  let count = 0;
-  sheets.forEach((sh, si) => {
-    const head = `## 工作表 ${si + 1}：${sh.name}${sh.state && sh.state !== 'visible' ? '（隱藏）' : ''}`;
-    if (!sh.part || sh.part.type !== 'worksheet' || !zip.has(sh.part.target)) { parts.push(`${head}\n\n（${sh.part?.type === 'chartsheet' ? '圖表工作表，數據未抽出' : '找不到內容'}）`); return; }
-    count++;
+  return [...wb.matchAll(/<(?:\w+:)?sheet\b([^>]*)\/?>/g)].map(m => ({ name: attr(m[1], 'name'), state: attr(m[1], 'state'), part: r[attr(m[1], 'r:id')] })).map(sh => {
+    if (!sh.part || sh.part.type !== 'worksheet' || !zip.has(sh.part.target)) return { ...sh, rows: null, maxCol: -1 };
     const xml = zip.text(sh.part.target), rows = [];
-    let maxCol = -1, truncated = 0;
+    let maxCol = -1;
     for (const m of xml.matchAll(/<(?:\w+:)?row\b([^>]*?)(?:\/>|>([\s\S]*?)<\/(?:\w+:)?row>)/g)) {
       if (!m[2]) continue;
       const rn = +attr(m[1], 'r') || (rows.at(-1)?.no ?? 0) + 1, cells = [];
@@ -264,10 +260,20 @@ function xlsx(zip, out) {
         if (String(val).trim() === '') continue;
         cells[ci] = val; maxCol = Math.max(maxCol, ci);
       }
-      if (!cells.length) continue;
-      if (rows.length >= MAX_ROWS) { truncated++; continue; }
-      rows.push({ no: rn, cells });
+      if (cells.length) rows.push({ no: rn, cells });
     }
+    return { ...sh, rows, maxCol };
+  });
+}
+function xlsx(zip, out) {
+  const sheets = xlsxSheets(zip);
+  const img = saver(zip, out), media = new Map(), parts = [], warnings = [];
+  let count = 0;
+  sheets.forEach((sh, si) => {
+    const head = `## 工作表 ${si + 1}：${sh.name}${sh.state && sh.state !== 'visible' ? '（隱藏）' : ''}`;
+    if (!sh.rows) { parts.push(`${head}\n\n（${sh.part?.type === 'chartsheet' ? '圖表工作表，數據未抽出' : '找不到內容'}）`); return; }
+    count++;
+    const rows = sh.rows.slice(0, MAX_ROWS), truncated = sh.rows.length - rows.length, maxCol = sh.maxCol;
     // 圖片：工作表 → drawing → 圖片，標出錨點儲存格
     const pics = [];
     for (const x of Object.values(rels(zip, sh.part.target))) if (x.type === 'drawing' && zip.has(x.target)) {
