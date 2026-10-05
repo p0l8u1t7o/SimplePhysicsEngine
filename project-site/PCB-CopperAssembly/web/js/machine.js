@@ -7,6 +7,7 @@ import { perforated } from '@core/geom/perforated.js';
 import { block, cylinder, decal } from '@core/geom/shapes.js';
 import { floor } from '@core/geom/environment.js';
 import { MAT, finished } from '@core/geom/materials.js';
+import { signalTower, hmi } from '@core/models/indicators.js';
 import { LAYOUT, PRODUCT, HOLES, BOARD_TOP } from './layout.js';
 import { createCoin } from './board.js';
 
@@ -227,11 +228,13 @@ export function createMachine(scene) {
   for (const z of [Z0, Z1]) block(occ, [2 * EX, 40, 40], [0, H1, z], matFrame);
   block(occ, [2 * EX, H1 - 780, 2], [0, (H1 + 780) / 2, Z0], matPC);
   block(occ, [2 * EX, H1 - 1100, 2], [0, (H1 + 1100) / 2, Z1], matPC);
-  const tower = new THREE.Group(); tower.position.set(EX - 100, H1 + 50, Z0 + 60); g.add(tower);
-  // 三色燈：共用指示燈材質各複製一份（亮暗由 tower.set 個別控制）
-  const lamps = {}; [['red', MAT.red, 110], ['yellow', MAT.amber, 75], ['green', MAT.green, 40]].forEach(([k, mat, y]) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(22, 22, 34, 20), mat.clone()); m.material.emissiveIntensity = 0.08; m.position.y = y; tower.add(m); lamps[k] = m; });
-  block(g, [260, 170, 16], [0, 1250, Z1 + 12], MAT.screen);
-  decal(g, 240, 150, [0, 1250, Z1 + 21], [0, 0, 0], ['散熱銅片植入機', `${PRODUCT.short} · ${HOLES.length} 顆／片`, 'SIMULATION'], { bg: '#102635', color: '#65d7b8' });
+  // 三色燈（core 模型）：不裝燈桿，紅／黃／綠由上而下，最下面燈節中心在安裝點上方 40；亮暗由 tower.set(k) 控制
+  const tower = signalTower.create({ pole: false, base: 40, shadow: false });
+  tower.root.position.set(EX - 100, H1 + 50, Z0 + 60); g.add(tower.root);
+  // HMI（core 模型）：整塊螢幕材質的方塊機身，正面貼固定文字
+  const panel = hmi.create({ w: 260, h: 170, d: 16, bevel: 0, bodyMaterial: MAT.screen, panel: false,
+    text: { lines: ['散熱銅片植入機', `${PRODUCT.short} · ${HOLES.length} 顆／片`, 'SIMULATION'], w: 240, h: 150, options: { bg: '#102635', color: '#65d7b8' } } });
+  panel.root.position.set(0, 1250, Z1 + 12); g.add(panel.root);
 
   cableTray(g,'BASE / segregated distribution',[-1650,740,-530],[1650,740,-530]);
   // Remove unused risers ending in mid-air. Distribution terminates in the
@@ -241,7 +244,7 @@ export function createMachine(scene) {
   return {
     updateRouting(){for(const update of routingUpdates)update();},
     group: g, floor: ground.mesh, occluders: occ, keepout, lifts, stops, beltMarks, stacks, loaders, scanners, heads, feeders, upCams,
-    tower: { set(k) { for (const n in lamps) lamps[n].material.emissiveIntensity = n === k ? 1.6 : 0.08; } },
+    tower,                                                 // core signalTower：tower.set('green'｜'yellow'｜'red'｜null)
   };
 }
 export const BOARD_SURFACE = BOARD_TOP;
