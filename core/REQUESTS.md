@@ -16,12 +16,6 @@
 
 ## 待處理
 
-### 並聯（Delta）手臂模型
-- 提出：RecycleSorter（2026-10-05）
-- 暫代：`project-site/RecycleSorter/web/js/delta.js` 的 `createDelta({ geometry, toolLen, hose })`、`deltaIK(p, geometry)`（ABB IRB 360 型：三支主動臂、平行連桿、中央伸縮軸；吸嘴與真空軟管是該站的工具）
-- 期望介面：`core/models/robots/abb-irb360.js`，照共用模型的 `meta`＋`create(params) → { root, set(state) }`；state 是動平台中心 `[x, y, z]`，另匯出閉式逆解與幾何常數。工具與軟管留在專案
-- 影響：之後有高速取放（食品、包裝、分揀）的站都會用到。搬進 core 時連桿尺寸要用型錄核對，目前是現場照片目測的示意值
-
 ### 電控檢視器「聚焦元件」要依元件朝向取景
 - 提出：RecycleSorter（2026-10-05）
 - 暫代：`project-site/RecycleSorter/web/js/main.js`——在檢視器的「元件特寫」按鈕與元件選單上再掛一個事件，聚焦之後把鏡頭改放到元件群組本地 +Z 的方向
@@ -43,9 +37,8 @@
 - 期望介面：`@core/geom/materials.js` 的 `MAT.expandedMesh`（或 `meshPanel(parent, a, b, { cell })`）
 - 影響：有圍籬或網籠的站（目前各站用半透明的 `MAT.mesh`，近看沒有網目）
 
-### 走線的夾具固定面只看直接子網格
-- 提出：RecycleSorter（2026-10-05，換用 core 1.9.0 的 HMI 與急停模型時發現）
-- 現象：`core/electrical/cable-routing.js` 的 `cable()` 只把 parent 的「直接子網格」當成可以釘夾具的固定面（`parent.children.filter(m => m.isMesh …)`，而且只用 `m.matrix`）。元件改用 core 模型後，網格多了一層 root 群組，走線就找不到這些固定面：夾具默默變少、夾腳改釘到別處，不會報錯，快速檢查也照過。
-- 暫代：`project-site/RecycleSorter/web/js/electrical.js` 在走「GC1／急停與復歸」那條線時，把 HMI 與兩顆按鈕的網格暫時掛回外層群組，走完再放回模型的 root（結果和換用前逐網格相同）。
-- 期望：`cable()` 的固定面往下找子群組裡的網格（矩陣換算到 parent 座標，排除會動的子群組與走線五金）。改好後 RecycleSorter 的暫代可以拿掉。
-- 影響：所有把 core 模型放進有走線的群組的站；之後每換用一批模型都可能踩到，改之前要逐站比對夾具數量。
+### ABB OmniCore C30 控制器與 DSQC I/O 的電控元件外觀
+- 提出：core 1.10.0 整合（2026-10-05，RecycleSorter 的既有分選站；已拍板不做成 `core/models`，因為它們是電控元件）
+- 暫代：`project-site/RecycleSorter/web/js/frontline.js` 229～262 行在站內自己畫（`userData.electrical`、`electricalBody`；機身置中、轉 180° 朝門）
+- 期望介面：`core/electrical/electrical-components.js` 的 `robotController` 加 ABB OmniCore C30 的外觀與朝向參數，`electricalDevice` 加 DSQC 類 I/O 擴充模組的外觀；原點與朝向照 core 的慣例（背面在 z = 0、正面朝本地 +Z）
+- 影響：和上面「聚焦元件要依元件朝向取景」一起處理（都卡在「面板固定朝本地 +Z」）；之後用 ABB 手臂的站都會用到

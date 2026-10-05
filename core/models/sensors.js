@@ -6,7 +6,8 @@ import { block, cylinder } from '../geom/shapes.js';
 import { MAT, std } from '../geom/materials.js';
 import { defaults } from './util.js';
 
-const group = name => { const g = new THREE.Group(); g.name = name; return g; };
+// root.userData.coreModel＝模型 id：走線（cable 的線夾固定面）與全場檢查（安裝關係）靠它認得共用模型的根群組
+const group = (name, id) => { const g = new THREE.Group(); g.name = name; g.userData.coreModel = id; return g; };
 
 // ---------------------------------------------------------------- 盒型光電感測器＋動作指示燈
 // 原點：機身中心；指示燈在機身頂面（+Y）。
@@ -31,7 +32,7 @@ export const boxSensor = {
   },
   create(p = {}) {
     const P = { ...defaults(boxSensor.meta), ledSegments: 20, glow: 1.4, ...p };
-    const root = group(P.name ?? 'sensor-led');
+    const root = group(P.name ?? 'sensor-led', 'sensor-led');
     const body = block(root, [P.w, P.h, P.d], [0, 0, 0], P.material ?? MAT.steelBlue); body.name = 'sensor body';
     const led = cylinder(root, P.ledR, P.ledH, [0, P.ledY ?? P.h / 2 + P.ledH / 2, 0],
       P.ledMaterial ?? new THREE.MeshStandardMaterial({ color: 0x1b4f3d, emissive: 0x32d49b, emissiveIntensity: 0 }), 'y', P.ledSegments);
@@ -70,7 +71,7 @@ export const lightCurtain = {
   },
   create(p = {}) {
     const P = { ...defaults(lightCurtain.meta), axis: 'x', ...p };
-    const root = group(P.name ?? 'light-curtain');
+    const root = group(P.name ?? 'light-curtain', 'light-curtain');
     const X = P.axis !== 'z';
     const at = (along, y, across) => X ? [along, y, across] : [across, y, along];   // 沿連線、高、垂直連線 → [x, y, z]
     const wo = P.window === undefined || P.window === true ? {} : P.window, bo = P.brackets === true ? {} : P.brackets;
@@ -124,7 +125,7 @@ export const ftSensor = {
   },
   create(p = {}) {
     const P = { ...defaults(ftSensor.meta), thresholds: [2, 45], colors: [0x3dd68c, 0xffb020, 0xff4d4d], glow: 1.2, segments: 32, ringSegments: [8, 40], ...p };
-    const root = group(P.name ?? 'ft-sensor');
+    const root = group(P.name ?? 'ft-sensor', 'ft-sensor');
     const body = new THREE.Mesh(new THREE.CylinderGeometry(P.radius, P.radius, P.height, P.segments), P.material ?? MAT.steelDark);
     body.name = 'ft body'; body.castShadow = body.receiveShadow = true; body.rotation.x = Math.PI / 2; body.position.z = P.height / 2; root.add(body);
     const ring = new THREE.Mesh(new THREE.TorusGeometry(P.radius, P.tube, ...P.ringSegments), new THREE.MeshStandardMaterial({ color: P.colors[0], emissive: P.colors[0], emissiveIntensity: P.glow }));

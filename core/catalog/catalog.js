@@ -25,15 +25,24 @@ function slider(host, key, s, value, onInput) {
 function build(fit = false) {
   if (model) scene.remove(model.root);
   model = current.create({ ...params });
-  model.root.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; } });
-  // 原點在機身中心或安裝面的小件（HMI、感測器、按鈕…）抬到地面上，避免下半部被地面遮住
-  const low = new THREE.Box3().setFromObject(model.root).min.y; if (low < 0) model.root.position.y = -low;
+  // 效果（光束、噴霧、保護區：userData.fx）不投影；其餘零件在目錄頁一律投影、受影
+  const fx = o => { for (let p = o; p; p = p.parent) if (p.userData.fx) return true; return false; };
+  model.root.traverse(o => { if (o.isMesh && !fx(o)) { o.castShadow = o.receiveShadow = true; } });
+  // 原點在機身中心或安裝面的小件（HMI、感測器、按鈕…）與原點在上方的模型（並聯手臂、吸盤、浮動桿…）抬到地面上，
+  // 避免下半部被地面遮住。狀態走到兩端時的最低點也算進去（往下伸的活塞桿、動平台）。
+  const lowest = () => new THREE.Box3().setFromObject(model.root).min.y;
+  let low = lowest();
+  if (model.set) {
+    const S = Object.entries(current.meta.states || {}), at = pick => Object.fromEntries(S.map(([k, s]) => [k, pick(s, k)]));
+    for (const key of S.map(([k]) => k)) for (const end of ['min', 'max']) { model.set(at((s, k) => k === key ? s[end] : state[k])); low = Math.min(low, lowest()); }
+  }
+  if (low < 0) model.root.position.y = -low;
   scene.add(model.root); model.set?.(state); stage.invalidate(true);
   if (fit) frame();
 }
 function frame() {
   const box = new THREE.Box3().setFromObject(model.root), size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
-  const d = Math.max(size.x, size.y, size.z, 200) * 1.6;
+  const d = Math.max(size.x, size.y, size.z, 80) * 1.6;      // 小件（吸盤、荷重元、按鈕）拉近一點，最小以 80 mm 取景
   stage.goTo([c.x - d * .8, c.y + d * .6, c.z + d], [c.x, c.y, c.z], true);
 }
 
@@ -59,6 +68,19 @@ for (const [cat, list] of Object.entries(cats)) {
   const h = document.createElement('h2'); h.textContent = cat; $('list').appendChild(h);
   for (const m of list) { const b = document.createElement('button'); b.textContent = m.meta.name; b.dataset.id = m.meta.id; b.onclick = () => select(m); $('list').appendChild(b); }
 }
+// 搜尋：比對名稱、id、分類；沒有符合項目的分類標題一起藏起來
+$('count').textContent = `${MODELS.length} 個模型、${Object.keys(cats).length} 個分類`;
+$('filter').oninput = () => {
+  const q = $('filter').value.trim().toLowerCase(); let head = null, any = false;
+  const close = () => { if (head) head.hidden = !any; };
+  for (const el of $('list').children) {
+    if (el.tagName === 'H2') { close(); head = el; any = false; continue; }
+    const m = MODELS.find(x => x.meta.id === el.dataset.id);
+    el.hidden = !!q && ![m.meta.name, m.meta.id, m.meta.category].some(s => s.toLowerCase().includes(q));
+    if (!el.hidden) any = true;
+  }
+  close();
+};
 $('animate').onclick = () => { anim = !anim; $('animate').textContent = anim ? '⏸ 停止' : '▶ 來回動作'; };
 select(MODELS.find(m => m.meta.id === location.hash.slice(1)) || MODELS[0]);
 

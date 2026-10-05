@@ -1,11 +1,12 @@
-// 視覺用光源：條形光（bar-light）、穹頂光（dome-light）。環形光在 camera.js 的相機模型裡。
+// 視覺用光源：條形光（bar-light）、穹頂光（dome-light）。環形光在 camera.js 與 vision.js 的相機模型裡。
 // 這些原本各站自己畫；幾何、分段數、位置與材質都能用參數重現各站原樣（換用對照見 core/MIGRATION.md 1.9.0）。
 import * as THREE from 'three';
 import { block, bevelBox } from '../geom/shapes.js';
 import { MAT, std } from '../geom/materials.js';
 import { defaults } from './util.js';
 
-const group = name => { const g = new THREE.Group(); g.name = name; return g; };
+// root.userData.coreModel＝模型 id：走線（cable 的線夾固定面）與全場檢查（安裝關係）靠它認得共用模型的根群組
+const group = (name, id) => { const g = new THREE.Group(); g.name = name; g.userData.coreModel = id; return g; };
 const level = v => v === true ? 1 : Math.min(1, Math.max(0, +v || 0));
 
 // ---------------------------------------------------------------- 條形光
@@ -37,7 +38,7 @@ export const barLight = {
   },
   create(p = {}) {
     const P = { ...defaults(barLight.meta), axis: 'z', on: 1.1, off: .05, roughness: .3, bevel: 0, ...p };
-    const root = group(P.name ?? 'bar-light');
+    const root = group(P.name ?? 'bar-light', 'bar-light');
     const Z = P.axis !== 'x';
     const dims = (across, y, along) => Z ? [across, y, along] : [along, y, across];
     const shell = P.housing === false ? null : block(root, dims(P.w, P.h, P.length), [0, 0, 0], P.housingMaterial ?? MAT.alu);
@@ -81,7 +82,7 @@ export const domeLight = {
   },
   create(p = {}) {
     const P = { ...defaults(domeLight.meta), segments: [32, 16], ringSegments: [8, 48], ...p };
-    const root = group(P.name ?? 'dome-light');
+    const root = group(P.name ?? 'dome-light', 'dome-light');
     const dome = new THREE.Mesh(new THREE.SphereGeometry(P.radius, P.segments[0], P.segments[1], 0, Math.PI * 2, P.opening, Math.PI / 2 - P.opening), P.material ?? DOME_WHITE);
     dome.name = 'dome light'; dome.castShadow = true; root.add(dome);
     const ring = new THREE.Mesh(new THREE.TorusGeometry(P.radius + P.ringGap, P.ringTube, ...P.ringSegments), P.ringMaterial ?? MAT.black);

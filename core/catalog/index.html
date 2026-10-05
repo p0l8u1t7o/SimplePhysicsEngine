@@ -23,6 +23,9 @@ h1 { font-size: 18px; margin: 0 0 4px; } h2 { font-size: 12px; color: var(--mute
 a.back { color: var(--accent); font-size: 12px; text-decoration: none; }
 #list button { display: block; width: 100%; text-align: left; background: none; color: var(--text); border: 1px solid transparent; border-radius: 6px; padding: 6px 8px; font: inherit; cursor: pointer; }
 #list button:hover, #list button.on { border-color: var(--accent); background: #1a2633; }
+#filter { width: 100%; margin: 12px 0 0; padding: 6px 8px; background: #0b1118; color: var(--text); border: 1px solid var(--line); border-radius: 6px; font: inherit; }
+#filter:focus { outline: none; border-color: var(--accent); }
+#count { margin: 6px 0 0; }
 #view { position: relative; min-width: 0; } #c { width: 100%; height: 100%; display: block; }
 #title { position: absolute; left: 16px; top: 12px; font-size: 18px; font-weight: 600; text-shadow: 0 1px 4px #000; }
 label.row { display: grid; grid-template-columns: 1fr 70px; gap: 4px 8px; align-items: center; margin: 8px 0; font-size: 13px; }
@@ -39,6 +42,8 @@ button.act { background: #1a2633; color: var(--text); border: 1px solid var(--li
   <aside>
     <h1>共用 3D 模型目錄</h1>
     <a class="back" href="../../">← 回展示首頁</a>
+    <input id="filter" type="search" placeholder="搜尋名稱、分類或 id" aria-label="搜尋模型">
+    <p class="muted" id="count"></p>
     <div id="list"></div>
     <p class="muted">模型都在 <code>core/models</code>，各專案以 <code>@core/models/…</code> 引用。新增模型後在 <code>models/index.js</code> 登記即會出現在這裡，並納入 core 統一檢查。</p>
   </aside>

@@ -86,8 +86,12 @@ export function verifyScene(project, scene, {
   // 固定件的 bodyOf 為 null：「同一剛體」必須是同一個非 null 關節，否則固定件之間、頂層移動件對所有固定件都會被放行。
   // 移動件只對「安裝它的上游零件」放行：上游剛體相同，且該零件就在移動件的父群組底下（同一台設備）。
   const inside = (o, root) => { for (let p = o; p; p = p.parent) if (p === root) return true; return false; };
-  const mountedOn = (A, m) => bodyOf(m) === parentBody(A) && inside(m, A.parent);
-  const sameMount = (A, B) => parentBody(A) === parentBody(B) && (parentBody(A) !== null || A.parent === B.parent);
+  // 共用模型的根群組（userData.coreModel）只是包裝：模型裡的移動件視為裝在「模型所在的那一台設備」上，
+  // 所以往上跳過這些根群組再判斷。站把自己畫的零件換成共用模型（多一層 root）後，安裝關係和換用前相同。
+  // 場景裡沒有 coreModel 標記時 hostOf(A) 就是 A.parent，和原本的判定完全一樣。
+  const hostOf = A => { let p = A.parent; while (p && p.userData.coreModel && p.parent && p.parent !== scene) p = p.parent; return p; };
+  const mountedOn = (A, m) => bodyOf(m) === parentBody(A) && inside(m, hostOf(A));
+  const sameMount = (A, B) => parentBody(A) === parentBody(B) && (parentBody(A) !== null || hostOf(A) === hostOf(B));
   const ALLOW = [
     { why: '同一剛體或直接相連的關節（導軌、滑座、轉軸裝在上游零件上）', test: (a, b) => { const A = bodyOf(a), B = bodyOf(b); return (A && A === B) || (A && mountedOn(A, b)) || (B && mountedOn(B, a)); } },
     { why: '伸縮連桿（鏈條、活塞桿等長度會變的零件）與同一載體上的零件相接', test: (a, b) => { const A = bodyOf(a), B = bodyOf(b); return (A && stretch.has(A) && (mountedOn(A, b) || (B && sameMount(A, B)))) || (B && stretch.has(B) && (mountedOn(B, a) || (A && sameMount(A, B)))); } },

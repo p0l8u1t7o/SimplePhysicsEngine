@@ -10,6 +10,29 @@ const mark = (o,kind) => {o.userData.routingHardware=kind;return o;};
 /** 子樹中的實體網格（去掉配線五金與平面貼片）：verify.cables.obstacles 用 */
 export const solidMeshes = root => { const a = []; root.traverse(m => { if (m.isMesh && !m.userData.routingHardware && m.geometry.type !== 'PlaneGeometry') a.push(m); }); return a; };
 
+// 線夾的固定面：相對 parent 不會動的實體網格。回傳 [{ mesh, chain }]，chain 是 parent 到網格之間的群組（直接子網格是空陣列）。
+//   1. parent 的直接子網格（原本的規則；場景裡沒有下面這些標記時，結果和原本完全一樣）。
+//   2. 共用模型的根群組（userData.coreModel）只是包裝：它的直接子網格算固定面，模型裡再包一層模型也一樣。
+//      模型裡其他的子群組不往下找——可動件（userData.coreModelPart：活塞桿、滑座、夾指…）會相對 root 移動，
+//      螺絲、腳座這類小群組換用前在站裡也是群組、本來就不算。
+//   3. 站把模型的可動子群組改掛到自己的移動群組（站的群組.add(模型.子群組)）之後，它跟著那個群組走：
+//      parent 是站自己的群組（沒有 coreModel／coreModelPart 標記）時，直接掛在 parent 底下的 coreModelPart 群組，直接子網格算固定面。
+//      parent 本身就是模型的 root 或可動件時，底下的 coreModelPart 是它自己的可動件，不算。
+//   4. 不算的：userData.cableHost === false 的群組（整支每格被站移動的 root，例如移液模組、吸頭、噴槍、棧板、台車；
+//      以及被站直接當關節用的可動件，例如夾指、擺動缸——模型已經標好，站也可以自己標或改回 true）、
+//      走線五金（userData.routingHardware）、透明件、開孔的擠出件、厚度不到 4 mm 的薄件、不是原生 Y 軸的圓柱。
+const clampable=m=>m.isMesh&&!m.userData.routingHardware&&
+  (['BoxGeometry','CylinderGeometry'].includes(m.geometry.type)||(m.geometry.type==='ExtrudeGeometry'&&!m.userData.serviceBores&&!(m.geometry.parameters.shapes?.holes?.length)))&&!m.material?.transparent;
+function clampHosts(parent) {
+  const out=[],station=!parent.userData.coreModel&&!parent.userData.coreModelPart;
+  const walk=(node,chain)=>{for(const c of node.children) {
+    if(c.isMesh){if(clampable(c))out.push({mesh:c,chain});continue;}
+    const u=c.userData;if(u.routingHardware||u.cableHost===false)continue;
+    if(u.coreModel||(u.coreModelPart&&station&&node===parent))walk(c,[...chain,c]);
+  }};
+  walk(parent,[]);return out;
+}
+
 /** Clamped, static relative to its parent; endpoints are connector centres. */
 export function cable(parent,name,points,{radius=2.5,color=CABLE.signal,clips=2,ends=true,backing=null}={}) {
   const g=mark(new THREE.Group(),'route');g.name=name;parent.add(g);
@@ -28,8 +51,7 @@ export function cable(parent,name,points,{radius=2.5,color=CABLE.signal,clips=2,
   const orient=(o,t)=>{o.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),curve.getTangent(t).normalize());o.position.copy(curve.getPoint(t));g.add(o);};
   // A ring alone is a tie, not a mounting clamp. Only draw a fixed clamp when
   // its foot reaches a rigid sibling (never a moving child or transparent cover).
-  const hosts=parent.children.filter(m=>m.isMesh&&!m.userData.routingHardware&&
-    (['BoxGeometry','CylinderGeometry'].includes(m.geometry.type)||(m.geometry.type==='ExtrudeGeometry'&&!m.userData.serviceBores&&!(m.geometry.parameters.shapes?.holes?.length)))&&!m.material?.transparent);
+  const hosts=clampHosts(parent);
   if(backing) {
     const path=backing.path||points.map(p=>V(p).add(V(backing.offset)).toArray());
     for(let i=1;i<path.length;i++)support(parent,name+' / service rail',path[i-1],path[i],backing.radius||6);
@@ -42,10 +64,12 @@ export function cable(parent,name,points,{radius=2.5,color=CABLE.signal,clips=2,
       let distance=Infinity;const path=g.userData.backing.path;
       for(let k=1;k<path.length;k++){const a=V(path[k-1]),delta=V(path[k]).sub(a),q=a.clone().addScaledVector(delta,THREE.MathUtils.clamp(p.clone().sub(a).dot(delta)/delta.lengthSq(),0,1));if(p.distanceTo(q)<distance){distance=p.distanceTo(q);foot=q;}}
     }
-    else for(const m of hosts) {
+    else for(const {mesh:m,chain} of hosts) {
       m.updateMatrix();if(!m.geometry.boundingBox)m.geometry.computeBoundingBox();
       const size=m.geometry.boundingBox.getSize(new THREE.Vector3());if(Math.min(size.x,size.y,size.z)<4)continue;
-      const local=p.clone().applyMatrix4(m.matrix.clone().invert()),b=m.geometry.boundingBox;
+      // 網格相對 parent 的矩陣：直接子網格就是 m.matrix（原本的算法）；在共用模型群組裡的再乘上沿途群組的矩陣
+      const matrix=chain.length?chain.reduce((M,o)=>{if(o.matrixAutoUpdate)o.updateMatrix();return M.multiply(o.matrix);},new THREE.Matrix4()).multiply(m.matrix):m.matrix;
+      const local=p.clone().applyMatrix4(matrix.clone().invert()),b=m.geometry.boundingBox;
       let q=b.clampPoint(local,new THREE.Vector3());
       if(m.geometry.type==='CylinderGeometry') {
         const r=Math.max(m.geometry.parameters.radiusTop,m.geometry.parameters.radiusBottom);
@@ -53,7 +77,7 @@ export function cable(parent,name,points,{radius=2.5,color=CABLE.signal,clips=2,
         if(Math.abs(b.max.x-r)>.01||Math.abs(b.max.z-r)>.01)continue;
         const d=Math.hypot(local.x,local.z);if(d>r){q.x=local.x*r/d;q.z=local.z*r/d;}
       }
-      q.applyMatrix4(m.matrix);const d=p.distanceTo(q);
+      q.applyMatrix4(matrix);const d=p.distanceTo(q);
       if(d>radius+1&&d<best){best=d;foot=q;}
     }
     if(!foot)continue;

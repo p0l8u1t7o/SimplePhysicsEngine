@@ -158,11 +158,49 @@ Node 端由 `core/tools/loader.mjs` 解析相同的三種名稱，檢查程式�
     | 化學桶 | 三色燈 | `{ radius: 45, height: 90, segments: 28, base: 10, pitch: 95, on: 1.2, off: .05, lamps: [{ key: 'fault', material: 'red' }, { key: 'wait', material: 'amber' }, { key: 'run', material: 'green' }], pole: { r: 25, h: 1950, y: −1025, segments: 12, material: MAT.steel } }` | `(FENCE[1][0]+100, 2000, FENCE[1][1]+100)`；原本的 `rod` 刪掉；`setTower(s) { tower.set(s); }` |
     | 化學桶 | HMI | `{ w: 380, h: 280, d: 50, bevel: 0, bodyMaterial: MAT.screen, panel: false }` | `(cx, 1250, cz)`，`root.rotation.x = −.35` |
     | 化學桶 | 光柵 ×4 | `{ span: w, axis: ax, height: 1700, w: 50, d: 50, window: false, beam: false }` | fences 內 `(x, 0, z)` |
+- 2026-10-05 core 1.10.0（第二批市購品共用模型；走線與全場檢查認得共用模型；各站外觀與檢查結果不變）：
+  - 新模型 58 個（共 80 個，17 個分類），都是 `{ meta, create(參數) }`，登記在 `core/models/index.js`，目錄頁可預覽：
+    - `core/models/vision.js`（3）：`visionCamera`（逐件設定的工業相機）、`codeReader`、`laserProfiler`。
+    - `core/models/motion.js`（16）：`airCylinder`、`pivotCylinder`、`slideTable`、`vacuumEjector`、`solenoidValve`、`floatRod`、`suctionCup`、`frl`、`linearAxis`、`zThetaSpindle`、`nutrunner`、`drawerSlide`、`parallelGripper`、`rotaryEncoder`、`doorSwitch`、`loadCell`。
+    - `core/models/robots/abb-irb360.js`（1，並聯手臂；另匯出 `createIRB360`、`deltaIK`、`IRB360`）、`equipment.js`（8：空壓機、儲氣筒、分配座、櫃側風扇、教導器、離子風嘴、操作電腦、安全掃描器，另有 `liveScreen`）、`equipment-lab.js`（6：分析天平、自動進樣器、滴定儀、移液模組、吸頭、廢液桶）、`equipment-process.js`（12：貼標機、翻桶機、秤重顯示器、風刀、噴槍、熱風機、真空泵、PE 儲槽、離心泵、隔膜泵、切換閥、清運接頭）。
+    - `core/models/transport.js`（6：平皮帶、邊皮帶雙軌段、V 槽滾輪線、止擋、萬向球旋轉台、柔性供料盤）、`transport-handling.js`（6：棧板、穿梭車、密集架、懸臂吊、台車、AGV 充電櫃）。既有的 `conveyor.js` 多了 `meta.options`（輸送方向、本體範圍、跳過區段、軸承座、側樑與支腳）與回傳欄位，預設外觀與 API 不變。
+  - **各站換用對照**（參數、root 位置、狀態呼叫、注意事項；各站代理照這四份改）：`core/migrations/1.10.0-vision.md`、`1.10.0-motion.md`、`1.10.0-equipment.md`、`1.10.0-transport.md`。四個代理各自用「站原寫法 vs 模型＋對照參數」逐網格比對過（33＋31＋111＋57 組）；各站換用由各站另外進行。
+  - **標記**（`userData`）：
+    - `coreModel = 模型 id`：模型的根群組。第二批全部都有；1.9.0 的 `indicators.js`、`sensors.js`、`lights.js` 與既有的 `conveyor.js` 這次補上。更早的模型（手臂、`camera`、`gantry`、`hardware`、AGV、桶）**不補**——那些站從一開始就是照沒有標記的規則走線的，補了會改變現有結果。
+    - `coreModelPart = 模型 id`：`motion.js` 模型裡會動的子群組（活塞桿、滑座、夾指、套筒…），站可以把它改掛到自己的移動群組。
+    - `cableHost = false`：這個群組相對父群組會動，走線不拿它當線夾固定面。模型已標的：整支被站每格移動的 root（`pipette-module`、`pipette-tip`、`spray-lance`、`pallet-plastic`、`pallet-shuttle`、`platform-dolly`），以及改掛後仍被站當關節用的可動件（`parallelGripper.fingers[]`、`pivotCylinder.actuator`）。站可以自己標，也可以改回 `true`。
+  - **走線的線夾固定面**（`core/electrical/cable-routing.js` 的 `cable(parent, …)`；原本登記在 `core/REQUESTS.md`「走線的夾具固定面只看直接子網格」）：
+    1. `parent` 的直接子網格（原本的規則）。
+    2. `parent` 底下標了 `coreModel` 的根群組只是包裝：它的直接子網格算固定面（模型裡再包一層模型也一樣），矩陣一路乘到 `parent` 座標。模型裡其他的子群組（可動件、螺絲與腳座的小群組）不往下找——換用前它們在站裡也是群組，本來就不算。
+    3. `parent` 是站自己的群組（沒有 `coreModel`／`coreModelPart`）時，直接掛在它底下的 `coreModelPart` 群組（站改掛進來的可動件）的直接子網格算固定面。`parent` 本身是模型的 root 或可動件時，底下的 `coreModelPart` 是它自己的可動件，不算。
+    4. 不算的：`cableHost === false` 的群組、走線五金（`routingHardware`），以及原本就有的條件（透明、開孔擠出件、厚度不到 4 mm、不是原生 Y 軸的圓柱）。
+    - 沒有這些標記的場景，固定面的集合、順序與矩陣都和原本相同（直接子網格仍然用 `m.matrix`）。
+    - 換用前後不是逐位元相同：多一層 root 的矩陣相乘會有 1e-12 mm 級的浮點差。
+  - **全場檢查的安裝關係**（`core/verify/scene.mjs`）：判斷「移動件裝在誰身上」（`mountedOn`）與伸縮件的「同一載體」（`sameMount`）時，從移動件的父群組往上跳過標了 `coreModel` 的根群組（`hostOf`；直接掛在 scene 底下的根群組不跳）。站把自己畫的零件換成共用模型、多一層 root 之後，放行範圍和換用前相同。沒有標記的場景 `hostOf(A)` 就是 `A.parent`，判定不變。
+    - 這是使用者的決定：「換用模型不能改變各站的檢查結果，被蓋住的既有問題另外記待辦」。已知被蓋住的既有問題：化學桶開蓋站的萬向球旋轉台與桶蓋收集桶重疊 37～45 mm；PE 儲槽 TK-F 的視管插進 TK-R 槽體、TK-R 的視管插進防溢堤北牆（各約 10 mm）。
+    - 站保留自己的移動群組、把模型的可動子群組 `add` 進去（motion 對照的預設寫法）與直接用模型的子群組當關節，兩種寫法在新規則下放行範圍相同（合成場景比對：站原寫法、兩種換用寫法的干涉筆數、會動零件數、關節數都相同；用改之前的 `scene.mjs` 跑同一組場景則會多報 1 筆與 5 筆）。
+  - **各站換用時的共通事項**：
+    - 每換一批都比對三樣：`check.mjs --quick` 的數字、桌面截圖（0 張超過門檻）、場景傾印（`node core/tools/scene-dump.mjs <專案> --out 後.json`，再 `--diff "TEMP/b2-dump/<專案>.json" 後.json --ignore-names`，要得到「完全相同」；走線五金的數量與位置在它的輸出裡另有一段）。`review/determinism.json` 的物件數會因為多了 root 而增加，屬預期。
+    - 模型的 root 要在原本建立那些零件的位置加入（同一個父群組、同一個 `section`、在對它走線的 `cable()` 之前）。
+    - `userData` 用 `Object.assign` 或逐欄設定，不要整個換掉（會蓋掉 `coreModel`、`cableHost`）。
+    - 模型會給原本沒有名稱的網格預設名稱；站裡用「名稱」或「沒有名稱」判斷的 allow／verify 規則要看一下。
+    - 同一個零件在兩份對照都出現時以這裡為準：輸送線止擋（PCB ×3、SSD、軍規 ×5）用 `stopper`；化學桶翻桶機的液壓缸在 `upender` 裡，不另外用 `pivotCylinder`；化學桶 2" 噴槍的滑塊在 `sprayLance` 裡，`linearAxis` 只畫導軌。
+    - RecycleSorter 為 1.9.0 的 HMI 與急停寫的走線暫代（走線時把網格掛回外層群組）可以拿掉。
+  - **已拍板不換用的**：化學桶的 PE 儲槽 ×4 這一批暫不換用（`pe-tank` 模型照樣登記）。拍板時的依據是「換了會讓 3 筆被蓋住的視管干涉浮現」；採用上面的安裝關係規則後重跑同一個階層模擬，換用也不會浮現（0 筆），要不要改成現在就換由主 session／使用者決定，見 `1.10.0-equipment.md` 第 4 節；WorkpieceMeasurement 的相機、光源與運動元件不換用（資料驅動幾何，和碰撞資料同源）；ABB OmniCore C30、DSQC 2000 不做成 models（屬電控元件，之後在 `core/electrical` 處理，已登記在 `core/REQUESTS.md`）。
+  - **目錄頁**：加搜尋框與模型數；效果件（`userData.fx`）不投影；原點在上方或會往下伸的模型（並聯手臂、吸盤、浮動桿）依狀態兩端的最低點抬到地面上；小件最小以 80 mm 取景（原本 200 mm）。
+  - **場景傾印與比對**（`core/tools/scene-dump.mjs`）：`<專案> --out 檔案.json` 用網頁同一份 `project.js` 建場景（預設情境＋`project.json` 的 variants＋`verify.cables.variants`），在 9 個時間點記下每個零件的簽章（幾何型別與參數、頂點數與頂點雜湊、世界矩陣、材質屬性、陰影旗標、可見性、名稱、`routingHardware`）以及燈光、虛擬相機，排序後存檔——多一層群組、建立順序不同不算差異，檔案沒有時間戳，同一份場景重跑逐位元組相同。`--diff 前.json 後.json [--ignore-names]` 列出每個情境、時間點缺少／多出／不同的零件，走線五金另外統計；完全相同離開碼 0。8 站換用第二批之前的傾印放在本機 `TEMP/b2-dump/`（不進版控）。
+  - `core/REQUESTS.md`：「走線的夾具固定面只看直接子網格」完成（上面的走線規則）；「並聯（Delta）手臂模型」完成（`abb-irb360.js`；RecycleSorter 的 `delta.js` 改成薄包裝由站代理做，連桿尺寸仍是目測的示意值，選型前要用型錄核對）。
+  - 驗證（各站都還沒換用第二批模型）：
+    - `check.mjs --quick`（8 站＋core）68/68 通過；各站 `review/` 154 個檔案裡 151 個與改前逐位元組相同，另外 3 個（酸鹼、快門、WM 的 `verification.json`）只有時間戳與耗時不同，已還原。`models` 80/80。
+    - 桌面截圖 8 站 103 張與改前比對，0 張超過門檻；除了 SSD 的 2 張（差異 0.00001、0.0001，就是下一點的兩支夾腳），其餘 101 張差異都是 0。
+    - 走線五金（`routingHardware` 的網格，8 站 17 個情境，全精度比對種類、名稱、世界位置與朝向；當時用暫存腳本，之後改用 `scene-dump.mjs`）：酸鹼、軍規、PCB、快門、RecycleSorter 與改前完全相同（化學桶、WM 沒有走線）。**SSD 有 2 支夾腳變了**——`CAM / bar-light power ±1` 的 clamp foot 回到 1.9.0 換用之前的位置：全局相機旁兩支條形光在 1.9.0 換成 `barLight` 模型後多了一層 root，那次夾腳默默改釘到別處（位置差約 20 mm、長度 18 → 40 mm）；這次條形光的 root 補上 `coreModel` 標記後恢復原狀。8 站 17 個情境的走線五金都與 1.9.0 換用之前（`d95317b`）全精度相同。
+    - 目錄頁：無頭瀏覽器逐一開 80 個模型、拉動每個參數與狀態滑桿、跑來回動作，沒有主控台錯誤。studio 的 core 模型清單測試通過（80 個 id 不重複）。
 
 ## 版本
 
 | 版本 | 日期 | 內容 |
 |---|---|---|
+| 1.10.0 | 2026-10-05 | 第二批市購品共用模型 58 個（視覺、氣動與運動、機器人與專用設備、輸送與搬運；共 80 個）、`core/migrations/` 換用對照、走線固定面與全場檢查的安裝關係認得共用模型（`coreModel`／`coreModelPart`／`cableHost`）、目錄頁搜尋 |
 | 1.9.0 | 2026-10-05 | 市購小件共用模型：三色燈、HMI、急停、盒型感測器、安全光柵、力覺感測器、條形光、穹頂光（`models/indicators.js`、`sensors.js`、`lights.js`） |
 | 1.8.1 | 2026-10-05 | ffmpeg／ffprobe 的預設位置改成共用的 `tools/bin/`（原本在軍規專案的 `tools/bin/`）；`setup.ps1 -Ffmpeg` 會把舊位置的搬過去 |
 | 1.8.0 | 2026-10-04 | 結構檢查 `structure`（check、pre-commit）、`docs/` 萬用忽略規則 |

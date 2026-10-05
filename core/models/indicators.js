@@ -7,7 +7,8 @@ import { MAT, std } from '../geom/materials.js';
 import { housing } from '../geom/hardware.js';
 import { defaults, shadow, pick } from './util.js';
 
-const group = name => { const g = new THREE.Group(); g.name = name; return g; };
+// root.userData.coreModel＝模型 id：走線（cable 的線夾固定面）與全場檢查（安裝關係）靠它認得共用模型的根群組
+const group = (name, id) => { const g = new THREE.Group(); g.name = name; g.userData.coreModel = id; return g; };
 
 // ---------------------------------------------------------------- 三色燈
 // 原點：安裝點（預設是燈桿底端）；燈節沿 +Y 疊放，lamps 由上而下列出。
@@ -40,7 +41,7 @@ export const signalTower = {
   },
   create(p = {}) {
     const P = { ...defaults(signalTower.meta), lamps: ['red', 'yellow', 'green'], segments: 20, on: 1.6, off: .08, ...p };
-    const root = group(P.name ?? 'signal-tower');
+    const root = group(P.name ?? 'signal-tower', 'signal-tower');
     // 燈桿
     let pole = null, poleTop = 0;
     const po = P.pole === undefined ? (P.poleR > 0 && P.poleH > 0 ? {} : false) : P.pole === true ? {} : P.pole;
@@ -109,7 +110,7 @@ export const hmi = {
   },
   create(p = {}) {
     const P = { ...defaults(hmi.meta), ...p };
-    const root = group(P.name ?? 'hmi');
+    const root = group(P.name ?? 'hmi', 'hmi');
     const { w, h, d } = P, mat = P.bodyMaterial ?? MAT.cabinet;
     const body = P.bevel > 0 ? housing(root, w, h, d, mat, 0, 0, 0, P.bevel) : block(root, [w, h, d], [0, 0, 0], mat);
     body.name = 'hmi body';
@@ -177,7 +178,7 @@ export const estop = {
   create(p = {}) {
     const P = { ...defaults(estop.meta), segments: 20, ...p };
     const reset = !!P.reset;
-    const root = group(P.name ?? (reset ? 'reset-button' : 'estop'));
+    const root = group(P.name ?? (reset ? 'reset-button' : 'estop'), 'estop');
     const collarZ = P.collarZ ?? P.collarH / 2, capZ = P.capZ ?? collarZ + P.collarH / 2 + P.capH / 2 - 5;
     let box = null;
     if (P.box) {

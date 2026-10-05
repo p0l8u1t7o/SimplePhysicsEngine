@@ -40,10 +40,66 @@
     "zfight": []
   },
   {
+    "id": "abb-irb360",
+    "name": "ABB IRB 360 並聯手臂（FlexPicker 型，示意）",
+    "ok": true,
+    "meshes": 40,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
     "id": "conveyor",
     "name": "滾筒輸送線",
     "ok": true,
     "meshes": 34,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "belt-conveyor",
+    "name": "平皮帶輸送機",
+    "ok": true,
+    "meshes": 13,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "edge-belt-conveyor",
+    "name": "邊皮帶雙軌輸送段",
+    "ok": true,
+    "meshes": 95,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "v-roller-conveyor",
+    "name": "V 槽滾輪輸送線",
+    "ok": true,
+    "meshes": 29,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "stopper",
+    "name": "止擋（氣缸升降）",
+    "ok": true,
+    "meshes": 2,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "ball-turntable",
+    "name": "萬向球旋轉台",
+    "ok": true,
+    "meshes": 88,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "flex-feeder",
+    "name": "柔性供料盤（含補料斗）",
+    "ok": true,
+    "meshes": 3,
     "dynamic": [],
     "zfight": []
   },
@@ -56,10 +112,98 @@
     "zfight": []
   },
   {
+    "id": "pallet-plastic",
+    "name": "塑膠棧板（三底樑）",
+    "ok": true,
+    "meshes": 4,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "pallet-shuttle",
+    "name": "棧板穿梭車",
+    "ok": true,
+    "meshes": 8,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "shuttle-rack",
+    "name": "穿梭車密集架",
+    "ok": true,
+    "meshes": 72,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "jib-crane",
+    "name": "懸臂吊（電動葫蘆＋夾桶具）",
+    "ok": true,
+    "meshes": 26,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "platform-dolly",
+    "name": "平台台車（油桶台車）",
+    "ok": true,
+    "meshes": 8,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "agv-charger",
+    "name": "AGV 充電櫃",
+    "ok": true,
+    "meshes": 2,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "agv-forklift",
+    "name": "平衡重式堆高 AGV",
+    "ok": true,
+    "meshes": 44,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "drum-200l",
+    "name": "200 L 閉口 HDPE 桶",
+    "ok": true,
+    "meshes": 16,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
     "id": "camera",
     "name": "工業相機＋鏡頭＋環形光源",
     "ok": true,
     "meshes": 5,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "vision-camera",
+    "name": "工業相機（逐件設定：機身、鏡頭、環形光、閃光、虛擬相機）",
+    "ok": true,
+    "meshes": 4,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "code-reader",
+    "name": "固定式讀碼器（含讀碼光束）",
+    "ok": true,
+    "meshes": 1,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "laser-profiler",
+    "name": "3D 線雷射輪廓儀",
+    "ok": true,
+    "meshes": 2,
     "dynamic": [],
     "zfight": []
   },
@@ -80,18 +224,130 @@
     "zfight": []
   },
   {
-    "id": "agv-forklift",
-    "name": "平衡重式堆高 AGV",
+    "id": "linear-axis",
+    "name": "線性模組／滑軌（底座＋導軌＋滑座）",
     "ok": true,
-    "meshes": 44,
+    "meshes": 4,
     "dynamic": [],
     "zfight": []
   },
   {
-    "id": "drum-200l",
-    "name": "200 L 閉口 HDPE 桶",
+    "id": "z-theta-spindle",
+    "name": "Z-θ 主軸模組",
     "ok": true,
-    "meshes": 16,
+    "meshes": 5,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "servo-nutrunner",
+    "name": "伺服鎖付軸（含套筒）",
+    "ok": true,
+    "meshes": 6,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "drawer-slide",
+    "name": "抽屜滑軌（一對）",
+    "ok": true,
+    "meshes": 4,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "parallel-gripper",
+    "name": "平行夾爪（電動／氣動）",
+    "ok": true,
+    "meshes": 6,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "air-cylinder",
+    "name": "氣缸（本體＋活塞桿）",
+    "ok": true,
+    "meshes": 2,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "pivot-cylinder",
+    "name": "擺動式油壓／氣壓缸（耳軸式）",
+    "ok": true,
+    "meshes": 3,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "slide-table",
+    "name": "氣動滑台",
+    "ok": true,
+    "meshes": 2,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "float-rod",
+    "name": "浮動桿（氣壓緩衝）",
+    "ok": true,
+    "meshes": 2,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "suction-cup",
+    "name": "真空吸盤",
+    "ok": true,
+    "meshes": 1,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "vacuum-ejector",
+    "name": "真空發生器",
+    "ok": true,
+    "meshes": 1,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "solenoid-valve",
+    "name": "電磁閥",
+    "ok": true,
+    "meshes": 1,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "frl-unit",
+    "name": "FRL 三點組（含壓力表）",
+    "ok": true,
+    "meshes": 8,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "air-compressor",
+    "name": "空壓機（靜音無油式，雙缸）",
+    "ok": true,
+    "meshes": 8,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "air-tank",
+    "name": "儲氣筒（直立，含壓力表與安全閥）",
+    "ok": true,
+    "meshes": 9,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "air-manifold",
+    "name": "氣源分配座（含調壓表）",
+    "ok": true,
+    "meshes": 4,
     "dynamic": [],
     "zfight": []
   },
@@ -152,6 +408,14 @@
     "zfight": []
   },
   {
+    "id": "operator-pc",
+    "name": "操作電腦（螢幕＋鍵盤）",
+    "ok": true,
+    "meshes": 61,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
     "id": "sensor-led",
     "name": "盒型光電感測器（含動作指示燈）",
     "ok": true,
@@ -172,6 +436,206 @@
     "name": "六軸力覺感測器（含力值色環）",
     "ok": true,
     "meshes": 2,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "safety-scanner",
+    "name": "安全雷射掃描器（含減速區、停止區）",
+    "ok": true,
+    "meshes": 1,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "rotary-encoder",
+    "name": "旋轉編碼器",
+    "ok": true,
+    "meshes": 2,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "door-switch",
+    "name": "門互鎖開關",
+    "ok": true,
+    "meshes": 2,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "load-cell",
+    "name": "荷重元（圓柱型）",
+    "ok": true,
+    "meshes": 2,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "cabinet-fan",
+    "name": "櫃側散熱風扇",
+    "ok": true,
+    "meshes": 2,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "teach-pendant",
+    "name": "教導器與掛座（FlexPendant 型）",
+    "ok": true,
+    "meshes": 4,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "analytical-balance",
+    "name": "分析天平（防風罩、上方滑門）",
+    "ok": true,
+    "meshes": 31,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "autosampler",
+    "name": "自動進樣器（轉盤＋滴定頭）",
+    "ok": true,
+    "meshes": 49,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "titrator",
+    "name": "電位滴定儀（含 Dosino 與試劑瓶）",
+    "ok": true,
+    "meshes": 8,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "pipette-module",
+    "name": "機器人用移液模組（5 mL 級）",
+    "ok": true,
+    "meshes": 9,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "pipette-tip",
+    "name": "移液吸頭（5 mL 級）",
+    "ok": true,
+    "meshes": 2,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "waste-canister",
+    "name": "廢液桶（方桶，含液位開關標示）",
+    "ok": true,
+    "meshes": 2,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "labeler",
+    "name": "貼標機（印字貼標頭）",
+    "ok": true,
+    "meshes": 7,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "upender",
+    "name": "翻桶機（200 L 桶，L 形搖籃）",
+    "ok": true,
+    "meshes": 18,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "weigh-indicator",
+    "name": "秤重顯示器（立柱式）",
+    "ok": true,
+    "meshes": 2,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "air-knife",
+    "name": "風刀（直立）",
+    "ok": true,
+    "meshes": 1,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "spray-lance",
+    "name": "沖洗噴槍（旋轉噴頭／直噴）",
+    "ok": true,
+    "meshes": 3,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "hot-air-blower",
+    "name": "熱風機（鼓風機＋電熱器）",
+    "ok": true,
+    "meshes": 10,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "vacuum-pump",
+    "name": "真空泵（負壓抽液）",
+    "ok": true,
+    "meshes": 10,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "pe-tank",
+    "name": "PE 儲槽（立式，含液位視管）",
+    "ok": true,
+    "meshes": 19,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "pump-centrifugal",
+    "name": "離心泵（多段，臥式）",
+    "ok": true,
+    "meshes": 3,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "pump-diaphragm",
+    "name": "氣動隔膜泵",
+    "ok": true,
+    "meshes": 3,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "valve",
+    "name": "切換閥（箱形示意）",
+    "ok": true,
+    "meshes": 1,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "transfer-coupling",
+    "name": "清運接頭（委外清運用，箱形示意）",
+    "ok": true,
+    "meshes": 1,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "ionizer",
+    "name": "離子風嘴（靜電消除）",
+    "ok": true,
+    "meshes": 3,
     "dynamic": [],
     "zfight": []
   }

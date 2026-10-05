@@ -9,7 +9,8 @@
 | `vendor/` | three.js r160（`three.module.js`）與 addons，全站只有這一份 |
 | `geom/` | `shapes.js`（統一形狀：block／blockBetween／cylinder／rod／tube／pipe／profile／rounded／bevelBox／screw／decal／plate／floorText）、`materials.js`（共用材質表 MAT）、`hardware.js`（倒角外殼、螺栓、腳座、馬達、感測器…）、`finish.js`、`surfaces.js`、`perforated.js` |
 | `robot/` | `kinematics.js`：6 軸阻尼最小平方 IK（參數可調） |
-| `models/` | 共用模型庫：每個模型有 `meta`（名稱、分類、可調參數、可動狀態、用法）與 `create(params) → { root, set(state) }`，在 `models/index.js` 登記；目錄頁 `/core/catalog/` 可預覽與調參。手臂 5 款、輸送線、龍門、相機、AGV、200 L 桶、標準件（馬達、光電、腳座、壓力表），以及市購小件：`indicators.js`（三色燈 `signalTower`、人機介面 `hmi`、急停 `estop`）、`sensors.js`（盒型光電＋指示燈 `boxSensor`、安全光柵 `lightCurtain`、力覺感測器 `ftSensor`）、`lights.js`（條形光 `barLight`、穹頂光 `domeLight`） |
+| `models/` | 共用模型庫：每個模型有 `meta`（名稱、分類、可調參數、可動狀態、用法）與 `create(params) → { root, set(state) }`，在 `models/index.js` 登記；目錄頁 `/core/catalog/` 可預覽、調參與搜尋。共 80 個，清單見下方「共用模型」 |
+| `migrations/` | 各版共用模型的換用對照（各站把自己畫的零件換成共用模型時照著改）：`1.10.0-vision.md`、`1.10.0-motion.md`、`1.10.0-equipment.md`、`1.10.0-transport.md`；1.9.0 的對照表在 `MIGRATION.md` |
 | `catalog/` | 模型目錄頁（發布在 Pages） |
 | `anim/` | `track.js`：時間軌與時間軸（`createTimeline`、`Track`、`smooth`），狀態只由時間決定；`sequence.js`：單一手臂的步驟序列；`arrival.js`：手臂到位閘門（播放時等手臂到位、逾時故障） |
 | `electrical/` | 線材、拖鏈、電盤、電控元件（`component()` 元件表）與檢視器 |
@@ -18,7 +19,7 @@
 | `ui/` | `stage.js`（renderer／場景／相機／燈光／3D 標籤／視角轉場／畫面迴圈／`exposeSim`）、`player.js`（標準播放列）、`viewer-workspace`（相機視窗與焦點追隨，所有專案共用）、`vision-overlay` |
 | `verify/` | 統一檢查：`scene.mjs`（全場干涉＋重合面閃爍）、`electrical.mjs`（電控配置）、`cables.mjs`（配線動態取樣）、`feedthroughs.mjs`（穿板孔）、`clearance.mjs`（有向包圍盒間距）、`determinism.mjs`（倒序一致）、`fingerprint.mjs`／`fingerprint-compare.mjs`（排程指紋，渲染補強前後比對）、`run.mjs`（執行入口）、`dom-stub.mjs` |
 | `template/` | 新專案範本（`tools/new-project.mjs` 複製） |
-| `tools/` | 伺服器、檢查執行器、截圖比對、效能量測（`perf-check.mjs`）、Pages 建置、成品匯出（`export.mjs`：網站壓縮檔、單一 HTML、MP4）、建立新專案、範圍檢查（`check-scope.mjs`、`scope-guard.mjs`、`install-hooks.mjs`）、用戶名稱檢查（`check-names.mjs`）、結構檢查（`check-structure.mjs`）（不發布） |
+| `tools/` | 伺服器、檢查執行器、截圖比對、場景傾印與比對（`scene-dump.mjs`）、效能量測（`perf-check.mjs`）、Pages 建置、成品匯出（`export.mjs`：網站壓縮檔、單一 HTML、MP4）、建立新專案、範圍檢查（`check-scope.mjs`、`scope-guard.mjs`、`install-hooks.mjs`）、用戶名稱檢查（`check-names.mjs`）、結構檢查（`check-structure.mjs`）（不發布） |
 | `VERSION`、`REQUESTS.md` | core 版本號（語意化版本，改版紀錄在 `MIGRATION.md`）；子專案提出的 core 需求登記 |
 
 ## 新專案
@@ -109,9 +110,41 @@ export function createProject({ scene, headless }) {
 
 - `fx`：效果（噴霧、光束、氣流），不是實體，不檢查；
 - `guide = 'id'`／`on = 'id'`：導軌與在其上滑行的移動件；
-- `nested = 另一個關節物件`：套筒式伸縮（內外管）。
+- `nested = 另一個關節物件`：套筒式伸縮（內外管）；
+- `coreModel = 模型 id`：共用模型的根群組（模型自己標）。它只是包裝——走線把它的直接子網格當成 parent 的固定面，全場檢查判斷安裝關係時往上跳過它；
+- `coreModelPart = 模型 id`：共用模型裡會動的子群組（模型自己標）；站可以把它改掛到自己的移動群組；
+- `cableHost = false`：這個群組相對父群組會動，走線不拿它當線夾固定面（會移動的 root、被當關節用的可動件；模型有預設，站可以改）。
 
 `window.sim` 至少提供：`seekTo(t)`、`setView(name, instant)`、`views`（視角名稱陣列）、`total`、`play()`、`pause()`。
+
+## 共用模型（`core/models/`，80 個）
+
+每個模型是 `{ meta, create(參數) → { root, params, 子物件…, set? } }`（較早的手臂、輸送線等是整個模組匯出 `meta`、`create`）。`meta.params` 是目錄頁可調的數值，`meta.options` 是程式才傳的選項，`meta.states` 是 `set()` 的狀態範圍，`meta.usage` 是用法範例。新增模型後在 `models/index.js` 登記，就會出現在目錄頁並納入 `models` 檢查。
+
+| 分類 | 檔案與模型 |
+|---|---|
+| 機械手臂 | `robots/`：`fanuc-r2000ic.js`、`denso-vs068.js`、`denso-vm60b1.js`、`denso-cobotta-pro900.js`、`denso-hsr065.js`（SCARA）、`abb-irb360.js`（並聯手臂；另匯出 `createIRB360`、`deltaIK`） |
+| 輸送 | `conveyor.js`：滾筒輸送線；`transport.js`：平皮帶輸送機 `beltConveyor`、邊皮帶雙軌輸送段 `edgeBeltConveyor`、V 槽滾輪輸送線 `vRollerConveyor`、止擋 `stopper`、萬向球旋轉台 `ballTurntable` |
+| 供料 | `transport.js`：柔性供料盤 `flexFeeder` |
+| 搬運 | `gantry.js`：兩軸龍門＋平行夾爪；`transport-handling.js`：塑膠棧板 `pallet`（大量靜態棧板用 `pallet.instances()`）、棧板穿梭車 `shuttleCar`、穿梭車密集架 `shuttleRack`、懸臂吊 `jibCrane`、平台台車 `dolly`、AGV 充電櫃 `agvCharger` |
+| 物流、工件 | `agv-forklift.js`：平衡重式堆高 AGV；`drum-200l.js`：200 L 閉口 HDPE 桶 |
+| 視覺 | `camera.js`：工業相機＋鏡頭＋環形光源（依感光元件與焦距決定外形與視角）；`vision.js`：逐件設定的工業相機 `visionCamera`、固定式讀碼器 `codeReader`、3D 線雷射輪廓儀 `laserProfiler`；`lights.js`：條形光 `barLight`、穹頂光 `domeLight` |
+| 運動、夾持 | `motion.js`：線性模組／滑軌 `linearAxis`、Z-θ 主軸模組 `zThetaSpindle`、伺服鎖付軸 `nutrunner`、抽屜滑軌 `drawerSlide`、平行夾爪 `parallelGripper` |
+| 氣動 | `motion.js`：氣缸 `airCylinder`、擺動式油壓／氣壓缸 `pivotCylinder`、氣動滑台 `slideTable`、浮動桿 `floatRod`、真空吸盤 `suctionCup`、真空發生器 `vacuumEjector`、電磁閥 `solenoidValve`、FRL 三點組 `frl` |
+| 氣動與公用 | `equipment.js`：空壓機 `airCompressor`、儲氣筒 `airTank`、氣源分配座 `airManifold` |
+| 標準件 | `hardware.js`：伺服馬達 `motor`、光電感測器 `sensor`、腳座 `foot`、壓力表 `gauge` |
+| 指示與操作 | `indicators.js`：三色燈 `signalTower`、人機介面 `hmi`、急停按鈕 `estop`；`equipment.js`：操作電腦 `operatorPc`（另有會畫文字的小螢幕 `liveScreen`） |
+| 感測與安全 | `sensors.js`：盒型光電感測器 `boxSensor`、安全光柵 `lightCurtain`、六軸力覺感測器 `ftSensor`；`equipment.js`：安全雷射掃描器 `safetyScanner`；`motion.js`：旋轉編碼器 `rotaryEncoder`、門互鎖開關 `doorSwitch`、荷重元 `loadCell` |
+| 電控周邊 | `equipment.js`：櫃側散熱風扇 `cabinetFan`、教導器與掛座 `teachPendant`（控制器、I/O 模組等電控元件在 `core/electrical`，不在這裡） |
+| 實驗室儀器 | `equipment-lab.js`：分析天平 `analyticalBalance`、自動進樣器 `autosampler`、電位滴定儀 `titrator`、機器人用移液模組 `pipetteModule`、移液吸頭 `pipetteTip`、廢液桶 `wasteCanister` |
+| 製程設備 | `equipment-process.js`：貼標機 `labeler`、翻桶機 `upender`、秤重顯示器 `weighIndicator`、風刀 `airKnife`、沖洗噴槍 `sprayLance`、熱風機 `hotAirBlower`、真空泵 `vacuumPump`、PE 儲槽 `storageTank`、離心泵 `centrifugalPump`、氣動隔膜泵 `diaphragmPump`、切換閥 `valve`、清運接頭 `transferCoupling`；`equipment.js`：離子風嘴 `ionizer` |
+
+模型的結構慣例（走線與全場檢查靠它）：
+
+- 根群組標 `userData.coreModel = meta.id`，固定的實體網格**直接掛在 root 底下**；會動的部分放在子群組並回傳參考，`motion.js` 的可動子群組另外標 `userData.coreModelPart`。
+- 走線（`cable(parent, …)`）的線夾固定面：`parent` 的直接子網格，加上 `parent` 底下模型 root 的直接子網格，加上站改掛到 `parent`（站自己的群組）底下的可動子群組的直接子網格；`userData.cableHost === false` 的群組不算。
+- 全場檢查判斷「移動件裝在誰身上」時往上跳過模型的 root，所以把站內零件換成模型（多一層 root）不會改變放行範圍。
+- 細節與各站換用時的注意事項見 `MIGRATION.md` 的 1.10.0 一段。
 
 ## 共用舞台（`core/ui/stage.js`）
 
@@ -136,7 +169,7 @@ exposeSim({ seekTo, setView, views, total, play, pause, get T() { return T; } })
 | 項目 | 用法 |
 |---|---|
 | 形狀與材質 | `@core/geom/shapes.js`（block／cylinder／rod…，陣列參數）＋`@core/geom/materials.js` 的 `MAT`（含 `frame` 鋁擠型、`chrome`）與 `finished(MAT.alu, 'metal')`（帶細紋的快取複本）。常見材質用 MAT，產品專屬外觀才在專案自建 |
-| 市購小件 | 三色燈、HMI、急停、盒型感測器、安全光柵、力覺感測器、條形光、穹頂光用 `@core/models/indicators.js`／`sensors.js`／`lights.js` 的模型（`模型.create(參數) → { root, set, 子物件 }`），不要在站內重畫。數值參數見 `meta.params`，材質、陣列等選項見 `meta.options`；外部傳入的材質原樣使用。狀態直接對應：`tower.set('green')`、`sensor.set(true)`、`ft.setForce(N)`、`bar.set({ light })`、`hmi.draw(fn)`／`drawText(lines)` |
+| 市購品 | 市購的元件與設備（三色燈、HMI、急停、感測器、相機與光源、氣缸與線性模組、夾爪、輸送機、泵與儀器…）用 `@core/models/` 的模型（`模型.create(參數) → { root, set, 子物件 }`，清單見下方「共用模型」），不要在站內重畫；加工件、支架、線材與產品留在站內。數值參數見 `meta.params`，材質、陣列、子物件等選項見 `meta.options`（子物件給 `false` 不裝）；外部傳入的材質原樣使用。狀態直接對應：`tower.set('green')`、`sensor.set(true)`、`ft.setForce(N)`、`bar.set({ light })`、`hmi.draw(fn)`／`drawText(lines)`、`cam.set(亮度)`、`cyl.set({ ext })`、`axis.set({ pos })`、`grip.set({ width })`、`stop.set(0 或 1)`、`conv.set({ s })`。站原本就有移動群組時，把模型回傳的可動子群組 `add` 進去（關節與每格改位置的程式不變）。既有站換用時照 `core/migrations/` 的對照 |
 | 排程 | 單一手臂依序作業：`createStepSequence`（`@core/anim/sequence.js`；`discrete`、`latch`、`nested`、步驟 `ease`／`easeKeys`、`peek`、`mark`／`rollback`、`retime`）；多台設備並行：`createTimeline`（`@core/anim/track.js`；`Track.at(T)`）。兩者都提供 `events`、`stationStart`、`total` |
 | 播放列 | `createPlayer`（`@core/ui/player.js`）綁定標準元素 `playBtn／restartBtn／speed／speedVal／timeline／clock／stepSelect／previous／next／loop`，事件選單用排程的 `events`；`apply(T, { seek, dt })`、`advance(T, dt)`（等手臂到位、故障停住）、`maxStep`（高倍速拆子步）、`onChange(T, state, { seek })`、`loop`、`<select>` 速度選單、`speed` 預設值；上一步：已播過目前步驟 0.5 s 以上回到步驟開頭，否則回到前一步 |
 | 手臂到位 | `createArrivalGate`（`@core/anim/arrival.js`）：規則（`tolerance` 門檻、`contactPosition`、`timeout`、`maxStep`，或自訂 `blocked(e, step, atEnd)`）放在專案的 `sequence.js` 匯出（如 `ARRIVAL`），網頁與驗證腳本共用；專案提供 `error()`、`step()`、`sample(t)`、`update(h)` 與選用的額外故障 `fault()`（如 NG 停線）。`advance` 直接交給 `createPlayer`（子步、步驟終點等到位、終點前一點取樣、逾時停住），跳播時 `reset()`，面板讀 `waiting`／`fault`；Node 驗證腳本用 `step(t, h)` 逐子步驅動 |
@@ -170,6 +203,16 @@ node core/tools/check.mjs --only scene     # 只跑某項
 | `electrical` | ✓ | 場景有電控元件或電盤時：元件在櫃內、編號不重複、機身不重疊、櫃內連線不穿元件、穿板孔與接頭；`verify.cables` 有宣告時另做配線動態取樣（線路與拖鏈對障礙物）。結果寫入 `review/electrical-checks.json`；沒有電控就略過 |
 | `ui` |  | 標準互動測試（`core/tools/ui-check.mjs`）：桌面、手機直向、手機橫向、觸控平板四種尺寸，檢查載入與主控台錯誤、版面不溢出、畫布面積、播放／暫停、上一步／下一步／步驟選單、視角按鈕與選單收合、側欄、標籤在畫布內且（精簡版面）不重疊、點按目標 ≥ 30 px、`?movie`；結果寫入 `review/ui-check.json`，`--shots 資料夾` 另存截圖；`project.json` 的 `ui.skip`／`ui.params` 可設定 |
 | 專案自有 | 依 `checks` | `project.json` 的 `checks.quick`／`checks.full` |
+
+場景傾印與比對（把站內零件換成共用模型、或改 core 的幾何之後，確認畫出來的東西沒變）：
+
+```powershell
+node core/tools/scene-dump.mjs <專案> --out TEMP/<名>-before.json     # 改之前
+node core/tools/scene-dump.mjs <專案> --out TEMP/<名>-after.json      # 改之後
+node core/tools/scene-dump.mjs --diff TEMP/<名>-before.json TEMP/<名>-after.json [--ignore-names] [--show 8] [--all]
+```
+
+傾印用網頁同一份 `project.js` 建場景（所有情境、預設 9 個時間點，`--times N` 可改），記下每個零件的幾何、頂點雜湊、世界矩陣（1e-6）、材質屬性、陰影旗標、可見性、名稱與 `routingHardware`，以及燈光與虛擬相機；同一時間點內排序，所以多一層群組或建立順序不同不算差異，同一份場景重跑的檔案逐位元組相同。比對列出每個情境、時間點缺少／多出／不同的零件與差在哪個欄位，走線五金另外統計；完全相同離開碼 0、有差異 1。`--ignore-names` 不比一般零件的名稱。它不比群組階層、`userData`、貼圖內容與時間點之間的動作，檢查與截圖仍然要跑。
 
 另有兩個不在 check.mjs 裡、給 studio 渲染補強守門用的工具：`node core/tools/run.mjs <專案> ../core/verify/run.mjs fingerprint`（印出一行排程指紋 JSON）、`node core/tools/perf-check.mjs <專案> [--out 檔案]`（各視角三角面、draw call 與手機幀率）。
 

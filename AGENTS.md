@@ -26,7 +26,7 @@
 
 | 位置 | 內容 |
 |---|---|
-| `core/` | 共用框架（以 importmap `@core/` 引用）：geom（形狀、材質、五金、地面）、models（22 個參數化模型＋目錄頁：手臂、輸送、相機，以及三色燈、HMI、急停、感測器、光柵、力覺感測器、光源等市購小件）、anim 的 sampling（取樣時間）、examples（第二段範例：電控、配線、相機）、anim（時間軸、步驟序列、到位閘門）、ui（stage、player、viewer-workspace）、electrical、movie、verify、template、tools；版本號在 `core/VERSION`，core 需求登記在 `core/REQUESTS.md` |
+| `core/` | 共用框架（以 importmap `@core/` 引用）：geom（形狀、材質、五金、地面）、models（80 個參數化模型＋目錄頁：市購品一律放這裡——手臂、輸送與搬運、相機與視覺、氣動與運動、夾爪、指示與感測小件、實驗室與製程設備；各站換用的對照在 `core/migrations/`）、anim 的 sampling（取樣時間）、examples（第二段範例：電控、配線、相機）、anim（時間軸、步驟序列、到位閘門）、ui（stage、player、viewer-workspace）、electrical、movie、verify、template、tools；版本號在 `core/VERSION`，core 需求登記在 `core/REQUESTS.md` |
 | `project-site/<專案>/` | 所有展示專案（之後新增的也放這裡）。`web/`（網站；`web/js/project.js` 是網頁與檢查共用的場景）、`project.json`（首頁說明、`coreVersion`、`checks.quick`／`checks.full`、`variants`、`ui`）、`tools/`（專案自有檢查）、`review/`（檢查結果，進版控）、`docs/`（只留本機）、`AGENTS.md`／`CLAUDE.md`（該站規則）、`.claude/settings.json`（寫檔關卡） |
 | `tools/` | 跨專案工具：干涉回歸、跨站視覺檢查（`verify-vision.mjs`）、電路圖、錄影輸出（配線與電盤檢查已移到 core 的 `electrical`）；`bin/` 是各站共用的 ffmpeg／ffprobe（`setup.ps1 -Ffmpeg` 下載，不進版控） |
 | `scripts/` | 腳本：`setup.ps1`（環境設定）、`start`／`stop`（`.ps1`＋可點兩下的 `.cmd`，網頁啟動與停止，PID 與輸出在 `logs/`）、`migrate/`（搬庫腳本） |
@@ -49,6 +49,7 @@ node core/tools/shots.mjs [專案…] --out TEMP/<新> --compare TEMP/<基準> -
 python core/tools/compare-review.py TEMP/<review 基準>   # review JSON 比對（忽略時間與雜湊）
 node core/tools/new-project.mjs <資料夾> "<標題>" ["一句說明"]   # 由範本建立新專案（含規則檔與寫檔關卡）
 node core/tools/export.mjs <專案> [--zip] [--html] [--mp4]   # 成品匯出到 TEMP/exports/：網站壓縮檔（雙擊離線開）、單一 HTML、MP4（全自動）
+node core/tools/scene-dump.mjs <專案> --out TEMP/<檔>.json      # 場景傾印（每個網格、燈光、走線五金）；--diff <前> <後> 比對，換用 core 模型或改 core 前後各傾印一次
 node core/tools/install-hooks.mjs                 # 安裝 pre-commit 範圍檢查（clone 後一次）
 node core/tools/check-scope.mjs --scope <範圍> <路徑…>   # 手動檢查路徑是否在範圍內
 node studio/vs3d.mjs parts search <關鍵字…> [--project 專案] [--json]   # 查元件資料庫：選型、單價、哪些專案用過（show <id> 看單一元件）
@@ -104,6 +105,8 @@ node --import ./core/tools/register.mjs tools/verify-interference.mjs   # 四站
   2. 改完比對：7 站桌面截圖要 0 張超過門檻。刻意的外觀改變要逐張看過，並記進 `core/MIGRATION.md`。
 - **review JSON**：只有時間戳、`seconds`、`generated` 改變的，提交前先還原。有實質內容變化的才提交。根目錄 `tools/review/*.json` 的 sourceHash 會隨程式改變，連同程式一起提交。
 - **allow 規則**：必須窄，而且要寫原因；不能用 allow 蓋掉真問題。看到「0 筆干涉」時要先確認規則本身沒有放水。過去 `bodyOf` 為 null 時 `null===null` 讓固定件之間全部放行，修正後抓到大量真問題。
+- **換用 core 模型時三樣都要比**：快速檢查的數字、桌面截圖、`scene-dump.mjs --diff`（逐網格與走線五金）。夾具改釘到別處不會報錯、截圖也可能低於門檻（1.9.0 那一批 SSD 的兩支夾腳就是這樣漏掉的）。
+- **core 模型的 `userData` 標記**：模型 root 標 `coreModel`，走線（`cable()`）與干涉檢查（`mountedOn`）會把它當成透明的包裝；可動子群組標 `coreModelPart`；不能當線夾固定面的標 `cableHost = false`。站裡設 `userData` 用 `Object.assign`，不要整個換掉。
 - 閃爍的根因通常是重合面，對數深度緩衝解決不了，要改幾何。
 - 完整檢查（全部專案）要數十分鐘，MGPC 的 scene 約 90 秒，可以放到背景執行。
 
