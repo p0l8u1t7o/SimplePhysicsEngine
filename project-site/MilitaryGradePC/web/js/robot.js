@@ -6,6 +6,7 @@ import { createVM60B1, VM60B1_MAT, JOINTS, JOINT_SPEED } from '@core/models/robo
 import { cable, carrier, support, CABLE } from '@core/electrical/cable-routing.js';
 import { cylinder, decal } from '@core/geom/shapes.js';
 import { MAT } from '@core/geom/materials.js';
+import { ftSensor } from '@core/models/sensors.js';
 
 // 立座、滑座、相機本體與滑軌用共用手臂模型的材質（與 VM-60B1 同色）；工具金屬與 PU 用 MAT，鏡片與雷射窗留在本站
 const matArmD  = VM60B1_MAT.dark;
@@ -57,9 +58,8 @@ export function createRobot() {
 
   // ---- 力覺末端（裝在手臂的工具安裝座：法蘭面，本地 +Z 為工具前進方向）----
   const tool = arm.tool;
-  const ft = cyl(44, 44, 34, matTool); ft.rotation.x = Math.PI / 2; ft.position.z = 17; tool.add(ft);
-  const ftRing = new THREE.Mesh(new THREE.TorusGeometry(44, 2.2, 8, 40), new THREE.MeshStandardMaterial({ color: 0x3dd68c, emissive: 0x3dd68c, emissiveIntensity: 1.2 }));
-  ftRing.position.z = 17; tool.add(ftRing);
+  // 六軸力覺感測器（共用模型）：機身 ø88×34 由法蘭面往 +Z，色環在中段；力值 <2 N 綠、<8 N 黃、其餘紅
+  const ft = ftSensor.create({ radius: 44, height: 34, tube: 2.2, thresholds: [2, 8] }); tool.add(ft.root);
   const plate = box(150, 110, 10, matArmD); plate.position.z = 39; tool.add(plate);
 
   // 相機 + 環形光（工具中心）
@@ -90,7 +90,8 @@ export function createRobot() {
   const tcpPress = new THREE.Object3D(); tcpPress.position.set(-62,-30,193); tool.add(tcpPress);
   const tcpLaser = new THREE.Object3D(); tcpLaser.position.set(PROFILER_X, 20, 195); tool.add(tcpLaser);
 
-  const toolParts = [ft, plate, camBody, lens, lensGlass, ringLight, hookArm, hookTip, pressPad, profiler, profWin];
+  // 干涉與淨空檢查用的工具零件：力覺感測器取機身網格（ft.body），不是模型的 root
+  const toolParts = [ft.body, plate, camBody, lens, lensGlass, ringLight, hookArm, hookTip, pressPad, profiler, profWin];
   ['force-sensor','tool-plate','camera','lens','lens-glass','ring-light','hook-arm','hook-tip','press-pad','profiler','profiler-window']
     .forEach((name,i) => { toolParts[i].name = name; });
 
@@ -216,10 +217,7 @@ export function createRobot() {
   }
   function error(){const position=getTcpWorld(goal.tcp).distanceTo(goal.target);const axis=new THREE.Vector3(0,0,1).applyQuaternion(tool.getWorldQuaternion(new THREE.Quaternion()));return {position,angle:THREE.MathUtils.radToDeg(axis.angleTo(goal.dir)),rail:Math.abs(q.rail-clampRail(goal.rail))};}
 
-  function setForceColor(f) {
-    const c = f < 2 ? 0x3dd68c : f < 8 ? 0xffb020 : 0xff4d4d;
-    ftRing.material.color.setHex(c); ftRing.material.emissive.setHex(c);
-  }
+  const setForceColor = ft.setForce;   // 色環依力值變色（門檻在 ftSensor 的 thresholds）
   function setFlash(on) { flash.intensity = on ? 360 : 0; ringLightMat.emissiveIntensity = on ? .65 : 0.05; }
   function setLaser(on) { laserPlane.material.opacity = on ? 0.35 : 0; profWin.material.emissiveIntensity = on ? 3 : 1.5; }
 

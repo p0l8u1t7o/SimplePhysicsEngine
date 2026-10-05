@@ -7,6 +7,10 @@ import { NB } from './notebook.js';
 import { block, cylinder, decal, tube } from '@core/geom/shapes.js';
 import { MAT } from '@core/geom/materials.js';
 import { floor } from '@core/geom/environment.js';
+// 市購小件用 core 共用模型（core 1.9.0）：三色燈、HMI、急停、盒型感測器、安全光柵、穹頂光；參數對照見 core/MIGRATION.md
+import { signalTower, hmi, estop } from '@core/models/indicators.js';
+import { boxSensor, lightCurtain } from '@core/models/sensors.js';
+import { domeLight } from '@core/models/lights.js';
 
 export const LAYOUT = {
   // S3 在 x=1150：S2 右側護蓋作業時手腕在 x≤約 680，翻轉治具左端（x≥695）不在手腕範圍內
@@ -87,7 +91,7 @@ function createStacker(x, dir) {
   const rodM = cyl(6, 200, matPin, 12); rodM.rotation.z = Math.PI / 2; rodM.position.x = dir * 135; rod.add(rodM);
   const plate = box(10, 40, 120, matPU); plate.position.x = dir * 240; rod.add(plate);
   // 操作面板
-  const hmi = box(160, 110, 14, MAT.screen); hmi.position.set(0, 1500, D / 2 + 10); g.add(hmi);
+  const opPanel = hmi.create({ w: 160, h: 110, d: 14, bevel: 0, bodyMaterial: MAT.screen, panel: false }); opPanel.root.position.set(0, 1500, D / 2 + 10); g.add(opPanel.root);
   const forks=[];
   for(const sz of [-1,1]){
     // 托叉 24 mm 寬、z=±140～164：承托載具前後框，與堆疊柱（z=±113～137）錯開
@@ -152,9 +156,9 @@ export function createCell(scene) {
   for (const x of [-1450,...stationX.slice(1,4),1450]) {
     const base=box(45,70,70,matDark);base.position.set(x+225,top-35,0);g.add(base);
     const st=box(10,24,68,matYellow);st.position.set(x+225,top-14,0);g.add(st);
-    const sensor=box(16,18,24,matBlue);sensor.position.set(x,top+12,210);g.add(sensor);
-    const led=cylinder(g,3,2,[x,top+23,210],new THREE.MeshStandardMaterial({color:0x1b4f3d,emissive:0x32d49b,emissiveIntensity:0}));
-    stops.push({x,st,led});
+    // 到位感測器（盒型光電＋動作指示燈）：指示燈中心在機身中心上方 11 mm
+    const sensor=boxSensor.create({ledY:11});sensor.root.position.set(x,top+12,210);g.add(sensor.root);
+    stops.push({x,st,led:sensor.led});
   }
   for(const z of [-170,170])for(const x of [x0+30,x1-30]){const r=cyl(30,38,matDark);r.rotation.x=Math.PI/2;r.position.set(x,top-28,z);g.add(r);}
   for(let x=x0+30;x<x1;x+=120)for(const z of [-201,201])block(g,[42,3,1],[x,top-30,z],matDark);
@@ -193,9 +197,10 @@ export function createCell(scene) {
   const topCam = new THREE.Group(); topCam.position.y = domeRim + 360; head.add(topCam);
   const camBody = box(80, 90, 80, matCam); topCam.add(camBody); camBody.name = 'S1 頂視相機'; keepout.push(camBody);
   const tcLens = cyl(28, 70, matDark); tcLens.position.y = -80; topCam.add(tcLens); tcLens.name = 'S1 頂視鏡頭'; keepout.push(tcLens);
-  const dome = new THREE.Mesh(new THREE.SphereGeometry(LAYOUT.s1DomeR, 32, 16, 0, Math.PI * 2, .16, Math.PI / 2 - .16), matDome); dome.position.y = domeRim; dome.castShadow = true; head.add(dome); dome.name = 'S1 穹頂光'; keepout.push(dome);
-  const domeRing = new THREE.Mesh(new THREE.TorusGeometry(LAYOUT.s1DomeR + 2, 8, 8, 48), matDark); domeRing.rotation.x = Math.PI / 2; domeRing.position.y = domeRim; head.add(domeRing);
-  const topFlash = new THREE.SpotLight(0xffffff, 0, 1200, 0.5, 0.6, 1); topFlash.position.set(0, domeRim + 250, 0); topFlash.target.position.set(0, productTop - 100, 0); head.add(topFlash, topFlash.target);
+  // 穹頂光（共用模型）：原點在底緣中心；聚光燈在底緣上方 250、照向底緣下方 180（＝產品頂面下 100，s1DomeGap 80）
+  const dome = domeLight.create({ radius: LAYOUT.s1DomeR, material: matDome }); dome.root.position.y = domeRim; head.add(dome.root);
+  dome.dome.name = 'S1 穹頂光'; keepout.push(dome.dome);   // keepout 放擴散罩網格（不是 root）
+  const topFlash = dome.light;
   const cameraHarness=carrier(s1,'S1 / retracting camera carrier',{origin:[85,beamY+90,0],axis:[0,0,1],fixed:390,min:0,max:780,radius:55,width:34,pitch:20});
   for(const z of [50,420,750])support(s1,'S1 / fixed guide mount',[40,beamY+45,z],[85,beamY+79,z],6);
   cable(head,'S1 / moving camera drop',[[85,beamY+200,0],[90,beamY+110,20],[65,beamY-30,30],[55,domeRim+410,30],[55,domeRim+365,0],[43.5,domeRim+365,0]],{radius:3,color:CABLE.signal,clips:5,backing:{offset:[18,0,0],feet:[[0,[60,beamY-12,0]],[3,[20,domeRim+430,0]]]}});
@@ -208,14 +213,10 @@ export function createCell(scene) {
 
   // ---- 三色燈、圍籬（後側與兩端）、前側光柵 ----
   const occ = new THREE.Group(); occ.name = 'occluders'; g.add(occ);   // 錄製時可隱藏的遮擋物
-  const tower = new THREE.Group(); tower.position.set(stationX[4] - 450, top + 320, -300); g.add(tower);
-  const towerPole = cyl(8, 300, matFrame); towerPole.position.y = -150; tower.add(towerPole);
-  const towerLamps = {};
-  [['red', 0xff3b3b, 90], ['yellow', 0xffb020, 50], ['green', 0x3dd68c, 10]].forEach(([k, c, y]) => {
-    const m = new THREE.Mesh(new THREE.CylinderGeometry(22, 22, 36, 20), new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 0.08, transparent: true, opacity: 0.85 }));
-    m.position.y = y; tower.add(m); towerLamps[k] = m;
-  });
-  const towerApi = { set(k) { for (const n in towerLamps) towerLamps[n].material.emissiveIntensity = n === k ? 1.6 : 0.08; } };
+  // 三色燈（共用模型）：原點在燈桿頂，燈桿往下 300；燈節由上而下 red／yellow／green（y = 90／50／10），tower.set(鍵名) 切換
+  const tower = signalTower.create({ height: 36, base: 10, pitch: 40, colors: { red: 0xff3b3b, yellow: 0xffb020, green: 0x3dd68c }, lens: { opacity: .85 },
+    pole: { r: 8, h: 300, y: -150, segments: 24 }, shadow: { lamps: false } });
+  tower.root.position.set(stationX[4] - 450, top + 320, -300); g.add(tower.root);
   // 後圍籬：手臂待命／PTP 時肘部最遠到 z≈-996，圍籬放在 railZ-500，保留約 60 mm
   const backZ = railZ - 500, endX = 2700;
   for (let x = -endX; x <= endX; x += 675) { const p = box(40, 1400, 40, matFrame); p.position.set(x, 700, backZ); occ.add(p); }
@@ -223,10 +224,14 @@ export function createCell(scene) {
   for (const x of [-endX, endX]) {
     const post = box(40, 1400, 40, matFrame); post.position.set(x, 700, 700); occ.add(post);
     for (const y of [500, 1380]) { const r = box(14, 14, 700 - backZ, y > 1000 ? matYellow : matFrame); r.position.set(x, y, (700 + backZ) / 2); occ.add(r); }
-    const lc = box(30, 900, 30, matYellow); lc.position.set(x, 450, 900); occ.add(lc);
   }
+  // 前側安全光柵（共用模型）：兩支在 x=±endX、z=900，機身 30×900×30
+  const curtain = lightCurtain.create({ span: 2 * endX, height: 900, w: 30, d: 30, material: matYellow, window: false, beam: false }); curtain.root.position.set(0, 0, 900); occ.add(curtain.root);
   const cab = box(600, 1800, 500, matDark); cab.position.set(-3300, 900, -300); occ.add(cab);
-  const screen = box(500, 300, 20, MAT.screen); screen.position.set(-3300, 1350, -40); occ.add(screen);
+  // 電控櫃 HMI（共用模型）：整塊是螢幕，畫面文字是固定貼紙（在機身中心前方 12 mm）
+  const screen = hmi.create({ w: 500, h: 300, d: 20, bevel: 0, bodyMaterial: MAT.screen, panel: false,
+    text: { lines: ['QC CELL / AUTO','WORK ORDER : RMK12608372','VISION + FORCE CONTROL','SIMULATION'], w: 390, h: 220, z: 12, options: { bg: '#102635', color: '#65d7b8' } } });
+  screen.root.position.set(-3300, 1350, -40); occ.add(screen.root);
 
   // Frame fasteners, levelling feet, pneumatic service unit and electrical panel details.
   for(let x=x0+100;x<x1;x+=600)for(const z of [-170,170]){cylinder(g,8,35,[x,25,z],matPin);cylinder(g,27,8,[x,7,z],matDark);}
@@ -235,8 +240,8 @@ export function createCell(scene) {
   cylinder(g,22,10,[430,590,287],matDark,'z');decal(g,28,28,[430,590,293],[0,0,0],'0.5 MPa',{center:true});
   tube(g,[[430,500,220],[430,400,190],[600,400,190],[650,720,190]],5,matBlue);
   for(let i=0;i<9;i++)block(occ,[180,3,3],[-3300,350+i*12,-48],matFrame);
-  cylinder(occ,24,12,[-3120,1080,-40],matYellow,'z');cylinder(occ,15,20,[-3120,1080,-30],new THREE.MeshStandardMaterial({color:0xd53730}),'z');
-  decal(occ,390,220,[-3300,1350,-28],[0,0,0],['QC CELL / AUTO','WORK ORDER : RMK12608372','VISION + FORCE CONTROL','SIMULATION'],{bg:'#102635',color:'#65d7b8'});
+  // 急停（共用模型）：底座環中心在安裝點、按鈕頭往前 10 mm
+  const stopButton=estop.create({collarR:24,capH:20,collarZ:0,capZ:10});stopButton.root.position.set(-3120,1080,-40);occ.add(stopButton.root);
   const columns=[];g.traverse(m=>{const p=m.geometry?.parameters;if(m.material===matFrame&&p?.height>500&&p.width<=80&&p.depth<=80)columns.push(m);});
   for(const column of columns){
     const p=column.geometry.parameters;
@@ -262,7 +267,7 @@ export function createCell(scene) {
   panelFeed(g,'CTRL / S1 to panel',[[s1x,400,335],[s1x,660,335],[-850,660,335],[-850,660,200],[-850,540,200],[-850,505,-100],panel.ports[3]],{radius:6});
   panelFeed(g,'CTRL / rail power to panel',[[0,400,300],[-140,400,320],[-140,660,320],[-550,660,200],[-550,540,200],[-550,505,-100],panel.ports[9]],{radius:8,color:CABLE.power});
   // keepout：手臂不得進入的固定結構（S1 懸臂與取像頭、S3 龍門），供驗證做碰撞檢查
-  return { group:g,occluders:occ,pallet:palletApi,stackerIn,stackerOut,cradle,topFlash,snFlash,tower:towerApi,stops,setHead,keepout:[...keepout,...cradle.keepout,...cabinet.solids,...motionCabinet.solids],
+  return { group:g,occluders:occ,pallet:palletApi,stackerIn,stackerOut,cradle,topFlash,snFlash,tower,stops,setHead,keepout:[...keepout,...cradle.keepout,...cabinet.solids,...motionCabinet.solids],
     updateTransport(x,located){beltMarks.position.x=((x%110)+110)%110;for(const s of stops){const hit=Math.abs(x-s.x)<2;s.st.position.y=top-14+(hit&&located?28:0);s.led.material.emissiveIntensity=hit?1.4:0;}},
     get topCamPos(){return topCam.getWorldPosition(new THREE.Vector3());},snReaderPos:snReader.position.clone() };
 }
