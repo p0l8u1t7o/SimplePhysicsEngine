@@ -111,18 +111,24 @@ try {
   await waitFor(`!document.querySelector('.modal')`, '面板關閉');
 
   // 清單與查詢
-  await waitFor(`document.querySelector('table.parts tbody tr td.num')?.textContent.includes('21,500')`, '清單顯示最新單價');
-  check(await browser.evaluate(`(() => { const r = document.querySelector('table.parts tbody tr').innerText; return r.includes('測試代理商') && r.includes('RecycleSorter') && r.includes('Basler'); })()`), '清單列出廠牌、供應商、用過的專案');
+  await waitFor(`document.querySelector('table.parts tr.part td.num')?.textContent.includes('21,500')`, '清單顯示最新單價');
+  check(await browser.evaluate(`(() => { const r = document.querySelector('table.parts tr.part').innerText; return r.includes('測試代理商') && r.includes('RecycleSorter') && r.includes('Basler'); })()`), '清單列出廠牌、供應商、用過的專案');
   await shot('list');
+  // 樹狀選單：群組 → 類別；點類別只列那一類，新增的元件依類別自動歸到群組
+  check(await browser.evaluate(`(() => { const t = document.querySelector('.tree').innerText; return t.includes('全部元件') && t.includes('視覺') && t.includes('相機與讀碼'); })()`), '樹狀選單列出群組與類別');
+  await run(`[...document.querySelectorAll('.tree .t-kids button')].find(b => b.textContent.includes('相機與讀碼')).click(); return true;`);
+  await waitFor(`document.querySelector('.crumb b')?.textContent === '相機與讀碼' && document.querySelectorAll('table.parts tr.part').length === 1`, '點類別後只列那一類');
+  await run(`t.button('全部元件', document.querySelector('.tree')).click(); return true;`);
+  log('✓ 樹狀選單篩選');
   await run(`t.type(t.field('搜尋元件'), '找不到的東西'); return true;`);
   await waitFor(`document.body.innerText.includes('沒有符合條件的元件')`, '查詢：沒有符合');
   await run(`t.type(t.field('搜尋元件'), 'basler 立體對'); return true;`);
-  await waitFor(`document.querySelectorAll('table.parts tbody tr:not(.none)').length === 1 && document.body.innerText.includes('符合 1 個')`, '查詢：多個關鍵字（廠牌＋使用紀錄的理由）');
+  await waitFor(`document.querySelectorAll('table.parts tr.part').length === 1 && document.body.innerText.includes('符合 1 個')`, '查詢：多個關鍵字（廠牌＋使用紀錄的理由）');
   log('✓ 查詢');
   await run(`t.button('清除條件').click(); return true;`);
 
   // 刪除價格（按兩次確認）、刪除元件
-  await run(`document.querySelector('table.parts tbody tr').click(); return true;`);
+  await run(`document.querySelector('table.parts tr.part').click(); return true;`);
   await waitFor(`!!t.card('價格紀錄')?.querySelector('tbody tr .danger')`, '重新開啟元件');
   await run(`const b = t.card('價格紀錄').querySelector('tbody tr .danger'); b.click(); await new Promise(r => setTimeout(r, 150)); return true;`);
   check((await api(`/api/parts/${id}`)).prices.length === 2, '刪除按第一次只是進入確認');

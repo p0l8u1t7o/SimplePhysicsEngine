@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+
 // 共用的下拉選單：能列舉的值一律用選單，不讓使用者打字。選項來自 /api/info 的 options（各 CLI 的模型與推理強度）。
 export const CLIS = [['claude', 'Claude Code'], ['codex', 'Codex']];
 
@@ -15,6 +17,13 @@ export const RENDER_FOCUS = [
 ];
 
 const EFFORT_LABEL = { low: 'low（快）', medium: 'medium', high: 'high（建議）', xhigh: 'xhigh（較慢）', max: 'max（最慢）' };
+
+// 危險操作要按兩次：第一次變成「確定…？」，4 秒內沒按就復原
+export function ConfirmButton({ onConfirm, label = '刪除', confirmLabel = '確定刪除？', title, disabled }) {
+  const [armed, setArmed] = useState(false);
+  useEffect(() => { if (!armed) return; const t = setTimeout(() => setArmed(false), 4000); return () => clearTimeout(t); }, [armed]);
+  return <button type="button" className="danger" title={title} disabled={disabled} onClick={() => { if (armed) onConfirm(); setArmed(!armed); }}>{armed ? confirmLabel : label}</button>;
+}
 
 export function Select({ value, onChange, options, disabled, title, style }) {
   return <select value={value} onChange={e => onChange(e.target.value)} disabled={disabled} title={title} style={style}>

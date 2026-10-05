@@ -1,17 +1,19 @@
-// 單一專案：狀態列與操作按鈕；分頁：進度、問題、提案、審查、預覽、截圖、補強對照、規則與紀錄。
+// 單一專案：狀態列與操作按鈕（續跑、取消流程、審查與補強、匯出、刪除專案）；分頁：進度、問題、提案、審查、預覽、截圖、補強對照、規則與紀錄。
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, fileUrl, STAGE, ROLE } from './api.js';
 import { QuestionCard } from './QuestionCard.jsx';
-import { Select, RENDER_FOCUS } from './fields.jsx';
+import { Select, ConfirmButton, RENDER_FOCUS } from './fields.jsx';
 
 const TABS = [['progress', '進度'], ['questions', '問題'], ['proposal', '提案'], ['review', '審查'], ['preview', '預覽'], ['shots', '截圖'], ['compare', '補強對照'], ['rules', '規則']];
 const min = s => `${(s / 60).toFixed(1)} 分`;
 const RENDER_RESULT = { accepted: '已接受', reverted: '已整批還原', 'accepted-with-failures': '已接受（守門未全過）' };
 
-export function ProjectView({ id, tick, running, onChange }) {
+export function ProjectView({ id, tick, running, onChange, onDeleted }) {
   const [p, setP] = useState(null);
   const [tab, setTab] = useState('progress');
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [del, setDel] = useState(null);         // 刪除專案的確認欄：null 是沒打開
   const [zoom, setZoom] = useState(null);
   const [focus, setFocus] = useState('');
   const [change, setChange] = useState(''), [keepTiming, setKeepTiming] = useState(true);
@@ -49,13 +51,27 @@ export function ProjectView({ id, tick, running, onChange }) {
             {p.render && <span className="chip">補強{RENDER_RESULT[p.render] || p.render}</span>}
           </div>
         </div>
-        <a className="btn" href={p.previewUrl} target="_blank" rel="noreferrer">↗ 在新分頁開啟預覽</a>
+        <div className="bar" style={{ margin: 0 }}>
+          <a className="btn" href={p.previewUrl} target="_blank" rel="noreferrer">↗ 在新分頁開啟預覽</a>
+          {!p.repo && <button className="danger" disabled={isRunning} title={isRunning ? '執行中不能刪除，先停止' : '刪除這個專案'} onClick={() => setDel(del == null ? '' : null)}>刪除專案</button>}
+        </div>
       </div>
 
       {dirty.length > 0 && !isRunning && <div className="notice warn">
         <b>本站有 {dirty.length} 個未提交的改動</b>（可能是 Claude Code、Codex 桌面版或其他工具改的）。vs3d 只在乾淨的站上開工，避免把別人的改動當成代理的成果提交；先提交或處理這些檔案，審查、補強、第二段與修改指令才能用。檢查與匯出不受影響。
         <ul className="files-list">{dirty.slice(0, 12).map(f => <li key={f}><code>{f}</code></li>)}{dirty.length > 12 && <li className="mute">…另外 {dirty.length - 12} 個</li>}</ul>
       </div>}
+
+      {del != null && <section className="card danger">
+        <h3>刪除專案</h3>
+        <p className="hint">整個專案資料夾（程式、上傳的資料、提問與紀錄）會移到工作區的 <code>.studio/trash/</code>，介面上不再出現；之後想救回來，把資料夾搬回 <code>projects/</code> 就可以。輸入專案名稱 <b>{p.name}</b> 確認：</p>
+        <div className="bar">
+          <input value={del} onChange={e => setDel(e.target.value)} placeholder={p.name} aria-label="輸入專案名稱確認刪除" />
+          <button className="danger" disabled={del !== p.name} onClick={() => api.deleteProject(id, del).then(() => onDeleted?.()).catch(e => setError(e.message))}>確定刪除</button>
+          <button onClick={() => setDel(null)}>不刪了</button>
+        </div>
+      </section>}
+      {notice && <div className="notice ok">{notice}</div>}
 
       <div className="acts">
         <section className="group">
@@ -66,7 +82,11 @@ export function ProjectView({ id, tick, running, onChange }) {
               : p.segment !== 2 ? <button className="primary" disabled={flowBlocked} title="電控、電盤、配線、相機" onClick={() => act(() => api.run(id, { cmd: 'stage2' }))}>開始第二段</button>
               : <span className="ok">✓ 第二段已完成</span>}
           </div>
-          {!isRunning && pending.length > 0 && <small className="warn">先到「問題」分頁回答，才能繼續。</small>}
+          {p.cancellable && !isRunning && <div className="bar">
+            <ConfirmButton label="取消流程" confirmLabel="確定取消？" title="放棄這次還沒做完的流程，回到「完成」；已經提交的內容不動"
+              onConfirm={() => act(async () => { const r = await api.cancel(id); setNotice(`已取消流程，回到「完成」。${r.questions ? `${r.questions} 個還沒回答的問題已收起來。` : ''}${r.branch ? `已提交的內容留在分支 ${r.branch}。` : ''}`); })} />
+          </div>}
+          {!isRunning && pending.length > 0 && <small className="warn">先到「問題」分頁回答，才能繼續{p.cancellable ? '；不想繼續就按「取消流程」' : ''}。</small>}
           {!isRunning && busy && <small className="mute">工作區正在執行 {running.id}。</small>}
         </section>
 
@@ -119,7 +139,8 @@ export function ProjectView({ id, tick, running, onChange }) {
               ? <tr key={i}><td>{r.round}</td><td>{ROLE[r.role] || r.role}{r.resumed ? '（續接）' : ''}</td><td>{r.cli} {r.model}{r.effort ? ` ${r.effort}` : ''}</td><td>{min(r.seconds)}</td><td>{r.ok ? '' : <span className="bad">失敗 </span>}{r.violations?.length ? <span className="warn">越界 {r.violations.length}　</span> : ''}{r.summary}</td></tr>
               : r.check ? <tr key={i}><td></td><td>檢查 {r.check}</td><td></td><td>{r.seconds} s</td><td className={r.ok ? 'ok' : 'bad'}>{r.ok ? '通過' : r.failures.join('；')}</td></tr>
               : r.review ? <tr key={i}><td></td><td>審查 {r.review}</td><td></td><td></td><td>必修 {r.must.length}、建議 {r.suggest}</td></tr>
-              : r.guard ? <tr key={i}><td></td><td>守門</td><td></td><td></td><td className={r.ok ? 'ok' : 'bad'}>{r.ok ? '通過' : r.fails.join('；')}</td></tr> : null)}
+              : r.guard ? <tr key={i}><td></td><td>守門</td><td></td><td></td><td className={r.ok ? 'ok' : 'bad'}>{r.ok ? '通過' : r.fails.join('；')}</td></tr>
+              : r.cancel ? <tr key={i}><td></td><td>取消流程</td><td></td><td></td><td className="mute">原本在「{STAGE[r.cancel] || r.cancel}」階段</td></tr> : null)}
           </tbody></table>}
           {agentRounds.length > 0 && <p className="mute">代理合計 {min(agentRounds.reduce((a, r) => a + (r.seconds || 0), 0))}{agentRounds.some(r => r.costUsd) && `，Claude API 等值 $${agentRounds.reduce((a, r) => a + (r.costUsd || 0), 0).toFixed(2)}`}</p>}
         </div>

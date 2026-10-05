@@ -19,6 +19,8 @@ export const api = {
   answer: (id, v) => call('POST', `/api/projects/${encodeURIComponent(id)}/answer`, v),
   run: (id, v) => call('POST', `/api/projects/${encodeURIComponent(id)}/run`, v),
   stop: () => call('POST', '/api/stop'),
+  cancel: id => call('POST', `/api/projects/${encodeURIComponent(id)}/cancel`),
+  deleteProject: (id, confirm) => call('DELETE', `/api/projects/${encodeURIComponent(id)}`, { confirm }),
   importHandoff: v => call('POST', '/api/import', v),
   // 元件資料庫；kind 是 prices（價格紀錄）或 usages（使用紀錄），id 空白是新增
   parts: query => call('GET', `/api/parts?${new URLSearchParams(query)}`),

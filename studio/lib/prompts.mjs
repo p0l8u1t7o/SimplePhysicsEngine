@@ -35,6 +35,7 @@ export function handoff({ J, check, shotsDir, notes = [], violations = [] }) {
   const out = ['## 交接摘要', ''];
   out.push(`- 需求與已拍板事項：\`AGENTS.md\``);
   if (readText(join(J.plan, 'proposal.md'))) out.push(`- 配置提案：\`.studio/plan/proposal.md\``);
+  if (readText(join(J.studio, 'parts-catalog.md'))) out.push(`- 元件資料庫清單：\`.studio/parts-catalog.md\`（過去專案用過的元件、規格與參考單價；選型、列元件表、估成本時先查，沿用的寫出編號，例如 #132；清單沒有的標「新元件」。不要修改這個檔）`);
   if (readText(join(J.plan, 'segment2.md'))) out.push(`- 第二段提案：\`.studio/plan/segment2.md\`、\`.studio/plan/segment2.json\`；寫法見 \`core/examples/segment2/README.md\``);
   if (check) out.push(`- 最近一次檢查（${check.quick ? '快速' : '完整'}）：${check.ok ? '全部通過' : `${check.failures.length} 項失敗`}`);
   if (shotsDir) out.push(`- 截圖：\`${rel(J.dir, shotsDir)}\``);
@@ -50,7 +51,7 @@ export const TASK = {
 
 1. 製程流程：工站與順序
 2. 站位配置：各設備的位置與尺寸範圍（mm）
-3. 設備選型：手臂、相機、輸送等；先找 \`core/models\` 有沒有現成模型；規格沒指定的用合理選型並標「示意」
+3. 設備選型：手臂、相機、輸送等；先找 \`core/models\` 有沒有現成模型，並查元件資料庫清單（\`.studio/parts-catalog.md\`，有這個檔的話）有沒有過去用過的同類元件，沿用的寫出編號（例如 #132）；規格沒指定的用合理選型並標「示意」，清單裡沒有的標「新元件」
 4. 節拍估算：各步驟秒數與總節拍
 5. 第一段範圍：場景、排程、視角、播放列、手機與平板版面；列出這一段不做的事（電控、配線、相機子畫面屬於第二段）
 6. 假設與待確認事項
@@ -88,7 +89,7 @@ ${check ? failureText(check) : '（沒有檢查結果）'}
 
 **\`.studio/plan/segment2.md\`**，章節如下：
 
-1. 電控架構：電源、PLC、I/O、通訊、安全、各軸驅動、視覺電腦；與各設備（手臂控制器、輸送、相機）的交握
+1. 電控架構：電源、PLC、I/O、通訊、安全、各軸驅動、視覺電腦；與各設備（手臂控制器、輸送、相機）的交握。PLC、安全元件、相機、鏡頭、光源等先查元件資料庫清單（\`.studio/parts-catalog.md\`，有這個檔的話），沿用的寫出編號，沒有的標「新元件」
 2. 電盤：放在哪裡（不擋動線與維修、門打得開）、櫃體尺寸、背板元件分列（每列寬度要放得下）
 3. 外露線路與拖鏈：每條線從哪裡到哪裡、沿什麼結構走；哪些軸要拖鏈、行程多少
 4. 相機與光源：每台相機的用途、感光元件、焦距、工作距離與視野（要涵蓋工件加定位誤差）、安裝位置與支架、光源；相機子畫面要呈現什麼、何時取像、疊圖標記什麼

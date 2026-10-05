@@ -6,7 +6,7 @@
 //     projects/<專案>/         每個專案一個 git 庫；docs/、TEMP/、.studio/ 不進版控
 // 本庫模式（計畫書 4.10）：ws 也可以是本庫根目錄（有 core/ 與 project-site/、沒有工作區標記），專案就是 project-site/<專案>/，
 //   用本庫的 git（只動該專案路徑）、本庫目前的 core 與規則；app 自己的狀態放在 TEMP/studio/（鎖、設定、上傳）與各專案的 .studio/。
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync, chmodSync, copyFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync, chmodSync, copyFileSync, renameSync } from 'node:fs';
 import { basename, join, dirname } from 'node:path';
 import { SOURCE_CORE, STUDIO, git, readJson, writeJson, writeText, walk, now, run } from './util.mjs';
 import { DEFAULT_STUDIO_JSON } from './roles.mjs';
@@ -38,6 +38,21 @@ export function acquireLock(ws, id) {
   if (cur && cur.pid !== process.pid && alive(cur.pid)) throw new Error(`工作區正在執行專案 ${cur.project}（pid ${cur.pid}，${cur.at} 開始）；一個工作區一次只能跑一個專案`);
   writeJson(f, { pid: process.pid, project: id, at: now() });
   return () => { if (readJson(f, null)?.pid === process.pid) rmSync(f, { force: true }); };
+}
+
+// 刪除工作區的專案：整個資料夾移到 <工作區>/.studio/trash/<名稱>-<時間>，不會直接消失；確定不要了再自己清掉，要復原就搬回 projects/。
+// 本庫的站在版控裡，不從這裡刪。
+export function deleteProject(ws, id) {
+  const P = paths(ws), J = projectPaths(ws, id);
+  if (P.repo) throw new Error('本庫的站在版控裡，不能從這裡刪除（要移除請用 git）');
+  if (!existsSync(join(J.dir, 'studio.json'))) throw new Error(`找不到專案：${id}`);
+  const release = acquireLock(ws, id);      // 正在執行就會丟出錯誤
+  try {
+    const dest = join(P.app, 'trash', `${id}-${now().slice(0, 19).replace(/[-:T]/g, '')}`);
+    mkdirSync(dirname(dest), { recursive: true });
+    try { renameSync(J.dir, dest); } catch (e) { throw new Error(`搬不動專案資料夾（${e.code || e.message}）：可能有程式正開著裡面的檔案，關掉後再試`); }
+    return dest;
+  } finally { release(); }
 }
 
 export function setReadOnly(dir, readOnly = true) {

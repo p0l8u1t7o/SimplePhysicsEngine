@@ -1,21 +1,14 @@
-// 元件資料庫：查詢、新增、編輯、刪除元件；每個元件底下有多筆價格紀錄與專案使用紀錄；另一個分頁管理供應商。
+// 元件資料庫：左邊樹狀選單（群組 → 類別），右邊清單；查詢、新增、編輯、刪除元件；每個元件底下有多筆價格紀錄與專案使用紀錄；另一個分頁管理供應商。
 // 資料在本機的 SQLite 檔（studio/data/parts.db，不進版控），各站做設計、選型與成本表時由這裡查。
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from './api.js';
-import { Select } from './fields.jsx';
+import { Select, ConfirmButton } from './fields.jsx';
 
 const CURRENCIES = ['TWD', 'USD', 'JPY', 'EUR', 'CNY'];
-const UNCATEGORIZED = '（未分類）';
+const UNCATEGORIZED = '（未分類）', UNGROUPED = '（未分組）';
 const today = () => new Date().toLocaleDateString('sv');
 export const money = (v, currency = 'TWD') => v == null ? '' : `${currency === 'TWD' ? 'NT$' : currency} ${Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
-const BLANK_PART = { category: '', name: '', brand: '', model: '', spec: '', unit: '', selection_note: '', alternatives: '', tags: '', url: '', note: '' };
-
-// 刪除要按兩次：第一次變成「確定刪除？」，4 秒內沒按就復原
-function ConfirmButton({ onConfirm, label = '刪除', title }) {
-  const [armed, setArmed] = useState(false);
-  useEffect(() => { if (!armed) return; const t = setTimeout(() => setArmed(false), 4000); return () => clearTimeout(t); }, [armed]);
-  return <button type="button" className="danger" title={title} onClick={() => { if (armed) onConfirm(); setArmed(!armed); }}>{armed ? '確定刪除？' : label}</button>;
-}
+const BLANK_PART = { grp: '', category: '', name: '', brand: '', model: '', spec: '', unit: '', selection_note: '', alternatives: '', tags: '', url: '', note: '' };
 
 // 可以逐列編輯的表格（價格紀錄、使用紀錄、供應商共用）。
 // columns：{ key, label, type: text｜number｜date｜select, options, list（datalist 的 id）, show(row)（顯示用）, cls }
@@ -96,6 +89,7 @@ function PartEditor({ id, facets, suppliers, projectNames, onClose, onChanged })
             <div className="row">
               <label><span>名稱 *</span><input value={form.name} onChange={e => set('name', e.target.value)} placeholder="例如 工業相機" autoFocus={id === 'new'} /></label>
               <label><span>類別</span><input value={form.category} onChange={e => set('category', e.target.value)} list="parts-categories" placeholder="例如 相機與讀碼" /></label>
+              <label><span>群組</span><input value={form.grp} onChange={e => set('grp', e.target.value)} list="parts-groups" placeholder="留白就依類別帶入" /></label>
             </div>
             <div className="row">
               <label><span>廠牌</span><input value={form.brand} onChange={e => set('brand', e.target.value)} list="parts-brands" /></label>
@@ -141,6 +135,7 @@ function PartEditor({ id, facets, suppliers, projectNames, onClose, onChanged })
           </section>
         </> : <p className="mute">先新增元件，接著就能加價格紀錄與專案使用紀錄。</p>}
         <datalist id="parts-categories">{facets.categories.filter(c => c.name).map(c => <option key={c.name} value={c.name} />)}</datalist>
+        <datalist id="parts-groups">{facets.groups.map(g => <option key={g} value={g} />)}</datalist>
         <datalist id="parts-brands">{facets.brands.map(b => <option key={b} value={b} />)}</datalist>
         <datalist id="parts-units">{facets.units.map(u => <option key={u} value={u} />)}</datalist>
         <datalist id="parts-projects">{[...new Set([...projectNames, ...facets.projects.map(p => p.name)])].sort().map(p => <option key={p} value={p} />)}</datalist>
@@ -165,21 +160,76 @@ function Suppliers({ suppliers, kinds, reload }) {
   </section>;
 }
 
+// 樹狀選單：群組 → 類別，各有元件數；點群組或類別就篩選右邊的清單，箭頭收合
+function Tree({ tree, sel, onSel }) {
+  const [closed, setClosed] = useState(() => new Set());
+  const total = tree.reduce((n, g) => n + g.count, 0);
+  const toggle = name => setClosed(s => { const n = new Set(s); if (n.has(name)) n.delete(name); else n.add(name); return n; });
+  return (
+    <aside className="card tree" aria-label="元件分類">
+      <h3>分類</h3>
+      <button type="button" className={!sel.group && !sel.category ? 'on' : ''} onClick={() => onSel({ group: '', category: '' })}><span className="t-name">全部元件</span><span className="n">{total}</span></button>
+      {tree.map(g => {
+        const gn = g.name || UNGROUPED, open = !closed.has(g.name);
+        return <div className="t-group" key={g.name}>
+          <div className="t-row">
+            <button type="button" className={`caret ${open ? 'open' : ''}`} aria-expanded={open} aria-label={`${open ? '收合' : '展開'} ${gn}`} onClick={() => toggle(g.name)}>›</button>
+            <button type="button" className={sel.group === gn && !sel.category ? 'on' : ''} onClick={() => { onSel({ group: gn, category: '' }); setClosed(s => { const n = new Set(s); n.delete(g.name); return n; }); }}><span className="t-name">{gn}</span><span className="n">{g.count}</span></button>
+          </div>
+          {open && <div className="t-kids">{g.categories.map(c => { const cn = c.name || UNCATEGORIZED; return (
+            <button type="button" key={c.name} className={sel.group === gn && sel.category === cn ? 'on' : ''} onClick={() => onSel({ group: gn, category: cn })}><span className="t-name">{cn}</span><span className="n">{c.count}</span></button>); })}</div>}
+        </div>;
+      })}
+    </aside>
+  );
+}
+
+// 清單：依類別分段（每段一條綠色的類別標題），同一段內隔列上淺色
+function PartList({ parts, onOpen, empty }) {
+  const rows = [];
+  let key = null, n = 0;
+  for (const p of parts) {
+    const k = `${p.grp}\n${p.category}`;
+    if (k !== key) { key = k; n = 0; rows.push(<tr className="cat" key={`c:${k}`}><td colSpan={6}>{p.grp && <span className="g">{p.grp} ›</span>}{p.category || UNCATEGORIZED}<span className="n">{parts.filter(x => x.grp === p.grp && x.category === p.category).length} 個</span></td></tr>); }
+    // 型號開頭已經寫了廠牌就不重複顯示
+    const model = p.brand && p.model.toLowerCase().startsWith(p.brand.toLowerCase()) ? p.model.slice(p.brand.length).trim() : p.model;
+    rows.push(
+      <tr key={p.id} className={`part ${n++ % 2 ? 'alt' : ''}`} tabIndex={0} onClick={() => onOpen(p.id)} onKeyDown={e => { if (e.key === 'Enter') onOpen(p.id); }}>
+        <td><div className="p-name">{p.name}</div>{(p.brand || model) && <div className="p-model">{p.brand && <b>{p.brand}</b>}{p.brand && model ? '　' : ''}{model}</div>}</td>
+        <td><div className="p-spec" title={p.spec}>{p.spec}</div></td>
+        <td>{p.unit}</td>
+        <td className="num">{p.unit_price == null ? <span className="mute">—</span> : <>
+          <div className="p-price">{money(p.unit_price, p.currency)}</div>
+          <div className="p-sub">{p.grade && <span className="grade" title="估價等級">{p.grade}</span>}{p.quoted_on}{p.price_count > 1 ? ` · ${p.price_count} 筆` : ''}</div></>}</td>
+        <td>{p.supplier}</td>
+        <td>{p.projects.map(x => <span key={x} className="chip proj">{x}</span>)}</td>
+      </tr>);
+  }
+  return (
+    <div className="card table scroll"><table className="parts">
+      <thead><tr><th>名稱／廠牌、型號</th><th>規格</th><th>單位</th><th className="num">參考單價</th><th>供應商</th><th>用過的專案</th></tr></thead>
+      <tbody>{rows}{!parts.length && <tr className="none"><td colSpan={6} className="mute">{empty}</td></tr>}</tbody>
+    </table></div>
+  );
+}
+
 export function Parts({ projectNames = [] }) {
   const [tab, setTab] = useState('parts');
   const [q, setQ] = useState('');
-  const [filter, setFilter] = useState({ category: '', project: '', supplier: '' });
+  const [sel, setSel] = useState({ group: '', category: '' });       // 樹狀選單選到的群組／類別
+  const [filter, setFilter] = useState({ project: '', supplier: '' });
   const [data, setData] = useState(null);
   const [sup, setSup] = useState({ suppliers: [], kinds: [] });
   const [open, setOpen] = useState(null);       // null｜'new'｜元件 id
   const [error, setError] = useState('');
-  const load = useCallback(() => api.parts({ q, ...filter }).then(d => { setData(d); setError(''); }).catch(e => setError(e.message)), [q, filter]);
+  const load = useCallback(() => api.parts({ q, ...sel, ...filter }).then(d => { setData(d); setError(''); }).catch(e => setError(e.message)), [q, sel, filter]);
   const loadSuppliers = useCallback(() => api.suppliers().then(setSup).catch(e => setError(e.message)), []);
   useEffect(() => { const t = setTimeout(load, 200); return () => clearTimeout(t); }, [load]);     // 打字時稍等再查
   useEffect(() => { loadSuppliers(); }, [loadSuppliers]);
   const setF = (k, v) => setFilter(f => ({ ...f, [k]: v }));
-  const filtered = q || filter.category || filter.project || filter.supplier;
+  const filtered = q || filter.project || filter.supplier, narrowed = filtered || sel.group;
   const close = useCallback(() => setOpen(null), []);
+  const count = data ? data.tree.reduce((n, g) => n + g.count, 0) : 0;
 
   return (
     <div className="page wide">
@@ -189,34 +239,27 @@ export function Parts({ projectNames = [] }) {
         <button className="primary" onClick={() => { setTab('parts'); setOpen('new'); }}>＋ 新增元件</button>
       </div>
       <div className="tabs">
-        <button className={tab === 'parts' ? 'on' : ''} onClick={() => setTab('parts')}>元件{data ? ` ${data.categories.reduce((n, c) => n + c.count, 0)}` : ''}</button>
+        <button className={tab === 'parts' ? 'on' : ''} onClick={() => setTab('parts')}>元件{data ? ` ${count}` : ''}</button>
         <button className={tab === 'suppliers' ? 'on' : ''} onClick={() => setTab('suppliers')}>供應商 {sup.suppliers.length}</button>
       </div>
       {error && <div className="notice bad">{error}</div>}
 
-      {tab === 'parts' && <>
-        <div className="bar filters">
-          <input className="grow" type="search" value={q} onChange={e => setQ(e.target.value)} placeholder="搜尋名稱、廠牌、型號、規格、專案、供應商…（空白分隔多個關鍵字）" aria-label="搜尋元件" />
-          <Select value={filter.category} onChange={v => setF('category', v)} options={[['', '全部類別'], ...(data?.categories || []).map(c => [c.name || UNCATEGORIZED, `${c.name || UNCATEGORIZED}（${c.count}）`])]} />
-          <Select value={filter.project} onChange={v => setF('project', v)} options={[['', '全部專案'], ...(data?.projects || []).map(p => [p.name, `${p.name}（${p.count}）`])]} />
-          <Select value={filter.supplier} onChange={v => setF('supplier', v)} options={[['', '全部供應商'], ...sup.suppliers.map(s => [String(s.id), s.name])]} />
-          {filtered && <button onClick={() => { setQ(''); setFilter({ category: '', project: '', supplier: '' }); }}>清除條件</button>}
+      {tab === 'parts' && (!data ? <p className="mute">載入中…</p> : <div className="parts-layout">
+        <Tree tree={data.tree} sel={sel} onSel={setSel} />
+        <div>
+          <div className="bar filters">
+            <input className="grow" type="search" value={q} onChange={e => setQ(e.target.value)} placeholder="搜尋名稱、廠牌、型號、規格、專案、供應商…（空白分隔多個關鍵字）" aria-label="搜尋元件" />
+            <Select value={filter.project} onChange={v => setF('project', v)} options={[['', '全部專案'], ...data.projects.map(p => [p.name, `${p.name}（${p.count}）`])]} />
+            <Select value={filter.supplier} onChange={v => setF('supplier', v)} options={[['', '全部供應商'], ...sup.suppliers.map(s => [String(s.id), s.name])]} />
+            {narrowed && <button onClick={() => { setQ(''); setFilter({ project: '', supplier: '' }); setSel({ group: '', category: '' }); }}>清除條件</button>}
+          </div>
+          <div className="crumb">
+            <b>{sel.category || sel.group || '全部元件'}</b>{sel.category && <span>{sel.group}</span>}
+            <span>{narrowed ? `符合 ${data.total} 個` : `共 ${data.total} 個`}{data.total > data.parts.length ? `，只列出前 ${data.parts.length} 個，請加上條件縮小範圍` : ''}</span>
+          </div>
+          <PartList parts={data.parts} onOpen={setOpen} empty={narrowed ? '沒有符合條件的元件' : '資料庫還是空的：按「＋ 新增元件」，或執行 node studio/vs3d.mjs parts seed 從各站的成本表匯入。'} />
         </div>
-        {!data ? <p className="mute">載入中…</p> : <>
-          <div className="mute" style={{ margin: '4px 0 8px' }}>{filtered ? `符合 ${data.total} 個` : `共 ${data.total} 個`}{data.total > data.parts.length ? `，只列出前 ${data.parts.length} 個，請加上條件縮小範圍` : ''}</div>
-          <div className="card table scroll"><table className="parts"><thead><tr><th>類別</th><th>名稱</th><th>廠牌</th><th>型號／選型</th><th>規格</th><th>單位</th><th className="num">參考單價</th><th>等級</th><th>報價日</th><th>供應商</th><th>用過的專案</th></tr></thead><tbody>
-            {data.parts.map(p => <tr key={p.id} tabIndex={0} onClick={() => setOpen(p.id)} onKeyDown={e => { if (e.key === 'Enter') setOpen(p.id); }}>
-              <td><span className="chip">{p.category || UNCATEGORIZED}</span></td>
-              <td><b>{p.name}</b></td><td>{p.brand}</td>
-              <td><div className="clip" title={p.model}>{p.model}</div></td><td><div className="clip" title={p.spec}>{p.spec}</div></td><td>{p.unit}</td>
-              <td className="num">{p.unit_price == null ? <span className="mute">—</span> : money(p.unit_price, p.currency)}{p.price_count > 1 && <span className="mute" title={`${p.price_count} 筆價格紀錄`}> ·{p.price_count}</span>}</td>
-              <td>{p.grade}</td><td className="nowrap">{p.quoted_on}</td><td>{p.supplier}</td>
-              <td>{p.projects.map(x => <span key={x} className="chip proj">{x}</span>)}</td>
-            </tr>)}
-            {!data.parts.length && <tr className="none"><td colSpan={11} className="mute">{filtered ? '沒有符合條件的元件' : '資料庫還是空的：按「＋ 新增元件」，或執行 node studio/vs3d.mjs parts seed 從各站的成本表匯入。'}</td></tr>}
-          </tbody></table></div>
-        </>}
-      </>}
+      </div>)}
       {tab === 'suppliers' && <Suppliers suppliers={sup.suppliers} kinds={sup.kinds} reload={() => Promise.all([loadSuppliers(), load()])} />}
       {open != null && data && <PartEditor id={open} facets={data} suppliers={sup.suppliers} projectNames={projectNames} onClose={close}
         onChanged={id => { load(); if (id != null && open === 'new') setOpen(id); }} />}

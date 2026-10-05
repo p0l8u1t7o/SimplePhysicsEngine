@@ -6,13 +6,13 @@
 //   審查（計畫書 4.7）：看截圖、比對拍板事項與規則；必修項自動送修正 → 重新檢查 → 再審查（最多 3 次）
 //   補強：記下基準（commit、排程指紋、效能、截圖）→ 補強角色 → 守門檢查（檢查全過、指紋與空間檢核不變、效能在預算內，
 //         沒過就退回補強角色，最多 3 次）→ 前後對照頁 → 使用者接受／要求調整／整批還原
-import { existsSync, writeFileSync } from 'node:fs';
+import { existsSync, writeFileSync, mkdirSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
 import { adapterFor, runAgent } from './adapters/index.mjs';
 import { resolveRole, loadRoleContext } from './roles.mjs';
 import { paths, projectPaths, acquireLock, addClientNames, readClientNames, redactNames, addProjectNames } from './workspace.mjs';
 import { snapshot, verifyAndRestore } from './isolation.mjs';
-import { loadQuestions, askInteractive, writeAppQuestion, readAnswer, printQuestion } from './questions.mjs';
+import { loadQuestions, pendingQuestions, askInteractive, writeAppQuestion, readAnswer, printQuestion } from './questions.mjs';
 import { runChecks, takeShots, failureSummary, runFingerprint, compareRenderFingerprint, runPerf, comparePerf } from './checks.mjs';
 import { rolePrompt, answersPrompt, fixAgainPrompt, invalidQuestionsPrompt, mustFixPrompt, renderGuardPrompt, renderRevisePrompt } from './prompts.mjs';
 import { writeComparePage } from './compare.mjs';
@@ -53,6 +53,8 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
     const msg = `本庫的 ${id} 有進行中的 vs3d 流程在分支 ${state.branch}，目前是 ${repoGit.branch(J)}；請切回該分支再續跑（app 不會替你切換分支）`;
     log(`■ ${msg}`); return { status: 'stopped', message: msg };
   }
+  // 元件資料庫的清單寫一份到專案裡給代理查（資料庫不存在、是空的、或 Node 版本太舊沒有 node:sqlite 就略過）
+  try { const { writeCatalog } = await import('./parts-catalog.mjs'); const names = readClientNames(ws); writeCatalog(J, { redact: s => redactNames(s, names) }); } catch { /* 沒有清單不影響流程 */ }
   const roleCtx = () => loadRoleContext(P.settings, J.studioJson, override);
   // 段落：工作階段與角色指派分段（第二段的開發不續接第一段的工作階段）
   const seg = () => state.segment || 1, sk = role => seg() === 2 ? role + '@2' : role, resolve = role => resolveRole(role, roleCtx(), seg());
@@ -426,6 +428,29 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
 }
 
 class Stop extends Error {}
+
+// 取消進行中的流程，回到「完成」。已經提交的內容不動；本庫的站留在原本的 vs3d 分支上，要不要保留由使用者決定。
+// 可以取消的：本庫的站，以及完成第一段之後才開始的流程（重新審查、補強、修改指令、第二段）。
+// 第一段還沒做完的專案沒有可以回去的狀態，不要的話用刪除。還沒回答的問題移到 questions/cancelled/。
+export function cancelFlow(ws, id) {
+  const J = projectPaths(ws, id);
+  if (!existsSync(J.dir)) throw new Error(`找不到專案：${id}`);
+  const state = loadState(J), seg2 = (state.segment || 1) === 2;
+  if (state.stage === 'done' && !state.flowActive) throw new Error('沒有進行中的流程');
+  if (!J.repo && !state.flow && !seg2) throw new Error('第一段還沒完成，沒有可以回去的狀態；不要這個專案的話請刪除專案');
+  const release = acquireLock(ws, id);      // 正在執行就會丟出錯誤：先停止再取消
+  try {
+    const pending = pendingQuestions(J);
+    if (pending.length) mkdirSync(join(J.questions, 'cancelled'), { recursive: true });
+    for (const q of pending) renameSync(join(J.questions, q.file), join(J.questions, 'cancelled', q.file));
+    const from = state.stage;
+    Object.assign(state, { stage: 'done', segment: seg2 && state.stage !== 'done' ? 1 : state.segment, waiting: null, flow: null, flowActive: false, changeRequest: null, lockSchedule: false,
+      segBase: null, streak: {}, renderBase: null, renderPicked: false, renderItems: null, renderTries: 0 });
+    writeJson(J.state, state);
+    appendJsonl(J.rounds, { cancel: from, at: now(), branch: state.branch || null });
+    return { from, branch: state.branch || null, questions: pending.length };
+  } finally { release(); }
+}
 
 // 開始第二段：保留第一段的摘要，重設每段各自的狀態（工作階段用「角色@2」另存，不會續接第一段）
 export function beginSegment2(state) {

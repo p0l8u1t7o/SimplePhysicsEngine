@@ -16,6 +16,8 @@
 //   node studio/vs3d.mjs import <交接包.zip> [--name 新名稱]       匯入交接包，之後用 resume 續跑
 //   node studio/vs3d.mjs change <名稱> --text "要改的內容" [--keep-timing]   修改指令：開發角色照做 → 檢查 → 審查（--keep-timing 不能改節拍與動作）
 //   node studio/vs3d.mjs push <名稱>                              本庫模式：推送這次的 vs3d 分支（之後在 GitHub 開 PR）
+//   node studio/vs3d.mjs cancel <名稱>                            取消進行中的流程，回到「完成」（已提交的內容不動；第一段還沒完成的專案不能取消）
+//   node studio/vs3d.mjs delete <名稱> --yes                      刪除工作區的專案（移到工作區的 .studio/trash/，可以搬回 projects/ 復原）
 // 本庫模式：--repo（或 --workspace 指到本庫根目錄）就能對 project-site/ 的站下 review／render／stage2／change／check／export；
 //   開工時該站不能有未提交的改動，每次指令開一個本機分支 <範圍>/vs3d-…，只提交該站的路徑，不會 checkout／reset／stash。
 //   node studio/vs3d.mjs probe <名稱> [--cli …] [--other <專案>] [--simulate]   寫入隔離自我測試（--simulate：app 另外模擬越界寫入）
@@ -36,8 +38,8 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
 import { ADAPTERS, adapterFor } from './lib/adapters/index.mjs';
-import { initWorkspace, createProject, paths, projectPaths, isRepo } from './lib/workspace.mjs';
-import { runProject, loadState, beginSegment2 } from './lib/loop.mjs';
+import { initWorkspace, createProject, deleteProject, paths, projectPaths, isRepo } from './lib/workspace.mjs';
+import { runProject, loadState, beginSegment2, cancelFlow } from './lib/loop.mjs';
 import { loadQuestions, parseChoice, recordAnswer, printQuestion } from './lib/questions.mjs';
 import { runChecks, failureSummary } from './lib/checks.mjs';
 import { ROLES, resolveRole, loadRoleContext, parseRoleOverrides } from './lib/roles.mjs';
@@ -162,6 +164,20 @@ switch (cmd) {
     try { console.log(git(J.dir, ['push', '-u', 'origin', br])); } catch (e) { fail(String(e.stderr || e.message)); }
     const url = git(J.dir, ['remote', 'get-url', 'origin']).trim().replace(/\.git$/, '').replace(/^git@github\.com:/, 'https://github.com/');
     console.log(`已推送 ${br}。開 PR：${url}/compare/main...${encodeURIComponent(br).replace(/%2F/g, '/')}?expand=1`);
+    break;
+  }
+  case 'cancel': {
+    needProject();
+    try {
+      const r = cancelFlow(ws, name);
+      console.log(`已取消 ${name} 的流程（原本在「${r.from}」階段），回到「完成」${r.questions ? `；${r.questions} 個還沒回答的問題已收起來` : ''}${r.branch ? `。已提交的內容留在分支 ${r.branch}` : ''}`);
+    } catch (e) { fail(e.message); }
+    break;
+  }
+  case 'delete': {
+    needProject();
+    if (!o.yes) fail(`要刪除 ${name} 請加上 --yes（資料夾會移到工作區的 .studio/trash/，不會直接消失）`);
+    try { console.log(`已刪除 ${name}，資料夾移到 ${deleteProject(ws, name)}`); } catch (e) { fail(e.message); }
     break;
   }
   case 'stage2': {

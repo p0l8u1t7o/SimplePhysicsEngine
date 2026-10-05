@@ -68,6 +68,48 @@ test('修改、刪除與驗證', () => {
   db.close();
 });
 
+test('群組：依類別帶入預設群組、可以自訂、樹狀選單與篩選', () => {
+  const db = openPartsDb(':memory:'), { cam, lens } = sample(db);
+  assert.equal(db.getPart(cam.id).grp, '視覺', '沒填群組時依類別帶入');
+  assert.equal(db.getPart(lens.id).grp, '', '沒有類別就沒有群組');
+  const own = db.createPart({ name: '特殊治具', category: '相機與讀碼', grp: '我的群組' });
+  db.createPart({ name: 'PLC', category: '控制器與 I/O' });
+  assert.deepEqual(db.tree(), [
+    { name: '視覺', count: 1, categories: [{ name: '相機與讀碼', count: 1 }] },
+    { name: '電控與配線', count: 1, categories: [{ name: '控制器與 I/O', count: 1 }] },
+    { name: '我的群組', count: 1, categories: [{ name: '相機與讀碼', count: 1 }] },
+    { name: '', count: 1, categories: [{ name: '', count: 1 }] },
+  ]);
+  assert.deepEqual(db.listParts().parts.map(p => p.name), ['工業相機', 'PLC', '特殊治具', '鏡頭 100%_測試'], '清單照群組順序排');
+  assert.equal(db.listParts({ group: '視覺' }).total, 1);
+  assert.equal(db.listParts({ group: '我的群組', category: '相機與讀碼' }).parts[0].id, own.id);
+  assert.equal(db.listParts({ group: '（未分組）' }).parts[0].id, lens.id);
+  assert.equal(db.listParts({ q: '我的群組' }).total, 1, '群組名稱也搜得到');
+  assert.ok(db.facets().groups.includes('我的群組') && db.facets().groups.includes('視覺'));
+  db.close();
+});
+
+test('舊版資料庫（沒有群組欄位）開啟時自動升級', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'vs3d-parts-')), file = join(dir, 'parts.db');
+  try {
+    // 第 1 版的結構：parts 沒有 grp，檢視表是舊的
+    const raw = new DatabaseSync(file);
+    raw.exec(`CREATE TABLE suppliers (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE COLLATE NOCASE, kind TEXT NOT NULL DEFAULT '', contact TEXT NOT NULL DEFAULT '', phone TEXT NOT NULL DEFAULT '', email TEXT NOT NULL DEFAULT '', website TEXT NOT NULL DEFAULT '', lead_time TEXT NOT NULL DEFAULT '', payment_terms TEXT NOT NULL DEFAULT '', note TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+      CREATE TABLE parts (id INTEGER PRIMARY KEY, category TEXT NOT NULL DEFAULT '', name TEXT NOT NULL, brand TEXT NOT NULL DEFAULT '', model TEXT NOT NULL DEFAULT '', spec TEXT NOT NULL DEFAULT '', attrs TEXT NOT NULL DEFAULT '{}', unit TEXT NOT NULL DEFAULT '', selection_note TEXT NOT NULL DEFAULT '', alternatives TEXT NOT NULL DEFAULT '', tags TEXT NOT NULL DEFAULT '', url TEXT NOT NULL DEFAULT '', note TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+      CREATE TABLE prices (id INTEGER PRIMARY KEY, part_id INTEGER NOT NULL REFERENCES parts(id) ON DELETE CASCADE, supplier_id INTEGER REFERENCES suppliers(id) ON DELETE SET NULL, quoted_on TEXT NOT NULL DEFAULT '', unit_price REAL NOT NULL, currency TEXT NOT NULL DEFAULT 'TWD', grade TEXT NOT NULL DEFAULT '', source TEXT NOT NULL DEFAULT '', valid_until TEXT NOT NULL DEFAULT '', note TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL);
+      CREATE TABLE usages (id INTEGER PRIMARY KEY, part_id INTEGER NOT NULL REFERENCES parts(id) ON DELETE CASCADE, project TEXT NOT NULL, source TEXT NOT NULL DEFAULT '', item_code TEXT NOT NULL DEFAULT '', subsystem TEXT NOT NULL DEFAULT '', qty REAL, reason TEXT NOT NULL DEFAULT '', note TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL);
+      CREATE VIEW part_latest AS SELECT p.*, pr.id AS price_id, pr.unit_price, pr.currency, pr.grade, pr.quoted_on, pr.valid_until, pr.source AS price_source, pr.supplier_id, s.name AS supplier FROM parts p LEFT JOIN prices pr ON pr.id = (SELECT id FROM prices WHERE part_id = p.id ORDER BY quoted_on DESC, id DESC LIMIT 1) LEFT JOIN suppliers s ON s.id = pr.supplier_id;
+      INSERT INTO parts (category, name, created_at, updated_at) VALUES ('光源', '條形光源', 't', 't'), ('自訂類別', '別的', 't', 't');
+      INSERT INTO prices (part_id, unit_price, created_at) VALUES (1, 14000, 't');
+      PRAGMA user_version = 1;`);
+    raw.close();
+    const db = openPartsDb(file), list = db.listParts().parts;
+    assert.deepEqual(list.map(p => [p.name, p.grp, p.unit_price]), [['條形光源', '視覺', 14000], ['別的', '', null]]);
+    db.close();
+    const again = openPartsDb(file); assert.equal(again.stats().parts, 2); again.close();     // 升級只做一次
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('合併重複的元件', () => {
   const db = openPartsDb(':memory:'), { cam, lens } = sample(db);
   db.addPrice(lens.id, { unit_price: 6500 });

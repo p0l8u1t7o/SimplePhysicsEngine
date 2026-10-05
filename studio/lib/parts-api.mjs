@@ -1,5 +1,5 @@
 // 元件資料庫的 HTTP 介面（掛在 vs3d ui 的伺服器底下）：
-//   GET  /api/parts?q=&category=&project=&supplier=   清單＋篩選用的類別、專案、單位、廠牌
+//   GET  /api/parts?q=&group=&category=&project=&supplier=   清單＋樹狀選單（群組 → 類別）與篩選用的專案、單位、廠牌
 //   POST /api/parts                                    新增元件
 //   GET｜PUT｜DELETE /api/parts/:id                    單一元件（含價格紀錄與使用紀錄）、修改、刪除
 //   POST /api/parts/:id/prices、/api/parts/:id/usages  新增價格紀錄、使用紀錄

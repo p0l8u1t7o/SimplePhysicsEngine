@@ -129,5 +129,6 @@ node --import ./core/tools/register.mjs tools/verify-interference.mjs   # 四站
 
 - 4 輪統一：P0～P7、第二輪、精進輪、第四輪。第四輪內容是到位閘門、小螢幕、look 加地面、ui-check、favicon。
 - `extent` 推算的燈位對不上各站手調的值，所以各站只用 `look` 省掉配色設定。
-- 元件資料庫（2026-10-05）：SQLite（`node:sqlite`），元件＋價格紀錄＋專案使用紀錄＋供應商；資料庫檔只留本機、不進版控。各站做設計、選型、成本表時先查資料庫（`vs3d parts search`），確定的選型與報價在介面「元件庫」補回去。說明在 `studio/README.md`「元件資料庫」。
+- 元件資料庫（2026-10-05）：SQLite（`node:sqlite`），元件＋價格紀錄＋專案使用紀錄＋供應商；資料庫檔只留本機、不進版控。各站做設計、選型、成本表時先查資料庫（`vs3d parts search`），確定的選型與報價在介面「元件庫」補回去。元件用「群組 → 類別」兩層分類。vs3d 的代理另外會拿到一份清單（每次執行前寫到專案的 `.studio/parts-catalog.md`），規劃與選型時先查、沿用的寫出編號。說明在 `studio/README.md`「元件資料庫」。
+- studio 介面（2026-10-05）：配色只用綠與白（和 Excel 相同的綠 `#217346`），不做淺色／深色切換；左上角名稱「3D工作室」；本庫 `project-site/` 的站集中在「本庫的站」那一頁，不放在左邊的專案清單。
 - 各站的拍板紀錄在各站的 `AGENTS.md`。

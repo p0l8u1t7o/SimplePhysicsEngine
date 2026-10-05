@@ -9,6 +9,8 @@
 //   POST /api/projects              新建並開始（{ id, title, prompt, token, cli, model, effort, autoApprove, pick }）
 //   POST /api/projects/:id/answer   回答問題（{ qid, choices, text, note }）；全部回答完就自動續跑
 //   POST /api/projects/:id/run      { cmd: resume｜review｜render, pick, focus }
+//   POST /api/projects/:id/cancel   取消進行中的流程，回到「完成」
+//   DELETE /api/projects/:id        刪除工作區的專案（{ confirm: 專案名稱 }；移到工作區的 .studio/trash/）
 //   POST /api/stop                  停止目前的執行
 //   GET  /api/events                SSE：line（輸出一行）、exit（執行結束）
 //   GET｜POST｜PUT｜DELETE /api/parts、/api/prices、/api/usages、/api/suppliers   元件資料庫（lib/parts-api.mjs）
@@ -19,8 +21,8 @@ import { join, extname, normalize, basename } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { STUDIO, readJson, writeJson, readText, inside, freePort, findFfmpeg } from './util.mjs';
-import { paths, projectPaths, initWorkspace } from './workspace.mjs';
-import { loadState } from './loop.mjs';
+import { paths, projectPaths, initWorkspace, deleteProject } from './workspace.mjs';
+import { loadState, cancelFlow } from './loop.mjs';
 import { loadQuestions, recordAnswer, parseChoice } from './questions.mjs';
 import { ADAPTERS } from './adapters/index.mjs';
 import { ROLES, resolveRole, loadRoleContext } from './roles.mjs';
@@ -82,8 +84,10 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
     const rounds = existsSync(J.rounds) ? readFileSync(J.rounds, 'utf8').trim().split('\n').filter(Boolean).map(l => JSON.parse(l)) : [];
     const shotDir = s.shots && join(s.shots, loc(id).name), shots = shotDir && existsSync(shotDir) ? readdirSync(shotDir).filter(f => f.endsWith('.png') && !f.endsWith('.diff.png')).sort() : [];
     const rel = f => f.slice(J.dir.length + 1).replace(/\\/g, '/');
+    // 可以取消的流程：本庫的站不是「完成」，或工作區的專案在完成第一段之後開始的流程（重新審查、補強、修改指令、第二段）
+    const cancellable = s.stage !== 'done' || !!s.flowActive ? (loc(id).repo || !!s.flow || (s.segment || 1) === 2) : false;
     return {
-      ...summary(id), state: s, rounds, questions: qs.list, invalid: qs.invalid,
+      ...summary(id), cancellable, state: s, rounds, questions: qs.list, invalid: qs.invalid,
       proposal: readText(join(J.plan, 'proposal.md')), segment2: readText(join(J.plan, 'segment2.md')), agents: readText(J.agents), studio: readJson(J.studioJson, {}),
       // Office 抽取資料夾列出它的 text.md（資料夾本身不能開）
       docs: existsSync(J.docs) ? readdirSync(J.docs).map(f => f.endsWith('.extract') && existsSync(join(J.docs, f, 'text.md')) ? `${f}/text.md` : f) : [], shots: shots.map(f => rel(join(shotDir, f))),
@@ -178,7 +182,19 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
         }
         if (a === 'projects' && id) {
           if (!projectIds().includes(id)) return json(404, { error: `找不到專案：${id}` });
+          if (!b && req.method === 'DELETE') {
+            const v = await jbody(), l = loc(id);
+            if (l.repo) return json(400, { error: '本庫的站在版控裡，不能從這裡刪除（要移除請用 git）' });
+            if (runner.current?.id === id) return json(400, { error: '這個專案正在執行，先停止再刪除' });
+            if (String(v.confirm || '') !== l.name) return json(400, { error: '請輸入專案名稱確認刪除' });
+            try { return json(200, { deleted: id, movedTo: deleteProject(ws, l.name) }); } catch (e) { return json(400, { error: e.message }); }
+          }
           if (!b) return json(200, detail(id));
+          if (b === 'cancel' && req.method === 'POST') {
+            if (runner.current?.id === id) return json(400, { error: '這個專案正在執行，先按「停止」再取消流程' });
+            const l = loc(id);
+            try { return json(200, cancelFlow(l.root, l.name)); } catch (e) { return json(400, { error: e.message }); }
+          }
           if (b === 'answer' && req.method === 'POST') {
             const v = await jbody(), J = Jof(id), q = loadQuestions(J).list.find(x => x.id === v.qid);
             if (!q) return json(404, { error: `找不到問題 ${v.qid}` });

@@ -1,6 +1,6 @@
 // 元件資料庫（SQLite，用 Node 內建的 node:sqlite，不需要 npm 套件；Node 22.13 以上）。
 //   suppliers  供應商主檔（類型、聯絡窗口、交期、付款條件）
-//   parts      元件主表（類別、名稱、廠牌、型號、規格、自由規格欄位 attrs、選型備註、替代方案、標籤、資料連結）
+//   parts      元件主表（群組 grp、類別、名稱、廠牌、型號、規格、自由規格欄位 attrs、選型備註、替代方案、標籤、資料連結）
 //   prices     價格紀錄：一個元件多筆（日期、單價、幣別、等級 A/B/C、供應商、來源或報價單號、有效期限）
 //   usages     專案使用紀錄：哪個專案的哪一列成本表用過（專案、來源檔、編號、子系統、數量、選型理由）
 //   part_latest 檢視表：元件＋最新一筆價格＋供應商。各站的成本表產生器可以直接讀（Python 用內建的 sqlite3）
@@ -14,7 +14,27 @@ export const defaultPartsDb = () => process.env.VS3D_PARTS_DB || join(STUDIO, 'd
 export const GRADES = ['A', 'B', 'C'];
 export const SUPPLIER_KINDS = ['原廠', '代理商', '經銷商', '加工廠', '網購', '其他'];
 
-const SCHEMA_VERSION = 1;
+// 群組（元件庫樹狀選單的第一層）與預設歸在底下的類別；新增元件沒填群組時依類別帶入，使用者可以自己改成別的群組
+export const GROUPS = {
+  '機器人與末端': ['機器人', '夾爪與末端工具'],
+  '視覺': ['相機與讀碼', '鏡頭與光學', '光源'],
+  '感測與量測': ['量測與感測', '校正與標準件', '實驗室儀器'],
+  '運動與機構': ['運動與驅動', '氣動與真空', '輸送與供料', '機構與結構'],
+  '電控與配線': ['控制器與 I/O', '安全', '電力與配電', '線材與耗材'],
+  '資訊與服務': ['電腦與網路', '軟體與授權', '服務'],
+};
+export const groupOf = category => Object.keys(GROUPS).find(g => GROUPS[g].includes(category)) || '';
+// 排序：照 GROUPS 的順序，自訂的群組排後面，沒有群組的最後
+const GROUP_ORDER = `CASE pl.grp ${Object.keys(GROUPS).map((g, i) => `WHEN '${g}' THEN ${i}`).join(' ')} WHEN '' THEN 999 ELSE 500 END`;
+
+const SCHEMA_VERSION = 2;      // 2：parts.grp（群組）
+const VIEW = `
+CREATE VIEW part_latest AS
+  SELECT p.*, pr.id AS price_id, pr.unit_price, pr.currency, pr.grade, pr.quoted_on, pr.valid_until, pr.source AS price_source, pr.supplier_id, s.name AS supplier
+  FROM parts p
+  LEFT JOIN prices pr ON pr.id = (SELECT id FROM prices WHERE part_id = p.id ORDER BY quoted_on DESC, id DESC LIMIT 1)
+  LEFT JOIN suppliers s ON s.id = pr.supplier_id;
+`;
 const SCHEMA = `
 CREATE TABLE suppliers (
   id INTEGER PRIMARY KEY,
@@ -26,6 +46,7 @@ CREATE TABLE suppliers (
 );
 CREATE TABLE parts (
   id INTEGER PRIMARY KEY,
+  grp TEXT NOT NULL DEFAULT '',
   category TEXT NOT NULL DEFAULT '',
   name TEXT NOT NULL,
   brand TEXT NOT NULL DEFAULT '', model TEXT NOT NULL DEFAULT '', spec TEXT NOT NULL DEFAULT '',
@@ -58,22 +79,17 @@ CREATE TABLE usages (
 CREATE INDEX prices_part ON prices(part_id, quoted_on);
 CREATE INDEX usages_part ON usages(part_id);
 CREATE INDEX usages_project ON usages(project, source, item_code);
-CREATE VIEW part_latest AS
-  SELECT p.*, pr.id AS price_id, pr.unit_price, pr.currency, pr.grade, pr.quoted_on, pr.valid_until, pr.source AS price_source, pr.supplier_id, s.name AS supplier
-  FROM parts p
-  LEFT JOIN prices pr ON pr.id = (SELECT id FROM prices WHERE part_id = p.id ORDER BY quoted_on DESC, id DESC LIMIT 1)
-  LEFT JOIN suppliers s ON s.id = pr.supplier_id;
 `;
 
 export class PartsError extends Error { constructor(message, status = 400) { super(message); this.status = status; } }
 const bad = msg => { throw new PartsError(msg); };
 
-const PART_TEXT = ['category', 'name', 'brand', 'model', 'spec', 'unit', 'selection_note', 'alternatives', 'tags', 'url', 'note'];
+const PART_TEXT = ['grp', 'category', 'name', 'brand', 'model', 'spec', 'unit', 'selection_note', 'alternatives', 'tags', 'url', 'note'];
 const PRICE_TEXT = ['quoted_on', 'currency', 'grade', 'source', 'valid_until', 'note'];
 const USAGE_TEXT = ['project', 'source', 'item_code', 'subsystem', 'reason', 'note'];
 const SUPPLIER_TEXT = ['name', 'kind', 'contact', 'phone', 'email', 'website', 'lead_time', 'payment_terms', 'note'];
 // 搜尋比對的欄位
-const SEARCH_PART = ['name', 'brand', 'model', 'spec', 'category', 'tags', 'selection_note', 'alternatives', 'note', 'attrs'];
+const SEARCH_PART = ['name', 'brand', 'model', 'spec', 'grp', 'category', 'tags', 'selection_note', 'alternatives', 'note', 'attrs'];
 
 const text = v => v == null ? '' : String(v).trim();
 const pickText = (v, keys) => Object.fromEntries(keys.map(k => [k, text(v[k])]));
@@ -93,6 +109,7 @@ function cleanAttrs(v) {
 function cleanPart(v) {
   const p = pickText(v, PART_TEXT);
   if (!p.name) bad('請輸入元件名稱');
+  if (!p.grp) p.grp = groupOf(p.category);
   return { ...p, attrs: JSON.stringify(cleanAttrs(v.attrs)) };
 }
 function cleanPrice(v) {
@@ -124,7 +141,13 @@ export function openPartsDb(file = defaultPartsDb()) {
   db.exec('PRAGMA foreign_keys = ON');
   const version = db.prepare('PRAGMA user_version').get().user_version;
   if (version > SCHEMA_VERSION) { db.close(); throw new PartsError(`元件資料庫的版本（${version}）比這個程式新（${SCHEMA_VERSION}），請更新程式：${file}`, 500); }
-  if (version === 0) tx(() => { db.exec(SCHEMA); db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`); });
+  if (version === 0) tx(() => { db.exec(SCHEMA); db.exec(VIEW); db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`); });
+  // 1 → 2：加上群組欄位，既有元件依類別帶入預設群組；檢視表的 p.* 要重建才看得到新欄位
+  if (version === 1) tx(() => {
+    db.exec("ALTER TABLE parts ADD COLUMN grp TEXT NOT NULL DEFAULT ''"); db.exec('DROP VIEW part_latest'); db.exec(VIEW);
+    for (const { category } of db.prepare("SELECT DISTINCT category FROM parts WHERE category <> ''").all()) db.prepare('UPDATE parts SET grp = ? WHERE category = ?').run(groupOf(category), category);
+    db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
+  });
 
   function tx(fn) {
     db.exec('BEGIN');
@@ -151,7 +174,7 @@ export function openPartsDb(file = defaultPartsDb()) {
     tx,
 
     // q：空白分隔的關鍵字，每個都要出現在元件欄位、使用紀錄（專案、編號、理由）或價格紀錄（來源、供應商）裡
-    listParts({ q = '', category = '', project = '', supplier = '', limit = 500 } = {}) {
+    listParts({ q = '', group = '', category = '', project = '', supplier = '', limit = 500 } = {}) {
       const params = [], p = v => { params.push(v); return `?${params.length}`; }, where = [];
       for (const token of text(q).split(/\s+/).filter(Boolean)) {
         const t = p(likeEscape(token)), like = col => `${col} LIKE ${t} ESCAPE '\\'`;
@@ -159,6 +182,7 @@ export function openPartsDb(file = defaultPartsDb()) {
           OR EXISTS (SELECT 1 FROM usages u WHERE u.part_id = pl.id AND (${['u.project', 'u.item_code', 'u.subsystem', 'u.reason', 'u.note'].map(like).join(' OR ')}))
           OR EXISTS (SELECT 1 FROM prices x LEFT JOIN suppliers s ON s.id = x.supplier_id WHERE x.part_id = pl.id AND (${['x.source', 'x.note', 's.name'].map(like).join(' OR ')})))`);
       }
+      if (group) where.push(`pl.grp = ${p(group === '（未分組）' ? '' : group)}`);
       if (category) where.push(`pl.category = ${p(category === '（未分類）' ? '' : category)}`);
       if (project) where.push(`EXISTS (SELECT 1 FROM usages u WHERE u.part_id = pl.id AND u.project = ${p(project)})`);
       if (supplier) where.push(`EXISTS (SELECT 1 FROM prices x WHERE x.part_id = pl.id AND x.supplier_id = ${p(Number(supplier))})`);
@@ -166,16 +190,27 @@ export function openPartsDb(file = defaultPartsDb()) {
       const total = get(`SELECT count(*) AS n FROM part_latest pl ${cond}`, ...params).n;
       const parts = all(`SELECT pl.*, (SELECT group_concat(DISTINCT project) FROM usages WHERE part_id = pl.id) AS projects,
           (SELECT count(*) FROM prices WHERE part_id = pl.id) AS price_count
-        FROM part_latest pl ${cond} ORDER BY pl.category, pl.name, pl.model, pl.id LIMIT ${Math.max(1, Math.min(5000, Number(limit) || 500))}`, ...params)
+        FROM part_latest pl ${cond} ORDER BY ${GROUP_ORDER}, pl.grp, pl.category, pl.name, pl.model, pl.id LIMIT ${Math.max(1, Math.min(5000, Number(limit) || 500))}`, ...params)
         .map(r => ({ ...withAttrs(r), projects: r.projects ? r.projects.split(',').sort() : [] }));
       return { parts, total, ...this.facets() };
     },
-    facets: () => ({
+    // 樹狀選單：群組 → 類別，各有元件數
+    tree() {
+      const groups = [];
+      for (const r of all(`SELECT pl.grp, pl.category, count(*) AS count FROM parts pl GROUP BY pl.grp, pl.category ORDER BY ${GROUP_ORDER}, pl.grp, pl.category`)) {
+        const g = groups.at(-1)?.name === r.grp ? groups.at(-1) : groups[groups.push({ name: r.grp, count: 0, categories: [] }) - 1];
+        g.count += r.count; g.categories.push({ name: r.category, count: r.count });
+      }
+      return groups;
+    },
+    facets() { return {
+      tree: this.tree(),
+      groups: [...new Set([...Object.keys(GROUPS), ...all("SELECT DISTINCT grp FROM parts WHERE grp <> '' ORDER BY grp").map(r => r.grp)])],
       categories: all('SELECT category AS name, count(*) AS count FROM parts GROUP BY category ORDER BY category'),
       projects: all('SELECT project AS name, count(DISTINCT part_id) AS count FROM usages GROUP BY project ORDER BY project'),
       units: all("SELECT DISTINCT unit FROM parts WHERE unit <> '' ORDER BY unit").map(r => r.unit),
       brands: all("SELECT DISTINCT brand FROM parts WHERE brand <> '' ORDER BY brand").map(r => r.brand),
-    }),
+    }; },
     getPart(id) {
       const part = withAttrs(need('parts', id, '元件'));
       return {
