@@ -42,3 +42,16 @@
 - 暫代：`project-site/RecycleSorter/web/js/frontline.js` 229～262 行在站內自己畫（`userData.electrical`、`electricalBody`；機身置中、轉 180° 朝門）
 - 期望介面：`core/electrical/electrical-components.js` 的 `robotController` 加 ABB OmniCore C30 的外觀與朝向參數，`electricalDevice` 加 DSQC 類 I/O 擴充模組的外觀；原點與朝向照 core 的慣例（背面在 z = 0、正面朝本地 +Z）
 - 影響：和上面「聚焦元件要依元件朝向取景」一起處理（都卡在「面板固定朝本地 +Z」）；之後用 ABB 手臂的站都會用到
+
+### 文字貼紙（`decal`）與模型標籤改成「建立當下」判斷有沒有 `document`
+- 提出：core 1.10.0 各站換用（2026-10-05，RobotArmPressSSD）
+- 現象：`core/geom/shapes.js` 的 `HAS_DOM` 在模組載入時就決定；`decal()`、`visionCamera` 的 `label`、`indicators.js` 的面板文字都用它把關。檢查腳本如果先 import 模型、之後才補 `document`（SSD 的 `tools/verify*.mjs`），貼紙不會建立，網格數就和站內自己畫的寫法不同。
+- 暫代：SSD 的手腕相機標籤留在站內畫（`project-site/RobotArmPressSSD/web/js/robot.js`）
+- 期望：改成呼叫當下判斷 `typeof document`。影響所有用 `decal` 的站在檢查腳本裡的網格數，要先拍基準、逐站比對 review 檔再改。
+- 影響：所有站
+
+### 模型提供 `cableHost` 選項；`codeReader` 機身名稱
+- 提出：core 1.10.0 各站換用（2026-10-05，酸鹼、軍規、PCB）
+- 現象：原本是站內普通群組的設備換成模型後，root 變成走線固定面的來源，站要自己標 `root.userData.cableHost = false`（見 `core/migrations/` 四份對照最後一節）。`codeReader` 的機身網格預設名稱是 `camera body`。
+- 期望介面：各模型的 options 加 `cableHost`（預設照現在）；`codeReader` 機身預設名稱改成 `reader body`（改名前先查各站用名稱判斷的規則）
+- 影響：之後換用或新做的站

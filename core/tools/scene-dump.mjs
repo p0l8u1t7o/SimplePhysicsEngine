@@ -6,7 +6,8 @@
 //   種類、名稱、routingHardware、幾何型別與參數、頂點數、頂點座標雜湊、世界矩陣（1e-6）、材質主要屬性、陰影旗標、可見性；
 //   另外記燈光與虛擬相機。同一時間點內排序後存檔，所以「多一層群組、建立順序不同」不算差異。檔案裡沒有時間戳，同一份場景重跑會逐位元組相同。
 // 比對：逐情境、逐時間點列出缺少／多出／不同的數量與前幾筆；走線五金（userData.routingHardware）另外統計。
-//   完全相同時離開碼 0，有差異 1，用法錯誤 2。--ignore-names：不比一般零件的名稱（共用模型會給原本沒名稱的網格預設名稱）；走線五金的名稱照比。
+//   完全相同時離開碼 0，有差異 1，用法錯誤 2。--ignore-names：不比一般零件、燈光、虛擬相機的名稱（共用模型會給原本沒名稱的物件預設名稱）；走線五金的名稱照比。
+//   畫面上看不出來的差別不算：實例批次自己的世界矩陣（各實例的世界矩陣照比）、燈光的旋轉（位置與目標點照比；RectAreaLight 例外）。
 import { writeFileSync, readFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
@@ -118,8 +119,21 @@ function diff() {
   const [A, B] = files.map(f => JSON.parse(readFileSync(f, 'utf8')));
   for (const [d, f] of [[A, files[0]], [B, files[1]]]) if (d.tool !== 'scene-dump' || d.format !== FORMAT) { console.log(`✗ ${f} 不是 scene-dump 第 ${FORMAT} 版的傾印`); return 2; }
   console.log(`前：${files[0]}（${A.project}，core ${A.core}）\n後：${files[1]}（${B.project}，core ${B.core}）${ignoreNames ? '\n不比一般零件的名稱（--ignore-names）' : ''}`);
-  // 簽章字串：--ignore-names 時把非走線五金的名稱清掉再比
-  const norm = d => d.dict.map(s => { if (!ignoreNames) return s; const a = JSON.parse(s); if ((a[0] === 'light' || a[0] === 'camera') || a[F.hardware]) return s; a[F.name] = ''; return JSON.stringify(a); });
+  // 簽章字串在比對前先正規化（畫面上看不出來的差別不算）：
+  //   實例批次（InstancedMesh）：各實例的世界矩陣已經在 instanceHash 裡，批次自己的世界矩陣不比（批次掛在有位移的模型 root 裡、實例改用相對座標時畫面相同）
+  //   燈光：除了 RectAreaLight，照射方向由位置與目標點決定，世界矩陣只比位置（閃光燈掛在轉過的相機 root 裡時畫面相同）
+  //   --ignore-names：非走線五金的零件、燈光、虛擬相機的名稱清掉再比
+  const IDENTITY = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0];
+  const norm = d => d.dict.map(s => {
+    const a = JSON.parse(s);
+    if (a[0] === 'light') { if (a[2] !== 'RectAreaLight') a[a.length - 2] = [...IDENTITY, ...a.at(-2).slice(12)]; if (ignoreNames) a[1] = ''; }
+    else if (a[0] === 'camera') { if (ignoreNames) a[1] = ''; }
+    else {
+      if (a[0] === 'instanced') a[F.matrix] = [...IDENTITY, 0, 0, 0, 1];
+      if (ignoreNames && !a[F.hardware]) a[F.name] = '';
+    }
+    return JSON.stringify(a);
+  });
   const DA = norm(A), DB = norm(B);
   const bag = (list, D) => { const m = new Map(); for (const i of list) m.set(D[i], (m.get(D[i]) || 0) + 1); return m; };
   const minus = (x, y) => { const out = []; for (const [s, n] of x) for (let k = (y.get(s) || 0); k < n; k++) out.push(s); return out; };
