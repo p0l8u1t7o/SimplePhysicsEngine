@@ -13,6 +13,7 @@ export const api = {
   settings: () => call('GET', '/api/settings'),
   saveSettings: v => call('PUT', '/api/settings', v),
   projects: () => call('GET', '/api/projects'),
+  dashboard: () => call('GET', '/api/dashboard'),
   project: id => call('GET', `/api/projects/${encodeURIComponent(id)}`),
   create: v => call('POST', '/api/projects', v),
   answer: (id, v) => call('POST', `/api/projects/${encodeURIComponent(id)}/answer`, v),

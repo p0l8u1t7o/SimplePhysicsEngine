@@ -50,6 +50,7 @@ export function createPartsApi(file = defaultPartsDb()) {
         throw e;
       }
     },
+    overview: () => open().overview(),      // 儀表板首頁用
     close() { db?.close(); db = null; },
   };
 }

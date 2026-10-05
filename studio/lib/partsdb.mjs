@@ -230,6 +230,20 @@ export function openPartsDb(file = defaultPartsDb()) {
     // 刪除供應商：價格紀錄留著，只是不再連到供應商
     deleteSupplier(id) { const s = need('suppliers', id, '供應商'); run('DELETE FROM suppliers WHERE id = ?', s.id); return { deleted: s.id }; },
 
+    // 儀表板用的統計：各類別數量、各專案用到的元件數、各成本表的參考金額（數量 × 最新單價，只算新台幣）、30 天內到期或已過期的報價、待整理的數量
+    overview(today = new Date().toLocaleDateString('sv')) {
+      const soon = new Date(Date.parse(today) + 30 * 864e5).toISOString().slice(0, 10);
+      const q = get(`SELECT count(*) AS total, sum(category = '') AS uncategorized, sum(unit_price IS NULL) AS unpriced, sum(unit_price IS NOT NULL AND supplier_id IS NULL) AS noSupplier FROM part_latest`);
+      return {
+        today, ...this.stats(),
+        categories: all('SELECT category AS name, count(*) AS count FROM parts GROUP BY category ORDER BY count DESC, category'),
+        projects: all('SELECT project AS name, count(DISTINCT part_id) AS parts FROM usages GROUP BY project ORDER BY parts DESC, project'),
+        sources: all(`SELECT u.project, u.source, count(*) AS items, sum(CASE WHEN pl.currency = 'TWD' THEN coalesce(u.qty, 0) * coalesce(pl.unit_price, 0) ELSE 0 END) AS amount
+          FROM usages u JOIN part_latest pl ON pl.id = u.part_id GROUP BY u.project, u.source ORDER BY u.project, u.source`),
+        expiring: all(`SELECT id, name, brand, model, unit_price, currency, valid_until, supplier FROM part_latest WHERE valid_until <> '' AND valid_until <= ? ORDER BY valid_until, id LIMIT 20`, soon),
+        quality: { total: q.total, uncategorized: q.uncategorized || 0, unpriced: q.unpriced || 0, noSupplier: q.noSupplier || 0 },
+      };
+    },
     stats: () => get('SELECT (SELECT count(*) FROM parts) AS parts, (SELECT count(*) FROM prices) AS prices, (SELECT count(*) FROM usages) AS usages, (SELECT count(*) FROM suppliers) AS suppliers'),
   };
 }

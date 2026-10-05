@@ -204,7 +204,7 @@ export function Parts({ projectNames = [] }) {
         </div>
         {!data ? <p className="mute">載入中…</p> : <>
           <div className="mute" style={{ margin: '4px 0 8px' }}>{filtered ? `符合 ${data.total} 個` : `共 ${data.total} 個`}{data.total > data.parts.length ? `，只列出前 ${data.parts.length} 個，請加上條件縮小範圍` : ''}</div>
-          <div className="scroll"><table className="parts"><thead><tr><th>類別</th><th>名稱</th><th>廠牌</th><th>型號／選型</th><th>規格</th><th>單位</th><th className="num">參考單價</th><th>等級</th><th>報價日</th><th>供應商</th><th>用過的專案</th></tr></thead><tbody>
+          <div className="card table scroll"><table className="parts"><thead><tr><th>類別</th><th>名稱</th><th>廠牌</th><th>型號／選型</th><th>規格</th><th>單位</th><th className="num">參考單價</th><th>等級</th><th>報價日</th><th>供應商</th><th>用過的專案</th></tr></thead><tbody>
             {data.parts.map(p => <tr key={p.id} tabIndex={0} onClick={() => setOpen(p.id)} onKeyDown={e => { if (e.key === 'Enter') setOpen(p.id); }}>
               <td><span className="chip">{p.category || UNCATEGORIZED}</span></td>
               <td><b>{p.name}</b></td><td>{p.brand}</td>

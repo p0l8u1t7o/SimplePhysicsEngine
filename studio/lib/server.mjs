@@ -3,6 +3,7 @@
 //   GET  /api/doctor                兩種 CLI 是否已安裝與登入
 //   GET  /api/settings ／ PUT        工作區 .studio/settings.json（defaultCli、roles）與各角色目前的指派
 //   GET  /api/projects              專案清單與狀態
+//   GET  /api/dashboard             儀表板首頁：專案、代理執行統計、各站檢查與審查結果、元件資料庫統計
 //   GET  /api/projects/:id          單一專案：狀態、每輪紀錄、問題、提案、審查、補強、截圖、最近輸出
 //   POST /api/uploads?token=&name=  原始位元組上傳到暫存（影片會自動每 5 秒擷取一張影格；Office 檔在建立時抽出文字與圖片）
 //   POST /api/projects              新建並開始（{ id, title, prompt, token, cli, model, effort, autoApprove, pick }）
@@ -27,6 +28,7 @@ import { createRunner } from './runner.mjs';
 import { OFFICE, OLD_OFFICE } from './office.mjs';
 import { importHandoff } from './handoff.mjs';
 import { stationChanges } from './repo.mjs';
+import { readRounds, agentStats, checkStats } from './dashboard.mjs';
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp',
@@ -92,6 +94,19 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
   // 元件資料庫：第一次用到才載入（node:sqlite 需要 Node.js 22.13 以上，舊版本其他功能照常）
   let partsApi = null;
   const parts = async () => partsApi ||= (await import('./parts-api.mjs')).createPartsApi(partsDb);
+  // 儀表板首頁：本庫的站用 core check 寫在 TEMP/ 的結果，工作區的專案用 vs3d 自己記的最近一次檢查
+  const dashboard = async () => {
+    const dirty = repoDirty(), list = projectIds().map(id => summary(id, dirty)).sort((x, y) => y.updated - x.updated);
+    const repoChecks = repo ? checkStats(['check-quick.json', 'check-full.json'].map(f => { try { return readJson(join(repo, 'TEMP', f), null); } catch { return null; } }).filter(Boolean)) : {};
+    const stations = list.map(p => {
+      const s = loadState(Jof(p.id)), lc = s.lastCheck;
+      const check = p.repo ? repoChecks[p.name] || null : lc ? { at: null, passed: Math.max(0, (lc.rows || 0) - lc.failures.length), failed: lc.failures.length, failures: lc.failures.map(f => ({ check: f.check, note: f.note || '' })) } : null;
+      return { id: p.id, title: p.title, repo: p.repo, segment: p.segment, check, reviews: s.reviews || 0, must: s.reviewData ? s.reviewData.must.length : null, suggest: s.reviewData ? s.reviewData.suggest.length : null, render: s.render?.result || null };
+    });
+    let partsInfo;
+    try { partsInfo = (await parts()).overview(); } catch (e) { partsInfo = { error: e.code === 'ERR_UNKNOWN_BUILTIN_MODULE' ? '元件資料庫需要 Node.js 22.13 以上' : String(e.message || e) }; }
+    return { projects: list, running: runner.current, agents: agentStats(list.map(p => ({ id: p.id, title: p.title, rounds: readRounds(Jof(p.id).rounds) }))), stations, parts: partsInfo };
+  };
   const resumeIfReady = id => { const J = Jof(id); if (!runner.current && !loadQuestions(J).list.some(q => !q.answered)) start('resume', id); };
 
   const server = createServer(async (req, res) => {
@@ -115,6 +130,7 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
           const ctx = loadRoleContext(P.settings, '', {});
           return json(200, { settings: readJson(P.settings, {}), resolved: Object.fromEntries(Object.keys(ROLES).map(r => [r, resolveRole(r, ctx)])) });
         }
+        if (a === 'dashboard') return json(200, await dashboard());
         if (a === 'stop' && req.method === 'POST') return json(200, { stopped: runner.stop() });
         if (a === 'uploads' && req.method === 'POST') {
           const token = (url.searchParams.get('token') || '').replace(/[^\w-]/g, '') || randomUUID(), name = basename(url.searchParams.get('name') || 'file');
