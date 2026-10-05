@@ -158,7 +158,7 @@ export function createCell(scene) {
   }
   for(const z of [-170,170])for(const x of [x0+30,x1-30]){const r=cyl(30,38,matDark);r.rotation.x=Math.PI/2;r.position.set(x,top-28,z);g.add(r);}
   for(let x=x0+30;x<x1;x+=120)for(const z of [-201,201])block(g,[42,3,1],[x,top-30,z],matDark);
-  const drive=box(140,120,100,matBlue);drive.position.set(x1-20,top-90,265);   // 驅動馬達放在輸送線末端外側，避開 S3 右立柱g.add(drive);
+  const drive=box(120,120,100,matBlue);drive.position.set(x1-70,top-90,265);g.add(drive);   // 驅動馬達在輸送線末端外側，夾在 S3 右立柱與收料堆料架立柱之間（空位 140 mm，本體 120 mm，兩側各留 10 mm）
   const beltMarks=new THREE.Group();g.add(beltMarks);
   for(let x=x0+30;x<x1-100;x+=110)for(const z of [-170,170])block(beltMarks,[3,1.4,28],[x,top+6,z],matAlu);
 
