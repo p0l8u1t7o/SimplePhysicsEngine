@@ -9,6 +9,8 @@ import { MAT, std, finished } from '@core/geom/materials.js';
 import { foot } from '@core/geom/hardware.js';
 import { create as visionCamera } from '@core/models/camera.js';
 import { barLight } from '@core/models/lights.js';
+import { beltConveyor } from '@core/models/transport.js';
+import { airCompressor, airTank, airManifold, cabinetFan, teachPendant } from '@core/models/equipment.js';
 import { cable, cableTray, CABLE } from '@core/electrical/cable-routing.js';
 import { beltTexture, createLightPatch, SURFACE } from './appearance.js';
 import { laneAt } from './schedule.js';
@@ -138,16 +140,16 @@ export function createFrontLine(scene, L, belt) {
   const sort = new THREE.Group(); sort.name = 'abbSort'; scene.add(sort);
   const zc = bz + So.z, [kw, kh, kd] = So.bin, zones = {};
   for (const [key, dir, x0, x1] of [['food', 1, A.x + So.gap, cx1 + 40], ['nonfood', -1, cx0 - 40, A.x - So.gap]]) {
-    const len = x1 - x0, cx = (x0 + x1) / 2, tex = beltTexture(0x53606a); tex.repeat.set(len / 100, 1);
-    block(sort, [len, 14, So.width], [cx, So.top - 7, zc], std(0xffffff, .92, .02, { map: tex })).name = 'sort belt';
-    block(sort, [len, 10, So.width], [cx, So.top - 90, zc], MAT.belt);
-    block(sort, [len - 20, 16, So.width - 30], [cx, So.top - 32, zc], SURFACE.support);
-    for (const s of [-1, 1]) {
-      block(sort, [len, 90, 20], [cx, So.top - 50, zc + s * (So.width / 2 + 10)], SITE_FRAME);
-      block(sort, [len, 50, 10], [cx, So.top + 25, zc + s * (So.width / 2 + 5)], RUST);
-    }
-    const rollers = [x0, x1].map(x => cylinder(sort, 42, So.width + 14, [x, So.top - 50, zc], finished(MAT.roller, 'metal'), 'z', 20));
-    for (const x of [x0 + 180, x1 - 180]) { block(sort, [60, So.top - 100, 60], [x, (So.top - 100) / 2, zc], SITE_FRAME); foot(sort, x, zc, 140); }
+    const len = x1 - x0, tex = beltTexture(0x53606a); tex.repeat.set(len / 100, 1);
+    // core 的平皮帶模型：機身換成既有機架的顏色（側樑、支腳）與鏽色擋邊；span 給絕對座標，root 只移到中心線（Z）。
+    const sb = beltConveyor.create({
+      span: [x0, x1], width: So.width, top: So.top, carry: { material: std(0xffffff, .92, .02, { map: tex }), name: 'sort belt' },
+      bed: { material: SURFACE.support }, rollers: { material: finished(MAT.roller, 'metal') },
+      sides: [{ h: 90, t: 20, y: So.top - 50, z: So.width / 2 + 10, material: SITE_FRAME }, { h: 50, t: 10, y: So.top + 25, z: So.width / 2 + 5, material: RUST }],
+      legs: { material: SITE_FRAME },
+    });
+    sb.root.position.z = zc; sort.add(sb.root);
+    const rollers = sb.rollers;                                                              // project.js 的 apply() 照舊直接轉這兩支
     const exit = dir > 0 ? x1 : x0, bx = exit + dir * (42 + 12 + kw / 2);                    // 帶尾的收料箱
     block(sort, [kw, 20, kd], [bx, 30, zc], BIN);
     for (const s of [-1, 1]) block(sort, [kw, kh, 20], [bx, kh / 2 + 42, zc + s * (kd / 2 - 10)], BIN);
@@ -177,9 +179,8 @@ export function createFrontLine(scene, L, belt) {
   block(cab, [W - 2 * T, 100, T], [kxc, 50, kz0 + T / 2], MAT.steelDark);                      // 前踢腳（在門的正下方）
   block(cab, [40, K.shelf - T - 100, 40], [kxc, (K.shelf - T + 100) / 2, zi0 + 20], CAB_BODY); // 下層中柱
   cab.userData.electricalEnclosure = { min: [xi0, K.shelf, zi0], max: [xi1, K.h - T, zi1] };   // 電控檢查：元件要在上層櫃內
-  for (const [x, y] of [[xi0 + 10, 1560], [xi0 + 10, 480], [xi1 - 10, 480]]) {                // 側板上的散熱風扇（照片）
-    block(cab, [20, 120, 120], [x, y, zic + 120], MAT.black);
-    cylinder(cab, 46, 6, [x + Math.sign(kxc - x) * 12, y, zic + 120], MAT.steelDark, 'x', 20);
+  for (const [x, y] of [[xi0 + 10, 1560], [xi0 + 10, 480], [xi1 - 10, 480]]) {                // 側板上的散熱風扇（照片）：core 模型，葉輪蓋朝櫃內
+    const fan = cabinetFan.create({ facing: Math.sign(kxc - x) }); fan.root.position.set(x, y, zic + 120); cab.add(fan.root);
   }
 
   // ---- 四扇門：全部標成 electricalCover——「電盤配線」剖視時隱藏、透視時半透明
@@ -260,12 +261,9 @@ export function createFrontLine(scene, L, belt) {
   block(c30, [120, 16, 6], [150, -52, fz + 3], MAT.black);                                                  // 乙太網路埠
   decal(c30, 84, 30, [178, 46, fz + 1], [0, 0, 0], 'ABB', { center: true, bold: true, color: '#d8232a' });
   decal(c30, 150, 18, [70, 6, fz + 1], [0, 0, 0], 'OmniCore C30', { center: true, color: '#33414a' });
-  // 教導器（FlexPendant）與座
-  const py = K.shelf + R.top;
-  block(cab, [190, 50, 150], [R.x - 60, py + 25, rz0 + 130], GREY);
-  const pend = block(cab, [290, 26, 190], [R.x - 60, py + 96, rz0 + 110], WHITE); pend.rotation.x = -.5;
-  const scr = block(cab, [180, 4, 120], [R.x - 30, py + 104, rz0 + 96], MAT.black); scr.rotation.x = -.5;
-  cylinder(cab, 16, 22, [R.x - 180, py + 130, rz0 + 160], MAT.red, 'y', 16);                                // 教導器急停
+  // 教導器（FlexPendant）與座：core 模型，原點在掛座底面中心（鐵架頂板上）；材質沿用本櫃的灰與白
+  const pendant = teachPendant.create({ holderMaterial: GREY, bodyMaterial: WHITE });
+  pendant.root.position.set(R.x - 60, K.shelf + R.top, rz0 + 130); cab.add(pendant.root);
   // C30 → 手臂：櫃內由 C30 正面的 X1 繞到上游側板，穿板後接到網籠（櫃外那一段在下面的配線裡）
   const armOut = [xi0 + 1, K.h - 320, cz0 - 12];
   block(cab, [12, 70, 70], [xi0 + 6, armOut[1], armOut[2]], MAT.steelDark);                                 // 側板上的出線接頭座
@@ -282,28 +280,19 @@ export function createFrontLine(scene, L, belt) {
   // ---- 下層：空壓機＋儲氣筒（取代原本的吸塵器），供 ABB 與 DENSO 兩支手臂上的真空產生器
   const AIR = K.air, fy = 0, COMP = std(0x2c4f86, .5, .3), TANK = std(0xc23b2f, .45, .3);
   const cz = zi0 + 230;                                                                                     // 兩件都靠門放，後緣留給線與管
-  block(cab, [480, 50, 340], [AIR.compressor, fy + 25, cz], MAT.steelDark);                                 // 機座
-  cylinder(cab, 95, 250, [AIR.compressor - 60, fy + 190, cz], COMP, 'x', 28);                               // 馬達
-  cylinder(cab, 105, 30, [AIR.compressor - 200, fy + 190, cz], MAT.black, 'x', 28);                         // 風扇罩
-  for (const s of [-1, 1]) { block(cab, [100, 170, 100], [AIR.compressor + 150, fy + 240, cz + s * 75], COMP); block(cab, [112, 16, 112], [AIR.compressor + 150, fy + 333, cz + s * 75], MAT.steel); }   // 雙缸
-  block(cab, [120, 110, 130], [AIR.compressor + 150, fy + 105, cz], MAT.steel);                             // 曲軸箱
-  plate(cab, ['空壓機（靜音無油式，示意）'], 320, 50, [AIR.compressor, fy + 420, cz - 172], back, { font: 'bold 40px "Microsoft JhengHei",sans-serif' });
-  const tx = AIR.tank, tr = 160;
-  for (let k = 0; k < 3; k++) { const a = k * 2.094 + .5; block(cab, [40, 90, 40], [tx + Math.cos(a) * 110, fy + 45, cz + Math.sin(a) * 110], MAT.steelDark); }
-  cylinder(cab, tr, 420, [tx, fy + 340, cz], TANK, 'y', 32);                                                // 儲氣筒（直立，約 40 L）
-  cylinder(cab, 100, 46, [tx, fy + 107, cz], TANK, 'y', 32, tr);                                            // 下封頭
-  cylinder(cab, tr, 46, [tx, fy + 573, cz], TANK, 'y', 32, 100);                                            // 上封頭
-  cylinder(cab, 34, 16, [tx, fy + 420, cz - tr - 8], MAT.cap, 'z', 20); cylinder(cab, 8, 30, [tx, fy + 420, cz - tr + 6], MAT.steel, 'z', 10);   // 壓力表
-  cylinder(cab, 12, 40, [tx + 70, fy + 612, cz], MAT.steel, 'y', 12);                                       // 安全閥
-  plate(cab, ['儲氣筒（示意）'], 190, 50, [tx, fy + 250, cz - tr - 4], back, { font: 'bold 44px "Microsoft JhengHei",sans-serif' });
+  // 空壓機（靜音無油式、雙缸）與儲氣筒（直立，約 40 L）：core 模型，原點在底面中心；標示牌朝門（−Z）
+  const compressor = airCompressor.create({ material: COMP, label: { lines: ['空壓機（靜音無油式，示意）'], options: { font: 'bold 40px "Microsoft JhengHei",sans-serif' } } });
+  compressor.root.position.set(AIR.compressor, fy, cz); cab.add(compressor.root);
+  const tx = AIR.tank;
+  const tank = airTank.create({ material: TANK, label: { lines: ['儲氣筒（示意）'], options: { font: 'bold 44px "Microsoft JhengHei",sans-serif' } } });
+  tank.root.position.set(tx, fy, cz); cab.add(tank.root);
   // 配管：空壓機 → 儲氣筒 → 分配座（兩個出口：ABB、DENSO）
   const AIRC = 0x3f8fd8, mz = zi1 - 40, my = 640, mx = [tx - 240, tx + 240];
   pipe(cab, [[AIR.compressor + 150, fy + 345, cz], [AIR.compressor + 150, fy + 700, cz], [tx - 60, fy + 700, cz], [tx - 60, fy + 598, cz]], 9, AIRC, 0x8a949c);
   pipe(cab, [[tx, fy + 598, cz], [tx, fy + 720, cz], [tx, fy + 720, mz], [tx, my + 22, mz]], 9, AIRC, 0x8a949c);
-  block(cab, [560, 40, 50], [tx, my, mz], MAT.steel).name = 'air manifold';                                 // 分配座（含調壓、過濾，示意）
-  for (const x of mx) block(cab, [40, 30, 15], [(x + tx) / 2, my, zi1 - 7.5], MAT.steelDark);              // 固定在背板上的座
-  cylinder(cab, 26, 12, [tx, my, mz - 31], MAT.cap, 'z', 18);
-  decal(cab, 240, 26, [tx, my - 36, mz - 26], [0, back, 0], '0.6 MPa → ABB／DENSO 真空產生器', { center: true, color: '#e8eef1', bg: '#22313b' });
+  // 分配座（含調壓、過濾，示意）：core 模型，座體網格名稱是 air manifold；固定座貼在背板上
+  const manifold = airManifold.create({ label: { lines: '0.6 MPa → ABB／DENSO 真空產生器', options: { center: true, color: '#e8eef1', bg: '#22313b' } } });
+  manifold.root.position.set(tx, my, mz); cab.add(manifold.root);
   // 往 ABB：櫃內沿背板到上游側板，穿板後由櫃外那一段接到網籠頂（下面）
   const abbAir = [xi0 + 1, 300, bz - 780];
   pipe(cab, [[mx[0], my - 22, mz], [mx[0], 300, mz], [mx[0], 300, mz - 60], [xi0 + 60, 300, mz - 60], [xi0 + 60, 300, abbAir[2]], abbAir], 8, AIRC, AIRC);

@@ -8,7 +8,8 @@ import { cable, cableTray, CABLE } from '@core/electrical/cable-routing.js';
 import { create as visionCamera } from '@core/models/camera.js';
 import { estop } from '@core/models/indicators.js';
 import { lightCurtain } from '@core/models/sensors.js';
-import { block, cylinder, plate, decal } from '@core/geom/shapes.js';
+import { frl } from '@core/models/motion.js';
+import { block, plate, decal } from '@core/geom/shapes.js';
 import { MAT, std } from '@core/geom/materials.js';
 import { motor } from '@core/geom/hardware.js';
 import { ELECTRICAL_SPEC as S } from './electrical-spec.js';
@@ -206,21 +207,14 @@ export function createElectrical(scene, { cab, frame, robot, belt, vision, hmi, 
   const resetButton=estop.create({reset:1,collarR:13,capR:10,capH:14,collarZ:-6,capZ:2,box:{size:[52,65,16]}});
   stopButton.root.position.set(-560,1250,680); resetButton.root.position.set(-500,1250,680);
   hmi.add(stopButton.root,resetButton.root);                                       // 盤側急停改用既有電控櫃門上的急停（與既有系統連鎖）
-  // core 的 cable() 找夾具的固定面時只看 parent 的直接子網格；core 模型的網格在 root 群組裡（深一層）會找不到，
-  // 這條線的夾具就會少三個、另外兩個改釘到別處。所以走線那一刻把 HMI 與兩顆按鈕的網格暫時掛回 hmi 群組
-  // （root 只有平移，位置加上 root 的位置就是 hmi 座標；順序也和原本一樣排在托板之前），走完原樣放回。
-  // core 的 cable() 改成往下找子群組之後，這一段可以拿掉。
-  const hosted=[hmiPanel,stopButton,resetButton].flatMap(m=>m.root.children.filter(c=>c.isMesh).map(mesh=>({mesh,root:m.root,at:mesh.position.clone()})));
-  for(const {mesh,root} of hosted) {mesh.position.add(root.position);hmi.add(mesh);}
+  // HMI 與兩顆按鈕的網格在 core 模型的 root 裡；core 1.10.0 的 cable() 會把模型 root 裡的網格當線夾固定面，直接走線即可
   block(hmi,[150,10,20],[-530,1290,651],MAT.steelDark);
   block(hmi,[18,70,16],[-560,1322,639],MAT.alu);
   route(hmi,'GC1 / 急停與復歸',[[-892,1755,670],[-892,1695,670],[-810,1695,610],[-770,1695,610],[-770,1328,610],[-560,1328,631],[-560,1250,648],[-500,1250,648]],safetyColor,4);
-  for(const {mesh,root,at} of hosted) {root.add(mesh);mesh.position.copy(at);}
 
   // 三點組與氣壓表，固定在立座 +Z 面；旋轉關節及浮動桿內部通道以接口表示。
-  block(robot,[150,18,28],[150,480,294],MAT.steelDark);
-  for(const x of [105,150,195]) { cylinder(robot,17,84,[x,420,304],MAT.alu,'y',18); block(robot,[36,28,36],[x,470,304],MAT.steelBlue); }
-  cylinder(robot,24,12,[150,473,330],MAT.cap,'z',24);
+  // core 的 FRL 三點組模型（預設尺寸：背板 150 × 18 × 28、三顆間距 45、壓力表朝 +Z）；原點在中間那顆的頭部中心
+  const frlUnit=frl.create(); frlUnit.root.position.set(150,470,304); robot.add(frlUnit.root);
   decal(robot,90,22,[150,525,296],[0,0,0],'0.5 MPa（示意）',{center:true});
   // 氣源：既有電控櫃下層的空壓機＋儲氣筒（分配座的 DENSO 出口），沿櫃背地面到機台，接立座上的三點組
   route(robot,'儲氣筒 / 壓縮空氣（往 DENSO 站）',[airOut,[airOut[0],6,airOut[2]],[airOut[0],6,-865],[400,6,-865],[400,6,310],[230,6,310],[230,470,310],[213,470,304]],CABLE.air,6);

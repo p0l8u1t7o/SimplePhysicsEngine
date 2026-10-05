@@ -18,6 +18,8 @@ import { floor } from '@core/geom/environment.js';
 import { createHSR065, HSR065, fk } from '@core/models/robots/denso-hsr065.js';
 import { signalTower, hmi as hmiModel } from '@core/models/indicators.js';
 import { barLight } from '@core/models/lights.js';
+import { beltConveyor } from '@core/models/transport.js';
+import { vacuumEjector, solenoidValve, floatRod, suctionCup, rotaryEncoder } from '@core/models/motion.js';
 import { LAYOUT, STATIONS } from './layout.js';
 import { buildItem } from './items.js';
 import { createTiming, ITEMS, CHAPTERS, chapterAt, PHASES, GRAB_PHASES, AXIS, CT, BELT_V, TOTAL, VISION_TO_PICK, MIX, mixedCT, perHour, ABB_PHASES, ABB_CT, footprintGap, zOf, leadOf, laneAt, LANE_X } from './schedule.js';
@@ -49,17 +51,23 @@ export function createProject({ scene }) {
   floor(scene, { size: [9000, 5600], center: [-2300, -300], cell: 200 });        // 含上游的既有分選線
 
   // ================================================================ 主輸送帶（平皮帶）
-  // core/models/conveyor.js 是滾筒輸送線，薄膜與小件會掉落，所以平皮帶在專案自建。
+  // 平皮帶（滾筒輸送線上薄膜與小件會掉落）：皮帶機本體用 core 的 beltConveyor，現場既有的機架與配件在這裡畫。
   // 已拍板（2026-10-05）：這就是現場既有的那條皮帶——由上游端（L.site.x0）一路到後段機台下游，後段直接架在上面；
   // 外觀照現場（綠色皮帶、鏽色鋼板側牆、藍綠色機架），驅動馬達也是既有的，後段電盤不驅動它，只外掛編碼器。
   const belt = new THREE.Group(); belt.name = 'mainBelt'; scene.add(belt);
   const b = L.belt, bz = b.z, bw = b.width, g0 = L.guide, [gx0, gx1] = g0.x, gLen = gx1 - gx0;
   const bx0 = L.site.x0, bx1 = b.x[1], bLen = bx1 - bx0 - 2 * b.roller, bcx = (bx0 + bx1) / 2;
   const beltTex = beltTexture(0x426950); beltTex.repeat.set(bLen / 120, 1);
-  block(belt, [bLen, 16, bw], [bcx, b.top - 8, bz], std(0xffffff, .93, .01, { map: beltTex }));   // 承載面
-  block(belt, [bLen, 12, bw], [bcx, 658, bz], BELT_MAT);                           // 回程面
-  block(belt, [bLen - 40, 18, bw - 40], [bcx, 723, bz], SURFACE.support);          // 支撐板
-  const rollers = [bx0, bx1].map(x => cylinder(belt, b.roller, bw + 20, [x, 700, bz], finished(MAT.roller, 'metal'), 'z', 24));
+  // 皮帶機本體（承載面、回程面、支撐板、頭尾滾筒）用 core 的平皮帶模型；span 給絕對座標，root 只移到中心線（Z）。
+  // 既有機架、鏽色側牆、支腳與橫撐、馬達、編碼器、導料板是現場的東西，留在下面自己畫（sides／legs 關掉）。
+  const mainBelt = beltConveyor.create({
+    span: [bx0 + b.roller, bx1 - b.roller], width: bw, top: b.top, texturePitch: 120,
+    carry: { t: 16, material: std(0xffffff, .93, .01, { map: beltTex }) }, back: { t: 12, y: 658, material: BELT_MAT },
+    bed: { size: [bLen - 40, 18, bw - 40], y: 723, material: SURFACE.support },
+    rollers: { r: b.roller, length: bw + 20, y: 700, x: [bx0, bx1], segments: 24, material: finished(MAT.roller, 'metal') }, sides: false, legs: false,
+  });
+  mainBelt.root.position.z = bz; belt.add(mainBelt.root);
+  const rollers = mainBelt.rollers;                                                // apply() 照舊直接轉這兩支
   for (const s of [-1, 1]) {
     block(belt, [bx1 - bx0, 130, 24], [bcx, 660, bz + s * 320], SITE_FRAME);       // 側樑
     block(belt, [bx1 - bx0, L.site.wall + 10, 10], [bcx, b.top + L.site.wall / 2 - 5, bz + s * 311], RUST);   // 側牆（高於帶面 110）
@@ -70,8 +78,8 @@ export function createProject({ scene }) {
   }
   motor(belt, 1250, 450, bz - 410, .6);                                            // 既有的驅動馬達（示意）
   sensor(belt, L.encoder.x + 90, b.top + 40, L.encoder.z + 20, Math.PI / 2);       // 入料光電
-  cylinder(belt, 30, 70, [L.encoder.x, 700, L.encoder.z], MAT.black, 'z', 20);     // 外掛旋轉編碼器
-  cylinder(belt, 12, 60, [L.encoder.x, 700, L.encoder.z + 50], MAT.chrome, 'z', 16);
+  const encoder = rotaryEncoder.create();                                          // 外掛旋轉編碼器（core 模型，機身 Ø60 × 70、出軸朝 +Z）
+  encoder.root.position.set(L.encoder.x, 700, L.encoder.z); belt.add(encoder.root);
   decal(belt, 170, 42, [L.encoder.x, 600, L.encoder.z - 38], [0, Math.PI, 0], '1000 ppr', { color: '#9fb3c0', center: true });
   // 後段導料板：接在前段導料板（600 → 400）之後，開口 400 → 280，把料流收攏到手臂實際能覆蓋的帶寬內。
   // 板面位置照 schedule.js 的 laneAt()（開口與中心線），和工件走的通道是同一份定義；中心線由皮帶中心移到抓取區中心。
@@ -155,28 +163,28 @@ export function createProject({ scene }) {
   const T = L.tool, tool = new THREE.Group(); tool.name = 'suction tool'; arm.flange.add(tool);
   cylinder(tool, 46, 14, [0, -17, 0], MAT.steel, 'y', 28);
   block(tool, [120, 130, 14], [0, -90, 46], MAT.alu);
-  housing(tool, 80, 44, 54, MAT.steelBlue, 0, -60, 86, 6);                         // 真空發生器
-  block(tool, [60, 34, 40], [0, -115, 80], MAT.black);                             // 電磁閥
-  cylinder(tool, 22, 150, [0, -102, 0], finished(MAT.alu, 'metal'), 'y', 22);       // 浮動桿外套
-  const plunger = new THREE.Group(); tool.add(plunger);                            // 浮動段（隨 fl 下移）
-  cylinder(plunger, 14, 200, [0, -137, 0], MAT.chrome, 'y', 20).userData.nested = tool;
+  // 真空發生器、電磁閥、浮動桿、吸盤是 core 的市購品模型；法蘭轉接盤、安裝板與吸盤橫桿是加工件，留在站內
+  const ejector = vacuumEjector.create(); ejector.root.position.set(0, -60, 86); tool.add(ejector.root);          // 真空發生器
+  const valve = solenoidValve.create(); valve.root.position.set(0, -115, 80); tool.add(valve.root);              // 電磁閥
+  const floatUnit = floatRod.create({ sleeveMaterial: finished(MAT.alu, 'metal') }); tool.add(floatUnit.root);    // 浮動桿（外套留在模型 root）
+  // 浮動段（隨 fl 下移）：站自己的群組留著，模型的伸縮桿群組掛進來——關節物件與 apply() 的 plunger.position.y 都不用改
+  const plunger = new THREE.Group(); tool.add(plunger);
+  plunger.add(floatUnit.plunger); floatUnit.rod.userData.nested = tool;
   block(plunger, [26, 20, T.cupSpan + 30], [0, -240, 0], MAT.steelDark);          // 橫桿兩端各收 5 mm：擺動時讓開手臂基座後方的出線管
-  for (const dz of [-T.cupSpan / 2, T.cupSpan / 2])
-    cylinder(plunger, T.cupR, 8, [0, -256, dz], MAT.black, 'y', 20, 13).name = 'suction cup';
+  plunger.add(suctionCup.create({ r: T.cupR, at: [-T.cupSpan / 2, T.cupSpan / 2].map(dz => [0, -256, dz]) }).root);   // Ø40 吸盤 ×2（網格名稱 suction cup，allow 規則用）
 
   // ================================================================ 分流帶 A／B（同側反向，與手臂架台排成同一列）
   const divOf = k => k === 'A' ? L.divA : L.divB;
   for (const key of ['A', 'B']) {
     const d = divOf(key), gp = new THREE.Group(); gp.name = 'div' + key; scene.add(gp);
-    const len = d.x[1] - d.x[0], cx = (d.x[0] + d.x[1]) / 2, tex = beltTexture(0x53606a);
+    const len = d.x[1] - d.x[0], tex = beltTexture(0x53606a);
     tex.repeat.set(len / 100, 1);
-    block(gp, [len, 14, d.width], [cx, d.top - 7, d.z], std(0xffffff, .92, .02, { map: tex }));
-    block(gp, [len, 10, d.width], [cx, d.top - 90, d.z], MAT.belt);
-    block(gp, [len - 20, 16, d.width - 30], [cx, d.top - 32, d.z], SURFACE.support);
-    for (const s of [-1, 1]) block(gp, [len, 90, 20], [cx, d.top - 50, d.z + s * (d.width / 2 + 10)], MAT.frame);
-    for (const s of [-1, 1]) block(gp, [len, 50, 10], [cx, d.top + 25, d.z + s * (d.width / 2 + 5)], MAT.alu);
-    for (const x of d.x) cylinder(gp, 42, d.width + 14, [x, d.top - 50, d.z], finished(MAT.roller, 'metal'), 'z', 20);
-    for (const x of d.legX) { block(gp, [60, d.top - 100, 60], [x, (d.top - 100) / 2, d.z], MAT.frame); foot(gp, x, d.z, 140); }
+    // core 的平皮帶模型（含標準機身：側樑、擋邊、支腳）；馬達與吊架在 electrical.js 加到 gp。
+    const div = beltConveyor.create({
+      span: d.x, width: d.width, top: d.top, carry: { material: std(0xffffff, .92, .02, { map: tex }) },
+      bed: { material: SURFACE.support }, rollers: { material: finished(MAT.roller, 'metal') }, legs: { x: d.legX },
+    });
+    div.root.position.z = d.z; gp.add(div.root);
   }
 
   // ================================================================ 收料箱（機台外，示意）

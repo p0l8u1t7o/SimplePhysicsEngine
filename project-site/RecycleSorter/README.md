@@ -134,7 +134,7 @@ node ../../core/tools/check.mjs "RecycleSorter" --quick  # 部署前快速檢查
 | `web/css/style.css` | 桌面版面與深色主題（窄螢幕規則由 `core/ui/viewer-workspace.css` 負責，這裡不寫） |
 | `web/js/layout.js` | 站位配置常數（座標系、設備位置與尺寸，含前段的 `site`／`front`／`abb`）；`project.js`、`main.js` 與 `tools/verify.mjs` 共用 |
 | `web/js/frontline.js` | 前段的固定設備：入料罩、刮料簾、前段導料板、前段立體取像站、ABB 網籠、既有分類帶與收料箱、既有電控櫃（櫃體、ABB 盤、控制器鐵架、OmniCore C30、DSQC 2000、空壓機與儲氣筒）、示意配線與氣管 |
-| `web/js/delta.js` | 並聯（Delta）手臂模型與閉式逆解：三支主動臂、平行連桿、中央伸縮軸、吸嘴與真空軟管 |
+| `web/js/delta.js` | 並聯（Delta）手臂的薄包裝：本體與閉式逆解用 core 的 `abb-irb360` 模型，這裡加上吸嘴工具與真空軟管 |
 | `web/js/items.js` | 模型庫 12 款，全部排入料流；食品／非食品 HDPE、PET、鐵罐、薄膜、壓扁件、紙盒與瓶身材質 |
 | `web/js/appearance.js` | 瓶身包裝與低對比帶面貼圖、金屬表面、批次固定細節及取像照明亮斑 |
 | `web/js/electrical-spec.js` | 已拍板電盤尺寸、背板分列與元件清單 |
