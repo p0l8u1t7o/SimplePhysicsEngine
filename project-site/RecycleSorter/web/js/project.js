@@ -16,6 +16,8 @@ import { MAT, std, finished } from '@core/geom/materials.js';
 import { foot, bolts, motor, sensor, housing } from '@core/geom/hardware.js';
 import { floor } from '@core/geom/environment.js';
 import { createHSR065, HSR065, fk } from '@core/models/robots/denso-hsr065.js';
+import { signalTower, hmi as hmiModel } from '@core/models/indicators.js';
+import { barLight } from '@core/models/lights.js';
 import { LAYOUT, STATIONS } from './layout.js';
 import { buildItem } from './items.js';
 import { createTiming, ITEMS, CHAPTERS, chapterAt, PHASES, GRAB_PHASES, AXIS, CT, BELT_V, TOTAL, VISION_TO_PICK, MIX, mixedCT, perHour, ABB_PHASES, ABB_CT, footprintGap, zOf, leadOf, laneAt, LANE_X } from './schedule.js';
@@ -124,10 +126,11 @@ export function createProject({ scene }) {
   for (const dz of [-wz / 2 + 20, wz / 2 - 20]) block(vision, [300, 40, 40], [v.x, v.beamY - 55, bz + dz], MAT.frame);
   const leds = [];                                                                 // 低角度條燈 ×2（45° 朝下）
   for (const lx of v.ledX) {
-    const tilt = (lx < v.x ? -1 : 1) * Math.PI / 4;
-    block(vision, [60, 50, v.ledLen], [lx, v.ledY, bz], MAT.alu).rotation.z = tilt;
-    const lens = block(vision, [52, 8, v.ledLen - 20], [lx + (lx < v.x ? 20 : -20), v.ledY - 20, bz], LED_ON);
-    lens.rotation.z = tilt; leds.push(lens);
+    // core 的條形光模型：外殼 60 × 50、發光面 52 × 8；整支繞 Z 轉 45°，發光面在朝帶面那一側（轉之前沿本地 X 偏 20√2）
+    const side = lx < v.x ? -1 : 1;
+    const bar = barLight.create({ length: v.ledLen, lensOffset: [-side * 20 * Math.SQRT2, 0], lensMaterial: LED_ON });
+    bar.root.position.set(lx, v.ledY, bz); bar.root.rotation.z = side * Math.PI / 4; vision.add(bar.root);
+    leds.push(bar.lens);
     for (const dz of [-v.ledLen / 2 + 30, v.ledLen / 2 - 30]) block(vision, [34, 300, 34], [lx, v.ledY + 170, bz + dz], MAT.frame);
   }
   plate(vision, ['立體取像站（示意）', '基線 300／WD 800'], 290, 90, [v.x + 30, 1685, -754], Math.PI,
@@ -206,18 +209,22 @@ export function createProject({ scene }) {
   block(frame, [50, 635, 10], [-615, 1222, -710], GUARD);
   block(frame, [50, 44, 10], [-615, 1727, -710], GUARD);
   // 三色警示燈：按慣例裝在框架頂面之上，所以單獨一個子群組，固定設備的框架平面檢核不列入
-  const tower = new THREE.Group(); tower.name = 'tower'; frame.add(tower);
-  cylinder(tower, 26, 150, [-f.postX, f.top + 75, PZ[0]], MAT.black, 'y', 18);
-  const towerLights = ['red', 'amber', 'green'].map((k, i) => cylinder(tower, 34, 46, [-f.postX, f.top + 30 + i * 48, PZ[0]], MAT[k], 'y', 18));
+  // core 的三色燈模型（root 名稱仍是 tower）；燈節由上而下是綠、黃、紅，材質沿用共用的 MAT，亮暗由 apply 與 electrical.js 換材質
+  const towerUnit = signalTower.create({
+    name: 'tower', radius: 34, height: 46, segments: 18, lamps: ['green', 'amber', 'red'], base: 30, pitch: 48,
+    materials: { red: MAT.red, amber: MAT.amber, green: MAT.green }, pole: { r: 26, h: 150, y: 75, segments: 18, material: MAT.black },
+  });
+  const tower = towerUnit.root; tower.position.set(-f.postX, f.top, PZ[0]); frame.add(tower);
+  const towerLights = [towerUnit.lamps.red, towerUnit.lamps.amber, towerUnit.lamps.green];
 
   // HMI：安裝板貼在 +Z 側骨架立柱（X −850／Z +670）的 +X 面，短懸臂往 +X 伸出撐住外殼。
-  // 電控模組在外殼面上補入狀態畫面。
+  // 外殼、螢幕面板與畫面（canvas）是 core 的 hmi 模型；畫面內容由電控模組（electrical.js）依狀態更新。
   const hmi = new THREE.Group(); hmi.name = 'hmi'; scene.add(hmi);
   const hm = L.hmi, [hw, hh, hd] = hm.size;
   block(hmi, [16, 260, 70], [postFaceX + 14, hm.y, hm.armZ], MAT.steelDark);       // 立柱上的安裝板（離柱面 6 mm，不重合）
   block(hmi, [100, 70, 80], [postFaceX + 66, hm.y, hm.armZ + 10], MAT.frame);      // 短懸臂（各面都錯開安裝板 5 mm 以上，不重合）
-  housing(hmi, hw, hh, hd, MAT.cabinet, hm.x, hm.y, hm.z, 12);
-  block(hmi, [...hm.screen, 6], [hm.x, hm.y, hm.z + hd / 2 + 1], MAT.screen);
+  const hmiPanel = hmiModel.create({ w: hw, h: hh, d: hd, bevel: 12, panel: { w: hm.screen[0], h: hm.screen[1] }, display: { w: 468, h: 258, mipmaps: false } });
+  hmiPanel.root.position.set(hm.x, hm.y, hm.z); hmi.add(hmiPanel.root);
 
   const cab = new THREE.Group(); cab.name = 'cabinet'; scene.add(cab);
 
@@ -254,7 +261,7 @@ export function createProject({ scene }) {
     const t0 = i / 72 * Math.PI * 2, t1 = (i + .55) / 72 * Math.PI * 2, R = L.abb.reach;
     rod(dimMark, [L.abb.x + R * Math.cos(t0), 10, bz + R * Math.sin(t0)], [L.abb.x + R * Math.cos(t1), 10, bz + R * Math.sin(t1)], 6, MARK.dim, 4);
   }
-  const elec = createElectrical(scene, { cab, frame, robot, belt, vision, hmi, marks, cameras, tool, leds, towerLights, L, airOut: front.airOut });
+  const elec = createElectrical(scene, { cab, frame, robot, belt, vision, hmi, hmiPanel, marks, cameras, tool, leds, towerLights, L, airOut: front.airOut });
   const pk = L.pick;
   for (const [x, z, w, d] of [[pk.cx, pk.z[0], pk.x[1] - pk.x[0], 10], [pk.cx, pk.z[1], pk.x[1] - pk.x[0], 10],
   [pk.x[0], pk.cz, 10, pk.z[1] - pk.z[0]], [pk.x[1], pk.cz, 10, pk.z[1] - pk.z[0]]])

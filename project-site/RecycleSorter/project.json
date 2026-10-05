@@ -2,7 +2,7 @@
   "title": "回收物自動分揀展示機",
   "summary": "架在既有 ABB 並聯手臂分選站後段的補抓站：兩站共用雙相機立體視覺，ABB 來不及抓的白色 HDPE 由 DENSO HSR065 SCARA 補抓到兩條分流帶；同類連抓 1.4 s／瓶、混合料流約 1.6 s。",
   "order": 8,
-  "coreVersion": "1.8.0",
+  "coreVersion": "1.9.0",
   "checks": {
     "quick": [
       "tools/verify.mjs",

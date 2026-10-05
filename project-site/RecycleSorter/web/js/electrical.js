@@ -6,6 +6,8 @@ import { component, robotController, CIRCUITS } from '@core/electrical/electrica
 import { controlPanel, entryGland, entryPlate, panelFeed } from '@core/electrical/electrical-cabinet.js';
 import { cable, cableTray, CABLE } from '@core/electrical/cable-routing.js';
 import { create as visionCamera } from '@core/models/camera.js';
+import { estop } from '@core/models/indicators.js';
+import { lightCurtain } from '@core/models/sensors.js';
 import { block, cylinder, plate, decal } from '@core/geom/shapes.js';
 import { MAT, std } from '@core/geom/materials.js';
 import { motor } from '@core/geom/hardware.js';
@@ -30,7 +32,7 @@ export function createCameras(vision, v) {
   });
 }
 
-export function createElectrical(scene, { cab, frame, robot, belt, vision, hmi, marks, cameras, tool, leds, towerLights, L, airOut }) {
+export function createElectrical(scene, { cab, frame, robot, belt, vision, hmi, hmiPanel, marks, cameras, tool, leds, towerLights, L, airOut }) {
   const e = new THREE.Group(); e.name = 'electrical'; scene.add(e);
   const spec = S.cabinet;
   // DENSO 系統盤的背板直接裝在既有電控櫃上層的下游側板內面（盤面朝櫃內），沒有自己的箱體；穿板接頭開在櫃頂，
@@ -189,27 +191,31 @@ export function createElectrical(scene, { cab, frame, robot, belt, vision, hmi, 
 
   // 光幕示意保留既有佔地，投／受光器靠托架掛在既有骨架。
   const safetyColor=0xefda57;
-  for (const x of [-875,875]) {
-    // 提案中心會撞上分流帶馬達；保留既有中心，縮窄外殼並留柱面間隙（示意）。
-    block(frame,[40,1200,36],[x,1000,620],MAT.amber);
-    // 透光面朝向對側收發器，中心與光幕 Z 610 共面。
-    block(frame,[2,1170,12],[x-Math.sign(x)*21.5,1000,610],MAT.black);
-    for(const y of [440,1560]) block(frame,[28,18,10],[x,y,643],MAT.steelDark);
-  }
+  // core 的安全光柵模型（投、受光器在 X ±875，機身 40 × 1200 × 36，Y 400…1600）。
+  // 提案中心會撞上分流帶馬達；保留既有中心，縮窄外殼並留柱面間隙（示意）。
+  // 透光面朝向對側收發器，中心與光幕 Z 610 共面（offset −10）；托架在 Y 440、1560，掛在既有骨架上。光幕面另外畫在 marks（下面）。
+  const guard=lightCurtain.create({span:1750,height:1200,w:40,d:36,window:{gap:.5,offset:-10},brackets:{ys:[40,1160]},beam:false});
+  guard.root.position.set(0,400,620); frame.add(guard.root);
   const curtain=new THREE.Mesh(new THREE.PlaneGeometry(1705,1200),std(safetyColor,.8,0,{transparent:true,opacity:.035,side:THREE.DoubleSide,depthWrite:false}));
   curtain.name='curtain'; curtain.position.set(0,1000,610); marks.add(curtain);
   const curtainPlate = curtainSign(frame);
   route(frame,'GC1 / 投光器與急停幹線',[...toPost(5,0,BUS.GC1),[-892,1755,-730],[-892,1755,670],[-850,1730,625],[-875,1601,620]],safetyColor,4);
   route(frame,'GC1 / 受光器 OSSD 雙通道',[[-892,1755,670],[-875,1790,690],[875,1790,690],[850,1730,625],[875,1601,620]],safetyColor,4);
-  const button=(parent,x,y,z,reset=false)=>{
-    block(parent,[reset?52:76,65,16],[x,y,z-20],MAT.cabinet);
-    cylinder(parent,reset?13:25,12,[x,y,z-6],reset?MAT.green:MAT.amber,'z',20);
-    cylinder(parent,reset?10:18,14,[x,y,z+2],reset?MAT.green:MAT.red,'z',20);
-  };
-  button(hmi,-560,1250,680); button(hmi,-500,1250,680,true);                       // 盤側急停改用既有電控櫃門上的急停（與既有系統連鎖）
+  // 急停與復歸鈕（各帶按鈕盒）：core 的 estop 模型，原點在按鈕盒正面前 12 mm、按鈕軸朝 +Z
+  const stopButton=estop.create({collarR:25,capR:18,capH:14,collarZ:-6,capZ:2,collarMaterial:MAT.amber,capMaterial:MAT.red,box:{size:[76,65,16]}});
+  const resetButton=estop.create({reset:1,collarR:13,capR:10,capH:14,collarZ:-6,capZ:2,box:{size:[52,65,16]}});
+  stopButton.root.position.set(-560,1250,680); resetButton.root.position.set(-500,1250,680);
+  hmi.add(stopButton.root,resetButton.root);                                       // 盤側急停改用既有電控櫃門上的急停（與既有系統連鎖）
+  // core 的 cable() 找夾具的固定面時只看 parent 的直接子網格；core 模型的網格在 root 群組裡（深一層）會找不到，
+  // 這條線的夾具就會少三個、另外兩個改釘到別處。所以走線那一刻把 HMI 與兩顆按鈕的網格暫時掛回 hmi 群組
+  // （root 只有平移，位置加上 root 的位置就是 hmi 座標；順序也和原本一樣排在托板之前），走完原樣放回。
+  // core 的 cable() 改成往下找子群組之後，這一段可以拿掉。
+  const hosted=[hmiPanel,stopButton,resetButton].flatMap(m=>m.root.children.filter(c=>c.isMesh).map(mesh=>({mesh,root:m.root,at:mesh.position.clone()})));
+  for(const {mesh,root} of hosted) {mesh.position.add(root.position);hmi.add(mesh);}
   block(hmi,[150,10,20],[-530,1290,651],MAT.steelDark);
   block(hmi,[18,70,16],[-560,1322,639],MAT.alu);
   route(hmi,'GC1 / 急停與復歸',[[-892,1755,670],[-892,1695,670],[-810,1695,610],[-770,1695,610],[-770,1328,610],[-560,1328,631],[-560,1250,648],[-500,1250,648]],safetyColor,4);
+  for(const {mesh,root,at} of hosted) {root.add(mesh);mesh.position.copy(at);}
 
   // 三點組與氣壓表，固定在立座 +Z 面；旋轉關節及浮動桿內部通道以接口表示。
   block(robot,[150,18,28],[150,480,294],MAT.steelDark);
@@ -226,13 +232,9 @@ export function createElectrical(scene, { cab, frame, robot, belt, vision, hmi, 
   route(tool,'工具 / 真空訊號',[[48,-24,48],[67,-24,70],[67,-100,70],[30,-115,80]],CABLE.signal,2,
     {backing:{offset:[8,0,0],feet:[[0,[60,-30,46]],[2,[40,-80,86]]],radius:2}});
   route(tool,'工具 / 氣管',[[46,-24,52],[67,-24,100],[67,-60,100],[42,-60,86]],CABLE.air,3);
-  // HMI 以同一份狀態更新畫布，避免另設模擬時鐘。
-  const canvas=document.createElement('canvas'); canvas.width=960; canvas.height=540;
-  const ctx=canvas.getContext('2d'), texture=new THREE.CanvasTexture(canvas); texture.colorSpace=THREE.SRGBColorSpace;
-  // 動態螢幕只在文字改變時上傳，不為每次更新重建整組 mipmap。
-  texture.generateMipmaps=false;texture.minFilter=THREE.LinearFilter;
-  const display=new THREE.Mesh(new THREE.PlaneGeometry(468,258),new THREE.MeshBasicMaterial({map:texture}));
-  display.position.set(-560,1500,698.5); hmi.add(display);
+  // HMI 以同一份狀態更新畫布，避免另設模擬時鐘。畫布（960 × 540）與畫面網格在 core 的 hmi 模型裡（project.js 建立）。
+  // 動態螢幕只在文字改變時上傳，不為每次更新重建整組 mipmap（模型的 display.mipmaps: false）。
+  const {ctx,texture}=hmiPanel;
   let displayKey='';
   const lampMats=towerLights.map((_,i)=>MAT[['red','amber','green'][i]].clone());
   lampMats.forEach(m=>{m.emissive=m.color.clone();});

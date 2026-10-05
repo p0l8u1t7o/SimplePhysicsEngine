@@ -8,6 +8,7 @@ import { block, blockBetween, cylinder, plate, pipe, decal } from '@core/geom/sh
 import { MAT, std, finished } from '@core/geom/materials.js';
 import { foot } from '@core/geom/hardware.js';
 import { create as visionCamera } from '@core/models/camera.js';
+import { barLight } from '@core/models/lights.js';
 import { cable, cableTray, CABLE } from '@core/electrical/cable-routing.js';
 import { beltTexture, createLightPatch, SURFACE } from './appearance.js';
 import { laneAt } from './schedule.js';
@@ -92,9 +93,10 @@ export function createFrontLine(scene, L, belt) {
   const ledZ = F.ledLen / 2 - 30, leds = [];
   for (const s of [-1, 1]) block(vision, [F.ledX[1] - F.ledX[0] + 60, 40, 40], [F.x, F.beamY - 80, bz + s * ledZ], MAT.frame);   // 條燈橫托架
   for (const lx of F.ledX) {
-    const side = lx < F.x ? -1 : 1, tilt = side * Math.PI / 4;
-    block(vision, [60, 50, F.ledLen], [lx, F.ledY, bz], MAT.alu).rotation.z = tilt;
-    const lens = block(vision, [52, 8, F.ledLen - 20], [lx - side * 20, F.ledY - 20, bz], LED_ON); lens.rotation.z = tilt; leds.push(lens);
+    // core 的條形光模型，寫法與後段（project.js）相同：整支繞 Z 轉 45°，發光面在朝帶面那一側
+    const side = lx < F.x ? -1 : 1;
+    const bar = barLight.create({ length: F.ledLen, lensOffset: [-side * 20 * Math.SQRT2, 0], lensMaterial: LED_ON });
+    bar.root.position.set(lx, F.ledY, bz); bar.root.rotation.z = side * Math.PI / 4; vision.add(bar.root); leds.push(bar.lens);
     for (const s of [-1, 1]) block(vision, [34, F.beamY - 100 - F.ledY - 40, 34], [lx, (F.beamY - 100 + F.ledY + 40) / 2, bz + s * ledZ], MAT.frame);
   }
   plate(vision, ['前段立體取像站（新視覺）', `基線 ${F.baseline}／WD ${F.wd}（示意）`], 330, 90, [F.x, F.beamY, fz1 + 34], 0,
