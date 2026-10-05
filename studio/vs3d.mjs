@@ -28,6 +28,7 @@
 //   node studio/vs3d.mjs parts show <id> [--json]                 單一元件的規格、價格紀錄、使用紀錄
 //   node studio/vs3d.mjs parts seed [--dry-run]                   從各站 docs/ 的成本表匯入採購品項（可重複執行，已匯入的列會跳過）
 //   node studio/vs3d.mjs parts merge <保留 id> <併入 id>           合併重複的元件
+//   node studio/vs3d.mjs parts link [--dry-run]                   把型號對得上的元件連到 core 共用模型（3D 顯示）；core 新增模型後再跑一次
 //                                                                 資料庫檔只留本機：studio/data/parts.db（--db 或環境變數 VS3D_PARTS_DB 可以改位置）
 // 共通選項：--workspace <資料夾>（預設 %USERPROFILE%\Documents\3D-Studio，或環境變數 VS3D_WORKSPACE）
 //   --cli、--model（所有角色）、--role plan=opus,fix=haiku（個別角色；可寫 codex:<模型>）、--effort
@@ -265,11 +266,16 @@ switch (cmd) {
         const r = seedFromCostTables(db, collectCostTables(REPO), { names, dryRun: !!o['dry-run'] });
         for (const t of r.tables) console.log(`${t.project}／${t.source}：${t.rows} 列，匯入 ${t.imported}、已匯入過 ${t.existing}、不匯入 ${t.skipped}`);
         console.log(`${o['dry-run'] ? '（試跑，沒有寫入）' : ''}新增元件 ${r.parts}、併入既有元件 ${r.merged}、價格紀錄 ${r.prices}、使用紀錄 ${r.usages}；不匯入：${Object.entries(r.skipped).map(([k, n]) => `${k} ${n}`).join('、') || '無'}`);
+      } else if (sub === 'link') {
+        const { coreModels, linkCoreModels } = await import('./lib/thumbs.mjs');
+        const hits = linkCoreModels(db, coreModels(join(REPO, 'core')), { dryRun: !!o['dry-run'] });
+        for (const h of hits) console.log(`${h.code} ${h.name} → ${h.model}`);
+        console.log(`${o['dry-run'] ? '（試跑，沒有寫入）' : ''}連上 ${hits.length} 個元件；通用模型（相機、輸送線、馬達等）請在元件庫的編輯面板手動選`);
       } else if (sub === 'merge') {
         if (rest.length !== 2) fail('用法：vs3d parts merge <保留 id> <併入 id>');
         const p = db.mergeParts(rest[0], rest[1]);
         console.log(`已合併到 ${p.code} ${p.name}：${p.prices.length} 筆價格、${p.usages.length} 筆使用紀錄`);
-      } else fail('用法：vs3d parts [search <關鍵字…>｜show <id>｜seed｜merge <保留 id> <併入 id>]');
+      } else fail('用法：vs3d parts [search <關鍵字…>｜show <id>｜seed｜link｜merge <保留 id> <併入 id>]');
     } catch (e) { if (e instanceof PartsError) fail(e.message); throw e; } finally { db.close(); }
     break;
   }

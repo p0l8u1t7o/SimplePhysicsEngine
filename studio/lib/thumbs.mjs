@@ -18,6 +18,23 @@ export function coreModels(core) {
   }
   return out;
 }
+// 元件庫自動連到 core 模型：模型 id 去掉廠牌後帶數字的那一段當型號關鍵字（denso-vs068 → vs068），
+// 元件的名稱、廠牌、型號去掉空白與符號後含有這個關鍵字就連上。只處理還沒連模型的元件；
+// 沒有型號數字的通用模型（camera、conveyor、motor…）對不準，不自動連，在介面上手動選。
+const squash = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+export const modelKey = id => { const k = squash(id.replace(/^[a-z]+-/, '')); return /\d/.test(k) && k.length >= 5 ? k : null; };
+export function linkCoreModels(db, models, { dryRun = false } = {}) {
+  const keyed = models.map(m => ({ ...m, key: modelKey(m.id) })).filter(m => m.key), out = [];
+  for (const p of db.listParts({ limit: 5000 }).parts) {
+    if (p.model_id) continue;
+    const text = squash(`${p.name} ${p.brand} ${p.model}`), hit = keyed.find(m => text.includes(m.key));
+    if (!hit) continue;
+    if (!dryRun) db.updatePart(p.id, { ...p, model_id: hit.id });
+    out.push({ code: p.code, name: p.name, model: hit.id });
+  }
+  return out;
+}
+
 // 加上縮圖狀態：有沒有圖、是不是用目前的模型程式拍的
 export const withThumbs = models => models.map(m => {
   const has = existsSync(thumbFile(m.id)), fresh = has && readText(thumbFile(m.id) + '.hash').trim() === m.hash;
