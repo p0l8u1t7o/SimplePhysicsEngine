@@ -9,6 +9,9 @@ import { MAT, finished } from '@core/geom/materials.js';
 import { batchStatic } from '@core/geom/surfaces.js';
 import { floor } from '@core/geom/environment.js';
 import { signalTower, hmi, estop } from '@core/models/indicators.js';
+import { visionCamera } from '@core/models/vision.js';
+import { airCylinder, drawerSlide, doorSwitch } from '@core/models/motion.js';
+import { ionizer } from '@core/models/equipment.js';
 import { PART, createBase, createBlade, createCover, createAssembly } from './product.js';
 
 export const LAYOUT = {
@@ -112,8 +115,11 @@ export function createCell(scene, { k = 9, ng = false } = {}) {
   // 側推夾緊：+x、+z 兩支微型氣缸＋POM 推塊，把本體推靠 −x／−z 基準邊
   const clampX = new THREE.Group(), clampZ = new THREE.Group(); nest.add(clampX, clampZ);
   // 氣缸底面埋入治具座 0.5 mm：與推塊底面錯開 0.8 mm，避免重合面閃爍
-  ko(block(nest, [16, 6, 10], [X1 + W + 8, N.floor + 2.5, -3], MAT.steelBlue), '夾緊氣缸 X');
-  ko(block(nest, [10, 6, 16], [4.5, N.floor + 2.5, Z1 + W + 8], MAT.steelBlue), '夾緊氣缸 Z');
+  // 微型氣缸本體用 core 共用模型（core 1.10.0；只畫本體，推塊是加工件留在站內）
+  const cylX = airCylinder.create({ w: 16, h: 6, d: 10, rod: false, bodyMaterial: MAT.steelBlue });
+  cylX.root.position.set(X1 + W + 8, N.floor + 2.5, -3); nest.add(cylX.root); ko(cylX.body, '夾緊氣缸 X');
+  const cylZ = airCylinder.create({ w: 10, h: 6, d: 16, rod: false, bodyMaterial: MAT.steelBlue });
+  cylZ.root.position.set(4.5, N.floor + 2.5, Z1 + W + 8); nest.add(cylZ.root); ko(cylZ.body, '夾緊氣缸 Z');
   // 推塊高 925.3～927.7：上蓋 +x 側卡勾壓合到底時底端約在 927.8，推塊頂面須低於它（原本 927.9 會頂到卡勾）
   ko(block(clampX, [6 + W, 2.4, 5.4], [NEST_PUSH.x + (6 + W) / 2, N.floor + 1.5, -3], matPOM),'推塊 X');
   ko(block(clampZ, [5.4, 2.4, 6 + W], [4.5, N.floor + 1.5, NEST_PUSH.z + (6 + W) / 2], matPOM),'推塊 Z');
@@ -121,33 +127,30 @@ export function createCell(scene, { k = 9, ng = false } = {}) {
   decal(nest, 18, 6, [-40, N.top + 0.02, -24], [-Math.PI / 2, 0, 0], 'VAC', { color: '#9fd8ff', center: true });
 
   // ---- 上視遠心相機（台面下，經玻璃窗朝上）＋同軸環形光 ----
-  const U = LAYOUT.upCam, uc = new THREE.Group(); uc.name = 'up-camera'; uc.position.set(U.x, 0, U.z); g.add(uc);
-  const ringMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.05 });
-  const sleeve=(outer,inner,height,y,name)=>{
-    const s=new THREE.Shape();s.absarc(0,0,outer,0,Math.PI*2,false);
-    const hole=new THREE.Path();hole.absarc(0,0,inner,0,Math.PI*2,true);s.holes.push(hole);
-    const geo=new THREE.ExtrudeGeometry(s,{depth:height,bevelEnabled:false,curveSegments:32});geo.rotateX(-Math.PI/2);
-    const m=new THREE.Mesh(geo,MAT.black);m.position.y=y-height/2;m.name=name;uc.add(m);return m;
-  };
-  ko(sleeve(30,18,12,top+6,'上視環形光'),'上視環形光');
-  const ringLed = new THREE.Mesh(new THREE.TorusGeometry(24, 2, 8, 40), ringMat); ringLed.rotation.x = Math.PI / 2; ringLed.position.y = top + 12.2; uc.add(ringLed);
-  cylinder(uc, 18, 1, [0, top + 12.3, 0], MAT.glass, 'y', 32);
-  sleeve(20,16,90,top-70,'telecentric-barrel');
-  block(uc, [44, 44, 50], [0, top - 140, 0], MAT.black);                // 相機
+  // 相機、遠心鏡筒、環形光（含外殼）、保護玻璃、閃光與虛擬相機用 core 共用模型（core 1.10.0，參數照 core/migrations/1.10.0-vision.md）。
+  // root 放在台面高度，各件的 at 是離台面的高度（朝上為正）：環形光外殼 0～12、鏡筒 −115～−25、機身中心 −140（Y 向 44、Z 向 50）。
+  // 遠心鏡頭：正交投影，視野 24 × 20 mm（2448 × 2048、約 9.8 µm/px）；畫面上方＝−z（虛擬相機原本沒有名稱，所以 name: ''）
+  const U = LAYOUT.upCam;
+  const upc = visionCamera.create({
+    name: 'up-camera', axis: '+y',
+    body: { size: [44, 50], length: 44, at: -140 },
+    lens: { r: 20, bore: 16, length: 90, at: -70, shadow: false, name: 'telecentric-barrel' },
+    ring: { r: 24, tube: 2, at: 12.2, segments: [8, 40], on: 1.6, housing: { r: 30, bore: 18, length: 12, at: 6, shadow: false, name: '上視環形光' } },
+    glass: { r: 18, length: 1, at: 12.3, material: MAT.glass },
+    spot: { type: 'point', distance: 120, decay: 1.5, at: 30, power: 40 },
+    view: { type: 'orthographic', size: [24, 20], near: 1, far: 400, at: 13, up: [0, 0, -1], name: '' },
+  });
+  const uc = upc.root; uc.position.set(U.x, top, U.z); g.add(uc);
+  ko(upc.ringHousing, '上視環形光'); const upCam = upc.camera;
+  // 相機托架、UP-CAM 貼紙是站內的加工件與標示
   for(const side of [-1,1]){
     support(g,'UPCAM / camera cradle',[U.x+side*22,top-140,U.z],[U.x+side*50,top-140,U.z],4);
     support(g,'UPCAM / cradle hanger',[U.x+side*50,top-140,U.z],[U.x+side*50,top-20,U.z],4);
   }
   decal(g, 60, 12, [U.x + 48, top + 1.9, U.z], [-Math.PI / 2, 0, 0], 'UP-CAM', { color: '#9fd8ff', center: true });
-  const upFlash = new THREE.PointLight(0xffffff, 0, 120, 1.5); upFlash.position.set(U.x, top + 30, U.z); g.add(upFlash);
-  // 遠心鏡頭：正交投影，視野 24 × 20 mm（2448 × 2048、約 9.8 µm/px）
-  const upCam = new THREE.OrthographicCamera(-12, 12, 10, -10, 1, 400);
-  upCam.position.set(U.x, top + 13, U.z); upCam.up.set(0, 0, -1); upCam.lookAt(U.x, U.focus, U.z); g.add(upCam);
-  // 離子風嘴：對準相機上方的吸嘴，消除葉片靜電
-  const ion = new THREE.Group(); ion.name = 'ionizer'; ion.position.set(U.x - 75, top, U.z); g.add(ion);
-  ko(block(ion, [16, 40, 16], [0, 20, 0], MAT.cabinet), '離子風嘴');
-  ko(cylinder(ion, 4, 18, [12, 36, 0], MAT.black, 'x', 12), '離子風嘴噴頭');
-  decal(ion, 14, 6, [0, 28, 8.7], [0, 0, 0], 'ION', { color: '#2c5f86', center: true });
+  // 離子風嘴：對準相機上方的吸嘴，消除葉片靜電（core 共用模型，預設值就是本站的尺寸；root 名稱 ionizer）
+  const ion = ionizer.create(); ion.root.position.set(U.x - 75, top, U.z); g.add(ion.root);
+  ko(ion.body, '離子風嘴'); ko(ion.nozzle, '離子風嘴噴頭');
 
   // ---- NG 盒 ----
   const B = LAYOUT.ngBin, bin = new THREE.Group(); bin.name = 'ng-bin'; bin.position.set(B.x, top, B.z); g.add(bin);
@@ -162,10 +165,10 @@ export function createCell(scene, { k = 9, ng = false } = {}) {
     const dg = new THREE.Group(); dg.name = 'drawer-' + name; g.add(dg);
     const X = -s * LAYOUT.drawerX, { w, z0: dz0, z1: dz1 } = LAYOUT.drawer, len = dz1 - dz0;
     block(dg, [w, 5, len], [X, top + 2.5, (dz0 + dz1) / 2], matAlu);
-    for (const side of [-1, 1]) {
-      ko(block(dg, [6, 26, len], [X + side * (w / 2 - 3), top + 13, (dz0 + dz1) / 2], matAlu), `抽屜 ${name} 側壁`);
-      block(dg, [12, 14, len + 40], [X + side * (w / 2 + 8), top - 6, (dz0 + dz1) / 2 - 20], MAT.black);   // 滑軌（頂面高出台面 1 mm：原本與台面同高而閃爍）
-    }
+    for (const side of [-1, 1]) ko(block(dg, [6, 26, len], [X + side * (w / 2 - 3), top + 13, (dz0 + dz1) / 2], matAlu), `抽屜 ${name} 側壁`);
+    // 滑軌一對（core 共用模型，只畫外軌；頂面高出台面 1 mm：原本與台面同高而閃爍）
+    const rails = drawerSlide.create({ length: len + 40, span: w + 16, inner: false });
+    rails.root.position.set(X, top - 6, (dz0 + dz1) / 2 - 20); dg.add(rails.root);
     ko(block(dg, [w, 26, 6], [X, top + 13, dz0 + 3], matAlu), `抽屜 ${name} 後壁`);
     const front = block(dg, [w + 20, 90, 18], [X, top + 20, dz1 + 9], MAT.cabinet); front.name = `抽屜 ${name} 面板`; keepout.push(front);
     block(dg, [140, 12, 14], [X, top + 30, dz1 + 26], matFrame);
@@ -221,7 +224,9 @@ export function createCell(scene, { k = 9, ng = false } = {}) {
   block(occ, [2 * ex, h - top, 2], [0, (h + top) / 2, z0], matPC);
   block(occ, [2 * ex, h - top - 130, 2], [0, (h + top + 130) / 2, z1], matPC);
   for (const x of [-ex, ex]) block(occ, [2, h - top, z1 - z0], [x, (h + top) / 2, (z0 + z1) / 2], matPC);
-  block(occ, [60, 22, 30], [0, 1500, z1 + 18], MAT.black); decal(occ, 70, 14, [0, 1525, z1 + 34], [0, 0, 0], '前門互鎖', { center: true });
+  // 前門互鎖開關（core 共用模型，只畫本體）；貼紙留在站內
+  const doorSw = doorSwitch.create({ actuator: false }); doorSw.root.position.set(0, 1500, z1 + 18); occ.add(doorSw.root);
+  decal(occ, 70, 14, [0, 1525, z1 + 34], [0, 0, 0], '前門互鎖', { center: true });
   // HMI、急停、三色燈用 core 共用模型（core 1.9.0；參數照 core/MIGRATION.md 的換用對照，外觀與原本自己畫的相同）
   // HMI：整塊機身就是螢幕（不另裝面板），固定文字貼紙在機身前 1 mm
   const panelHmi = hmi.create({ w: 210, h: 150, d: 16, bevel: 0, bodyMaterial: MAT.screen, panel: false,
@@ -253,7 +258,7 @@ export function createCell(scene, { k = 9, ng = false } = {}) {
   valve.children.find(m=>m.name==='mounting shoe').visible=false;
   panelFeed(g,'AIR / bulkhead to valve manifold',[[110,920,210],[110,840,210],[110,760,-590],[300,700,-655],[300,646,-655]],{radius:2,color:CABLE.air});
   panelFeed(g,'IO / valve solenoid',[panel.ports[11],[180,600,-695],[225,610,-679],[230,620,-679]],{radius:1.5});
-  const ringFlash = on => { ringMat.emissiveIntensity = on ? 1.6 : 0.05; upFlash.intensity = on ? 40 : 0; };
+  const ringFlash = on => upc.set(on);   // 環形光 emissive 1.6／0.05、閃光 40／0
   return {
     group: g, occluders: occ, keepout, trayBoxes, traySolids, upCam,
     tower: { set(key) { tower.set(key); } },             // 亮哪一顆：'red'／'yellow'／'green'（其餘熄燈）

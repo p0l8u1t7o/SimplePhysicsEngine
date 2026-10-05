@@ -6,6 +6,8 @@ import { cable, CABLE } from '@core/electrical/cable-routing.js';
 import { block, cylinder, decal, screw, tube } from '@core/geom/shapes.js';
 import { MAT } from '@core/geom/materials.js';
 import { createHSR065, HSR065, HSR065_MAT, JOINTS, wrapPi, fk as armFk, ik as armIk } from '@core/models/robots/denso-hsr065.js';
+import { visionCamera } from '@core/models/vision.js';
+import { slideTable, loadCell, parallelGripper } from '@core/models/motion.js';
 import { PART } from './product.js';
 
 const D2R = Math.PI / 180;
@@ -43,11 +45,14 @@ export function createRobot() {
   for (const x of [-46, 46]) for (const z of [-60, 24]) screw(tool, [x, -9.7, z], 2.2);
   decal(tool, 40, 10, [0, -9.3, 20], [-Math.PI / 2, 0, 0], 'EOAT', { color: '#2b3540', center: true });
   const slides = {}, contact = [];
+  // 氣動滑台用 core 共用模型（core 1.10.0）：本體 20 × 40 × 22，工具直接裝在會伸縮的 table 群組（不畫端板）。
+  // 模型放在站原本的定位群組 g 裡（不直接掛在 tool）：這樣 cable(tool, …) 不會拿滑台本體當線夾固定面（直接掛時 3 條氣管的夾腳會改夾到本體上），
+  // 全場檢查「直接相連」的放行範圍也仍然只有這一支滑台的本體（直接掛時會擴大到整個工具頭）。
   function slide(key, bodyColor = MAT.steelBlue) {
     const { x, z } = TOOL[key], g = new THREE.Group(); g.position.set(x, 0, z); tool.add(g);
-    block(g, [20, 40, 22], [0, -38, 0], bodyColor);                // 氣動滑台本體
-    const move = new THREE.Group(); g.add(move); slides[key] = move;
-    return move;
+    const st = slideTable.create({ bodyAt: [0, -38, 0], bodyMaterial: bodyColor, table: false, stroke: TOOL.stroke }); g.add(st.root);
+    slides[key] = st.table;
+    return st.table;
   }
   // T1 葉片吸嘴：真空管、軟性緩衝、多孔吸盤（長 5 mm、寬 1.4 mm）
   const t1 = slide('T1');
@@ -67,7 +72,8 @@ export function createRobot() {
   contact.push(t1tip, t1stem, t1shaft, t1body);
   // T2：外框均壓背板＋四個真空接觸墊，避開上蓋的沖孔。
   const t2 = slide('T2');
-  cylinder(t2, 9, 6, [0, -61, 0], MAT.steelDark, 'y', 24);                // 荷重元
+  const lc = loadCell.create({ r: 9, h: 6, segments: 24, material: MAT.steelDark, button: false });   // 荷重元（core 共用模型）
+  lc.root.position.set(0, -61, 0); t2.add(lc.root);
   decal(t2, 10, 3, [0, -61, 9.05], [0, 0, 0], 'LOAD', { color: '#d6e1ea', center: true });
   cylinder(t2, 3, 16, [0, -72, 0], matShaft, 'y', 12);
   const t2springs = [];
@@ -89,29 +95,34 @@ export function createRobot() {
   }
   // T3 本體夾爪：平行夾爪，ESD 夾指夾本體 ±z 側面
   const t3 = slide('T3', MAT.steelDark);
-  block(t3, [26, 14, 18], [0, -65, 0], MAT.steelBlue);
+  // 夾爪本體（26 × 14 × 18）與兩個爪座（8 × 4 × 3）用 core 共用模型：工具方向 −y、開合方向 z；不畫導軌與標準手指
+  const grip = parallelGripper.create({ axis: '-y', open: 'z', bodyU: 18, bodyV: 26, bodyW: 14, bodyOffset: 58, bodyMaterial: MAT.steelBlue,
+    rail: false, jawU: 3, jawV: 8, jawW: 4, jaw: { w: 73 }, finger: false });
+  t3.add(grip.root);
   decal(t3, 16, 5, [0, -65, 9.7], [0, 0, 0], 'GRIP', { color: '#d6e1ea', center: true });
+  // 爪座群組掛回 t3（開合位置由下面的 setTools 決定，不呼叫 grip.set）；ESD 夾指是自製件，加在爪座群組裡
   const fingers = [];
-  for (const s of [-1, 1]) {
-    const f = new THREE.Group(); t3.add(f);
-    block(f, [8, 4, 3], [0, -73, 0], MAT.steelDark);
+  for (const f of grip.fingers) {
+    t3.add(f);
     const tip = block(f, [6, 26, TOOL.fingerT], [0, -85, 0], matESD); contact.push(tip);
-    fingers.push({ group: f, side: s });
+    fingers.push({ group: f, side: f.userData.side });
   }
   // 下視相機：5MP 相機＋20 mm 鏡頭＋環形光（固定，不伸縮）
-  const cam = new THREE.Group(); cam.position.set(TOOL.cam.x, 0, TOOL.cam.z); tool.add(cam);
-  const camBody = block(cam, [29, 29, 29], [0, -32, 0], matArmD);
-  decal(cam, 22, 8, [0, -32, 15.2], [0, 0, 0], '5 MP', { color: '#c5d0d8', center: true });
-  cylinder(cam, 9, 12, [0, -52, 0], matJoint, 'y', 20);
-  const ringMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.05 });
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(12, 2.2, 10, 36), ringMat); ring.rotation.x = Math.PI / 2; ring.position.y = -58; cam.add(ring);
-  const glass = cylinder(cam, 7, .6, [0, -58.8, 0], matGlass, 'y', 20);   // 保護玻璃凸出鏡頭端面 1.1 mm
-  tube(cam, [[0, -20, -12], [0, -14, -24], [10, -8, -40]], 2, matJoint, 12);
-  const flash = new THREE.SpotLight(0xffffff, 0, 300, 0.6, 0.6, 1); flash.position.set(0, -60, 0); flash.target.position.set(0, -200, 0); cam.add(flash, flash.target);
-  // 子畫面用相機：IMX264 2/3"（8.45 × 7.07 mm）＋20 mm
-  const pipCam = new THREE.PerspectiveCamera(2 * Math.atan(7.07 / 2 / 20) / D2R, 2448 / 2048, 0.5, 600);
-  pipCam.position.set(0, -59.2, 0); pipCam.rotation.x = -Math.PI / 2; cam.add(pipCam);   // 光軸朝工具 −y，畫面上方＝工具 −z
-  void glass;
+  // 機身、鏡頭、環形光、保護玻璃、閃光與子畫面相機用 core 共用模型（core 1.10.0，參數照 core/migrations/1.10.0-vision.md）。
+  // root 在法蘭面，各件的 at 是往工具 −y 的距離：機身 32、鏡頭 52、環形光 58、保護玻璃 58.8（凸出鏡頭端面 1.1 mm）、閃光 60。
+  // 子畫面用相機：IMX264 2/3"（8.45 × 7.07 mm）＋20 mm；光軸朝工具 −y，畫面上方＝工具 −z（原本沒有名稱，所以 name: ''）
+  const dcam = visionCamera.create({
+    body: { size: [29, 29], length: 29, at: 32, material: matArmD }, lens: { r: 9, length: 12, at: 52, segments: 20, material: matJoint },
+    ring: { r: 12, tube: 2.2, at: 58, segments: [10, 36] }, glass: { r: 7, length: .6, at: 58.8, segments: 20, material: matGlass },
+    label: { lines: '5 MP', w: 22, h: 8, pos: [0, -32, 15.2], options: { color: '#c5d0d8', center: true } },
+    spot: { distance: 300, penumbra: .6, at: 60, target: 200, power: 60 },
+    view: { fov: 2 * Math.atan(7.07 / 2 / 20) / D2R, aspect: 2448 / 2048, near: .5, far: 600, at: 59.2, name: '' },
+  });
+  const cam = dcam.root; cam.position.set(TOOL.cam.x, 0, TOOL.cam.z); tool.add(cam);
+  // 相機原本是站內的群組，不是線夾固定面；換成模型後照舊不當固定面（否則 CAM / rear connector 的夾腳會改夾到機身上）
+  cam.userData.cableHost = false;
+  tube(cam, [[0, -20, -12], [0, -14, -24], [10, -8, -40]], 2, matJoint, 12);   // 相機尾線留在站內
+  const camBody = dcam.body, pipCam = dcam.camera;
   const cameraParts = [camBody];
   // TCP 物件
   const tcps = {};
@@ -189,7 +200,7 @@ export function createRobot() {
   function reach(pose) { const c = solveJoints(pose); if (c.unreachable) return { position: Infinity, angle: Infinity }; const f = fk(c, pose.tcp); return { position: f.p.distanceTo(pose.target), angle: Math.abs(wrapPi(f.yaw - pose.yaw)) / D2R }; }
   function getTcpWorld(key, out = new THREE.Vector3()) { return tcps[key].getWorldPosition(out); }
   function getTcpYaw() { return q.j1 + q.j2 + q.j4; }
-  function setFlash(on) { flash.intensity = on ? 60 : 0; ringMat.emissiveIntensity = on ? 1.4 : 0.05; }
+  function setFlash(on) { dcam.set(on); }   // 閃光 60／0、環形光 emissive 1.4／0.05
 
   return { root, q, home, goal, cur, update, apply, snap, error, reach, plan, ptpTime, poseFor, setPose, fk, ik, solveJoints,
     getTcpWorld, getTcpYaw, setTools, setFlash, setCompliance, tcps, tool, pipCam, get ext() { return ext; }, get compliance() { return frame.position.y; },

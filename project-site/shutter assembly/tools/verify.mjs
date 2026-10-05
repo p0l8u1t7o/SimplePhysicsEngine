@@ -72,7 +72,7 @@ for (const ng of [false, true]) {
   const framing = [];
   for (const step of seq.steps.filter(x => x.exposure)) {
     const { state: s } = seq.sample(step.start + step.dur * .5); robot.snap(); st.sync();
-    const cam = step.exposure === 'up' ? cell.upCam : robot.pipCam; cam.updateMatrixWorld(true);
+    const cam = step.exposure === 'up' ? cell.upCam : robot.pipCam; cam.updateWorldMatrix(true, false);   // 兩台相機都在共用模型的 root 底下：連父層一起更新
     const id = s.shot.split(':')[1], obj = step.exposure === 'up' ? st.parts[id] : st.parts.base;
     const b = new THREE.Box3().setFromObject(obj);
     if (step.exposure === 'down') { b.min.x = Math.max(b.min.x, st.pose('base').p.x - PART.base.w / 2 - .2); }   // 導線不在檢查範圍
