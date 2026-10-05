@@ -26,6 +26,8 @@ function build(fit = false) {
   if (model) scene.remove(model.root);
   model = current.create({ ...params });
   model.root.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; } });
+  // 原點在機身中心或安裝面的小件（HMI、感測器、按鈕…）抬到地面上，避免下半部被地面遮住
+  const low = new THREE.Box3().setFromObject(model.root).min.y; if (low < 0) model.root.position.y = -low;
   scene.add(model.root); model.set?.(state); stage.invalidate(true);
   if (fit) frame();
 }

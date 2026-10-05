@@ -119,11 +119,51 @@ Node 端由 `core/tools/loader.mjs` 解析相同的三種名稱，檢查程式�
   - 根目錄 `.gitignore` 改用 `/project-site/*/docs/`，新站不必再手動加；`new-project.mjs` 的提示跟著改。
   - 給不讀 `AGENTS.md` 的工具放指向檔：`GEMINI.md`（`@AGENTS.md`）、`.github/copilot-instructions.md`。
   - 8 站結構檢查全數通過，執行期程式沒有改變。
+- 2026-10-05 core 1.9.0（市購小件拆成共用模型；各站外觀不變）：
+  - 新模型 8 個（共 22 個），都是 `{ meta, create(參數) }`，目錄頁可預覽：
+    - `core/models/indicators.js`：`signalTower`（三色燈）、`hmi`（人機介面：機身＋螢幕面板＋canvas 畫面＋文字貼紙）、`estop`（急停／復歸鈕，可加按鈕盒）。
+    - `core/models/sensors.js`：`boxSensor`（盒型光電＋動作指示燈，id `sensor-led`）、`lightCurtain`（安全光柵一對）、`ftSensor`（六軸力覺感測器＋力值色環）。
+    - `core/models/lights.js`：`barLight`（條形光）、`domeLight`（穹頂光＋聚光燈）。
+    - `core/models/util.js`：`defaults`、`shadow`、`pick`。既有的 `sensor`（黑色機身＋紅色鏡片）外觀與用法不變。
+  - 參數分兩種：`meta.params` 是目錄頁可調的數值；`meta.options` 是程式才傳的選項（材質、陣列、子物件設定）。外部傳入的材質原樣使用、不複製。
+  - 目錄頁：原點在機身中心的小件會抬到地面上再顯示。
+  - 各站原寫法與模型（照下表參數）逐網格比對相同：幾何型別與參數、頂點數、世界矩陣、材質屬性、陰影旗標，共 40 組。各站改用由各站另外進行。
+  - 換用對照（root 的位置＝原本群組或方塊的位置；沒列的參數用預設值）：
+
+    | 站 | 元件 | 參數 | root 位置與狀態 |
+    |---|---|---|---|
+    | PCB | 三色燈 | `{ pole: false, base: 40, shadow: false }` | `(EX−100, H1+50, Z0+60)`；`tower.set(k)` 不變 |
+    | PCB | HMI | `{ w: 260, h: 170, d: 16, bevel: 0, bodyMaterial: MAT.screen, panel: false, text: { lines, w: 240, h: 150, options: { bg, color } } }` | `(0, 1250, Z1+12)` |
+    | SSD、快門 | 三色燈 | `{ base: 40, colors: { red: 0xff3b3b, yellow: 0xffb020, green: 0x3dd68c }, lens: { opacity: .85 }, pole: { y: 0 }, shadow: { lamps: false } }` | `(ex−80, h+40, z0+80)`；`tower.set(k)` |
+    | SSD、快門 | HMI | 同 PCB，`w: 210, h: 150`，`text: { w: 190, h: 125 }` | `(ex−150, 1300 或 1250, z1+12)` |
+    | SSD、快門 | 急停 | `{ collarZ: 10, capZ: 20 }` | `(ex−150, 1150 或 1110, z1)` |
+    | SSD | 感測器 | `{}` | `(x, top+22, rearInner−14)`；`led: s.led` |
+    | SSD | 全局光源 ×2 | `{ axis: 'x', housing: false, length: 260, lensT: 12, lensW: 30, lensMaterial: gLightMat }` | gcam 內 `(0, 20, ±70)`；`ko(bar.lens, '全局光源')` |
+    | SSD | 手腕條形光 | `{ axis: 'x', housing: false, length: 100, lensT: 10, lensW: 16, bevel: 6, lensMaterial: lightMat }` | camMount 內 `(0, 30, 52)` |
+    | SSD | 力覺感測器 | `{}` | `tool.add(ft.root)`；`setForceColor = ft.setForce` |
+    | MGPC | 三色燈 | `{ height: 36, base: 10, pitch: 40, colors: 同 SSD, lens: { opacity: .85 }, pole: { r: 8, h: 300, y: −150, segments: 24 }, shadow: { lamps: false } }` | `(stationX[4]−450, top+320, −300)` |
+    | MGPC | HMI（櫃、堆料架） | 櫃 `{ w: 500, h: 300, d: 20, bevel: 0, bodyMaterial: MAT.screen, panel: false, text: { lines, w: 390, h: 220, z: 12, options } }`；堆料架 `{ w: 160, h: 110, d: 14, bevel: 0, bodyMaterial: MAT.screen, panel: false }` | `(−3300, 1350, −40)`；`(0, 1500, D/2+10)` |
+    | MGPC | 急停 | `{ collarR: 24, capH: 20, collarZ: 0, capZ: 10 }` | `(−3120, 1080, −40)` |
+    | MGPC | 感測器 | `{ ledY: 11 }` | `(x, top+12, 210)`；`led: s.led` |
+    | MGPC | 光柵 | `{ span: 2*endX, height: 900, w: 30, d: 30, material: MAT.yellow, window: false, beam: false }` | occ 內 `(0, 0, 900)` |
+    | MGPC | 力覺感測器 | `{ radius: 44, height: 34, tube: 2.2, thresholds: [2, 8] }` | `tool.add`；`toolParts` 用 `ft.body` |
+    | MGPC | 穹頂光 | `{ radius: LAYOUT.s1DomeR, material: matDome }` | head 內 `y = domeRim`；`dome.dome.name = 'S1 穹頂光'`；`topFlash = dome.light` |
+    | WM | 三色燈 | `{ radius: 16, height: 28, segments: 24, base: 30, pitch: 30, colors: { red: 0xff3b30, yellow: 0xffc400, green: 0x2ee67a }, lens: { roughness: .35, opacity: .92 }, on: 1.8, off: .05, pole: { size: [10, 40, 10], y: 25, material: MAT.frame }, shadow: { lamps: false } }` | deco 內 `(330, top, −230)`；`setTower = k => tower.set(k)` |
+    | WM | HMI | `{ w: 370, h: 235, d: 22, bevel: 0, bodyMaterial: MAT.axis, panel: false, display: { w: 340, h: 205, z: 11.75, canvas: [680, 410] } }` | `(470+HX, top−110, 270)`，`root.rotation.y = −.45; x = −.12`；`drawScreen` 用 `panel.canvas`／`panel.texture`，或 `panel.drawText(lines, { accent: color })` |
+    | RS | 三色燈 | `{ name: 'tower', radius: 34, height: 46, segments: 18, lamps: ['green', 'amber', 'red'], base: 30, pitch: 48, materials: { red: MAT.red, amber: MAT.amber, green: MAT.green }, pole: { r: 26, h: 150, y: 75, segments: 18, material: MAT.black } }` | frame 內 `(−f.postX, f.top, PZ[0])`；`towerLights = [t.lamps.red, t.lamps.amber, t.lamps.green]`，換材質的寫法不變 |
+    | RS | HMI | `{ w: hw, h: hh, d: hd, bevel: 12, panel: { w: 480, h: 270 }, display: { w: 468, h: 258, mipmaps: false } }` | hmi 群組內 `(hm.x, hm.y, hm.z)`；畫面用 `panel.ctx`／`panel.texture` |
+    | RS | 急停、復歸 | 急停 `{ collarR: 25, capR: 18, capH: 14, collarZ: −6, capZ: 2, collarMaterial: MAT.amber, capMaterial: MAT.red, box: { size: [76, 65, 16] } }`；復歸 `{ reset: 1, collarR: 13, capR: 10, capH: 14, collarZ: −6, capZ: 2, box: { size: [52, 65, 16] } }` | `(−560 或 −500, 1250, 680)` |
+    | RS | 光柵 | `{ span: 1750, height: 1200, w: 40, d: 36, window: { gap: .5, offset: −10 }, brackets: { ys: [40, 1160] }, beam: false }` | frame 內 `(0, 400, 620)`；光幕面留在 marks |
+    | RS | 條燈（前後段） | `{ length: ledLen, lensOffset: [−side*20*Math.SQRT2, 0], lensMaterial: LED_ON }`，`side = lx < x ? −1 : 1` | `(lx, ledY, bz)`，`root.rotation.z = side*Math.PI/4`；`leds.push(bar.lens)` |
+    | 化學桶 | 三色燈 | `{ radius: 45, height: 90, segments: 28, base: 10, pitch: 95, on: 1.2, off: .05, lamps: [{ key: 'fault', material: 'red' }, { key: 'wait', material: 'amber' }, { key: 'run', material: 'green' }], pole: { r: 25, h: 1950, y: −1025, segments: 12, material: MAT.steel } }` | `(FENCE[1][0]+100, 2000, FENCE[1][1]+100)`；原本的 `rod` 刪掉；`setTower(s) { tower.set(s); }` |
+    | 化學桶 | HMI | `{ w: 380, h: 280, d: 50, bevel: 0, bodyMaterial: MAT.screen, panel: false }` | `(cx, 1250, cz)`，`root.rotation.x = −.35` |
+    | 化學桶 | 光柵 ×4 | `{ span: w, axis: ax, height: 1700, w: 50, d: 50, window: false, beam: false }` | fences 內 `(x, 0, z)` |
 
 ## 版本
 
 | 版本 | 日期 | 內容 |
 |---|---|---|
+| 1.9.0 | 2026-10-05 | 市購小件共用模型：三色燈、HMI、急停、盒型感測器、安全光柵、力覺感測器、條形光、穹頂光（`models/indicators.js`、`sensors.js`、`lights.js`） |
 | 1.8.1 | 2026-10-05 | ffmpeg／ffprobe 的預設位置改成共用的 `tools/bin/`（原本在軍規專案的 `tools/bin/`）；`setup.ps1 -Ffmpeg` 會把舊位置的搬過去 |
 | 1.8.0 | 2026-10-04 | 結構檢查 `structure`（check、pre-commit）、`docs/` 萬用忽略規則 |
 | 1.7.0 | 2026-10-04 | 錄影步驟 `offset`／`speed`、`targetSeconds`、`far`、`glandShots` |

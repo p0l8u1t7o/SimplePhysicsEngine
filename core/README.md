@@ -9,7 +9,7 @@
 | `vendor/` | three.js r160（`three.module.js`）與 addons，全站只有這一份 |
 | `geom/` | `shapes.js`（統一形狀：block／blockBetween／cylinder／rod／tube／pipe／profile／rounded／bevelBox／screw／decal／plate／floorText）、`materials.js`（共用材質表 MAT）、`hardware.js`（倒角外殼、螺栓、腳座、馬達、感測器…）、`finish.js`、`surfaces.js`、`perforated.js` |
 | `robot/` | `kinematics.js`：6 軸阻尼最小平方 IK（參數可調） |
-| `models/` | 共用模型庫：每個模型有 `meta`（名稱、分類、可調參數、可動狀態、用法）與 `create(params) → { root, set(state) }`，在 `models/index.js` 登記；目錄頁 `/core/catalog/` 可預覽與調參 |
+| `models/` | 共用模型庫：每個模型有 `meta`（名稱、分類、可調參數、可動狀態、用法）與 `create(params) → { root, set(state) }`，在 `models/index.js` 登記；目錄頁 `/core/catalog/` 可預覽與調參。手臂 5 款、輸送線、龍門、相機、AGV、200 L 桶、標準件（馬達、光電、腳座、壓力表），以及市購小件：`indicators.js`（三色燈 `signalTower`、人機介面 `hmi`、急停 `estop`）、`sensors.js`（盒型光電＋指示燈 `boxSensor`、安全光柵 `lightCurtain`、力覺感測器 `ftSensor`）、`lights.js`（條形光 `barLight`、穹頂光 `domeLight`） |
 | `catalog/` | 模型目錄頁（發布在 Pages） |
 | `anim/` | `track.js`：時間軌與時間軸（`createTimeline`、`Track`、`smooth`），狀態只由時間決定；`sequence.js`：單一手臂的步驟序列；`arrival.js`：手臂到位閘門（播放時等手臂到位、逾時故障） |
 | `electrical/` | 線材、拖鏈、電盤、電控元件（`component()` 元件表）與檢視器 |
@@ -136,6 +136,7 @@ exposeSim({ seekTo, setView, views, total, play, pause, get T() { return T; } })
 | 項目 | 用法 |
 |---|---|
 | 形狀與材質 | `@core/geom/shapes.js`（block／cylinder／rod…，陣列參數）＋`@core/geom/materials.js` 的 `MAT`（含 `frame` 鋁擠型、`chrome`）與 `finished(MAT.alu, 'metal')`（帶細紋的快取複本）。常見材質用 MAT，產品專屬外觀才在專案自建 |
+| 市購小件 | 三色燈、HMI、急停、盒型感測器、安全光柵、力覺感測器、條形光、穹頂光用 `@core/models/indicators.js`／`sensors.js`／`lights.js` 的模型（`模型.create(參數) → { root, set, 子物件 }`），不要在站內重畫。數值參數見 `meta.params`，材質、陣列等選項見 `meta.options`；外部傳入的材質原樣使用。狀態直接對應：`tower.set('green')`、`sensor.set(true)`、`ft.setForce(N)`、`bar.set({ light })`、`hmi.draw(fn)`／`drawText(lines)` |
 | 排程 | 單一手臂依序作業：`createStepSequence`（`@core/anim/sequence.js`；`discrete`、`latch`、`nested`、步驟 `ease`／`easeKeys`、`peek`、`mark`／`rollback`、`retime`）；多台設備並行：`createTimeline`（`@core/anim/track.js`；`Track.at(T)`）。兩者都提供 `events`、`stationStart`、`total` |
 | 播放列 | `createPlayer`（`@core/ui/player.js`）綁定標準元素 `playBtn／restartBtn／speed／speedVal／timeline／clock／stepSelect／previous／next／loop`，事件選單用排程的 `events`；`apply(T, { seek, dt })`、`advance(T, dt)`（等手臂到位、故障停住）、`maxStep`（高倍速拆子步）、`onChange(T, state, { seek })`、`loop`、`<select>` 速度選單、`speed` 預設值；上一步：已播過目前步驟 0.5 s 以上回到步驟開頭，否則回到前一步 |
 | 手臂到位 | `createArrivalGate`（`@core/anim/arrival.js`）：規則（`tolerance` 門檻、`contactPosition`、`timeout`、`maxStep`，或自訂 `blocked(e, step, atEnd)`）放在專案的 `sequence.js` 匯出（如 `ARRIVAL`），網頁與驗證腳本共用；專案提供 `error()`、`step()`、`sample(t)`、`update(h)` 與選用的額外故障 `fault()`（如 NG 停線）。`advance` 直接交給 `createPlayer`（子步、步驟終點等到位、終點前一點取樣、逾時停住），跳播時 `reset()`，面板讀 `waiting`／`fault`；Node 驗證腳本用 `step(t, h)` 逐子步驅動 |

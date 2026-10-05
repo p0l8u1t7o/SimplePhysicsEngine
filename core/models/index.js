@@ -11,5 +11,9 @@ import * as fanucR2000 from './robots/fanuc-r2000ic.js';
 import * as densoHsr065 from './robots/denso-hsr065.js';
 import * as cobottaPro900 from './robots/denso-cobotta-pro900.js';
 import * as densoVm60b1 from './robots/denso-vm60b1.js';
+import { signalTower, hmi, estop } from './indicators.js';
+import { boxSensor, lightCurtain, ftSensor } from './sensors.js';
+import { barLight, domeLight } from './lights.js';
 
-export const MODELS = [fanucR2000, densoVs068, densoVm60b1, cobottaPro900, densoHsr065, conveyor, gantry, camera, agvForklift, drum200l, motor, sensor, foot, gauge];
+export const MODELS = [fanucR2000, densoVs068, densoVm60b1, cobottaPro900, densoHsr065, conveyor, gantry, camera, barLight, domeLight, agvForklift, drum200l,
+  motor, sensor, foot, gauge, signalTower, hmi, estop, boxSensor, lightCurtain, ftSensor];
