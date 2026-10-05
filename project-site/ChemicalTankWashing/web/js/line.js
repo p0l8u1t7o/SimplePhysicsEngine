@@ -5,6 +5,8 @@ import { D2R, block, blockBetween, cylinder, plate, rod } from '@core/geom/shape
 import { MAT } from '@core/geom/materials.js';
 import { drumJaws } from './drum.js';
 import { bolts, foot, motor, sensor, cabinetDetails } from '@core/geom/hardware.js';
+import { signalTower, hmi as hmiModel } from '@core/models/indicators.js';
+import { lightCurtain } from '@core/models/sensors.js';
 
 export function createLine(scene) {
   const group = new THREE.Group(); group.name = 'line'; scene.add(group);
@@ -234,9 +236,11 @@ export function createLine(scene) {
   // 龍門東側橫躺輸送（含南側底板到 +480）、光柵 ±550 → 1220
   fencePath(FENCE, false, [[...FENCE_GATES.in, 1060], [...FENCE_GATES.out, 1060]]);
   fencePath(GANTRY_FENCE, true, [[PALLET_STATION.x, 8950, 1520], [6700, LYING.z, 1220]]);
-  // 光柵（入口）
-  for (const [x, z, w, ax] of [[PALLET_STATION.x, 8950, 1400, 'x'], [...FENCE_GATES.in, 900, 'x'], [...FENCE_GATES.out, 900, 'x'], [6700, LYING.z, 1100, 'z']])
-    for (const s of [-1, 1]) block(fences, [50, 1700, 50], [ax === 'x' ? x + s * w / 2 : x, 850, ax === 'x' ? z : z + s * w / 2], MAT.amber);
+  // 光柵（入口）：core 的安全光柵模型，一對投／受光器，原點在兩支中間的地面；只畫機身（不畫透光面與光幕面）
+  for (const [x, z, w, ax] of [[PALLET_STATION.x, 8950, 1400, 'x'], [...FENCE_GATES.in, 900, 'x'], [...FENCE_GATES.out, 900, 'x'], [6700, LYING.z, 1100, 'z']]) {
+    const lc = lightCurtain.create({ span: w, axis: ax, height: 1700, w: 50, d: 50, window: false, beam: false });
+    lc.root.position.set(x, 0, z); fences.add(lc.root);
+  }
 
   section('cabinet');
   // ---------------------------------------------------------------- 控制櫃與人機
@@ -245,11 +249,16 @@ export function createLine(scene) {
   cab('panel', MAT.cabinet, ['主控盤 PLC']);
   const [hx0, hz0, hx1, hz1] = FOOTPRINTS.hmi;
   block(group, [150, 1100, 150], [(hx0 + hx1) / 2, 550, (hz0 + hz1) / 2], MAT.steelDark);
-  const hmi = block(group, [380, 280, 50], [(hx0 + hx1) / 2, 1250, (hz0 + hz1) / 2], MAT.screen); hmi.rotation.x = -.35;
-  // 三色燈
-  const tower = new THREE.Group(); tower.position.set(FENCE[1][0] + 100, 2000, FENCE[1][1] + 100); group.add(tower);
-  const lamps = [MAT.red, MAT.amber, MAT.green].map((m, i) => cylinder(tower, 45, 90, [0, 200 - i * 95, 0], m.clone(), 'y', 28));
-  rod(group, [FENCE[1][0] + 100, 0, FENCE[1][1] + 100], [FENCE[1][0] + 100, 1950, FENCE[1][1] + 100], 25, MAT.steel);
+  // 人機：core 的 HMI 模型，整塊機身就是螢幕（不另裝面板），原點在機身中心，往後仰
+  const hmiPanel = hmiModel.create({ w: 380, h: 280, d: 50, bevel: 0, bodyMaterial: MAT.screen, panel: false });
+  hmiPanel.root.position.set((hx0 + hx1) / 2, 1250, (hz0 + hz1) / 2); hmiPanel.root.rotation.x = -.35; group.add(hmiPanel.root);
+  // 三色燈：core 的三色燈模型，原點在離地 2000 的安裝點，燈桿（由地面到 1950）包含在模型裡；燈節由上而下是故障、等待、運轉
+  const tower = signalTower.create({
+    radius: 45, height: 90, segments: 28, base: 10, pitch: 95, on: 1.2, off: .05,
+    lamps: [{ key: 'fault', material: 'red' }, { key: 'wait', material: 'amber' }, { key: 'run', material: 'green' }],
+    pole: { r: 25, h: 1950, y: -1025, segments: 12, material: MAT.steel },
+  });
+  tower.root.position.set(FENCE[1][0] + 100, 2000, FENCE[1][1] + 100); group.add(tower.root);
 
   // 緊固、驅動、光電、櫃門、導軌與軸承細節均在既有設備範圍內。
   section('gantry');
@@ -311,7 +320,7 @@ export function createLine(scene) {
       capPile.forEach((c, i) => { c.visible = i < caps; });
     },
     setScale({ on, lift }) { scaleScreen.material = on ? MAT.green : MAT.screen; weigher.position.y = lift * WEIGH.stroke; },
-    setTower(state) { lamps.forEach((l, i) => { l.material.emissiveIntensity = (state === ['fault', 'wait', 'run'][i]) ? 1.2 : .05; }); },
+    setTower(state) { tower.set(state); },
     socket: k => spindles[k],
   };
 }
