@@ -135,4 +135,4 @@ if ($problems.Count) {
   Write-Host ("未完成：" + ($problems -join '、')) -ForegroundColor Yellow
   exit 1
 }
-Write-Host '環境就緒。啟動網頁：scripts\start.cmd（或 .\scripts\start.ps1）→ 展示網站 http://127.0.0.1:8770/、vs3d 介面 http://127.0.0.1:8780/；停止：scripts\stop.cmd' -ForegroundColor Green
+Write-Host '環境就緒。啟動網頁：scripts\start.cmd（或 .\scripts\start.ps1）→ vs3d 介面 http://127.0.0.1:8780/；加 -Site 開展示網站 http://127.0.0.1:8770/、-All 兩個都開；停止：scripts\stop.cmd' -ForegroundColor Green

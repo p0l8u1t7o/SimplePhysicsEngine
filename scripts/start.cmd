@@ -1,4 +1,4 @@
 @echo off
-rem Start the local web pages (showcase site on 8770 and the vs3d UI on 8780). Arguments go to start.ps1, e.g. start.cmd -Station MilitaryGradePC
+rem Start the vs3d UI (8780) by default. Arguments go to start.ps1: -Site (showcase site on 8770), -All (both), -Station MilitaryGradePC
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0start.ps1" %*
 if errorlevel 1 pause

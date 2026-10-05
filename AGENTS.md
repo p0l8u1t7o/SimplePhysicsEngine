@@ -16,7 +16,7 @@
 ## 環境
 
 - 安裝：`powershell -ExecutionPolicy Bypass -File scripts\setup.ps1 [-All]`（會一併安裝 git hook），需求見 `REQUIREMENTS.md`。
-- 啟動網頁：`scripts\start.cmd`（展示網站 8770＋vs3d 介面 8780；`-Site`、`-Studio`、`-Station <名稱>`），停止：`scripts\stop.cmd`。腳本一律放在 `scripts/`，`.ps1` 存成 UTF-8 BOM。
+- 啟動網頁：`scripts\start.cmd`（不帶參數只開 vs3d 介面 8780；`-Site` 展示網站 8770、`-All` 兩個都開、`-Station <名稱>` 開某一站），停止：`scripts\stop.cmd`。腳本一律放在 `scripts/`，`.ps1` 存成 UTF-8 BOM。
 - **3D 專案只需要 Node.js 22 以上**（開發機 24.21），沒有 npm 套件；three.js 放在 `core/vendor/`。瀏覽器檢查用 Chrome 或 Edge（可設 `CHROME_PATH`）。
 - Python 3.12 ＋ `requirements.txt` 只給選用工具用（錄影稽核、電路圖、成本表）。
 - Node 端跑 core 模組要加 `--import ./core/tools/register.mjs`（解析 `three` 與 `@core/`）。`core/tools/run.mjs` 會自動加上。

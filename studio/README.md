@@ -12,7 +12,7 @@ npm --prefix studio/ui run build      # 建置到 studio/ui/dist（不進版控�
 node studio/vs3d.mjs ui               # 開啟 http://127.0.0.1:8780/（--port、--no-open、--workspace）
 ```
 
-也可以用根目錄的腳本在背景啟動與停止（第一次會自動安裝並建置前端）：`scripts\start.cmd -Studio [-Workspace <資料夾>]`、`scripts\stop.cmd -Studio`。
+也可以用根目錄的腳本在背景啟動與停止（第一次會自動安裝並建置前端）：`scripts\start.cmd [-Workspace <資料夾>]`（不帶參數就是開 vs3d 介面）、`scripts\stop.cmd -Studio`。
 
 - 版面（2026-10-05 改版，配色與版面參考使用者提供的儀表板截圖）：深綠側欄（導覽、專案清單、新建專案）＋淺灰主面板（上方是搜尋專案、執行狀態、待回答問題、淺色／深色切換），白色圓角卡片與膠囊按鈕；樣式都在 `ui/src/styles.css` 的變數。
 - 儀表板首頁（`#home`，資料來自 `/api/dashboard`，`lib/dashboard.mjs` 彙整）：專案總覽（數字卡、各階段專案數、最近更新）、代理執行統計（每天耗時、各角色依 CLI 的耗時、最近的執行，讀各專案的每輪紀錄）、檢查與審查結果（本庫的站取 core 檢查寫在 `TEMP/check-*.json` 的結果）、元件資料庫統計（各類別數量、各專案用到的元件與成本表參考金額、資料整理進度、報價到期提醒）。圖表是 `ui/src/charts.jsx` 的純 HTML／SVG 元件，不用圖表套件；每張圖有提示框與「表格」檢視，系列色在淺色與深色各自驗證過色盲可辨識度。

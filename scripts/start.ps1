@@ -1,8 +1,9 @@
 ﻿<#
   啟動本機網頁（Windows PowerShell 5.1 以上）：
-    .\scripts\start.ps1                                  展示網站（8770）＋ vs3d 介面（8780），並開瀏覽器
-    .\scripts\start.ps1 -Site                            只開展示網站（7 站首頁與模型目錄）
-    .\scripts\start.ps1 -Studio                          只開 vs3d 介面
+    .\scripts\start.ps1                                  vs3d 介面（8780），並開瀏覽器（不帶參數的預設）
+    .\scripts\start.ps1 -Site                            只開展示網站（8770，各站首頁與模型目錄）
+    .\scripts\start.ps1 -All                             展示網站＋ vs3d 介面都開
+    .\scripts\start.ps1 -Studio                          只開 vs3d 介面（和不帶參數相同；可以和 -Site、-Station 一起用）
     .\scripts\start.ps1 -Station MilitaryGradePC         開展示網站並直接打開某一站（名稱可以只打開頭，不分大小寫）
     .\scripts\start.ps1 -Studio -Workspace D:\3D-Studio  vs3d 介面改用指定的工作區（預設 Documents\3D-Studio）
   也可以點兩下 scripts\start.cmd（參數相同，例如 scripts\start.cmd -Station shutter）。
@@ -12,6 +13,7 @@
 param(
   [switch]$Site,
   [switch]$Studio,
+  [switch]$All,
   [string]$Station = '',
   [string]$Workspace = '',
   [int]$SitePort = 8770,
@@ -63,15 +65,16 @@ function Start-Node([string]$Name, [string]$Arguments, [int]$Port) {
 
 # ---------------------------------------------------------------- 要開哪些
 if ($Station) { $Site = $true }
-if (-not $Site -and -not $Studio) { $Site = $true; $Studio = $true }
+if ($All) { $Site = $true; $Studio = $true }
+if (-not $Site -and -not $Studio) { $Studio = $true }      # 不帶參數：只開 vs3d 介面
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) { Fail '找不到 node（需要 Node.js 22 以上）。先執行 scripts\setup.ps1 檢查環境。' }
 
 $stationPath = ''
 if ($Station) {
-  $all = @(Get-ChildItem -Directory (Join-Path $Root 'project-site') | Where-Object { Test-Path (Join-Path $_.FullName 'web\index.html') } | ForEach-Object { $_.Name })
-  $hit = $all | Where-Object { $_ -ieq $Station } | Select-Object -First 1
-  if (-not $hit) { $hit = $all | Where-Object { $_ -ilike "$Station*" } | Select-Object -First 1 }
-  if (-not $hit) { Fail "找不到專案「$Station」（可用：$($all -join '、')）" }
+  $stations = @(Get-ChildItem -Directory (Join-Path $Root 'project-site') | Where-Object { Test-Path (Join-Path $_.FullName 'web\index.html') } | ForEach-Object { $_.Name })
+  $hit = $stations | Where-Object { $_ -ieq $Station } | Select-Object -First 1
+  if (-not $hit) { $hit = $stations | Where-Object { $_ -ilike "$Station*" } | Select-Object -First 1 }
+  if (-not $hit) { Fail "找不到專案「$Station」（可用：$($stations -join '、')）" }
   $stationPath = [uri]::EscapeDataString($hit) + '/'
 }
 
@@ -113,5 +116,5 @@ if ($Studio) {
 }
 
 if (-not $NoOpen) { foreach ($u in $urls) { Start-Process $u } }
-Write-Host "輸出記錄：$logs\site.log、studio.log"
+Write-Host "輸出記錄：$logs\$(if ($Site -and $Studio) { 'site.log、studio.log' } elseif ($Site) { 'site.log' } else { 'studio.log' })"
 Write-Host '停止：scripts\stop.cmd（或 .\scripts\stop.ps1）'

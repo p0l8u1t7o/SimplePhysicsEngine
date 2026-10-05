@@ -17,7 +17,7 @@
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\setup.ps1 [-All]   # clone 後執行一次：檢查環境（-All 另建 Python 環境、下載 ffmpeg）
-scripts\start.cmd                             # 啟動展示網站（8770）＋ vs3d 介面（8780）；-Site／-Studio 只開一個，-Station <名稱> 開某一站
+scripts\start.cmd                             # 啟動 vs3d 介面（8780）；-Site 開展示網站（8770）、-All 兩個都開、-Station <名稱> 開某一站
 scripts\stop.cmd                              # 停止
 node core/tools/serve.mjs                     # 只開展示網站（前景執行），首頁 http://127.0.0.1:8770/
 node core/tools/check.mjs                     # 全部專案完整檢查（干涉、閃爍、倒序一致、空間檢核、各專案自有檢查）
