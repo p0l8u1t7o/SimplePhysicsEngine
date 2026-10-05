@@ -11,6 +11,11 @@ import { floor } from '@core/geom/environment.js';
 import { signalTower, hmi, estop } from '@core/models/indicators.js';
 import { boxSensor, lightCurtain } from '@core/models/sensors.js';
 import { domeLight } from '@core/models/lights.js';
+// 市購品第二批（core 1.10.0）：雙帶輸送線與止擋、推／拉料氣缸、堆料架升降模組、S1 Z 向滑台、FRL、S1 頂視相機、S0 讀碼器；
+// 參數對照見 core/migrations/1.10.0-*.md。載具、托叉、平台、立柱、吊臂等加工件留在本檔
+import { edgeBeltConveyor, stopper } from '@core/models/transport.js';
+import { airCylinder, linearAxis, frl } from '@core/models/motion.js';
+import { visionCamera, codeReader } from '@core/models/vision.js';
 
 export const LAYOUT = {
   // S3 在 x=1150：S2 右側護蓋作業時手腕在 x≤約 680，翻轉治具左端（x≥695）不在手腕範圍內
@@ -77,33 +82,34 @@ function createStacker(x, dir) {
   const W = 560, D = 460, H = 1750;
   for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { const p = box(40, H, 40, matFrame); p.position.set(sx * W / 2, H / 2, sz * D / 2); g.add(p); }
   for (const y of [40, H - 20]) for (const sz of [-1, 1]) { const r = box(W, 30, 30, matFrame); r.position.set(0, y, sz * D / 2); g.add(r); }
-  // 升降立柱（伺服）＋平台
-  const column = box(80, H, 60, matDark); column.position.set(0, H / 2, -D / 2 - 40); g.add(column);
+  // 升降模組（共用模型，直立）：後側立柱 80×H×60、導桿 ×4（12 見方）、螺桿 ø26、伺服馬達；平台與托架是加工件，留在下面的 lift 群組
+  g.add(linearAxis.create({ axis: 'y', base: { size: [80, H, 60], at: [0, H / 2, -D / 2 - 40], material: matDark },
+    rails: { size: [12, 1400, 12], at: [-1, 1].flatMap(sz => [-1, 1].map(sx => [sx * 235, 850, sz * 218])), material: matPin },
+    screw: { r: 13, length: 1450, at: [0, 850, -D / 2 - 78], material: matPin }, motor: { size: [100, 110, 90], at: [0, 150, -D / 2 - 78], material: matBlue },
+    carriage: false, guide: false }).root);
   const lift = new THREE.Group(); g.add(lift);
   // 平台 430×270：z 方向窄於托叉（z=±140～164）、x 方向避開推／拉料鞋，升降時不穿過托叉與料鞋
   const platform = box(430, 20, 270, matAlu); platform.position.y = 10; lift.add(platform);
   // 平台托架在平台下方接到後側升降立柱，上升到托叉高度時不碰托叉
   const bracket = box(120, 59.2, 110, matDark); bracket.position.set(0, -30.4, -185); lift.add(bracket);
   // 推料氣缸（在輸送線高度，把最底層載具推出／拉入）
-  const pusher = new THREE.Group(); pusher.position.set(-dir * (W / 2 + 60), top + 30, 0); g.add(pusher);
-  const pBody = box(70, 40, 60, matDark); pusher.add(pBody);
-  const rod = new THREE.Group(); pusher.add(rod);
-  const rodM = cyl(6, 200, matPin, 12); rodM.rotation.z = Math.PI / 2; rodM.position.x = dir * 135; rod.add(rodM);
-  const plate = box(10, 40, 120, matPU); plate.position.x = dir * 240; rod.add(plate);
+  // 氣缸用共用模型：本體 70×40×60，活塞桿 ø12 由缸頭（離中心 35）長出，行程 0 時露出 80 mm。
+  // 推板（PU）是加工件，裝在模型的桿端群組（tip，位置＝dir×(115＋行程)，就是原本推板的位置）；全場檢查的關節數因此和原本相同（桿＋桿端）
+  const pusher = airCylinder.create({ axis: 'x', dir, w: 70, h: 40, d: 60, bodyMaterial: matDark, rod: { r: 6, length: 200, segments: 12, material: matPin, grow: { from: 35, min: 80 } } });
+  pusher.root.position.set(-dir * (W / 2 + 60), top + 30, 0); g.add(pusher.root);
+  const rod = pusher.rod;
+  const plate = box(10, 40, 120, matPU); pusher.tip.add(plate);
   // 操作面板
   const opPanel = hmi.create({ w: 160, h: 110, d: 14, bevel: 0, bodyMaterial: MAT.screen, panel: false }); opPanel.root.position.set(0, 1500, D / 2 + 10); g.add(opPanel.root);
   const forks=[];
   for(const sz of [-1,1]){
     // 托叉 24 mm 寬、z=±140～164：承托載具前後框，與堆疊柱（z=±113～137）錯開
     const fork=block(g,[440,12,24],[0,top+6+LAYOUT.palletPitch-6,sz*152],matBlue);forks.push({fork,sz});
-    for(const sx of [-1,1])block(g,[12,1400,12],[sx*235,850,sz*218],matPin);
   }
-  cylinder(g,13,1450,[0,850,-D/2-78],matPin);
-  const motor=box(100,110,90,matBlue);motor.position.set(0,150,-D/2-78);g.add(motor);
   decal(g,140,70,[0,1500,D/2+18],[0,0,0],[dir===1?'INFEED':'OUTFEED','SERVO LIFT','6 PALLETS'],{bg:'#122d3c',center:true});
   return { group:g,lift,rod,dir,forks,setForks(v){for(const {fork,sz} of forks)fork.position.z=sz*(152+(1-v)*85);},setPush(mm){
     // Pusher shoe remains on the pallet edge; rod grows from the cylinder head.
-    plate.position.x=dir*(115+mm);rodM.position.x=dir*(35+(80+mm)/2);rodM.scale.y=(80+mm)/200;
+    pusher.setStroke(mm);
   }};
 }
 
@@ -145,26 +151,29 @@ export function createCell(scene) {
   for (const z of [1150, -1150]) { const l = box(6000, 1, 40, matYellow); l.position.set(0, 1, z); g.add(l); }
 
   // ---- 載具式輸送線（S0 堆料架出口 → S4 堆料架入口）----
-  const x0 = stationX[0] + 300, x1 = stationX[4] - 300, len = x1 - x0, cx = (x0 + x1) / 2;
-  for (const z of [-170, 170]) {
-    const beam = box(len, 80, 60, matAlu); beam.position.set(cx, top - 40, z); g.add(beam);
-    const belt = box(len - 20, 6, 30, matBelt); belt.position.set(cx, top + 3, z); g.add(belt);
-    for (let x = x0 + 100; x <= x1 - 100; x += 600) { const leg = box(50, top - 80, 50, matFrame); leg.name='conveyor leg'; leg.position.set(x, (top - 80) / 2, z); g.add(leg); const foot = box(120, 12, 90, matDark); foot.name='conveyor foot'; foot.position.set(x, 6, z); g.add(foot); }
-  }
-  for (let x = x0 + 100; x <= x1 - 100; x += 600) { const cross = box(40, 40, 400, matFrame); cross.position.set(x, top - 100, 0); g.add(cross); }
+  // 雙帶輸送線（共用模型）：root 在原點，零件用本站的絕對座標。兩支樑 80×60（z=±170）、皮帶 6×30、支腳 50 見方＋腳座、橫撐、
+  // 端輪 ø60、樑外側槽孔、皮帶刻線（每 110 mm，conv.set 循環位移）。支腳與腳座的名稱是模型預設的 conveyor leg／conveyor foot（verify-clearance 用）
+  const x0 = stationX[0] + 300, x1 = stationX[4] - 300;
+  const conv = edgeBeltConveyor.create({ span: [x0, x1], top, width: 280,
+    rail: { h: 80, w: 60, y: top - 40 }, belt: { h: 6, w: 30, inset: 10, y: top + 3, z: 170, material: matBelt },
+    lip: false, fasteners: false,
+    strip: { size: [42, 3, 1], x: { from: x0 + 30, to: x1, pitch: 120 }, y: top - 30, z: 201 },
+    pulleys: { r: 30, w: 38, x: [x0 + 30, x1 - 30], y: top - 28, segments: 24 },
+    legs: { x: { from: x0 + 100, to: x1 - 100, pitch: 600, closed: true }, size: [50, top - 80, 50], foot: { size: [120, 12, 90] } },
+    cross: { size: [40, 40, 400], y: top - 100 },
+    // 驅動馬達在輸送線末端外側，夾在 S3 右立柱與收料堆料架立柱之間（空位 140 mm，本體 120 mm，兩側各留 10 mm）
+    drive: { size: [120, 120, 100], pos: [x1 - 70, top - 90, 265] },
+    marks: { size: [3, 1.4, 28], x: { from: x0 + 30, to: x1 - 100, pitch: 110 }, y: top + 6 } });
+  g.add(conv.root);
   const stops=[];
   for (const x of [-1450,...stationX.slice(1,4),1450]) {
-    const base=box(45,70,70,matDark);base.position.set(x+225,top-35,0);g.add(base);
-    const st=box(10,24,68,matYellow);st.position.set(x+225,top-14,0);g.add(st);
+    // 止擋（共用模型）：原點在輸送面高度；氣缸本體 45×70×70 在下方，黃色擋板 10×24×68 降下時頂面與輸送面齊平、升起 28 mm
+    const stop=stopper.create({stroke:28,up:0,blade:{size:[10,24,68],y:14},body:{size:[45,70,70],pos:[0,-35,0]}});
+    stop.root.position.set(x+225,top,0);g.add(stop.root);
     // 到位感測器（盒型光電＋動作指示燈）：指示燈中心在機身中心上方 11 mm
     const sensor=boxSensor.create({ledY:11});sensor.root.position.set(x,top+12,210);g.add(sensor.root);
-    stops.push({x,st,led:sensor.led});
+    stops.push({x,stop,led:sensor.led});
   }
-  for(const z of [-170,170])for(const x of [x0+30,x1-30]){const r=cyl(30,38,matDark);r.rotation.x=Math.PI/2;r.position.set(x,top-28,z);g.add(r);}
-  for(let x=x0+30;x<x1;x+=120)for(const z of [-201,201])block(g,[42,3,1],[x,top-30,z],matDark);
-  const drive=box(120,120,100,matBlue);drive.position.set(x1-70,top-90,265);g.add(drive);   // 驅動馬達在輸送線末端外側，夾在 S3 右立柱與收料堆料架立柱之間（空位 140 mm，本體 120 mm，兩側各留 10 mm）
-  const beltMarks=new THREE.Group();g.add(beltMarks);
-  for(let x=x0+30;x<x1-100;x+=110)for(const z of [-170,170])block(beltMarks,[3,1.4,28],[x,top+6,z],matAlu);
 
   // ---- 主載具（隨機台移動）----
   const pallet = createPallet(true);
@@ -177,11 +186,12 @@ export function createCell(scene) {
   g.add(stackerIn.group, stackerOut.group);
 
   // ---- S0：底視 SN 條碼讀取器（穿過載具鏤空）----
-  const snReader = new THREE.Group(); snReader.position.set(stationX[0] + 300 + 250, 420, 0); g.add(snReader);
-  const srBody = box(70, 60, 70, matCam); snReader.add(srBody);
-  const srLens = cyl(18, 40, matDark); srLens.position.y = 50; snReader.add(srLens);
+  // 讀碼器用共用模型（光軸朝上，原點在機身中心）：機身 70×60×70、鏡頭 ø36、紅色讀碼閃光（強度由 project.js 設定）；不畫示意光束。立柱是加工件，加在讀碼器的 root 上
+  const reader = codeReader.create({ axis: '+y', body: { size: [70, 70], length: 60, material: matCam }, lens: { r: 18, length: 40, at: 50, segments: 24, material: matDark },
+    beam: false, fan: false, spot: { color: 0xff3030, distance: 700, angle: .5, penumbra: .6, at: 60, target: 400, power: 800 } });
+  const snReader = reader.root; snReader.position.set(stationX[0] + 300 + 250, 420, 0); g.add(snReader);
   const srStand = box(60, 400, 60, matFrame); srStand.position.y = -230; snReader.add(srStand);
-  const snFlash = new THREE.SpotLight(0xff3030, 0, 700, 0.5, 0.6, 1); snFlash.position.set(0, 60, 0); snFlash.target.position.set(0, 400, 0); snReader.add(snFlash, snFlash.target);
+  const snFlash = reader.light;
 
   // ---- S1：前側懸臂＋頂視取像頭（相機＋穹頂光同一組，沿 Z 滑軌移入／退出）----
   // 舊版門型架的後立柱落在手臂滑軌通道上，改為單邊懸臂；取像頭退到前側，手臂巡拍時不干涉。
@@ -190,13 +200,18 @@ export function createCell(scene) {
   const s1 = new THREE.Group(); s1.position.set(s1x, 0, 0); g.add(s1);
   const s1Post = box(80, beamY + 60, 80, matFrame); s1Post.position.set(0, (beamY + 60) / 2, LAYOUT.s1PostZ); s1.add(s1Post); s1Post.name = 'S1 懸臂立柱'; keepout.push(s1Post);
   const s1Beam = box(80, 60, LAYOUT.s1PostZ + 140, matFrame); s1Beam.position.set(0, beamY + 30, (LAYOUT.s1PostZ - 100) / 2); s1.add(s1Beam); s1Beam.name = 'S1 懸臂橫樑'; keepout.push(s1Beam);
-  block(s1, [30, 12, LAYOUT.s1PostZ + 100], [0, beamY - 6, (LAYOUT.s1PostZ - 100) / 2], matPin);
+  // Z 向滑台（共用模型）：滑軌 30×12 貼在橫樑底面，滑座 120×50×140；滑座群組改掛到本站的 head 群組，跟著取像頭移動
+  const slide = linearAxis.create({ axis: 'z', base: false, rails: { size: [30, 12, LAYOUT.s1PostZ + 100], at: [[0, beamY - 6, (LAYOUT.s1PostZ - 100) / 2]], material: matPin },
+    carriage: { size: [120, 50, 140], at: [0, beamY - 37, 0], material: matDark, name: 'S1 取像頭滑座' }, guide: false });
+  s1.add(slide.root);
   const head = new THREE.Group(); s1.add(head);
-  const headCar = box(120, 50, 140, matDark); headCar.position.y = beamY - 37; head.add(headCar); headCar.name = 'S1 取像頭滑座'; keepout.push(headCar);
+  head.add(slide.carriage); const headCar = slide.carriageBody; keepout.push(headCar);   // keepout 放滑座網格
   const hanger = box(40, beamY - 62 - (domeRim + 405), 40, matFrame); hanger.position.y = (beamY - 62 + domeRim + 405) / 2; head.add(hanger); hanger.name = 'S1 取像頭吊臂'; keepout.push(hanger);
-  const topCam = new THREE.Group(); topCam.position.y = domeRim + 360; head.add(topCam);
-  const camBody = box(80, 90, 80, matCam); topCam.add(camBody); camBody.name = 'S1 頂視相機'; keepout.push(camBody);
-  const tcLens = cyl(28, 70, matDark); tcLens.position.y = -80; topCam.add(tcLens); tcLens.name = 'S1 頂視鏡頭'; keepout.push(tcLens);
+  // 頂視相機（共用模型，光軸朝下，原點在機身中心）：機身 80×90×80、鏡頭 ø56×70；只當外形用，不裝玻璃、環形光、閃光與虛擬相機
+  const topCam = visionCamera.create({ body: { size: [80, 80], length: 90, at: 0, material: matCam }, lens: { r: 28, length: 70, at: 80, segments: 24, material: matDark }, glass: false, ring: false, spot: false, view: false });
+  topCam.root.position.y = domeRim + 360; head.add(topCam.root);
+  const camBody = topCam.body; camBody.name = 'S1 頂視相機'; keepout.push(camBody);
+  const tcLens = topCam.lens; tcLens.name = 'S1 頂視鏡頭'; keepout.push(tcLens);
   // 穹頂光（共用模型）：原點在底緣中心；聚光燈在底緣上方 250、照向底緣下方 180（＝產品頂面下 100，s1DomeGap 80）
   const dome = domeLight.create({ radius: LAYOUT.s1DomeR, material: matDome }); dome.root.position.y = domeRim; head.add(dome.root);
   dome.dome.name = 'S1 穹頂光'; keepout.push(dome.dome);   // keepout 放擴散罩網格（不是 root）
@@ -235,9 +250,10 @@ export function createCell(scene) {
 
   // Frame fasteners, levelling feet, pneumatic service unit and electrical panel details.
   for(let x=x0+100;x<x1;x+=600)for(const z of [-170,170]){cylinder(g,8,35,[x,25,z],matPin);cylinder(g,27,8,[x,7,z],matDark);}
-  block(g,[160,100,80],[430,570,240],matAlu);
-  for(const x of [380,430,480])cylinder(g,14,65,[x,490,250],matDome);
-  cylinder(g,22,10,[430,590,287],matDark,'z');decal(g,28,28,[430,590,293],[0,0,0],'0.5 MPa',{center:true});
+  // FRL 三點組（共用模型）：一體式本體 160×100×80、三顆杯 ø28×65、壓力表 ø44；壓力貼紙與氣管留在本檔
+  const frlUnit=frl.create({pitch:50,bowlR:14,bowlH:65,head:false,body:{size:[160,100,80],at:[0,0,0],material:matAlu},bowl:{y:-80,z:10,segments:20,material:matDome},gauge:{r:22,t:10,at:[0,20,47],segments:20,material:matDark}});
+  frlUnit.root.position.set(430,570,240);g.add(frlUnit.root);
+  decal(g,28,28,[430,590,293],[0,0,0],'0.5 MPa',{center:true});
   tube(g,[[430,500,220],[430,400,190],[600,400,190],[650,720,190]],5,matBlue);
   for(let i=0;i<9;i++)block(occ,[180,3,3],[-3300,350+i*12,-48],matFrame);
   // 急停（共用模型）：底座環中心在安裝點、按鈕頭往前 10 mm
@@ -268,6 +284,6 @@ export function createCell(scene) {
   panelFeed(g,'CTRL / rail power to panel',[[0,400,300],[-140,400,320],[-140,660,320],[-550,660,200],[-550,540,200],[-550,505,-100],panel.ports[9]],{radius:8,color:CABLE.power});
   // keepout：手臂不得進入的固定結構（S1 懸臂與取像頭、S3 龍門），供驗證做碰撞檢查
   return { group:g,occluders:occ,pallet:palletApi,stackerIn,stackerOut,cradle,topFlash,snFlash,tower,stops,setHead,keepout:[...keepout,...cradle.keepout,...cabinet.solids,...motionCabinet.solids],
-    updateTransport(x,located){beltMarks.position.x=((x%110)+110)%110;for(const s of stops){const hit=Math.abs(x-s.x)<2;s.st.position.y=top-14+(hit&&located?28:0);s.led.material.emissiveIntensity=hit?1.4:0;}},
-    get topCamPos(){return topCam.getWorldPosition(new THREE.Vector3());},snReaderPos:snReader.position.clone() };
+    updateTransport(x,located){conv.set({s:x});for(const s of stops){const hit=Math.abs(x-s.x)<2;s.stop.set(hit&&located?1:0);s.led.material.emissiveIntensity=hit?1.4:0;}},
+    get topCamPos(){return topCam.root.getWorldPosition(new THREE.Vector3());},snReaderPos:snReader.position.clone() };
 }

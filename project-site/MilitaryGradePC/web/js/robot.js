@@ -7,6 +7,9 @@ import { cable, carrier, support, CABLE } from '@core/electrical/cable-routing.j
 import { cylinder, decal } from '@core/geom/shapes.js';
 import { MAT } from '@core/geom/materials.js';
 import { ftSensor } from '@core/models/sensors.js';
+// 市購品第二批（core 1.10.0）：第七軸線性模組、手臂相機＋環形光、線雷射輪廓儀；參數對照見 core/migrations/1.10.0-motion.md、-vision.md
+import { linearAxis } from '@core/models/motion.js';
+import { visionCamera, laserProfiler } from '@core/models/vision.js';
 
 // 立座、滑座、相機本體與滑軌用共用手臂模型的材質（與 VM-60B1 同色）；工具金屬與 PU 用 MAT，鏡片與雷射窗留在本站
 const matArmD  = VM60B1_MAT.dark;
@@ -33,15 +36,18 @@ export function createRobot() {
 
   // ---- 第七軸滑軌（X 向）----
   const railLen = 2800;
-  const railBase = box(railLen, 120, 260, matArmD); railBase.position.y = 60; root.add(railBase);
-  for (const z of [-80, 80]) { const r = box(railLen - 40, 24, 24, matRail); r.position.set(0, 132, z); root.add(r); }
+  // 線性模組（共用模型）：底座 2800×120×260、導軌 ×2（24 見方，z=±80）、導軌上的螺絲頭 ×38、滑座本體 360×57×300。
+  // 滑座本體（底面離滑軌螺絲頭 1 mm）改掛到本站的 carriage 群組（上接手臂立座），carriage.position.x = q.rail 照舊
+  const axis = linearAxis.create({ axis: 'x', base: { size: [railLen, 120, 260], at: [0, 60, 0], material: matArmD },
+    rails: { size: [railLen - 40, 24, 24], at: [[0, 132, -80], [0, 132, 80]], material: matRail },
+    bolts: { r: 4, h: 2, span: [-1300, 1300], pitch: 140, a: 145, offsets: [-80, 80], material: matJoint },
+    carriage: { size: [360, 57, 300], at: [0, 31.5, 0], material: matArmD }, guide: false });
+  root.add(axis.root);
   const carriage = new THREE.Group(); carriage.position.y = CARRIAGE_Y; root.add(carriage);
-  // 滑座本體（底面離滑軌螺絲頭 1 mm），上接手臂立座。原程式的 carriage.add 誤寫在註解裡，2026-10-03 補回
-  const carBody = box(360, 57, 300, matArmD); carBody.position.y = 31.5; carriage.add(carBody);
+  carriage.add(axis.carriage);
   const railHarness=carrier(root,'RAIL / rolling power-data-air carrier',{origin:[0,30,-220],min:-1100,max:1100,radius:65,width:44,pitch:24});
   for(const x of [-1050,-550,-50,50,550,1050])support(root,'RAIL / guide cantilever',[x,19,-130],[x,19,-220],8);
   support(carriage,'RAIL / moving anchor',[0,16,-150],[0,16,-220],6);
-  for(let x=-1300;x<=1300;x+=140)for(const z of [-80,80])cylinder(root,4,2,[x,145,z],matJoint);
 
   // ---- 手臂立座（VM-60B1 手腕 ±120°，肩部太低時俯拍與側拍都會超限）＋滑座端線材 ----
   const riser = box(300, RISER, 300, matArmD); riser.position.y = 60 + RISER / 2; carriage.add(riser);
@@ -62,13 +68,15 @@ export function createRobot() {
   const ft = ftSensor.create({ radius: 44, height: 34, tube: 2.2, thresholds: [2, 8] }); tool.add(ft.root);
   const plate = box(150, 110, 10, matArmD); plate.position.z = 39; tool.add(plate);
 
-  // 相機 + 環形光（工具中心）
-  const camBody = box(44, 44, 60, matArmD); camBody.position.set(0, 0, 74); tool.add(camBody);
-  const lens = cyl(16, 16, 40, matJoint); lens.rotation.x = Math.PI / 2; lens.position.set(0, 0, 124); tool.add(lens);
-  const lensGlass = cyl(12, 12, 2, matGlass); lensGlass.rotation.x = Math.PI / 2; lensGlass.position.set(0, 0, 145); tool.add(lensGlass);
-  const ringLightMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.05 });
-  const ringLight = new THREE.Mesh(new THREE.TorusGeometry(40, 8, 10, 48), ringLightMat); ringLight.position.set(0, 0, 130); tool.add(ringLight);
-  const flash = new THREE.SpotLight(0xffffff, 0, 600, 0.6, 0.5, 1); flash.position.set(0, 0, 130); flash.target.position.set(0, 0, 400); tool.add(flash, flash.target);
+  // 相機 + 環形光（工具中心；共用模型，光軸 +Z，原點在法蘭面）：機身 44×44×60、鏡頭 ø32×40、保護玻璃、環形光 ø80、閃光燈（360）與虛擬相機。
+  // 虛擬相機是 12 mm 鏡頭配 13.2 × 8.8 mm 感光元件（示意規格），在玻璃前 0.1 mm
+  const cam = visionCamera.create({
+    axis: '+z', body: { size: [44, 44], length: 60, at: 74, material: matArmD }, lens: { r: 16, length: 40, at: 124, material: matJoint },
+    glass: { r: 12, length: 2, at: 145, material: matGlass }, ring: { r: 40, tube: 8, at: 130, segments: [10, 48], on: .65 },
+    spot: { distance: 600, at: 130, target: 400, power: 360 }, view: { fov: 2 * Math.atan(8.8 / 24) * 180 / Math.PI, near: .3, at: 146.1 },
+  });
+  tool.add(cam.root);
+  const camBody = cam.body, lens = cam.lens, lensGlass = cam.glass, ringLight = cam.ring, inspectionCam = cam.camera;
 
   // 鉤爪（右側，POM 接觸面）
   const hookArm = box(16, 16, 150, matTool); hookArm.position.set(-62, -30, 110); tool.add(hookArm);
@@ -76,16 +84,13 @@ export function createRobot() {
   const pressPad = cyl(11, 11, 8, matPU); pressPad.rotation.x = Math.PI / 2; pressPad.position.set(-62, -30, 189); tool.add(pressPad);
 
   // 3D 線雷射輪廓儀（左側）：Gocator 2520 CD 47.5 mm、MR 25 mm，TCP 取量測範圍中央
-  const profiler = box(70, 40, 90, matArmD); profiler.position.set(PROFILER_X, 20, 90); tool.add(profiler);
-  const profWin = box(40, 20, 4, matLaser); profWin.position.set(PROFILER_X, 20, 136); tool.add(profWin);
-  const laserPlane = new THREE.Mesh(new THREE.PlaneGeometry(30, 70), new THREE.MeshBasicMaterial({ color: 0xff2a2a, transparent: true, opacity: 0.0, side: THREE.DoubleSide, depthWrite: false }));
-  laserPlane.rotation.x = Math.PI / 2; laserPlane.position.set(PROFILER_X, 20, 170); tool.add(laserPlane);
+  // 共用模型（光軸 +Z，原點在機身中心）：機身 70×40×90、雷射窗 40×20×4、雷射面 30×70；雷射面照原本不標 fx（半透明效果由 project.js 的 verify.skip 排除）
+  const prof = laserProfiler.create({ material: matArmD, window: { material: matLaser }, plane: { fx: false } });
+  prof.root.position.set(PROFILER_X, 20, 90); tool.add(prof.root);
+  const profiler = prof.body, profWin = prof.window;
 
   // TCP 定義：相機 TCP（鏡頭前方工作距離 150 mm）、鉤爪 TCP、雷射 TCP
   const tcpCam = new THREE.Object3D(); tcpCam.position.set(0, 0, 145 + 150); tool.add(tcpCam);
-  // A 12 mm lens on a 13.2 × 8.8 mm sensor; illustrative optical specification.
-  const inspectionCam=new THREE.PerspectiveCamera(2*Math.atan(8.8/24)*180/Math.PI,1.5,.3,3000);
-  inspectionCam.position.set(0,0,146.1);inspectionCam.rotation.y=Math.PI;tool.add(inspectionCam);
   const tcpHook = new THREE.Object3D(); tcpHook.position.set(-62, -38, 200); tool.add(tcpHook);
   const tcpPress = new THREE.Object3D(); tcpPress.position.set(-62,-30,193); tool.add(tcpPress);
   const tcpLaser = new THREE.Object3D(); tcpLaser.position.set(PROFILER_X, 20, 195); tool.add(tcpLaser);
@@ -218,8 +223,8 @@ export function createRobot() {
   function error(){const position=getTcpWorld(goal.tcp).distanceTo(goal.target);const axis=new THREE.Vector3(0,0,1).applyQuaternion(tool.getWorldQuaternion(new THREE.Quaternion()));return {position,angle:THREE.MathUtils.radToDeg(axis.angleTo(goal.dir)),rail:Math.abs(q.rail-clampRail(goal.rail))};}
 
   const setForceColor = ft.setForce;   // 色環依力值變色（門檻在 ftSensor 的 thresholds）
-  function setFlash(on) { flash.intensity = on ? 360 : 0; ringLightMat.emissiveIntensity = on ? .65 : 0.05; }
-  function setLaser(on) { laserPlane.material.opacity = on ? 0.35 : 0; profWin.material.emissiveIntensity = on ? 3 : 1.5; }
+  function setFlash(on) { cam.set(!!on); }     // 閃光燈 360／0，環形光亮度 .65／.05
+  function setLaser(on) { prof.set(!!on); }    // 雷射面不透明度 .35／0，雷射窗亮度 3／1.5
 
   return { root,q,home,goal,cur,update,apply,getTcpWorld,setForceColor,setFlash,setLaser,tool,tcpCam,tcpHook,tcpPress,tcpLaser,inspectionCam,snap,error,poseFor,setPose,reach,plan,
     arm,L,limits,
