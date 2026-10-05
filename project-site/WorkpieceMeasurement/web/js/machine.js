@@ -5,6 +5,7 @@ import { createPart } from './product.js';
 import { applyFinishes, cabinetDoorMaterial } from './render-finishes.js';
 import { addEquipmentDetail } from './equipment-detail.js';
 import { MAT as SHARED } from '@core/geom/materials.js';
+import { signalTower, hmi } from '@core/models/indicators.js';
 
 const M = (color, metalness, roughness, o = {}) => new THREE.MeshStandardMaterial({ color, metalness, roughness, ...o });
 // 本機外觀材質：spec.js 的機構以鍵名指定，render-finishes.js 的 applyFinishes 再加上本機專用的拉絲條紋、花崗岩、
@@ -75,13 +76,15 @@ export function createMachine(scene, s) {
   // HMI：整組比原配置往 +X 移 60 mm，面板左端（約 x 364）留在外罩右側框（x 355）外，不再穿過外罩玻璃與光纖路線
   const HX = 60;
   addBox(deco, MAT.frame, 30, 30, 30, 395 + HX, top - 120, 200); addBox(deco, MAT.frame, 14, 14, 60, 370 + HX, top - 120, 215);
-  const hmi = addBox(deco, MAT.axis, 370, 235, 22, 470 + HX, top - 110, 270); hmi.rotation.y = -0.45; hmi.rotation.x = -0.12;
-  const screenTex = new THREE.CanvasTexture(document.createElement('canvas'));
-  screenTex.colorSpace = THREE.SRGBColorSpace; screenTex.anisotropy = 4;
-  const screen = new THREE.Mesh(new THREE.PlaneGeometry(340, 205), new THREE.MeshBasicMaterial({ map: screenTex })); screen.position.set(0, 0, 11.75); hmi.add(screen);
-  // 三色燈
-  const tower = {}; [['red', 0xff3b30], ['yellow', 0xffc400], ['green', 0x2ee67a]].forEach(([k, c], i) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(16, 16, 28, 24), M(c, 0, 0.35, { emissive: c, emissiveIntensity: 0.05, transparent: true, opacity: 0.92 })); m.position.set(330, top + 90 - i * 30, -230); deco.add(m); tower[k] = m; });
-  addBox(deco, MAT.frame, 10, 40, 10, 330, top + 25, -230);
+  // 機身與畫面用 core 的 hmi 模型（方塊機身＋canvas 畫面，不裝螢幕面板）；機身材質是本機的 MAT.axis
+  const hmiPanel = hmi.create({ w: 370, h: 235, d: 22, bevel: 0, bodyMaterial: MAT.axis, panel: false, display: { w: 340, h: 205, z: 11.75, canvas: [680, 410] } });
+  hmiPanel.root.position.set(470 + HX, top - 110, 270); hmiPanel.root.rotation.y = -0.45; hmiPanel.root.rotation.x = -0.12; deco.add(hmiPanel.root);
+  // 三色燈：core 的 signalTower 模型（方桿＋三節燈罩，燈罩不投影）；燈桿材質是本機的 MAT.frame
+  const tower = signalTower.create({
+    radius: 16, height: 28, segments: 24, base: 30, pitch: 30, colors: { red: 0xff3b30, yellow: 0xffc400, green: 0x2ee67a }, lens: { roughness: .35, opacity: .92 },
+    on: 1.8, off: .05, pole: { size: [10, 40, 10], y: 25, material: MAT.frame }, shadow: { lamps: false },
+  });
+  tower.root.position.set(330, top, -230); deco.add(tower.root);
   // 校正件座：標準厚度片與環規
   addBox(deco, MAT.anodized, 60, 8, 40, 120, Y0 + 4, 185); for (const [i, c] of [0x8a96a3, 0xb9c1c9, 0xd9dee3].entries()) { const d = new THREE.Mesh(new THREE.CylinderGeometry(7, 7, 1 + i, 24), M(c, 0.9, 0.2)); d.position.set(100 + i * 20, Y0 + 8.5 + i / 2, 185); deco.add(d); }
 
@@ -156,14 +159,9 @@ export function createMachine(scene, s) {
     byId.backlight.material = S.optic === 'B' ? LIT.b : MAT.light; ringLight.material.emissiveIntensity = S.optic === 'C' ? 2.2 : 0;
   }
   const LIT = { g: M(0x39e27a, 0, 0.4, { emissive: 0x39e27a, emissiveIntensity: 1.6 }), r: M(0xff3b30, 0, 0.4, { emissive: 0xff3b30, emissiveIntensity: 1.6 }), b: M(0xb9ffb0, 0, 0.4, { emissive: 0x8dff8a, emissiveIntensity: 1.4 }) };
-  function setTower(color) { for (const [k, m] of Object.entries(tower)) m.material.emissiveIntensity = k === color ? 1.8 : 0.05; }
-  function drawScreen(lines, color = '#7fe0b4') {
-    const c = screenTex.image; c.width = 680; c.height = 410; const g = c.getContext('2d');
-    g.fillStyle = '#0a1622'; g.fillRect(0, 0, 680, 410); g.fillStyle = '#12304a'; g.fillRect(0, 0, 680, 54);
-    g.fillStyle = '#dcecf7'; g.font = '600 26px "Microsoft JhengHei",sans-serif'; g.fillText(lines[0], 18, 36);
-    g.font = '22px "Microsoft JhengHei",sans-serif'; lines.slice(1).forEach((t, i) => { g.fillStyle = i === 0 ? color : '#a9c0d2'; g.fillText(t, 18, 96 + i * 38); });
-    screenTex.needsUpdate = true;
-  }
+  const setTower = color => tower.set(color);
+  // HMI 畫面：模型內建的文字版面（680×410：標題列、第二行強調色、其餘次要色）與原本自己畫的相同，只把強調色換成判定色
+  const drawScreen = (lines, color = '#7fe0b4') => hmiPanel.drawText(lines, { accent: color });
   // 其餘群組給 project.js 分模組（統一檢查用）
   return { root, hood, deco, part, pad, ringLight, beams, tables, transfer: tr, transferGroups: { x: xg, z: zg, a: ag }, rotor1, rotor2, cframe, apply, setTower, drawScreen, partWorld: () => part.position.clone().add(V(0, s.len / 2, 0)), byId, trays, details };
 }

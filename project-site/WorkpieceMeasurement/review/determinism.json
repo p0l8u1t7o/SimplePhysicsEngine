@@ -5,7 +5,7 @@
       "variant": "預設",
       "params": {},
       "ok": true,
-      "objects": 1035,
+      "objects": 1037,
       "samples": 40,
       "failures": []
     },
@@ -16,7 +16,7 @@
         "scenario": "NG-A"
       },
       "ok": true,
-      "objects": 1035,
+      "objects": 1037,
       "samples": 40,
       "failures": []
     },
@@ -27,7 +27,7 @@
         "scenario": "ERR"
       },
       "ok": true,
-      "objects": 1035,
+      "objects": 1037,
       "samples": 40,
       "failures": []
     }
