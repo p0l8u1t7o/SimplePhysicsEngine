@@ -8,6 +8,7 @@ import { block, cylinder, decal, screw } from '@core/geom/shapes.js';
 import { MAT, finished } from '@core/geom/materials.js';
 import { batchStatic } from '@core/geom/surfaces.js';
 import { floor } from '@core/geom/environment.js';
+import { signalTower, hmi, estop } from '@core/models/indicators.js';
 import { PART, createBase, createBlade, createCover, createAssembly } from './product.js';
 
 export const LAYOUT = {
@@ -221,16 +222,17 @@ export function createCell(scene, { k = 9, ng = false } = {}) {
   block(occ, [2 * ex, h - top - 130, 2], [0, (h + top + 130) / 2, z1], matPC);
   for (const x of [-ex, ex]) block(occ, [2, h - top, z1 - z0], [x, (h + top) / 2, (z0 + z1) / 2], matPC);
   block(occ, [60, 22, 30], [0, 1500, z1 + 18], MAT.black); decal(occ, 70, 14, [0, 1525, z1 + 34], [0, 0, 0], '前門互鎖', { center: true });
-  block(g, [210, 150, 16], [ex - 150, 1250, z1 + 12], MAT.screen);
-  decal(g, 190, 125, [ex - 150, 1250, z1 + 21], [0, 0, 0], ['快門組裝站', 'HSR065 · 雙抽屜', 'SIMULATION'], { bg: '#102635', color: '#65d7b8' });
-  cylinder(g, 22, 12, [ex - 150, 1110, z1 + 10], MAT.yellow, 'z'); cylinder(g, 15, 18, [ex - 150, 1110, z1 + 20], new THREE.MeshStandardMaterial({ color: 0xd53730 }), 'z');
-  const tower = new THREE.Group(); tower.position.set(ex - 80, h + 40, z0 + 80); g.add(tower);
-  cylinder(tower, 8, 80, [0, 0, 0], matFrame);
-  const towerLamps = {};
-  [['red', 0xff3b3b, 110], ['yellow', 0xffb020, 75], ['green', 0x3dd68c, 40]].forEach(([key, c, y]) => {
-    const m = new THREE.Mesh(new THREE.CylinderGeometry(22, 22, 34, 20), new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 0.08, transparent: true, opacity: 0.85 }));
-    m.position.y = y; tower.add(m); towerLamps[key] = m;
-  });
+  // HMI、急停、三色燈用 core 共用模型（core 1.9.0；參數照 core/MIGRATION.md 的換用對照，外觀與原本自己畫的相同）
+  // HMI：整塊機身就是螢幕（不另裝面板），固定文字貼紙在機身前 1 mm
+  const panelHmi = hmi.create({ w: 210, h: 150, d: 16, bevel: 0, bodyMaterial: MAT.screen, panel: false,
+    text: { lines: ['快門組裝站', 'HSR065 · 雙抽屜', 'SIMULATION'], w: 190, h: 125, options: { bg: '#102635', color: '#65d7b8' } } });
+  panelHmi.root.position.set(ex - 150, 1250, z1 + 12); g.add(panelHmi.root);
+  // 急停：原點在前門框面上，底座環中心在面前 10 mm、按鈕頭中心在面前 20 mm
+  const stopButton = estop.create({ collarZ: 10, capZ: 20 });
+  stopButton.root.position.set(ex - 150, 1110, z1); g.add(stopButton.root);
+  // 三色燈：燈桿中心在安裝點（上下各 40 mm），燈節由下而上 y＝40／75／110；燈罩半透明、不投影
+  const tower = signalTower.create({ base: 40, colors: { red: 0xff3b3b, yellow: 0xffb020, green: 0x3dd68c }, lens: { opacity: .85 }, pole: { y: 0 }, shadow: { lamps: false } });
+  tower.root.position.set(ex - 80, h + 40, z0 + 80); g.add(tower.root);
 
   cableTray(g,'CTRL / cabinet distribution',[-640,760,-650],[640,760,-650]);
   // 中間吊桿避開 x=0 的穿板接頭與上行線束
@@ -254,7 +256,7 @@ export function createCell(scene, { k = 9, ng = false } = {}) {
   const ringFlash = on => { ringMat.emissiveIntensity = on ? 1.6 : 0.05; upFlash.intensity = on ? 40 : 0; };
   return {
     group: g, occluders: occ, keepout, trayBoxes, traySolids, upCam,
-    tower: { set(key) { for (const n in towerLamps) towerLamps[n].material.emissiveIntensity = n === key ? 1.6 : 0.08; } },
+    tower: { set(key) { tower.set(key); } },             // 亮哪一顆：'red'／'yellow'／'green'（其餘熄燈）
     setUpFlash: ringFlash,
     setClamp(v) { clampX.position.x = (1 - v) * 3; clampZ.position.z = (1 - v) * 3; },
     setVacuum(on) { vacLed.material.emissiveIntensity = on ? 1.4 : 0; },
