@@ -50,13 +50,13 @@ export const PHASES = [
 export const GRAB_PHASES = 3;                  // 前三段結束＝抓取瞬間
 
 // ---------------------------------------------------------------- 前段 ABB 並聯手臂的六個子動作（示意）
-// 合計 1.15 s／件：吸嘴接大口徑軟管、放料要橫移到旁邊的既有分類帶，所以比型錄的空載節拍慢得多。待現場實測。
+// 合計 1.15 s／件：要等真空產生器建立真空、放料要橫移到旁邊的既有分類帶，所以比型錄的空載節拍慢得多。待現場實測。
 // 規則（project.js 的 ABB 排程）：目標進到抓取線前後 ±window 的窗口時手臂有空就抓；
 // 上一件還沒放完、趕不到，就放行——由後段補抓站接手。
 export const ABB_PHASES = [
   { key: 'approach', dur: .28, action: 'ABB：移到目標上方', sub: '依前段立體取像的座標與編碼器位置同步帶速' },
   { key: 'descend', dur: .17, action: 'ABB：下降、吸嘴貼近頂面', sub: '下降量取自立體量測的頂面高度' },
-  { key: 'vacuum', dur: .10, action: 'ABB：吸附', sub: '吸塵器式真空源，大流量吸附' },
+  { key: 'vacuum', dur: .10, action: 'ABB：吸附', sub: '真空產生器（壓縮空氣）建立真空' },
   { key: 'lift', dur: .16, action: 'ABB：上升到搬運高度', sub: '' },
   { key: 'traverse', dur: .32, action: 'ABB：橫移到分類帶上方', sub: '' },
   { key: 'release', dur: .12, action: 'ABB：放料', sub: '工件落在既有分類帶上，由帶尾進收料箱' },

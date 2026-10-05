@@ -24,7 +24,7 @@
       "labels": {
         "ok": true,
         "info": {
-          "visible": 11,
+          "visible": 13,
           "outside": 0,
           "overlaps": 0
         }
@@ -60,7 +60,7 @@
       "labels": {
         "ok": true,
         "info": {
-          "visible": 3,
+          "visible": 4,
           "outside": 0,
           "overlaps": 0
         }
@@ -95,7 +95,7 @@
       "labels": {
         "ok": true,
         "info": {
-          "visible": 7,
+          "visible": 8,
           "outside": 0,
           "overlaps": 0
         }
@@ -130,7 +130,7 @@
       "labels": {
         "ok": true,
         "info": {
-          "visible": 8,
+          "visible": 10,
           "outside": 0,
           "overlaps": 0
         }

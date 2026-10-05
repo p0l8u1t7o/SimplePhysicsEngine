@@ -3,7 +3,7 @@
   "params": {},
   "ok": true,
   "applicable": true,
-  "devices": 19,
+  "devices": 21,
   "connections": 27,
   "enclosures": 1,
   "feedthroughs": {
@@ -305,6 +305,36 @@
       "row": 4
     },
     {
+      "id": "CTM1",
+      "kind": "io",
+      "title": "ABB DSQC 2000 I/O 擴充",
+      "size": [
+        70,
+        110,
+        110
+      ],
+      "role": "io",
+      "category": "signal",
+      "source": null,
+      "model": "DSQC 2000（現場照片判讀，接線待確認）",
+      "description": "接在 OmniCore C30 上的擴充模組：輸送帶編碼器與相機同步觸發由這裡進控制器，做 conveyor tracking。整合後改接新視覺的觸發與座標。"
+    },
+    {
+      "id": "ABB1",
+      "kind": "robot",
+      "title": "ABB 手臂控制器 OmniCore C30",
+      "size": [
+        449,
+        170,
+        443
+      ],
+      "role": "motion",
+      "category": "ac",
+      "source": null,
+      "model": "OmniCore C30（現場既有）",
+      "description": "IRB 360 並聯手臂的控制器（現場既有）。搭配 DSQC 2000 I/O 擴充做輸送帶追蹤；整合後由新視覺主機送目標座標與放行清單。"
+    },
+    {
       "id": "RC1",
       "kind": "robot",
       "title": "手臂控制器",
@@ -314,14 +344,14 @@
         320
       ],
       "role": "motion",
-      "description": "裝在既有電控櫃下游半的下層（系統盤正下方）、面板朝操作走道（−Z）；以外掛編碼器同步做 conveyor tracking，經 GW1 與 PLC 交握。用 core 的 robotController() 建，建完要補 userData.electrical.free = true。",
+      "description": "放在既有電控櫃上層的控制器鐵架上層（下層是 ABB 的 OmniCore C30）、面板朝操作走道（−Z）；以外掛編碼器同步做 conveyor tracking，經 GW1 與 PLC 交握。用 core 的 robotController() 建，建完要補 userData.electrical.free = true。",
       "source": "QF2",
       "category": "ac",
       "model": "RC8A 標準型包絡（示意）",
       "free": true,
       "at": [
-        -1325,
-        300,
+        -2130,
+        1197,
         -1310
       ]
     }
@@ -331,8 +361,8 @@
       {
         "scenario": "預設",
         "samples": 401,
-        "routes": 83,
-        "supports": 160,
+        "routes": 69,
+        "supports": 179,
         "carriers": 1,
         "feedthroughs": {
           "plates": 1,

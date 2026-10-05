@@ -146,22 +146,11 @@ export function dressRoute(g, number, ordinal = 0) {
   }
 }
 
-export function cabinetDetails(cab, shell, panel) {
-  const b=detailBatch(cab), door=shell.group.children.find(o=>o.name.includes('removable door'));
-  const dg=new THREE.Group(); dg.position.set(-300,-600,1760); door.add(dg);
-  // 所有門上附件隨原門一起剖視／隱藏，位置以世界座標表達。
-  tag(dg,['機台銘牌｜回收物自動分揀展示機','AC 220 V／20 A｜24 VDC 240 W（示意）'],[390,66],[300,975,-1605]);
-  tag(dg,['⚡ 注意高壓','作業前切離電源（QS1）','櫃體 IP54（示意）'],[260,125],[270,850,-1614.5],Math.PI);
-  // 內側文件袋：開口薄盒與折頁，向櫃內凸出 14 mm，避開元件深度。
-  block(dg,[252,176,2],[300,500,-1615],dark);
-  block(dg,[252,16,13],[300,420,-1622.5],SURFACE.extrusion);
-  for(const x of [175,425]) block(dg,[2,156,13],[x,506,-1622.5],SURFACE.extrusion);
-  block(dg,[242,105,2],[300,470,-1630],SURFACE.sheet);
-  tag(dg,['接線圖／維護紀錄（示意）','QS1 → QF1／QF2 → X1','折頁 A｜B｜C'],[232,145],[300,515,-1627],Math.PI);
-  tag(dg,'接線圖袋',[200,28],[300,470,-1632],Math.PI);
-  const db=detailBatch(dg);
-  for(const x of [14,586]) db.box([4,1138,3],[x,588,-1615],MAT.black);
-  for(const y of [18,1158]) db.box([568,4,3],[300,y,-1615],MAT.black); db.flush();
+// DENSO 系統盤裝在既有電控櫃的側板上，沒有自己的箱體與門：這裡只留盤面本身的細節（銘牌、接地排、端子與穿板接頭標示）。
+// 座標是 cab 群組的本地座標（盤面朝本地 +Z，安裝面在 Z −1907，櫃頂頂面在 Y 1200，上層底板頂面在 Y 30）。
+export function cabinetDetails(cab, panel) {
+  const b=detailBatch(cab);
+  tag(cab,['DENSO 系統盤（示意）','由既有電控櫃分電｜24 VDC 240 W'],[390,66],[300,1100,-1904]);
   // 背板下緣接地排，安裝於絕緣座；接線避開四列元件與兩側線槽。
   b.box([300,16,4],[300,183,-1850],copper);
   for(const x of [170,430]) b.box([12,16,10],[x,183,-1858],MAT.black);
@@ -176,10 +165,9 @@ export function cabinetDetails(cab, shell, panel) {
     const jacket=g.children.find(o=>o.userData.routingHardware==='jacket'); jacket.material.map=map;jacket.material.color.setHex(0xffffff);
   };
   earth('PE / 背板接地柱',[[175,183,-1846],[125,183,-1844],[125,276,-1860]]);
-  earth('PE / 門接合服務彎',[[225,183,-1846],[225,128,-1820],[90,128,-1690],[90,310,-1638],[175,310,-1616]]);
-  earth('PE / 側板',[[275,183,-1846],[275,105,-1810],[595,105,-1810]]);
-  earth('PE / 櫃底',[[325,183,-1846],[325,70,-1780],[325,7,-1780]]);
-  earth('PE / 穿板接頭板',[[425,183,-1846],[568,183,-1815],[568,1155,-1815],[568,1177,-1815]]);
+  earth('PE / 櫃體側板',[[275,183,-1846],[275,140,-1880],[275,140,-1905]]);
+  earth('PE / 上層底板',[[325,183,-1846],[325,90,-1800],[325,32,-1800]]);
+  earth('PE / 穿板接頭板',[[425,183,-1846],[548,183,-1815],[548,1150,-1815],[520,1178,-1815]]);
   // 實際接頭 E1…E6 對應前六組端子；後六組是預留，避免虛構連線。
   const uses=['E1 進線','E2 馬達','E3 手臂','E4 相機','E5 I/O','E6 安全'];
   for(let i=0;i<12;i++) {
@@ -189,31 +177,13 @@ export function cabinetDetails(cab, shell, panel) {
   }
   b.box([1.2,34,25],[225,870,-1844],MAT.amber);
   b.box([1.2,34,25],[300,870,-1844],MAT.steelDark);
-  // 頂部保留六個已用孔，沒有未用孔；空心分色環不堵穿板通道。
+  // 櫃頂六個已用孔的分色環與標示；空心分色環不堵穿板通道。
   for(let i=0;i<6;i++) {
     const radius=i===0?16:i<3?14:12;
     tube(cab,radius+3.8,radius+1.8,3,[100+i*80,1211,-1840],i<3?MAT.amber:MAT.steelBlue);
-    const t=tag(cab,`E${i+1}｜${i<3?'動力':'訊號'}`,[68,22],[100+i*80,1201,-1788]); t.rotation.x=-Math.PI/2;
+    const t=tag(cab,`E${i+1}｜${i<3?'動力':'訊號'}`,[68,22],[100+i*80,1201,-1790]); t.rotation.x=-Math.PI/2;
   }
-  // 防塵簷下方保留 26 mm 以上出線空間，後緣敞開供六條立管轉折。
-  b.box([626,3,318],[300,1270,-1750],SURFACE.cabinet);
-  for(const x of [-8,608]) b.box([3,65,248],[x,1236,-1728],SURFACE.sheet);
-  b.box([620,18,3],[300,1259,-1589],SURFACE.sheet);
-  // 右側上下對流口：側板真的開孔，再加濾網與下斜百葉；IP54 是待確認的示意假設。
-  const side=shell.group.children.find(o=>o.isMesh&&o.name.endsWith('/ side')&&o.position.x>0);
-  const shape=new THREE.Shape(); shape.moveTo(-150,-588); shape.lineTo(150,-588); shape.lineTo(150,588); shape.lineTo(-150,588); shape.closePath();
-  for(const y of [-280,280]) { const hole=new THREE.Path(); hole.moveTo(-68,y-78);hole.lineTo(-68,y+78);hole.lineTo(68,y+78);hole.lineTo(68,y-78);hole.closePath();shape.holes.push(hole); }
-  const geo=new THREE.ExtrudeGeometry(shape,{depth:3,bevelEnabled:false});geo.translate(0,0,-1.5);geo.rotateY(Math.PI/2);side.geometry.dispose();side.geometry=geo;
-  const vents=new THREE.Group();vents.userData.electricalCover=true;cab.add(vents);const vb=detailBatch(vents);
-  for(const y of [310,870]) {
-    for(const z of [-1833,-1687]) vb.box([7,174,8],[604,y,z],SURFACE.sheet);
-    for(const dy of [-83,83]) vb.box([7,8,138],[604,y+dy,-1760],SURFACE.sheet);
-    for(let dy=-66;dy<=66;dy+=22) vb.box([15,2,133],[608,y+dy,-1760],SURFACE.extrusion,[0,0,-.4]);
-    for(let dz=-60;dz<=60;dz+=12) vb.box([1,150,1.5],[595,y,-1760+dz],MAT.black);
-  }
-  vb.flush();
-  // IPC／驅動器右側導風薄板，保留線槽及端子前方通道。
-  b.box([2,430,85],[500,410,-1782],SURFACE.sheet); b.flush();
+  b.flush();
 }
 
 export function lightAdjusters(vision, v) {

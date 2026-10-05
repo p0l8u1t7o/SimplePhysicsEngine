@@ -161,8 +161,7 @@ export function createProject({ scene }) {
   for (const dz of [-T.cupSpan / 2, T.cupSpan / 2])
     cylinder(plunger, T.cupR, 8, [0, -256, dz], MAT.black, 'y', 20, 13).name = 'suction cup';
 
-  // ================================================================ 分流帶 A／B（同側反向）
-  let divider;
+  // ================================================================ 分流帶 A／B（同側反向，與手臂架台排成同一列）
   const divOf = k => k === 'A' ? L.divA : L.divB;
   for (const key of ['A', 'B']) {
     const d = divOf(key), gp = new THREE.Group(); gp.name = 'div' + key; scene.add(gp);
@@ -175,7 +174,6 @@ export function createProject({ scene }) {
     for (const s of [-1, 1]) block(gp, [len, 50, 10], [cx, d.top + 25, d.z + s * (d.width / 2 + 5)], MAT.alu);
     for (const x of d.x) cylinder(gp, 42, d.width + 14, [x, d.top - 50, d.z], finished(MAT.roller, 'metal'), 'z', 20);
     for (const x of d.legX) { block(gp, [60, d.top - 100, 60], [x, (d.top - 100) / 2, d.z], MAT.frame); foot(gp, x, d.z, 140); }
-    if (key === 'A') divider = block(gp, [20, 90, d.width + 20], [175, d.top + 45, d.z], MAT.alu);   // A／B 之間的分隔板
   }
 
   // ================================================================ 收料箱（機台外，示意）
@@ -186,7 +184,7 @@ export function createProject({ scene }) {
     block(bins, [bx, 20, bd], [bn.x, 30, bn.z], MAT.pallet);                       // 箱底（頂面 Y 40）
     for (const s of [-1, 1]) block(bins, [bx, by, 20], [bn.x, by / 2 + 42, bn.z + s * (bd / 2 - 10)], MAT.palletEmpty);
     for (const s of [-1, 1]) block(bins, [20, by, bd - 64], [bn.x + s * (bx / 2 - 10), by / 2 + 42, bn.z], MAT.palletEmpty);
-    plate(bins, [key === 'A' ? '食品 HDPE' : '非食品 HDPE'], 320, 92, [bn.x, 300, bn.z - bd / 2 - 14], Math.PI);
+    plate(bins, [key === 'A' ? '食品 HDPE' : '非食品 HDPE'], 320, 92, [bn.x, 300, bn.z + bd / 2 + 14], 0);   // 標牌朝分流帶外側（+Z）
     // 箱內定位格：長軸沿 Z 放（X 向只佔橫寬），3 排 × 3 層
     for (let layer = 0; layer < 3; layer++) for (const dx of [-230, 0, 230])
       binSlots[key].push({ x: bn.x + dx, y: 44 + layer * 110, z: bn.z, theta: Math.PI / 2 + (dx / 230) * .17 });
@@ -256,7 +254,7 @@ export function createProject({ scene }) {
     const t0 = i / 72 * Math.PI * 2, t1 = (i + .55) / 72 * Math.PI * 2, R = L.abb.reach;
     rod(dimMark, [L.abb.x + R * Math.cos(t0), 10, bz + R * Math.sin(t0)], [L.abb.x + R * Math.cos(t1), 10, bz + R * Math.sin(t1)], 6, MARK.dim, 4);
   }
-  const elec = createElectrical(scene, { cab, frame, robot, belt, vision, hmi, marks, cameras, tool, leds, towerLights, L });
+  const elec = createElectrical(scene, { cab, frame, robot, belt, vision, hmi, marks, cameras, tool, leds, towerLights, L, airOut: front.airOut });
   const pk = L.pick;
   for (const [x, z, w, d] of [[pk.cx, pk.z[0], pk.x[1] - pk.x[0], 10], [pk.cx, pk.z[1], pk.x[1] - pk.x[0], 10],
   [pk.x[0], pk.cz, 10, pk.z[1] - pk.z[0]], [pk.x[1], pk.cz, 10, pk.z[1] - pk.z[0]]])
@@ -360,7 +358,7 @@ export function createProject({ scene }) {
   function arcPath(p0, p1, yaw, turn, j4From = null) {
     const r0 = Math.hypot(p0.x - a.x, p0.z - a.z), r1 = Math.hypot(p1.x - a.x, p1.z - a.z);
     const f0 = phiOf(p0.x, p0.z), f1 = phiOf(p1.x, p1.z);
-    const dip = Math.max(0, Math.min(a.dip, .6 * (Math.abs(f1 - f0) / D2R - 60)));
+    const dip = Math.max(0, Math.min(a.dip, .6 * (Math.abs(f1 - f0) / D2R - 60), (r0 + r1) / 2 - a.swingR));
     const j4To = j4From == null ? null : solve(p1.x, p1.y, p1.z, yaw, turn)?.j4 ?? j4From;
     return u => {
       const e = EASE(u), fi = f0 + (f1 - f0) * e, r = r0 + (r1 - r0) * e - dip * Math.sin(Math.PI * u);
@@ -606,7 +604,8 @@ export function createProject({ scene }) {
   })();
   const ctGaps = jobs.slice(1).map((j, i) => +(j.tau0 - jobs[i].tau0).toFixed(4));
   const burst = ctGaps.filter(g => Math.abs(g - CT) < .02).length;
-  const divGap = L.divA.z - L.divA.width / 2 - 20 - (a.z + pd / 2);
+  // 分流帶在架台的上、下游兩側：量兩端滾筒（半徑 42）到架台柱面的 X 向間隙
+  const divGap = Math.min(a.x - pw / 2 - (L.divA.x[1] + 42), L.divB.x[0] - 42 - (a.x + pw / 2));
   const toolR = T.cupSpan / 2 + 20;                                                // 工具在水平面上的外伸半徑
 
   // ---- 固定設備在機台框架平面（1800 × 1460 × 1800）內
@@ -711,7 +710,7 @@ export function createProject({ scene }) {
     verify: {
       dt: .6,
       cables: { interval: .3, obstacles: () => {
-        const meshes = [...arm.armParts, ...windowFrame, divider];
+        const meshes = [...arm.armParts, ...windowFrame];
         for (const it of items) it.grp.traverse(m => { if (m.isMesh) meshes.push(m); });   // 搬運中的工件也不能掃到線材
         tool.traverse(m => { if (m.isMesh && !m.userData.routingHardware) meshes.push(m); });
         return meshes;
@@ -720,8 +719,8 @@ export function createProject({ scene }) {
       allow: [
         { why: '工件被吸盤吸附時與吸盤面接觸', test: (x, y, ctx) => [x, y].some(m => m.name === 'suction cup') && [x, y].some(m => ctx.moduleOf(m) === 'items') },
         // 只放行承載面與箱體；同在皮帶群組裡的導料板、刮料簾與入料罩不是承載面，工件撞到要抓出來
-        { why: '工件由輸送帶、分流帶、既有分類帶或收料箱承載', test: (x, y, ctx) => [x, y].some(m => ctx.moduleOf(m) === 'items') && [x, y].some(m => ['mainBelt', 'divA', 'divB', 'bins', 'abbSort'].includes(ctx.moduleOf(m)) && !/guide plate|curtain strip|hood/.test(m.name)) },
-        { why: '真空軟管的兩端接在吸嘴接頭與固定管上', test: (x, y) => [x, y].some(m => m.name === 'vacuum hose') && [x, y].some(m => m.name === 'hose port' || m.name === 'hose anchor') },
+        { why: '工件由輸送帶、分流帶、既有分類帶或收料箱承載', test: (x, y, ctx) => [x, y].some(m => ctx.moduleOf(m) === 'items') && [x, y].some(m => ['mainBelt', 'divA', 'divB', 'bins', 'abbSort'].includes(ctx.moduleOf(m)) && !/guide plate|curtain strip|hood|drive motor/.test(m.name)) },
+        { why: '手臂上的氣管兩端接在真空產生器的接頭與網籠頂的固定管上', test: (x, y) => [x, y].some(m => m.name === 'air tube') && [x, y].some(m => m.name === 'hose port' || m.name === 'hose anchor') },
       ],
       envelope: ['robot', 'abbRobot'],
     },

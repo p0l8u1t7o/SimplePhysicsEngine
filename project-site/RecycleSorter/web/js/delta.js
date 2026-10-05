@@ -1,5 +1,6 @@
 // 並聯（Delta）手臂的示意模型：ABB IRB 360 FlexPicker 型，吊掛安裝、三支主動臂＋平行連桿＋中央伸縮軸，
-// 工具是吸塵器式真空吸嘴（波紋吸口＋側接軟管）。尺寸為現場照片目測的示意值，不是原廠 CAD。
+// 工具是波紋吸嘴＋真空產生器（壓縮空氣式；現場原本是吸塵器式真空源與大口徑軟管，2026-10-05 拍板改掉）。
+// 尺寸為現場照片目測的示意值，不是原廠 CAD。
 // core 還沒有並聯手臂模型，先放在本站；已登記到 core/REQUESTS.md，之後搬進 core/models/robots/。
 //
 // 座標：root 原點在三個肩關節所在的水平面中心，+Y 向上；動平台中心 p = [x, y, z]（y 為負，在肩部下方）。
@@ -26,11 +27,11 @@ export function deltaIK([x, y, z], G = IRB360) {
 }
 
 const WHITE = std(0xe9ecee, .42, .05), CARBON = std(0x17191c, .38, .25), JOINT = std(0x8d959c, .35, .7);
-const BELLOWS = std(0x1c1e21, .75, 0), RING = std(0xb4322c, .5, .1), HOSE = std(0xa7966b, .7, .05);
+const BELLOWS = std(0x1c1e21, .75, 0), RING = std(0xb4322c, .5, .1), HOSE = std(0x3f8fd8, .5, .05), EJECTOR = std(0x2d6fb5, .45, .3);
 const Y = new THREE.Vector3(0, 1, 0);
 
 /**
- * 建立手臂。toolLen：動平台中心到吸嘴口的距離；hose：軟管固定端（root 座標）。
+ * 建立手臂。toolLen：動平台中心到吸嘴口的距離；hose：氣管固定端（root 座標）。
  * 回傳 { root, platform, set(p) → 是否可達, joints, tipOf(p) }
  */
 export function createDelta({ geometry: G = IRB360, toolLen = 330, hose = [0, 260, -780] } = {}) {
@@ -75,7 +76,10 @@ export function createDelta({ geometry: G = IRB360, toolLen = 330, hose = [0, 26
   cylinder(tool, 37, 14, [0, -232, 0], RING, 'y', 22);                             // 快拆環
   for (let k = 0; k < 4; k++) cylinder(tool, 39 - (k % 2) * 6, 21, [0, -249.5 - k * 21, 0], BELLOWS, 'y', 22).name = 'suction cup';   // 波紋吸口
   cylinder(tool, 40, toolLen - 323, [0, -(323 + toolLen) / 2, 0], BELLOWS, 'y', 22).name = 'suction cup';
-  cylinder(tool, 25, 62, [0, -130, -64], JOINT, 'z', 16).name = 'hose port';       // 軟管接頭（朝 −Z）
+  // 真空產生器：裝在吸嘴筒側面（−Z），上面是消音器；氣管接在它的快速接頭上
+  block(tool, [46, 96, 34], [0, -140, -52], EJECTOR).name = 'vacuum ejector';
+  cylinder(tool, 11, 44, [0, -70, -52], BELLOWS, 'y', 14);                           // 消音器
+  cylinder(tool, 7, 22, [0, -150, -80], JOINT, 'z', 10).name = 'hose port';         // 快速接頭（朝 −Z）
 
   // ---------------------------------------------------------------- 中央伸縮軸（第四軸，外管在本體、內桿在動平台）
   const outer = new THREE.Group(); outer.name = 'delta telescope outer'; outer.position.set(0, -150, 0); root.add(outer);
@@ -84,18 +88,18 @@ export function createDelta({ geometry: G = IRB360, toolLen = 330, hose = [0, 26
   cylinder(inner, 8, 680, [0, 360, 0], MAT.chrome, 'y', 12);
   inner.userData.nested = outer;
 
-  // ---------------------------------------------------------------- 真空軟管：兩端固定、形狀由端點內插（示意，不是柔性體模擬）
+  // ---------------------------------------------------------------- 氣管（往真空產生器的壓縮空氣）：兩端固定、形狀由端點內插（示意，不是柔性體模擬）
   // 幾何每次重建，所以把網格位置設在工具端——全場檢查才會把它當成會動的零件逐格檢查。
-  const hoseMesh = new THREE.Mesh(new THREE.BufferGeometry(), HOSE); hoseMesh.name = 'vacuum hose'; hoseMesh.castShadow = true; root.add(hoseMesh);
+  const hoseMesh = new THREE.Mesh(new THREE.BufferGeometry(), HOSE); hoseMesh.name = 'air tube'; hoseMesh.castShadow = true; root.add(hoseMesh);
   const B = new THREE.Vector3(...hose);
   let hoseKey = '';
   function setHose(p) {
     const key = p.map(v => v.toFixed(2)).join(); if (key === hoseKey) return; hoseKey = key;
-    const A = new THREE.Vector3(p[0], p[1] - 130, p[2] - 95), o = A.clone();
+    const A = new THREE.Vector3(p[0], p[1] - 150, p[2] - 93), o = A.clone();
     const mid = new THREE.Vector3(A.x * .45, (A.y + B.y) / 2 - 40, Math.max(-835, Math.min(A.z - 210, (A.z + B.z) / 2 - 150)));
     const pts = [A, new THREE.Vector3(A.x, A.y - 25, A.z - 150), mid, new THREE.Vector3(B.x, B.y - 260, B.z - 20), B].map(v => v.clone().sub(o));
     hoseMesh.geometry.dispose();
-    hoseMesh.geometry = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, false, 'centripetal'), 28, 24, 8, false);
+    hoseMesh.geometry = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, false, 'centripetal'), 28, 8, 8, false);
     hoseMesh.position.copy(o);
   }
 

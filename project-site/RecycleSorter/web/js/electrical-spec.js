@@ -1,6 +1,7 @@
 // 已拍板的第二段電盤配置；尺寸與未選定型號皆為示意。
-// 2026-10-05 拍板：整組系統盤裝進現場既有的電控櫃（layout.js 的 siteCabinet），這裡的 center／backZ 等仍是箱體自己的座標，
-// electrical.js 把整個群組轉 180°、移進櫃內；主輸送帶沿用既有驅動，所以拿掉主帶變頻器（D1），元件由 20 個變 19 個。
+// 2026-10-05 拍板：系統盤的背板裝在現場既有電控櫃（layout.js 的 siteCabinet）上層的下游側板內面，沒有自己的箱體；
+// 這裡的 center／backZ／top 等是盤面群組自己的座標，electrical.js 把整個群組轉 −90°、移到側板上。
+// 主輸送帶沿用既有驅動，所以沒有主帶變頻器（原本的 D1），元件 19 個；RC8A 放在櫃內的控制器鐵架上層。
 export const ELECTRICAL_SPEC = {
   "cabinet": {
     "center": [
@@ -25,7 +26,7 @@ export const ELECTRICAL_SPEC = {
       -1865
     ],
     "top": 1200,
-    "doorFacing": "−Z（朝操作走道）；整組裝在既有電控櫃下游半的上層",
+    "doorFacing": "盤面朝櫃內（世界 −X）；裝在既有電控櫃上層的下游側板內面，由櫃門（−Z）側身操作",
     "entries": [
       {
         "id": "E1",
@@ -416,12 +417,12 @@ export const ELECTRICAL_SPEC = {
       "source": "QF2",
       "free": true,
       "at": [
-        -1325,
-        300,
+        -2130,
+        1197,
         -1310
       ],
       "model": "RC8A 標準型包絡（示意）",
-      "description": "裝在既有電控櫃下游半的下層（系統盤正下方）、面板朝操作走道（−Z）；以外掛編碼器同步做 conveyor tracking，經 GW1 與 PLC 交握。用 core 的 robotController() 建，建完要補 userData.electrical.free = true。"
+      "description": "放在既有電控櫃上層的控制器鐵架上層（下層是 ABB 的 OmniCore C30）、面板朝操作走道（−Z）；以外掛編碼器同步做 conveyor tracking，經 GW1 與 PLC 交握。用 core 的 robotController() 建，建完要補 userData.electrical.free = true。"
     }
   ]
 };

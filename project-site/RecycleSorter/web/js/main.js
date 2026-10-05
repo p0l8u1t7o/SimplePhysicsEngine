@@ -66,7 +66,7 @@ $('pipTitle').addEventListener('keydown',releasePip,true);
 
 // ---------------------------------------------------------------- 視角：[相機位置, 注視點]（照桌面寫；手機直向等窄畫布由 stage 自動拉遠）
 const VIEWS = {
-  electrical: [[K.denso[0] + 500, 1750, K.z[0] - 1900], [K.denso[0], 1250, K.denso[1]]],   // 從操作走道（−Z）看既有電控櫃裡的 DENSO 系統盤與 RC8A
+  electrical: [[K.x[0] + 150, 1650, K.z[0] - 2000], [(K.x[0] + K.x[1]) / 2 + 120, 1080, (K.z[0] + K.z[1]) / 2]],   // 從操作走道（−Z）斜看整座既有電控櫃：上層的 ABB 盤、鐵架與下游側板上的 DENSO 系統盤，下層的空壓機與儲氣筒
   // 全線：上游 ABB 分選站到下游補抓站。直向畫面（手機）放不下 7 m 長的線，改從上游端順著輸送帶往下游看
   line: () => canvas.clientWidth < canvas.clientHeight ? [[-9400, 4900, 3500], [-2700, 300, -350], { fit: false }] : [[-4700, 3700, 6000], [-2350, 650, -350]],
   overview: [[-2750, 2100, 2300], [0, 820, -30]],       // 後段補抓站
@@ -81,7 +81,7 @@ const VIEWS = {
   visionTop: [[v.x - 120, 2500, 480], [v.x, 780, b.z]],
   track: [[-700, 1600, 1500], [L.pick.cx - 250, 820, b.z]],
   pick: [[-450, 1500, 1500], [a.x + 60, 950, -60]],
-  outfeed: [[450, 1880, 3000], [175, 700, 490]],
+  outfeed: [[450, 1880, 2700], [175, 700, L.divA.z]],
 };
 let userView = false;
 function setView(name, instant = false, automatic = false) {
@@ -98,10 +98,18 @@ function setView(name, instant = false, automatic = false) {
 document.querySelectorAll('.views [data-view]').forEach(x => x.onclick = () => setView(x.dataset.view));
 const electrical = createElectricalInspector({ scene, camera, controls, canvas,
   title: '回收物自動分揀展示機', onEnter: () => setView('electrical', true), onExit: () => setView('overview', true) });
-// core 的電控檢視器「聚焦元件」固定把鏡頭放在元件的 +Z 側；本站的系統盤裝在既有電控櫃裡、門朝 −Z，
-// 所以聚焦之後把鏡頭鏡射到元件的另一側（暫代，已登記 core/REQUESTS.md）。
+// core 的電控檢視器「聚焦元件」固定把鏡頭放在元件的世界 +Z 側；本站的元件都不朝 +Z（DENSO 系統盤在側板上朝 −X，控制器與 ABB 盤朝 −Z），
+// 所以聚焦之後把鏡頭改放到該元件的正面（元件群組的本地 +Z 方向）。暫代，已登記 core/REQUESTS.md。
 {
-  const flip = () => { const t = controls.target, p = camera.position; p.set(2 * t.x - p.x, p.y, 2 * t.z - p.z); controls.update(); stage.invalidate(); };
+  const devices = []; scene.traverse(o => { if (o.userData.electrical) devices.push(o); });   // 與檢視器內部同樣的走訪順序
+  const facing = new THREE.Vector3();
+  const flip = () => {
+    const d = devices[+document.querySelector('#electrical-inspector select')?.value || 0]; if (!d) return;
+    const t = controls.target, dist = camera.position.distanceTo(t);
+    d.getWorldDirection(facing);
+    camera.position.copy(t).addScaledVector(facing, dist * .97).add(new THREE.Vector3(0, dist * .22, 0));
+    controls.update(); stage.invalidate();
+  };
   const panel = document.getElementById('electrical-inspector');
   panel?.querySelector('[data-focus]')?.addEventListener('click', flip);
   panel?.querySelector('select')?.addEventListener('change', flip);
@@ -138,7 +146,8 @@ label('限高刮料簾', P(L.curtain.x[1], b.top + 330, b.z), 'dim', 3);
 label('導料 600 → 400', P((L.frontGuide.x[0] + L.frontGuide.x[1]) / 2, b.top + 190, b.z + 330), 'dim', 2);
 label('既有分類帶：食品 HDPE →', P(AB.x + 620, AB.sort.top + 130, b.z + AB.sort.z), '', 3);
 label('← 既有分類帶：非食品 HDPE', P(AB.x - 620, AB.sort.top + 130, b.z + AB.sort.z), '', 3);
-label('既有電控櫃（內含 DENSO 系統盤）', P((K.x[0] + K.x[1]) / 2, K.h + 90, (K.z[0] + K.z[1]) / 2), '', 3);
+label('既有電控櫃（ABB＋DENSO 共用）', P((K.x[0] + K.x[1]) / 2, K.h + 90, (K.z[0] + K.z[1]) / 2), '', 3);
+label('空壓機＋儲氣筒（供兩支手臂的真空產生器）', P(K.air.tank - 330, 520, K.z[0] - 40), 'dim', 2);
 label('收料箱 A：食品 HDPE', P(L.binA.x, 560, L.binA.z), '', 2);
 label('收料箱 B：非食品 HDPE', P(L.binB.x, 560, L.binB.z), '', 2);
 label('皮帶末端：其餘回收物續流（下游人工揀選）', P(b.x[1] - 150, b.top + 150, b.z), '', 1);
@@ -192,23 +201,26 @@ $('notes').innerHTML = [
   `本機是<b>後段補抓站</b>，直接架在現場<b>同一條既有皮帶</b>上、既有 ABB 分選站的下游（已拍板）。前段（皮帶、ABB IRB 360 並聯手臂與網籠、既有分類帶、電控櫃）依 2026-10-02 現場照片、影片與開案報告第 3 頁的配置圖建模，尺寸與距離皆為<b>示意</b>，現場未量測。`,
   `<b>兩站用完全同規格的雙相機立體視覺</b>（已拍板；基線 ${F.baseline}／WD ${F.wd}、單眼視野 ${F.fov.join(' × ')} mm），取代現場辨識不佳的既有相機。雙眼重疊視野只有 ${F.fov[0] - F.baseline} mm，所以前段也加導料板把料流由 600 收到 ${L.frontGuide.close} mm，後段再由 ${L.guide.open} 收到 ${L.guide.close} mm；前段取像站到 ABB 抓取線 ${AB.x - F.x} mm，飛行時間 ${((AB.x - F.x) / BELT_V).toFixed(1)} s。`,
   `<b>防集中機構（已拍板）：限高刮料簾</b>，兩站的導料板上游各一道，簾底離帶面 ${L.curtain.clear} mm：單層瓶罐（最高 95）過得去，疊料會被攤平。它只解決疊料，不拉開前後間距——瓶子前後太近時手臂還是抓不完，這段動畫裡緊跟在後的那件就是這樣被放行的；要拉開間距得靠進料端的速度控制，這次沒有選。`,
-  `ABB 單趟 <b>${ABB_CT.toFixed(2)} s</b>（示意，待現場實測）：吸嘴接大口徑軟管，吸到後橫移放到旁邊的<b>既有分類帶</b>（食品類放往下游走的那段、非食品類放往上游走的那段，照第 3 頁圖）。規則是先到先抓——目標進到抓取線 ±${AB.window} mm 窗口時手臂還沒空就<b>放行</b>；這段料流 ABB 抓 ${abbJobs.length} 件、放行 ${passed.length} 件，全部由後段接手。`,
-  `<b>兩站共用一座電控櫃</b>（已拍板）：既有電控櫃在主帶操作側、緊鄰 ABB 網籠下游（第 3 頁圖的位置），DENSO 系統盤與 RC8A 裝在櫃內下游半的空位。放行清單（類別、頂面高度、編碼器位置）在櫃內交給後段；工件經後段的刮料簾與導料板後位置會偏移，所以後段再取像一次才抓。`,
+  `ABB 單趟 <b>${ABB_CT.toFixed(2)} s</b>（示意，待現場實測）：吸到後橫移放到旁邊的<b>既有分類帶</b>（食品類放往下游走的那段、非食品類放往上游走的那段，照第 3 頁圖）。規則是先到先抓——目標進到抓取線 ±${AB.window} mm 窗口時手臂還沒空就<b>放行</b>；這段料流 ABB 抓 ${abbJobs.length} 件、放行 ${passed.length} 件，全部由後段接手。`,
+  `<b>兩站共用一座電控櫃</b>（已拍板）：位置照第 3 頁圖，內部照現場照片。上層背板是既有的 ABB 盤，上游端的<b>控制器鐵架</b>下層放 ABB OmniCore C30、上層放 DENSO RC8A，<b>DENSO 系統盤裝在下游側板內面</b>；放行清單（類別、頂面高度、編碼器位置）在櫃內交給後段。工件經後段的刮料簾與導料板後位置會偏移，所以後段再取像一次才抓。`,
+  `<b>ABB 控制器是 OmniCore C30，搭配 DSQC 2000 I/O 擴充</b>（背板上排上游端那一顆）：輸送帶編碼器與相機同步觸發由這裡進控制器。兩者都可以在 ⚡ 電控檢視器點選。`,
+  `<b>真空源改成壓縮空氣</b>（已拍板）：電控櫃下層原本的吸塵器換成<b>空壓機與儲氣筒</b>，兩支手臂的吸嘴都改用<b>真空產生器</b>；氣管由櫃內分配座分兩路，一路沿網籠上到 ABB 手臂，一路沿地面到 DENSO 立座的三點組。空壓機放在電控櫃下層的散熱、震動與冷凝水排放待評估。`,
   `模型庫共 12 款，全部排入料流（洗衣精罐由前段 ABB 抓取）。包裝色塊、斜撐、護板框與細節尺寸皆為<b>示意</b>。`,
   `規格未給的尺寸一律是<b>示意</b>值：帶面高 750、分流帶面 700、相機 500 萬畫素 10 mm 鏡頭、基線 300／WD 800，單眼視野 704 × 528 mm。`,
   `相機數量依「補充說明」改為<b>雙相機立體對</b>，覆蓋開案報告第 8 頁的「相機數量 1」。`,
   `取像站設在 X ${v.x}（原案 −450 會落在手臂掃掠範圍內）；到抓取點 ${VISION_TO_PICK} mm，飛行時間 ${(VISION_TO_PICK / BELT_V).toFixed(2)} s ≫ 視覺鏈路 0.29 s。`,
   `後段導料板把料流收攏到 <b>280 mm</b>（已拍板）：HSR065（R650）側邊立座扣掉最小迴轉半徑與 J2 基座干涉區後，實際只覆蓋這個帶寬。`,
-  `機台寬度已拍板放寬到 <b>1460 mm</b>（原估 1300）：帶寬與側樑、架台、兩條分流帶與手臂掃掠外圍排完後，立柱最近只能放到 Z −730／+670。`,
+  `機台寬度已拍板放寬到 <b>1460 mm</b>（原估 1300）：立柱在 Z −730／+670。`,
+  `<b>A／B 分流帶收進來與手臂立座排成同一列</b>（2026-10-05）：A 在立座上游側、B 在下游側，兩端滾筒離立座 58 mm，馬達改吊在帶子下方。代價是 B 帶到了手臂的另一側——J1 不能越過 ±170°，搬到 B 帶要繞 <b>271°</b>（原本 232°），而且搬運中的工件要繞過立座，半徑不能小於 ${a.swingR} mm。`,
   `節拍以<b>混合料流加權平均</b>承諾（已拍板）：同類連抓 ${throughput.ct.AA.toFixed(2)} s、跨帶 ${throughput.ct.BB.toFixed(2)} s，`
   + `按食品類佔 ${Math.round(MIX.food * 100)}%（示意）加權為 <b>${throughput.mixed.toFixed(2)} s／瓶</b>、稼動 ${Math.round(MIX.uptime * 100)}% 換算 <b>約 ${throughput.hour} 瓶/小時</b>。`,
   `對應的帶上目標物平均間距需 ≥ <b>${throughput.pitch} mm</b>（同類連抓時 ${(CT * BELT_V).toFixed(0)} mm）；「後段連續運轉節拍」段用 280 mm 的滿載同類料流驗證 1.40 s，其後一件目標間距只有 240 mm 排不進空檔，流到末端觸發警報。`,
   `手臂軸速上限取 DENSO HSR 型錄等級的假設值（J1／J2 ${AXIS.j1}°/s、J4 ${AXIS.j4}°/s、Z ${AXIS.z} mm/s），每個子動作的時間由行程反推，待型錄核對。`,
   `兩段 AI 分析為凍結畫面，ABB 抓取與放行、編碼器追蹤、兩段補抓為慢動作（1/5、1/4、1/6、1/5）：製程時間整體放慢，兩站的帶速與手臂速度同步縮放，不是單獨調慢帶子。`,
-  `DENSO 系統盤：600 × 1200 × 300 的箱體整組裝在既有電控櫃下游半的上層，RC8A 在正下方；19 個元件、六組穿板接頭，立管在箱體背後下到地面、由櫃背底部出線。⚡ 開啟電控檢視器可選取元件、查看用途與連線。`,
+  `DENSO 系統盤：500 × 900 的背板裝在既有電控櫃上層的下游側板內面（盤面朝櫃內），19 個元件；六組穿板接頭開在櫃頂，立管由櫃頂翻到側板外面下到地面。RC8A 在櫃內控制器鐵架的上層。⚡ 開啟電控檢視器可選取元件（含 ABB 的兩件，共 21 個）、查看用途與連線。`,
   `電源由既有電控櫃分電（AC 220 V／24 VDC 240 W，概算負載 160 W）；主輸送帶<b>沿用既有驅動</b>（已拍板），後段只外掛編碼器追蹤、急停與既有系統連鎖，所以只有 A／B 兩台分流帶變頻器。PLC／高速計數、視覺 IPC／PoE 與 RC8A 控制器均為<b>配置示意</b>，型號與施工線徑待選定。`,
   `雙相機由編碼器每 200 mm 同步觸發、曝光 2 ms；子畫面保留最近一次取像，分類、頂面高度、角度與信心分數皆為 <b>SIM／示意</b>。來源選單可切換左右眼。`,
-  `外露線沿線槽、立柱與托架固定；Z 軸使用 HSR065 內建拖鏈，工具浮動段採內部通道（示意）。`,
+  `地面主幹線床上每條線自己一道，由電控櫃側板下來的線先升到跨線高度、越過別道才降到自己那一道，線與線不交叉；外露線沿線槽、立柱與托架固定。Z 軸使用 HSR065 內建拖鏈，工具浮動段採內部通道（示意）。`,
   `安全鏈：光柵／急停 → GC1 → K1／K2 雙通道切斷動力，IO2 監看回授；須手動復歸。<b>光幕位置僅示意</b>：提案估算安全距離 ≥668 mm，實機位置與停機時間待風險評估。此動畫未新增遮斷或急停事件。`,
 ].map(s => `<li>${s}</li>`).join('');
 
@@ -334,8 +346,8 @@ if (qp.has('movie')) {
     return focusPoint.clone().setY(Math.min(FOCUS_Y_MAX, focusPoint.y + it.H / 2));
   };
   // movie.js 要的視角：iso（全景）對到本站的 line（全線）；wiring（整線）本站沒有對應按鈕，在這裡給一個
-  // 從操作走道斜看既有電控櫃背後到機台之間的地面線槽；其餘（electrical）照網頁的 setView。
-  const WIRING = [[-2700, 1900, -2500], [-700, 300, -800]];
+  // 從操作走道的下游端斜看：既有電控櫃下游側板外的立管、跨線段與地面主幹線床；其餘（electrical）照網頁的 setView。
+  const WIRING = [[300, 1700, -2300], [-560, 250, -950]];
   const movieView = (name, instant) => {
     if (name === 'iso') { setView('line', instant, true); return; }
     if (name === 'wiring') { setElectricalCutaway(scene, false); workspace.stopFollowing(); stage.goTo(WIRING[0], WIRING[1], true); return; }
