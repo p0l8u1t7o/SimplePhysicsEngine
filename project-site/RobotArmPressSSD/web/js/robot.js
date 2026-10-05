@@ -6,6 +6,9 @@ import { createVS068, VS068_MAT, JOINTS, JOINT_SPEED } from '@core/models/robots
 import { cable, CABLE } from '@core/electrical/cable-routing.js';
 import { bevelBox, block, cylinder, decal, screw, tube } from '@core/geom/shapes.js';
 import { MAT } from '@core/geom/materials.js';
+// 市購小件用 core 共用模型（core 1.9.0）：力覺感測器、手腕條形光
+import { ftSensor } from '@core/models/sensors.js';
+import { barLight } from '@core/models/lights.js';
 
 const matArmD  = VS068_MAT.dark;
 const matJoint = VS068_MAT.joint;
@@ -35,9 +38,7 @@ export function createRobot() {
 
   // ---- 末端工具（所有機種共用），裝在手臂的工具安裝座（法蘭面，+Z 朝下壓）----
   const tool = arm.tool;
-  const ft =cyl(41, 41, 25, matAnod); ft.rotation.x = Math.PI / 2; ft.position.z = 12.5; tool.add(ft);   // ATI Axia80
-  const ftRing = new THREE.Mesh(new THREE.TorusGeometry(41, 1.8, 8, 40), new THREE.MeshStandardMaterial({ color: 0x3dd68c, emissive: 0x3dd68c, emissiveIntensity: 1.2 }));
-  ftRing.position.z = 12.5; tool.add(ftRing);
+  const ft = ftSensor.create(); tool.add(ft.root);   // ATI Axia80（core 共用模型：機身 ⌀82×25＋力值色環，門檻 2／45 N）
   block(tool, [90, 90, 8], [0, 0, 29], matTool);                                        // 工具本體板
   block(tool, [52, 52, 10], [0, 0, 38], matAnod);                                       // 快拆介面（定位銷＋識別碼）
   for(const x of [-35,35]) for(const y of [-35,35]) screw(tool,[x,y,33.3],3.2,'z');
@@ -90,7 +91,9 @@ export function createRobot() {
   const cameraCable = tube(tool,[[35,42,20],[38,78,20],[36,118,24],[22,150,10]],2.1,matJoint);
   cameraCable.name = 'camera-cable';
   const lightMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.05 });
-  const barLight = box(100, 10, 16, lightMat); barLight.position.set(0, 30, 52); camMount.add(barLight);
+  // 100 mm 條形光（core 共用模型：只有發光條、倒角 6；亮暗由 setFlash 直接改 lightMat）
+  const wristLight = barLight.create({ axis: 'x', housing: false, length: 100, lensT: 10, lensW: 16, bevel: 6, lensMaterial: lightMat });
+  wristLight.root.position.set(0, 30, 52); camMount.add(wristLight.root);
   const flash = new THREE.SpotLight(0xffffff, 0, 500, 0.5, 0.5, 1); flash.position.set(0, 0, 60); flash.target.position.set(0, 0, 260); camMount.add(flash, flash.target);
   // 手臂相機視角（子畫面用）：IMX183 1"（13.2 × 8.8 mm）、25 mm 鏡頭
   const pipCam = new THREE.PerspectiveCamera(2 * Math.atan(8.8 / 2 / 25) / D2R, 1.5, 5, 3000);
@@ -207,7 +210,7 @@ export function createRobot() {
     Object.assign(q, saved); apply();
   }
 
-  function setForceColor(f) { const c = f < 2 ? 0x3dd68c : f < 45 ? 0xffb020 : 0xff4d4d; ftRing.material.color.setHex(c); ftRing.material.emissive.setHex(c); }
+  const setForceColor = ft.setForce;   // 力值色環：< 2 N 綠、< 45 N 黃、其餘紅
   function setFlash(on) { flash.intensity = on ? 300 : 0; lightMat.emissiveIntensity = on ? 1.1 : 0.05; }
   /** 快拆壓墊：'bar'（標準 8 頭整排）或 'single'（單顆機種的單點壓頭） */
   function setInsert(kind) { single.visible = kind !== 'bar'; bar.visible = kind === 'bar'; }

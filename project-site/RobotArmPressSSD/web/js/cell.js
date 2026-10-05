@@ -8,6 +8,10 @@ import { cable, cableTray, support, CABLE } from '@core/electrical/cable-routing
 import { block, cylinder, decal, screw } from '@core/geom/shapes.js';
 import { MAT, finished } from '@core/geom/materials.js';
 import { floor } from '@core/geom/environment.js';
+// 市購小件用 core 共用模型（core 1.9.0）：三色燈、HMI、急停、盒型感測器、條形光
+import { signalTower, hmi, estop } from '@core/models/indicators.js';
+import { boxSensor } from '@core/models/sensors.js';
+import { barLight } from '@core/models/lights.js';
 
 export const LAYOUT = {
   conveyorTop: 900,                   // SMT 輸送面（載盤底面）
@@ -81,9 +85,8 @@ export function createCell(scene, recipe) {
   for (const x of [-80, 100]) block(g, [40, 60, 40], [x, top - 50, rearInner + 85], matDark);  // 頂升氣缸
   const sensors = [];
   for (const [x, name] of [[LAYOUT.entrySensorX, '入口'], [LAYOUT.posSensorX, '到位']]) {
-    block(g, [16, 18, 24], [x, top + 22, rearInner - 14], matBlue);
-    const led = cylinder(g, 3, 2, [x, top + 32, rearInner - 14], new THREE.MeshStandardMaterial({ color: 0x1b4f3d, emissive: 0x32d49b, emissiveIntensity: 0 }));
-    sensors.push({ x, name, led });
+    const s = boxSensor.create(); s.root.position.set(x, top + 22, rearInner - 14); g.add(s.root);   // 盒型光電＋頂面動作指示燈
+    sensors.push({ x, name, led: s.led });
   }
 
   // ---- 機台底櫃（RC8A、PLC、IPC）＋手臂座 ----
@@ -109,7 +112,11 @@ export function createCell(scene, recipe) {
   ko(block(gcam, [44, 47, 34], [0, 60, 0], matDark), '全局相機');
   ko(cylinder(gcam, 16, 36, [0, 18, 0], MAT.black, 'y', 20), '全局相機鏡頭');
   const gLightMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.05 });
-  for (const s of [-1, 1]) ko(block(gcam, [260, 12, 30], [0, 20, s * 70], gLightMat), '全局光源');
+  for (const s of [-1, 1]) {
+    // 條形光 ×2（只有發光條，兩支共用材質一起亮暗）；keepout 登記的是發光條網格
+    const bar = barLight.create({ axis: 'x', housing: false, length: 260, lensT: 12, lensW: 30, lensMaterial: gLightMat });
+    bar.root.position.set(0, 20, s * 70); gcam.add(bar.root); ko(bar.lens, '全局光源');
+  }
   const gFlash = new THREE.SpotLight(0xffffff, 0, 1400, 0.45, 0.5, 1); gFlash.target.position.set(0, -800, 0); gcam.add(gFlash, gFlash.target);
   const globalCam = new THREE.PerspectiveCamera(2 * Math.atan(8.8 / 2 / 20) * 180 / Math.PI, 1.5, 50, 3000);
   globalCam.position.set(gx, gy, gz); globalCam.up.set(0, 0, -1); globalCam.lookAt(gx, top, gz); g.add(globalCam);
@@ -126,16 +133,15 @@ export function createCell(scene, recipe) {
   block(occ, [2 * ex, 900, 2], [0, 510, z1], matPC);
   for (const x of [-ex, ex]) { block(occ, [2, h - 980, z1 - z0], [x, 980 + (h - 980) / 2, (z0 + z1) / 2], matPC); block(occ, [2, 780, z1 - z0], [x, 450, (z0 + z1) / 2], matPC); }
   block(occ, [60, 22, 30], [ex - 120, 1520, z1 + 18], matDark); decal(occ, 70, 14, [ex - 120, 1545, z1 + 34], [0, 0, 0], '前門互鎖', { center: true });
-  block(g, [210, 150, 16], [ex - 150, 1300, z1 + 12], MAT.screen);
-  decal(g, 190, 125, [ex - 150, 1300, z1 + 21], [0, 0, 0], ['USB 壓合站', recipe.short, 'SIMULATION'], { bg: '#102635', color: '#65d7b8' });
-  cylinder(g, 22, 12, [ex - 150, 1150, z1 + 10], matYellow, 'z'); cylinder(g, 15, 18, [ex - 150, 1150, z1 + 20], new THREE.MeshStandardMaterial({ color: 0xd53730 }), 'z');
-  const tower = new THREE.Group(); tower.position.set(ex - 80, h + 40, z0 + 80); g.add(tower);
-  cylinder(tower, 8, 80, [0, 0, 0], matFrame);
-  const towerLamps = {};
-  [['red', 0xff3b3b, 110], ['yellow', 0xffb020, 75], ['green', 0x3dd68c, 40]].forEach(([k, c, y]) => {
-    const m = new THREE.Mesh(new THREE.CylinderGeometry(22, 22, 34, 20), new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 0.08, transparent: true, opacity: 0.85 }));
-    m.position.y = y; tower.add(m); towerLamps[k] = m;
-  });
+  // HMI：整塊螢幕色機身＋固定文字貼紙（貼紙在機身前面 1 mm）
+  const hmiPanel = hmi.create({ w: 210, h: 150, d: 16, bevel: 0, bodyMaterial: MAT.screen, panel: false,
+    text: { lines: ['USB 壓合站', recipe.short, 'SIMULATION'], w: 190, h: 125, options: { bg: '#102635', color: '#65d7b8' } } });
+  hmiPanel.root.position.set(ex - 150, 1300, z1 + 12); g.add(hmiPanel.root);
+  // 急停：root 在外罩前緣面（z1），底座環與按鈕頭往 +Z 凸出
+  const stopButton = estop.create({ collarZ: 10, capZ: 20 }); stopButton.root.position.set(ex - 150, 1150, z1); g.add(stopButton.root);
+  // 三色燈：燈桿中心在 root（y 0，長 80），燈節由上而下紅、黃、綠（y 110／75／40），燈罩不投影
+  const tower = signalTower.create({ base: 40, colors: { red: 0xff3b3b, yellow: 0xffb020, green: 0x3dd68c }, lens: { opacity: .85 }, pole: { y: 0 }, shadow: { lamps: false } });
+  tower.root.position.set(ex - 80, h + 40, z0 + 80); g.add(tower.root);
 
   cableTray(g,'CTRL / separate power-data trough',[-520,740,-210],[520,740,-210]);
   for(const x of [-450,0,450])support(g,'CTRL / trough cabinet bracket',[x,731,-240],[x,731,-210],5);
@@ -145,7 +151,7 @@ export function createCell(scene, recipe) {
 
   return {
     group: g, occluders: occ, keepout, sensors, globalCam, place,
-    tower: { set(k) { for (const n in towerLamps) towerLamps[n].material.emissiveIntensity = n === k ? 1.6 : 0.08; } },
+    tower: { set(k) { tower.set(k); } },   // 亮 1.6、暗 0.08（模型預設值）
     setStop(v) { stopPin.position.y = (v - 1) * 24; },
     setLift(v) { lift.position.y = v * (LAYOUT.liftStroke + 4); },
     setGlobalFlash(on) { gFlash.intensity = on ? 1800 : 0; gLightMat.emissiveIntensity = on ? 1.2 : 0.05; },
