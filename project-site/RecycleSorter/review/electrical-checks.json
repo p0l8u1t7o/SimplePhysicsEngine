@@ -346,9 +346,9 @@
     "report": [
       {
         "scenario": "預設",
-        "samples": 321,
-        "routes": 81,
-        "supports": 152,
+        "samples": 391,
+        "routes": 91,
+        "supports": 171,
         "carriers": 1,
         "feedthroughs": {
           "plates": 1,

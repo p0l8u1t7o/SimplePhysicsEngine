@@ -5,7 +5,8 @@ import * as THREE from 'three';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { createProject } from '../web/js/project.js';
 import { LAYOUT } from '../web/js/layout.js';
-import { CT, BELT_V, TOTAL, CHAPTERS, MIX, mixedCT, perHour } from '../web/js/schedule.js';
+import { CT, BELT_V, TOTAL, CHAPTERS, MIX, mixedCT, perHour, ABB_CT, ABB_PHASES, PRE_ROLL } from '../web/js/schedule.js';
+import { deltaIK } from '../web/js/delta.js';
 
 const L = LAYOUT, scene = new THREE.Scene(), project = createProject({ scene });
 const { jobs, missed, items, timing } = project;
@@ -16,7 +17,9 @@ const world = it => it.grp.getWorldPosition(new THREE.Vector3());
 const at = t => { const st = project.apply(t); scene.updateMatrixWorld(true); return st; };
 
 // ---------------------------------------------------------------- 1. 節拍
-F(TOTAL === 96, `動畫總長 ${TOTAL} s 與企劃的 96 s 不符`);
+// 2026-10-05 補上前段（既有 ABB 分選站）後，播放時間多 21 s、製程時間後移 PRE_ROLL；51 s 之後就是原本 30 s 之後的後段
+F(TOTAL === 117, `動畫總長 ${TOTAL} s 與企劃的 117 s（前段 21 s＋原 96 s）不符`);
+F(near(timing.tau(51), 20.1 + PRE_ROLL, 1e-6), `後段起點的製程時間 ${timing.tau(51).toFixed(3)} s 與原時間軸（20.1 s＋預跑 ${PRE_ROLL} s）對不上`);
 F(CT <= 1.4 + 1e-9, `節拍 ${CT} s 超過規格 1.4 s`);
 const gaps = project.ctGaps;
 F(Math.min(...gaps) >= CT - 1e-3, `取放間隔 ${Math.min(...gaps).toFixed(3)} s 小於節拍 ${CT} s`);
@@ -111,14 +114,46 @@ for (let t = 0; t <= TOTAL; t += .5) {
 }
 function endStateTau(t) { return timing.tau(t); }
 
-// ---------------------------------------------------------------- 9. 段落與排程一致
+// ---------------------------------------------------------------- 9. 前段 ABB：先到先抓、沒空就放行
+const AB = L.abb, { abbJobs, passed, front } = project;
+const PRE = ABB_PHASES.slice(0, 3).reduce((s, p) => s + p.dur, 0);
+F(abbJobs.length >= 10, `前段 ABB 只抓 ${abbJobs.length} 件，不足以展示第一道分選`);
+F(passed.length >= 10, `前段只放行 ${passed.length} 件，不足以展示後段補抓`);
+// 後段的工單必須和補上前段之前完全相同（工件編號不變），而且一件工件只會被一支手臂抓
+const REAR_IDS = [9, 10, 12, 14, 16, 17, 18, 19, 20, 21, 22, 23], MISS_IDS = [24];
+F(JSON.stringify(jobs.map(j => j.ref.id)) === JSON.stringify(REAR_IDS), `後段工單的工件 ${jobs.map(j => j.ref.id)} 與原本的 ${REAR_IDS} 不同`);
+F(JSON.stringify(missed.map(m => m.item.id)) === JSON.stringify(MISS_IDS), `後段漏抓的工件 ${missed.map(m => m.item.id)} 與原本的 ${MISS_IDS} 不同`);
+F(items.every(it => !(it.job && it.abbJob)), '有工件同時排進前段與後段的工單');
+F(passed.every(it => it.job || missed.some(m => m.item === it)), '有放行的目標後段沒有接手');
+F(items.filter(it => it.cls !== 'other').every(it => it.abbJob || it.pass), '有目標物既沒被 ABB 抓、也沒記錄放行');
+for (const job of abbJobs) {
+  const it = job.item, st = at(timing.timeAt(job.grabTau)), p = world(it);
+  const d = st.abb.p.y - (p.y + it.H);
+  F(d >= 0 && d < 5, `ABB 抓工件 ${it.id} 的瞬間吸嘴口與頂面距離 ${d.toFixed(2)} mm（需 0…5 mm）`);
+  F(Math.abs(p.x - AB.x) <= AB.window + 1, `ABB 抓工件 ${it.id} 的位置 X ${p.x.toFixed(0)} 在抓取窗口 ${AB.x} ±${AB.window} 之外`);
+  F(Math.hypot(st.abb.p.x - p.x, st.abb.p.z - p.z) < 1, `ABB 抓工件 ${it.id} 時吸嘴沒有對在工件上方`);
+  F((it.cls === 'food') === (job.side < 0), `工件 ${it.id}（${it.cls}）放到 ${job.side < 0 ? '食品' : '非食品'}側的滑槽`);
+}
+for (let i = 1; i < abbJobs.length; i++) F(abbJobs[i].grabTau - abbJobs[i - 1].grabTau >= ABB_CT - 1e-6, `ABB 第 ${i} 與 ${i + 1} 趟只隔 ${(abbJobs[i].grabTau - abbJobs[i - 1].grabTau).toFixed(3)} s，小於單趟 ${ABB_CT} s`);
+// 放行必須是真的來不及：目標離開窗口時，上一趟放完料再趕過來（接近＋下降＋吸附）還到不了
+for (const it of passed) F(it.pass.busyUntil + PRE > it.pass.leave, `工件 ${it.id} 離開窗口（${it.pass.leave.toFixed(2)} s）前 ABB 其實來得及（${(it.pass.busyUntil + PRE).toFixed(2)} s）`);
+// ABB 姿態：逆解全程有效；結束時抓走的工件都在對應的收料籃裡
+for (let t = 0; t <= TOTAL; t += .2) { const st = at(t); if (!deltaIK(front.toPlatform(st.abb.p.x, st.abb.p.y, st.abb.p.z), AB.delta)) { F(false, `t=${t.toFixed(1)}s ABB 逆解失敗`); break; } }
+at(TOTAL - .01);
+for (const job of abbJobs) {
+  const p = world(job.item), [kx, , kz] = AB.basket.size, zc = L.belt.z + job.side * AB.basket.z;
+  F(Math.abs(p.x - job.zone.x) <= kx / 2 && Math.abs(p.z - zc) <= kz / 2 && p.y < 420, `工件 ${job.item.id} 結束時不在 ABB 的收料籃內（${p.x.toFixed(0)}, ${p.y.toFixed(0)}, ${p.z.toFixed(0)}）`);
+}
+notes.push(`前段 ABB 抓 ${abbJobs.length} 件（單趟 ${ABB_CT} s、最短間隔 ${Math.min(...project.abbMetrics.gaps).toFixed(2)} s），放行 ${passed.length} 件 → 後段補抓 ${jobs.length}、漏抓 ${missed.length}`);
+
+// ---------------------------------------------------------------- 10. 段落與排程一致
 for (const ch of CHAPTERS) F(ch.t[1] > ch.t[0], `段落 ${ch.id} 時間區間無效`);
 F(CHAPTERS.at(-1).t[1] === TOTAL, '最後一段沒有結束在動畫總長');
 F(project.bad.length === 0, `逆解失敗：${project.bad.join('；')}`);
 
 const result = {
   ok: !failures.length, total: TOTAL, ct: CT, mixedCT: tp.mixed, perHour: tp.hour,
-  jobs: jobs.length, missed: missed.length, burstIntervals: burst,
+  jobs: jobs.length, missed: missed.length, burstIntervals: burst, abbJobs: abbJobs.length, passed: passed.length, abbCT: ABB_CT,
   transitions: tp.ct, metrics: project.metrics, notes, failures,
 };
 mkdirSync(new URL('../review/', import.meta.url), { recursive: true });

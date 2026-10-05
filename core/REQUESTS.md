@@ -16,4 +16,14 @@
 
 ## 待處理
 
-（目前沒有）
+### 並聯（Delta）手臂模型
+- 提出：RecycleSorter（2026-10-05）
+- 暫代：`project-site/RecycleSorter/web/js/delta.js` 的 `createDelta({ geometry, toolLen, hose })`、`deltaIK(p, geometry)`（ABB IRB 360 型：三支主動臂、平行連桿、中央伸縮軸；吸嘴與真空軟管是該站的工具）
+- 期望介面：`core/models/robots/abb-irb360.js`，照共用模型的 `meta`＋`create(params) → { root, set(state) }`；state 是動平台中心 `[x, y, z]`，另匯出閉式逆解與幾何常數。工具與軟管留在專案
+- 影響：之後有高速取放（食品、包裝、分揀）的站都會用到。搬進 core 時連桿尺寸要用型錄核對，目前是現場照片目測的示意值
+
+### 擴張網護板材質
+- 提出：RecycleSorter（2026-10-05）
+- 暫代：`project-site/RecycleSorter/web/js/frontline.js` 的 `meshGuard` 材質與 `guard(parent, a, b)`（網目貼圖依實際尺寸換算 UV，所有護板共用一個材質）
+- 期望介面：`@core/geom/materials.js` 的 `MAT.expandedMesh`（或 `meshPanel(parent, a, b, { cell })`）
+- 影響：有圍籬或網籠的站（目前各站用半透明的 `MAT.mesh`，近看沒有網目）

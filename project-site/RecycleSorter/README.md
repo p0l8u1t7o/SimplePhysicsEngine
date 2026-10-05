@@ -2,11 +2,37 @@
 
 雙相機立體視覺把帶上的混合回收物分類、定位（含頂面高度與長軸角度）並交給 DENSO HSR065 SCARA，
 吸盤組同步帶速取放，食品類白色 HDPE 送 A 帶、非食品類送 B 帶，其餘回收物由主帶末端續流。
-動畫 96 秒、十個敘事段落，含慢動作拆解、滿載連續節拍（CT 1.4 s／瓶）與漏抓警報。
+
+這台是**後段補抓站**：架在現場既有 ABB 分選站的下游，補抓 ABB 來不及抓的 HDPE。動畫把上游一起畫出來——
+既有輸送帶、前段立體取像站（新視覺）、ABB IRB 360 並聯手臂與網籠——並演出新視覺系統把兩支手臂串起來的流程。
+動畫 117 秒、十五個敘事段落（前段六段、後段九段），含兩段凍結分析、慢動作拆解、滿載連續節拍（CT 1.4 s／瓶）與漏抓警報。
 
 框架說明見 [core/README.md](../../core/README.md)。規格與已拍板事項見 [AGENTS.md](AGENTS.md)，配置提案見 `docs/proposal.md`、`docs/segment2.md`（只留本機）。
 
+## 前段：既有 ABB 分選站（2026-10-05 補上）
+
+依 2026-10-02 的現場照片與影片（`docs/20261002-現場拍攝照片影片/`，只留本機）目測建模，**尺寸與位置都是示意**，現場沒有量測。
+
+| 項目 | 內容 |
+|---|---|
+| 既有輸送帶 | 綠色平皮帶、鏽色側牆，X −5400…−1410，與後段主帶同高同寬；兩條帶之間是過渡板。是否為同一條皮帶待現場確認 |
+| 前段立體取像站 | X −4200 的獨立門型架。與後段同相機、同鏡頭、基線 300；因為前段沒有導料板、料流佔滿 600 帶寬，工作距離加高到 1050（單眼視野 924 × 693、雙眼重疊 624 mm） |
+| ABB 並聯手臂 | IRB 360 型（工作直徑 1600），吊在 1800 × 1800 × 2760 的藍色鋼構網籠頂部，抓取線 X −2800；吸塵器式真空吸嘴接軟管。模型與逆解在 `web/js/delta.js`（已登記到 `core/REQUESTS.md`） |
+| 落料 | 四個滑槽穿出網籠到帶旁的收料籃：食品 HDPE 在 −Z 側、非食品在 +Z 側 |
+| 既有電控櫃 | 手臂控制器、輸送帶追蹤模組、視覺主機與吸塵器（照片判讀），門上螢幕顯示吸取次數與放行數 |
+| 配線（示意） | 前段相機幹線、手臂纜線、真空管路，以及兩站之間的整合通訊線槽 |
+
+**ABB 的排程只有一條規則**（`project.js`「前段 ABB：排程與路徑」）：目標進到抓取線前後 ±50 mm 的窗口時，手臂若能在它離開前就位就抓；
+上一趟還沒放完（單趟 1.15 s，示意）就放行。哪幾件被放行是這條規則跑出來的結果，後段的取放工單只排沒被 ABB 抓走的目標。
+這段料流裡 ABB 抓 21 件、放行 13 件，放行的 13 件就是後段原本的 13 件目標（12 件補抓、1 件間距不足漏抓）。
+
+整合流程（側欄「整合流程」會跟著段落亮起）：前段立體取像 → AI 分類＋頂面高度＋抓取分配 → ABB 第一道抓取 →
+放行清單交後段（編碼器追蹤）→ 後段立體取像再定位 → DENSO 補抓、A／B 分流 → 統計與警報。
+
 ## 時間模型
+
+補上前段之後，播放時間在最前面多 21 s（51 s 之後就是原本 30 s 之後的內容），製程時間整體後移 `PRE_ROLL` = 3 s
+（帶上工件一起往上游退 600 mm）。後段的工單、節拍與相對時序都沒有變，`tools/verify.mjs` 會核對後段工單的工件編號與原本相同。
 
 整個動畫只有一個時間尺度參數 `rate(t)`（`web/js/schedule.js` 的 `RATE`）——製程時間相對播放時間的速率。
 `τ(t) = ∫rate dt`、帶面行程 `s = 200 τ`、分流帶行程 `= 1.5 s`，手臂的每個子動作也以製程時間計。
@@ -44,12 +70,13 @@ node ../../core/tools/serve.mjs "RecycleSorter"
 
 開啟 http://127.0.0.1:8770/RecycleSorter/。網址參數：`?pause&t=5&view=pick`、`?shadow=0`、`?cam=x,y,z,tx,ty,tz`。
 
-視角：`overview`、`top`、`infeed`、`vision`、`visionTop`、`track`、`pick`、`outfeed`、`electrical`（頂部列放七個常用的，
-`visionTop` 與 `track` 由段落自動切換，也可用 `?view=` 或 `window.sim.setView()` 指定）。
+視角：`line`（全線）、`abb`（前段）、`overview`（後段）、`top`、`vision`、`pick`、`outfeed`、`electrical` 在頂部列；
+`frontVision`、`frontTop`、`abbPick`（沿輸送帶從網籠穿越口往裡看）、`handoff`、`infeed`、`visionTop`、`track` 由段落自動切換，
+也可用 `?view=` 或 `window.sim.setView()` 指定。手機直向時 `line` 改從上游端順著輸送帶看。
 播放時相機會跟著段落換成該段的預設視角；自己按過視角按鈕或開了焦點追隨（◎）就不會被搶走。
 
 手機、平板與橫向手機自動改用精簡版面（☰ 製程與視角、⚙ 播放設定、工具列 ◨ 開側欄、◎ 追隨工件），由 `createViewerWorkspace` 處理；`css/style.css` 只寫桌面版面。
-相機子畫面（▣）在桌面預設顯示，手機與觸控裝置由共用版面預設收起。來源可選 CAM-L、CAM-R 或自動切換。
+相機子畫面（▣）在桌面預設顯示，手機與觸控裝置由共用版面預設收起。來源可選後段 CAM-L／CAM-R、前段 CAM-L／CAM-R 或自動切換（跟著段落看前段或後段）。
 
 ## 第二段電控與取像
 
@@ -69,7 +96,13 @@ node ../../core/tools/check.mjs "RecycleSorter"          # 完整：import 路�
 node ../../core/tools/check.mjs "RecycleSorter" --quick  # 部署前快速檢查
 ```
 
-快速檢查包含電控、穿板孔與 321 個時間點的配線取樣。`tools/verify-segment2.mjs` 另驗證雙眼投影、取像凍結、倒序還原及安全功能連線；完整檢查另含 ui 四種尺寸。
+快速檢查包含電控、穿板孔與 391 個時間點的配線取樣。`tools/verify-segment2.mjs` 另驗證雙眼投影（前段、後段）、取像凍結、倒序還原及安全功能連線；完整檢查另含 ui 四種尺寸。
+
+`tools/verify.mjs` 的前段檢查：ABB 每趟抓取瞬間吸嘴口對在工件頂面、位置在窗口內、食品／非食品落對側；抓取間隔不小於單趟時間；
+每件放行都是真的來不及；一件工件只會被一支手臂抓；結束時抓走的工件都在收料籃裡。空間檢核（`layoutChecks`）另有九項前段的檢核。
+
+`tools/render-audit.mjs`、`tools/render-b-audit.mjs` 是兩輪渲染補強當時的守門工具，基準（`review/render-*-baseline.json`）是補上前段之前的 96 s 版本，
+現在直接跑會判定不一致；之後要再做渲染補強時，先用 `--baseline` 重建基準。
 
 ## 檔案
 
@@ -78,16 +111,18 @@ node ../../core/tools/check.mjs "RecycleSorter" --quick  # 部署前快速檢查
 | `project.json` | 標題、首頁說明、檢查清單 |
 | `web/index.html` | 標準版面骨架：`#topbar`（`.brand`、`#stations`、`.views` 視角按鈕 `data-view`）、`#side`（`.card`）、`#bottombar`（`.ctl`、`.stepRow`、`#timeline`、`#clock`） |
 | `web/css/style.css` | 桌面版面與深色主題（窄螢幕規則由 `core/ui/viewer-workspace.css` 負責，這裡不寫） |
-| `web/js/layout.js` | 站位配置常數（座標系、設備位置與尺寸）；`project.js`、`main.js` 與 `tools/verify.mjs` 共用 |
-| `web/js/items.js` | 模型庫 12 款，動畫展示 11 款（洗衣精罐未排入料流）；食品／非食品 HDPE、PET、鐵罐、薄膜、壓扁件、紙盒與瓶身材質 |
+| `web/js/layout.js` | 站位配置常數（座標系、設備位置與尺寸，含前段的 `site`／`front`／`abb`）；`project.js`、`main.js` 與 `tools/verify.mjs` 共用 |
+| `web/js/frontline.js` | 前段的固定設備：既有輸送帶、前段立體取像站、ABB 網籠、滑槽與收料籃、既有電控櫃、示意配線 |
+| `web/js/delta.js` | 並聯（Delta）手臂模型與閉式逆解：三支主動臂、平行連桿、中央伸縮軸、吸嘴與真空軟管 |
+| `web/js/items.js` | 模型庫 12 款，全部排入料流；食品／非食品 HDPE、PET、鐵罐、薄膜、壓扁件、紙盒與瓶身材質 |
 | `web/js/appearance.js` | 瓶身包裝與低對比帶面貼圖、金屬表面、批次固定細節及取像照明亮斑 |
 | `web/js/electrical-spec.js` | 已拍板電盤尺寸、背板分列與元件清單 |
 | `web/js/electrical.js` | 電盤、補充功能連線、固定配線、相機安裝、HMI 與光幕示意 |
 | `web/js/vision.js` | 最近一次取像、左右眼來源、SIM 疊圖與繪製後還原 |
-| `web/js/schedule.js` | 敘事段落、播放速率（慢動作與凍結）、製程時間換算、帶上工件清單、子動作與軸速上限 |
-| `web/js/project.js` | 建立場景（地面用 `floor()`）、取放工單與手臂路徑、`apply(t)`、空間檢核、全場檢查設定 |
+| `web/js/schedule.js` | 敘事段落、播放速率（慢動作與凍結）、製程時間換算、帶上工件清單（含排給前段 ABB 的目標）、兩支手臂的子動作與軸速上限、整合流程 |
+| `web/js/project.js` | 建立場景（地面用 `floor()`）、前段 ABB 的排程、後段取放工單與手臂路徑、`apply(t)`、空間檢核、全場檢查設定 |
 | `web/js/main.js` | 舞台（`look`／`extent`）、`createViewerWorkspace`、視角、站別按鈕、3D 標籤、播放列、面板、`exposeSim` |
-| `tools/verify.mjs` | 本專案的製程規則檢查（節拍、類別與目的地、落料位置、導料板開口、漏抓警報） |
-| `tools/render-audit.mjs` | 961 個時間點的狀態／動件回歸、配置結果比對、幾何預算及新增實例展開干涉檢查 |
+| `tools/verify.mjs` | 本專案的製程規則檢查（節拍、類別與目的地、落料位置、導料板開口、漏抓警報、前段 ABB 的抓取與放行） |
+| `tools/render-audit.mjs`、`tools/render-b-audit.mjs` | 兩輪渲染補強的守門工具（狀態／動件回歸、配置比對、幾何預算、實例展開干涉檢查）；基準是補上前段之前的版本 |
 | `AGENTS.md`／`CLAUDE.md` | 本站規則：範圍、規格摘要、已拍板事項（`CLAUDE.md` 以 `@AGENTS.md` 引用） |
 | `.claude/settings.json` | 寫檔關卡：從本資料夾啟動的 Claude Code 只能改本站 |

@@ -1,5 +1,7 @@
 // 專案介面：網頁（main.js）與 core 統一檢查共用同一份場景與時間狀態。規格見 core/README.md「專案介面」。
 // 回收物自動分揀展示機：主平皮帶 → 立體取像站（雙相機）→ AI 分類／3D 定位 → 編碼器追蹤 → SCARA 吸盤分揀 → A／B 分流帶。
+// 這台是「後段補抓站」，上游是現場既有的 ABB 分選站（frontline.js）：前段立體取像 → ABB 並聯手臂第一道抓取 →
+// ABB 來不及抓而放行的 HDPE 流到後段，由這台再取像、補抓。兩站共用同一個製程時間與同一份帶上工件清單。
 //
 // 狀態完全由時間 t 決定：t → 製程時間 τ（schedule.js 的 rate 積分）→ 帶面行程 s = 200 τ → 工件位置與手臂關節。
 // 手臂路徑在建立時先解好（ik 的肘部參考固定，是純函式），播放時只做內插或同樣條件再解一次，
@@ -16,9 +18,11 @@ import { floor } from '@core/geom/environment.js';
 import { createHSR065, HSR065, fk } from '@core/models/robots/denso-hsr065.js';
 import { LAYOUT, STATIONS } from './layout.js';
 import { buildItem } from './items.js';
-import { createTiming, ITEMS, CHAPTERS, chapterAt, PHASES, GRAB_PHASES, AXIS, CT, BELT_V, TOTAL, VISION_TO_PICK, MIX, mixedCT, perHour } from './schedule.js';
+import { createTiming, ITEMS, CHAPTERS, chapterAt, PHASES, GRAB_PHASES, AXIS, CT, BELT_V, TOTAL, VISION_TO_PICK, MIX, mixedCT, perHour, ABB_PHASES, ABB_CT, footprintGap, upstreamZ } from './schedule.js';
 import { createCameras, createElectrical } from './electrical.js';
 import { SURFACE, beltTexture, detailBatch, addDetails, createLightPatch } from './appearance.js';
+import { createFrontLine } from './frontline.js';
+import { deltaIK } from './delta.js';
 
 const L = LAYOUT, G = 9810;                          // 重力 mm/s²
 const BELT_MAT = std(0x304b3b, .93, .01);
@@ -40,7 +44,7 @@ const sumDur = (ds, k) => ds.slice(0, k).reduce((s, d) => s + d, 0);
 export function createProject({ scene }) {
   const timing = createTiming();
 
-  floor(scene, { size: [7200, 5400], cell: 200 });
+  floor(scene, { size: [8400, 5600], center: [-1900, -300], cell: 200 });        // 含上游的既有分選線
 
   // ================================================================ 主輸送帶（平皮帶）
   // core/models/conveyor.js 是滾筒輸送線，薄膜與小件會掉落，所以平皮帶在專案自建。
@@ -233,6 +237,20 @@ export function createProject({ scene }) {
   for (const [sx, sz, w, d] of [[0, -1, fovL, 10], [0, 1, fovL, 10], [-1, 0, 10, fovW], [1, 0, 10, fovW]])
     block(fovMark, [w, 6, d], [v.x + sx * fovL / 2, b.top + 6, bz + sz * fovW / 2], MARK.fov);
   rod(fovMark, [v.x, v.camY - 100, v.camZ[0]], [v.x, v.camY - 100, v.camZ[1]], 6, MARK.dim, 6);
+  // ================================================================ 前段：既有輸送帶、前段立體取像站、ABB 網籠與並聯手臂
+  const front = createFrontLine(scene, L);
+  leds.push(...front.leds);                                                         // 前段條燈與後段同一個觸發訊號
+  const F = L.front, frontFov = mk('frontFov'), abbWin = mk('abbWindow');
+  for (const cz of F.camZ) for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]])
+    rod(frontFov, [F.x, F.camY, cz], [F.x + sx * F.fov[1] / 2, b.top + 4, bz + sz * F.fov[0] / 2], 4, MARK.fov, 6);
+  for (const [sx, sz, w, d] of [[0, -1, F.fov[1], 10], [0, 1, F.fov[1], 10], [-1, 0, 10, F.fov[0]], [1, 0, 10, F.fov[0]]])
+    block(frontFov, [w, 6, d], [F.x + sx * F.fov[1] / 2, b.top + 6, bz + sz * F.fov[0] / 2], MARK.fov);
+  for (const [sx, sz, w, d] of [[0, -1, 2 * L.abb.window, 10], [0, 1, 2 * L.abb.window, 10], [-1, 0, 10, bw], [1, 0, 10, bw]])
+    block(abbWin, [w, 6, d], [L.abb.x + sx * L.abb.window, b.top + 6, bz + sz * bw / 2], MARK.win);
+  for (let i = 0; i < 72; i++) {                                                   // ABB 工作直徑 1600 的地面圓
+    const t0 = i / 72 * Math.PI * 2, t1 = (i + .55) / 72 * Math.PI * 2, R = L.abb.reach;
+    rod(dimMark, [L.abb.x + R * Math.cos(t0), 10, bz + R * Math.sin(t0)], [L.abb.x + R * Math.cos(t1), 10, bz + R * Math.sin(t1)], 6, MARK.dim, 4);
+  }
   const elec = createElectrical(scene, { cab, frame, robot, belt, vision, hmi, marks, cameras, tool, leds, towerLights, L });
   const pk = L.pick;
   for (const [x, z, w, d] of [[pk.cx, pk.z[0], pk.x[1] - pk.x[0], 10], [pk.cx, pk.z[1], pk.x[1] - pk.x[0], 10],
@@ -251,12 +269,65 @@ export function createProject({ scene }) {
     const grp = buildItem(it.kind); itemsG.add(grp);
     const extent = it.L * Math.abs(Math.sin(it.theta)) + it.W * Math.abs(Math.cos(it.theta));
     const rec = { ...it, grp, extent };
-    rec.zAt = x => pk.cz + it.lat * Math.max(0, (gapAt(x) - g0.margin - extent) / 2);
+    rec.zAt = it.zFix != null ? () => it.zFix : x => pk.cz + it.lat * Math.max(0, (gapAt(x) - g0.margin - extent) / 2);
     rec.z = rec.zAt(pk.cx);
     return rec;
   });
   const itemById = new Map(items.map(it => [it.id, it]));
   const maxBeltH = Math.max(...items.map(it => it.H));
+
+  // ================================================================ 前段 ABB：排程與路徑
+  // 規則只有一條（先到先抓、沒空就放行）：目標進到抓取線前後 ±window 的窗口時，手臂若能在它離開窗口前就位就抓；
+  // 上一件還沒放完、趕不到，就放行給後段。哪幾件被放行不是指定的，是這條規則跑出來的結果——
+  // 後段的取放工單（下面的 jobs）只排「沒被 ABB 抓走」的目標。
+  const AB = L.abb, abbDur = ABB_PHASES.map(p => p.dur), ABB_PRE = sumDur(abbDur, 3);
+  const abbHome = { x: AB.x, y: AB.carryY, z: bz };
+  const abbJobs = [], passed = [], abbSegs = [];
+  const frontTargets = items.filter(it => it.cls !== 'other').sort((p, q) => q.off - p.off);   // 依到達順序
+  {
+    const ch = AB.chute, slideLen = (ch.zOut - AB.release) / Math.cos(front.slope);
+    const slideAcc = G * (Math.sin(front.slope) - .22 * Math.cos(front.slope));     // 滑槽上的加速度（摩擦係數 0.22，示意）
+    let ready = -Infinity, pos = abbHome, tau = 0;                                  // ready：上一趟放完料、可以再出發的時間
+    const push = s => abbSegs.push(s);
+    for (const it of frontTargets) {
+      const enter = (AB.x - AB.window - it.off) / BELT_V, leave = (AB.x + AB.window - it.off) / BELT_V;
+      const grab = Math.max(enter, ready + ABB_PRE);
+      if (grab > leave + 1e-9) { it.pass = { enter, leave, busyUntil: ready }; passed.push(it); continue; }
+      const t0 = grab - ABB_PRE, at = k => t0 + sumDur(abbDur, k), z = it.zAt(AB.x), grabY = b.top + 2 + it.H + 1.5;
+      const side = it.cls === 'food' ? -1 : 1, zones = front.zones.filter(zn => zn.side === side);
+      const zone = zones[zones[0].used <= zones[1].used ? 0 : 1], slot = zone.slots[zone.used++ % zone.slots.length];
+      const rel = { x: zone.x, y: AB.carryY, z: bz + side * AB.release };
+      const job = { item: it, tau0: t0, grabTau: grab, endTau: t0 + ABB_CT, releaseTau: at(5) + .03, side, zone, slot, rel };
+      job.landTau = job.releaseTau + Math.sqrt(2 * Math.max(1, AB.carryY - 1.5 - it.H - front.chuteY(AB.release) - 2) / G);
+      job.exitTau = job.landTau + Math.sqrt(2 * slideLen / slideAcc);
+      job.binTau = job.exitTau + .45;
+      it.abbJob = job; abbJobs.push(job);
+      if (pos === abbHome && t0 > tau) push({ kind: 'hold', tau0: tau, dur: t0 - tau, p0: abbHome, action: 'ABB：待機', sub: '窗口內沒有目標' });
+      else if (t0 - tau > .9) {                                                     // 有空檔：先回抓取線上方待機
+        push({ kind: 'move', tau0: tau, dur: .45, p0: pos, p1: abbHome, action: 'ABB：回待機位', sub: '等待下一個目標進入窗口' });
+        push({ kind: 'hold', tau0: tau + .45, dur: t0 - tau - .45, p0: abbHome, action: 'ABB：待機', sub: '窗口內沒有目標' }); pos = abbHome;
+      } else if (t0 > tau) push({ kind: 'hold', tau0: tau, dur: t0 - tau, p0: pos, action: 'ABB：待機', sub: '等待下一個目標進入窗口' });
+      const pg = { x: it.off + BELT_V * grab, y: grabY, z }, pu = { ...pg, y: AB.carryY }, meta = { job, item: it };
+      push({ ...meta, ...ABB_PHASES[0], kind: 'move', tau0: at(0), dur: abbDur[0], p0: pos, p1: { x: it.off + BELT_V * at(1), y: AB.carryY, z } });
+      push({ ...meta, ...ABB_PHASES[1], kind: 'track', tau0: at(1), dur: abbDur[1], y: [AB.carryY, grabY], z });
+      push({ ...meta, ...ABB_PHASES[2], kind: 'track', tau0: at(2), dur: abbDur[2], y: [grabY, grabY], z });
+      push({ ...meta, ...ABB_PHASES[3], kind: 'move', tau0: at(3), dur: abbDur[3], p0: pg, p1: pu });
+      push({ ...meta, ...ABB_PHASES[4], kind: 'move', tau0: at(4), dur: abbDur[4], p0: pu, p1: rel, sub: `${it.cls === 'food' ? '食品' : '非食品'} HDPE → ${side < 0 ? '−Z' : '+Z'} 側滑槽` });
+      push({ ...meta, ...ABB_PHASES[5], kind: 'hold', tau0: at(5), dur: abbDur[5], p0: rel });
+      ready = job.endTau; pos = rel; tau = job.endTau;
+    }
+    push({ kind: 'move', tau0: tau, dur: .45, p0: pos, p1: abbHome, action: 'ABB：回待機位', sub: '前段分選結束' });
+    push({ kind: 'hold', tau0: tau + .45, dur: Math.max(1, timing.tauTotal - tau - .45), p0: abbHome, action: 'ABB：待機', sub: '' });
+  }
+  /** ABB 吸嘴口在製程時間 τ 的位置（世界座標）與所在的子動作 */
+  function abbAt(τ) {
+    let lo = 0, hi = abbSegs.length - 1;
+    while (lo < hi) { const m = (lo + hi) >> 1; if (τ < abbSegs[m].tau0 + abbSegs[m].dur) hi = m; else lo = m + 1; }
+    const s = abbSegs[lo], u = s.dur > 0 ? Math.min(1, Math.max(0, (τ - s.tau0) / s.dur)) : 1, e = EASE(u);
+    if (s.kind === 'hold') return { p: s.p0, seg: s };
+    if (s.kind === 'move') return { p: { x: s.p0.x + (s.p1.x - s.p0.x) * e, y: s.p0.y + (s.p1.y - s.p0.y) * e, z: s.p0.z + (s.p1.z - s.p0.z) * e }, seg: s };
+    return { p: { x: s.item.off + BELT_V * (s.tau0 + u * s.dur), y: s.y[0] + (s.y[1] - s.y[0]) * e, z: s.z }, seg: s };
+  }
 
   // ================================================================ 運動學輔助
   const ELBOW = -1;                                                                // 全程同一肘部方向
@@ -332,7 +403,7 @@ export function createProject({ scene }) {
   let q = HOME, qP0 = HOME_P, tau = 0, free = 0;
 
   for (const it of items) {
-    if (it.cls === 'other') continue;
+    if (it.cls === 'other' || it.abbJob) continue;
     const dest = it.cls === 'food' ? 'A' : 'B', d = divOf(dest);
     const grabTau = (pk.cx - it.off) / BELT_V, grabY = b.top + 2 + it.H + 1.5;
     const dBase = PHASES.map(p => p.dur);
@@ -405,18 +476,42 @@ export function createProject({ scene }) {
   function apply(t) {
     const ch = chapterAt(t), τ = timing.tau(t), s = BELT_V * τ;
     beltTex.offset.x = -s / 120;
-    for (const r of rollers) r.rotation.z = s / b.roller;
+    for (const r of rollers) r.rotation.y = s / b.roller;                           // 滾筒繞自己的軸轉（網格已先繞 X 轉 90°，自轉軸是本地 Y）
+    front.tex.offset.x = -s / 120;
+    for (const r of front.rollers) r.rotation.y = s / L.site.roller;
+    const abb = abbAt(τ);
+    front.delta.set(front.toPlatform(abb.p.x, abb.p.y, abb.p.z));
 
     const { q: qq, seg } = armAt(τ);
     arm.setJoints({ j1: qq.j1, j2: qq.j2, d3: qq.d3, j4: qq.j4 });
     plunger.position.y = -qq.fl;
     const tcp = tcpOf(qq);
 
-    const counts = { A: 0, B: 0, other: 0, missed: 0 };
+    const counts = { A: 0, B: 0, other: 0, missed: 0, abb: 0, handoff: 0 };
     for (const it of items) {
       const job = it.job, grp = it.grp;
-      let x = it.off + s, y = b.top + 2, z = it.zAt(x), rot = it.theta, show = true;
-      if (job && τ >= job.grabTau) {
+      let x = it.off + s, y = b.top + 2, z = it.zAt(x), rot = it.theta, show = true, tilt = 0;
+      const aj = it.abbJob;
+      if (it.pass && τ >= it.pass.leave) counts.handoff++;
+      if (aj && τ >= aj.grabTau) {
+        const zRel = AB.chute.zOut, yEnd = front.chuteY(zRel) + 2;
+        if (τ < aj.releaseTau) {                                                   // 吸附中：跟著 ABB 吸嘴口
+          x = abb.p.x; z = abb.p.z; y = abb.p.y - 1.5 - it.H;
+        } else if (τ < aj.landTau) {                                               // 放料後自由落下到滑槽
+          const dt = τ - aj.releaseTau;
+          x = aj.rel.x; z = aj.rel.z; y = AB.carryY - 1.5 - it.H - G * dt * dt / 2;
+        } else if (τ < aj.exitTau) {                                               // 沿滑槽等加速度滑下
+          const u = (τ - aj.landTau) / (aj.exitTau - aj.landTau), zr = AB.release + (zRel - AB.release) * u * u;
+          x = aj.rel.x; z = bz + aj.side * zr; y = front.chuteY(zr) + 2; tilt = aj.side * front.slope;
+        } else if (τ < aj.binTau) {                                                // 落進收料籃
+          const u = (τ - aj.exitTau) / (aj.binTau - aj.exitTau);
+          x = aj.rel.x + (aj.slot.x - aj.rel.x) * u; z = bz + aj.side * zRel + (aj.slot.z - bz - aj.side * zRel) * u;
+          y = yEnd + (aj.slot.y - yEnd) * u * u; rot = it.theta + (aj.slot.theta - it.theta) * u; tilt = aj.side * front.slope * (1 - u);
+        } else {                                                                   // 籃內定位
+          x = aj.slot.x; z = aj.slot.z; y = aj.slot.y; rot = aj.slot.theta;
+        }
+        if (τ >= aj.landTau) counts.abb++;
+      } else if (job && τ >= job.grabTau) {
         const d = divOf(job.dest);
         if (τ < job.releaseTau) {                                                  // 吸附中：跟著吸盤面
           x = tcp.p.x; z = tcp.p.z; y = tcp.p.y - 1.5 - it.H; rot = tcp.yaw - Math.PI / 2;
@@ -436,17 +531,19 @@ export function createProject({ scene }) {
       } else if (x > b.x[1]) {
         show = false;
         if (it.cls === 'other') counts.other++; else counts.missed++;
-      } else if (x < b.x[0]) show = false;
+      } else if (x < L.site.x[0] + L.site.roller) show = false;                    // 還在上游入料罩裡
       grp.visible = show;
-      if (show) { grp.position.set(x, y, z); grp.rotation.y = rot; }
+      if (show) { grp.position.set(x, y, z); grp.rotation.y = rot; grp.rotation.x = tilt; }
     }
 
     fovMark.visible = ch.id === 'vision' || ch.id === 'ai';
     winMark.visible = ['track', 'pickA', 'pickB', 'pass', 'burst'].includes(ch.id);
     dimMark.visible = ch.id === 'overview' || ch.id === 'infeed';
+    frontFov.visible = ch.id === 'frontVision' || ch.id === 'frontAI';
+    abbWin.visible = ['abbTrack', 'abbPick', 'handoff'].includes(ch.id);
     const running = timing.rate(t) > .01 || ch.id === 'ai', alarm = counts.missed > 0;
     for (const lens of leds) lens.material = running ? LED_ON : MAT.alu;
-    lightPatch.visible = running;
+    lightPatch.visible = front.lightPatch.visible = running;
     towerLights[0].material = alarm ? MAT.red : MAT.steelDark;
     towerLights[1].material = !alarm && !running ? MAT.amber : MAT.steelDark;
     towerLights[2].material = running && !alarm ? MAT.green : MAT.steelDark;
@@ -455,8 +552,12 @@ export function createProject({ scene }) {
       t, tau: τ, s, chapter: ch, station: ch.station, counts, alarm, q: qq, tcp, rate: timing.rate(t),
       action: seg.action || ch.name, sub: seg.sub || ch.note, job: seg.job || null,
       picks: jobs.filter(j => j.releaseTau <= τ).length,
+      // 前段 ABB 當下的動作（側欄在前段的段落改顯示這一組）
+      abb: { action: abb.seg.action, sub: abb.seg.sub || '', job: abb.seg.job || null, p: abb.p, picks: abbJobs.filter(j => j.releaseTau <= τ).length },
     };
     last.electrical = elec.set(last);
+    front.setScreen([['ABB 分選站　SIM／示意', '#2a6f9c', 44], [`吸取次數　${last.abb.picks}`], [`放行給後段　${counts.handoff}`],
+      [`輸送帶速度　${(BELT_V / 10 * last.rate).toFixed(1)} cm/s`], [alarm ? '後段：目標間距不足' : last.abb.action, alarm ? '#b3402f' : '#2c7a56', 34]]);
     return last;
   }
 
@@ -522,7 +623,36 @@ export function createProject({ scene }) {
     return [min < lo - .5 ? `${name} ${k} ${min.toFixed(0)} < ${lo}` : '', max > hi + .5 ? `${name} ${k} ${max.toFixed(0)} > ${hi}` : ''];
   }).filter(Boolean));
 
+  // ---- 前段的檢核量：ABB 逆解、工作範圍、吸嘴速度、抓取間隔，以及帶上工件的間隙
+  const abbMetrics = (() => {
+    const n = 6000, h = timing.tauTotal / n, out = { bad: 0, maxR: 0, maxTheta: 0, minTheta: 0, v: 0 };
+    let prev = null;
+    for (let i = 0; i <= n; i++) {
+      const { p } = abbAt(h * i), q = front.toPlatform(p.x, p.y, p.z), th = deltaIK(q, AB.delta);
+      if (!th) { out.bad++; continue; }
+      out.maxR = Math.max(out.maxR, Math.hypot(q[0], q[2]));
+      out.maxTheta = Math.max(out.maxTheta, ...th.map(t => t / D2R)); out.minTheta = Math.min(out.minTheta, ...th.map(t => t / D2R));
+      if (prev) out.v = Math.max(out.v, Math.hypot(p.x - prev.x, p.y - prev.y, p.z - prev.z) / h);
+      prev = p;
+    }
+    out.gaps = abbJobs.slice(1).map((j, i) => +(j.grabTau - abbJobs[i].grabTau).toFixed(4));
+    out.clear = AB.carryY - 1.5 - Math.max(...abbJobs.map(j => j.item.H)) - (b.top + L.site.wall);
+    const up = items.map(it => ({ ...it, x: it.off, z: upstreamZ(it) }));
+    out.itemGap = Math.min(...up.flatMap((p, i) => up.slice(i + 1).map(q => footprintGap(p, q))));
+    return out;
+  })();
+  const passedOk = passed.every(it => it.job || missed.some(m => m.item === it));
+
   const layoutChecks = () => [
+    { group: '前段', name: `前段雙眼重疊視野涵蓋帶寬 ${bw} mm`, ok: front.cameras[0].fieldOfView(F.wd)[0] - F.baseline >= bw, value: `${Math.round(front.cameras[0].fieldOfView(F.wd)[0] - F.baseline)} / ${bw} mm`, note: `WD ${F.wd}、單眼視野 ${front.cameras[0].fieldOfView(F.wd).map(Math.round).join(' × ')} mm（示意）` },
+    { group: '前段', name: '前段取像到 ABB 抓取的飛行時間 > 視覺鏈路 0.29 s', ok: (AB.x - AB.window - F.x) / BELT_V > .29, value: `${((AB.x - F.x) / BELT_V).toFixed(2)} s` },
+    { group: '前段', name: 'ABB 逆解全程有效、主動臂 −45°…+85° 內', ok: !abbMetrics.bad && abbMetrics.maxTheta <= 85 && abbMetrics.minTheta >= -45, value: `${abbMetrics.minTheta.toFixed(0)}°…${abbMetrics.maxTheta.toFixed(0)}°` },
+    { group: '前段', name: `ABB 動平台在工作直徑 ${2 * AB.reach} 內`, ok: abbMetrics.maxR <= AB.reach, value: `最遠 ${abbMetrics.maxR.toFixed(0)} / ${AB.reach} mm` },
+    { group: '前段', name: 'ABB 吸嘴峰值速度 ≤ 6 m/s（示意）', ok: abbMetrics.v <= 6000, value: `${(abbMetrics.v / 1000).toFixed(1)} m/s` },
+    { group: '前段', name: `ABB 抓取間隔不小於單趟 ${ABB_CT.toFixed(2)} s`, ok: Math.min(...abbMetrics.gaps) >= ABB_CT - 1e-6, value: `最短 ${Math.min(...abbMetrics.gaps).toFixed(2)} s · ${abbJobs.length} 趟` },
+    { group: '前段', name: 'ABB 搬運工件越過側牆淨空 ≥80 mm', ok: abbMetrics.clear >= 80, value: `${abbMetrics.clear.toFixed(0)} mm` },
+    { group: '前段', name: '帶上工件互不重疊（間隙 ≥15 mm）', ok: abbMetrics.itemGap >= 15, value: `最小 ${abbMetrics.itemGap.toFixed(0)} mm` },
+    { group: '前段', name: 'ABB 放行的目標都由後段接手', ok: passedOk && passed.length === jobs.length + missed.length, value: `放行 ${passed.length} 件 → 補抓 ${jobs.length}、漏抓 ${missed.length}` },
     { group: '可達性', name: '抓放全程在動作半徑內', ok: metrics.maxR <= a.reach - 20, value: `最遠 ${metrics.maxR.toFixed(0)} / ${a.reach - 20} mm` },
     { group: '可達性', name: '不進入最小迴轉半徑', ok: metrics.minR >= 60, value: `最近 ${metrics.minR.toFixed(0)} mm` },
     { group: '可達性', name: `J2 避開基座干涉區（≤${a.j2max}°）`, ok: metrics.maxJ2 <= a.j2max, value: `${metrics.maxJ2.toFixed(0)}°` },
@@ -551,12 +681,19 @@ export function createProject({ scene }) {
   return {
     electrical: elec, visionCamera: cameras[0], visionCameras: cameras, marks, lightPatch,
     total: TOTAL, apply, layoutChecks, timing, jobs, missed, items, itemById, arm, segs, metrics, ctGaps, bad, throughput,
+    front, frontCameras: front.cameras, abbJobs, passed, abbSegs, abbAt, abbMetrics,
     stationStart: STATIONS.map((_, k) => (CHAPTERS.find(c => c.station === k) ?? CHAPTERS[0]).t[0]),
     get state() { return last; },
     /** 焦點追隨的目標：正在處理的工件，否則是下一個目標 */
     focusItem() {
+      const τ = last?.tau ?? 0;
+      if (last?.chapter.front) {                                                   // 前段的段落：看 ABB 正在處理或下一個到抓取線的目標
+        if (last.chapter.id === 'handoff') { const it = [...passed].reverse().find(i => i.pass.enter <= τ); if (it) return it; }
+        if (last.abb.job) return last.abb.job.item;
+        return frontTargets.find(it => (it.abbJob ? it.abbJob.grabTau : it.pass.leave) > τ) || null;
+      }
       if (last?.job) return itemById.get(last.job.item.id);
-      const τ = last?.tau ?? 0, next = jobs.find(j => j.endTau > τ);
+      const next = jobs.find(j => j.endTau > τ);
       return next ? itemById.get(next.item.id) : items.find(it => it.grp.visible) || null;
     },
     verify: {
@@ -569,9 +706,10 @@ export function createProject({ scene }) {
       skip: o => o === marks || o.parent === marks,
       allow: [
         { why: '工件被吸盤吸附時與吸盤面接觸', test: (x, y, ctx) => [x, y].some(m => m.name === 'suction cup') && [x, y].some(m => ctx.moduleOf(m) === 'items') },
-        { why: '工件由輸送帶、分流帶或收料箱承載', test: (x, y, ctx) => [x, y].some(m => ctx.moduleOf(m) === 'items') && [x, y].some(m => ['mainBelt', 'divA', 'divB', 'bins'].includes(ctx.moduleOf(m))) },
+        { why: '工件由輸送帶、分流帶、滑槽或收料箱（籃）承載', test: (x, y, ctx) => [x, y].some(m => ctx.moduleOf(m) === 'items') && [x, y].some(m => ['mainBelt', 'siteBelt', 'divA', 'divB', 'bins', 'abbBins'].includes(ctx.moduleOf(m))) },
+        { why: '真空軟管的兩端接在吸嘴接頭與固定管上', test: (x, y) => [x, y].some(m => m.name === 'vacuum hose') && [x, y].some(m => m.name === 'hose port' || m.name === 'hose anchor') },
       ],
-      envelope: ['robot'],
+      envelope: ['robot', 'abbRobot'],
     },
   };
 }

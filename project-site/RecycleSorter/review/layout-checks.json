@@ -2,9 +2,64 @@
   "variant": "預設",
   "params": {},
   "ok": true,
-  "count": 22,
+  "count": 31,
   "failures": [],
   "rows": [
+    {
+      "group": "前段",
+      "name": "前段雙眼重疊視野涵蓋帶寬 600 mm",
+      "ok": true,
+      "value": "624 / 600 mm",
+      "note": "WD 1050、單眼視野 924 × 693 mm（示意）"
+    },
+    {
+      "group": "前段",
+      "name": "前段取像到 ABB 抓取的飛行時間 > 視覺鏈路 0.29 s",
+      "ok": true,
+      "value": "7.00 s"
+    },
+    {
+      "group": "前段",
+      "name": "ABB 逆解全程有效、主動臂 −45°…+85° 內",
+      "ok": true,
+      "value": "-23°…48°"
+    },
+    {
+      "group": "前段",
+      "name": "ABB 動平台在工作直徑 1600 內",
+      "ok": true,
+      "value": "最遠 599 / 800 mm"
+    },
+    {
+      "group": "前段",
+      "name": "ABB 吸嘴峰值速度 ≤ 6 m/s（示意）",
+      "ok": true,
+      "value": "3.6 m/s"
+    },
+    {
+      "group": "前段",
+      "name": "ABB 抓取間隔不小於單趟 1.15 s",
+      "ok": true,
+      "value": "最短 1.20 s · 21 趟"
+    },
+    {
+      "group": "前段",
+      "name": "ABB 搬運工件越過側牆淨空 ≥80 mm",
+      "ok": true,
+      "value": "104 mm"
+    },
+    {
+      "group": "前段",
+      "name": "帶上工件互不重疊（間隙 ≥15 mm）",
+      "ok": true,
+      "value": "最小 20 mm"
+    },
+    {
+      "group": "前段",
+      "name": "ABB 放行的目標都由後段接手",
+      "ok": true,
+      "value": "放行 13 件 → 補抓 12、漏抓 1"
+    },
     {
       "group": "可達性",
       "name": "抓放全程在動作半徑內",
@@ -118,7 +173,7 @@
       "group": "軸速（示意）",
       "name": "J1 峰值 ≤700°/s",
       "ok": true,
-      "value": "699°/s"
+      "value": "698°/s"
     },
     {
       "group": "軸速（示意）",

@@ -24,13 +24,14 @@
   <header id="topbar">
     <div class="brand">
       <div class="title">回收物自動分揀展示機</div>
-      <div class="sub">雙視覺立體影像分類 ＋ DENSO HSR065 SCARA 吸盤分揀 ／ 同類連抓 1.4 s／混合料流約 1.5 s</div>
+      <div class="sub">既有 ABB 分選站的後段補抓 ／ 雙視覺立體影像分類 ＋ DENSO HSR065 SCARA 吸盤分揀 ／ 同類連抓 1.4 s／混合料流約 1.5 s</div>
     </div>
     <nav id="stations" aria-label="站別"></nav>
     <div class="views">
-      <button data-view="overview">全景</button>
+      <button data-view="line">全線</button>
+      <button data-view="abb">前段</button>
+      <button data-view="overview">後段</button>
       <button data-view="top">俯視</button>
-      <button data-view="infeed">入料</button>
       <button data-view="vision">取像</button>
       <button data-view="pick">取放</button>
       <button data-view="outfeed">出料</button>
@@ -44,6 +45,10 @@
       <div id="action" class="action">待命</div>
       <div id="substep" class="substep"></div>
       <div id="chapterNote" class="substep"></div>
+    </section>
+    <section class="card">
+      <h3>整合流程 <span class="hint">新視覺串起兩支手臂</span></h3>
+      <ol id="flow" class="flow"></ol>
     </section>
     <section class="card">
       <h3>分揀統計 <span class="hint" id="alarm"></span></h3>

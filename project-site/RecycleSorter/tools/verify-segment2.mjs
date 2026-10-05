@@ -31,15 +31,21 @@ const fov=p.visionCameras[0].fieldOfView(800);
 assert.ok(Math.abs(fov[0]-704)<1e-8 && Math.abs(fov[1]-528)<1e-8);
 assert.equal(p.visionCameras.length,2);
 assert.equal(p.visionCameras[0].root.position.distanceTo(p.visionCameras[1].root.position),300);
+// 前段（ABB 站）的立體取像站與後段同規格
+const frontFov=p.frontCameras[0].fieldOfView(1050);
+assert.ok(Math.abs(frontFov[0]-924)<1e-8 && Math.abs(frontFov[1]-693)<1e-8);
+assert.ok(frontFov[0]-300>=600,'前段雙眼重疊視野要涵蓋 600 帶寬');
+assert.equal(p.frontCameras.length,2);
+assert.equal(p.frontCameras[0].root.position.distanceTo(p.frontCameras[1].root.position),300);
 const snapshot=()=>{
   scene.updateMatrixWorld(true);
   return p.items.map(i=>[i.id,i.grp.visible,...i.grp.matrixWorld.elements]);
 };
 const frames=[];
-for(const t of [0,20,25,30.8,36,41,59.4,74.6,88,96,25,36]) {
+for(const t of [0,41,46,51.8,57,62,80.4,95.6,109,117,46,57]) {
   p.apply(t);const original=snapshot(), q={...p.state.q};
   const sample=[];
-  for(const source of ['CAM1','CAM2','auto']) {
+  for(const source of ['CAM1','CAM2','CAM3','CAM4','auto']) {
     withVisionFrame(p,scene,source,data=>{
       assert.ok(data.captureTime<=t+1e-8,'取像不可來自未來');
       assert.ok(data.title.includes('SIM／示意'));
@@ -61,10 +67,14 @@ assert.deepEqual(frames[2].sample,frames[10].sample,'倒序回到相同時間應
 assert.deepEqual(frames[4].sample,frames[11].sample,'直接跳到分析段應得到同一份判定');
 assert.deepEqual(frames[3].sample,frames[4].sample,'分析段維持前次取像');
 assert.ok(frames.some(f=>f.sample.some(s=>s.regions.some(r=>r.region&&!r.region.clipped))),'至少一個完整工件落在相機視野內');
-p.apply(52);const before=snapshot();
+// 前段的凍結分析段：同一張取像、看得到完整工件，且同時有「派給 ABB」與「放行」兩種判定
+const frontFrames=[14.85,20,14.85].map(t=>{p.apply(t);let out;withVisionFrame(p,scene,'CAM3',data=>{assert.ok(data.title.includes('前段'));out=data.marks.marks.map(m=>({label:m.label,status:m.status,region:projectRegion(m.points,data.camera,704,528)}));});return out;});
+assert.deepEqual(frontFrames[0],frontFrames[1],'前段分析段維持前次取像');assert.deepEqual(frontFrames[0],frontFrames[2],'前段倒序回到相同時間應取到相同影像');
+assert.ok(frontFrames[0].some(r=>r.status==='ok'&&r.region&&!r.region.clipped)&&frontFrames[0].some(r=>r.status==='preview'&&r.region&&!r.region.clipped),'前段取像應同時看到派給 ABB 與放行的目標');
+p.apply(73);const before=snapshot();
 const patchBefore=p.lightPatch.visible;
 assert.throws(()=>withVisionFrame(p,scene,'CAM1',()=>{throw new Error('測試還原');}));
-assert.equal(p.state.t,52);const after=snapshot();
+assert.equal(p.state.t,73);const after=snapshot();
 assert.equal(p.lightPatch.visible,patchBefore,'取像失敗也應還原展示光斑');
 for(let i=0;i<after.length;i++) if(before[i][1]) assert.deepEqual(after[i],before[i]);
 // 手機隱藏子畫面時不得倒轉製程、更新 HMI 或執行相機繪製；重新開啟仍還原時間。
@@ -73,12 +83,12 @@ p.apply=(...args)=>{applyCalls++;return originalApply(...args);};
 assert.equal(renderVisionFrame(p,scene,'CAM1',()=>{drawCalls++;},false),false);
 assert.equal(applyCalls,0);assert.equal(drawCalls,0);assert.deepEqual(snapshot(),after);
 assert.equal(renderVisionFrame(p,scene,'CAM2',data=>{drawCalls++;assert.ok(data.title.includes('CAM-R'));},true),true);
-assert.equal(applyCalls,2);assert.equal(drawCalls,1);assert.equal(p.state.t,52);
+assert.equal(applyCalls,2);assert.equal(drawCalls,1);assert.equal(p.state.t,73);
 assert.equal(p.lightPatch.visible,patchBefore);p.apply=originalApply;
 const connections=[];scene.traverse(o=>{if(o.userData.electricalWire)connections.push(o.userData.electricalWire);});
 for(const [from,to] of [['QF2','K1'],['K1','K2'],['K2','D1'],['K2','D2'],['K2','D3'],['GC1','K1'],['GC1','K2'],['K1','IO2'],['K2','IO2'],['QF1','IPC1']])
   assert.ok(connections.some(w=>w.from===from&&w.to===to),`缺少功能連線 ${from} → ${to}`);
 assert.equal(p.electrical.rc.userData.electrical.free,true);
 assert.ok(p.verify.cables.obstacles().includes(p.arm.armParts[0]));
-writeFileSync('review/segment2-data.json',JSON.stringify({ok:true,cameras:2,fov,connections:connections.length,frames},null,2));
+writeFileSync('review/segment2-data.json',JSON.stringify({ok:true,cameras:2,frontCameras:2,fov,connections:connections.length,frames,frontFrames:frontFrames[0]},null,2));
 console.log('第二段：雙相機投影、凍結取像、倒序還原與安全功能連線通過');
