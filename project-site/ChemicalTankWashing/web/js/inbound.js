@@ -2,9 +2,9 @@
 // 懸臂吊方位 a（度）：手臂方向 (cos a, −sin a)，與 AGV 方位同一定義；r 為吊點半徑，y 為桶中心高度。
 import * as THREE from 'three';
 import { INBOUND, DRUM, ROOM } from './layout.js';
-import { D2R, block, cylinder, plate, rod } from '@core/geom/shapes.js';
+import { D2R, block, cylinder, plate } from '@core/geom/shapes.js';
 import { MAT } from '@core/geom/materials.js';
-import { bolts, motor } from '@core/geom/hardware.js';
+import { dolly as dollyModel, jibCrane } from '@core/models/transport-handling.js';
 
 export const DOLLY_H = 120;
 // 懸臂吊吊點對應的桶中心
@@ -34,29 +34,11 @@ export function createInbound(scene) {
   // 入庫棧板座
   block(group, [1260, ib.stand, 1260], [ib.x, ib.stand / 2, ib.z], MAT.steelDark);   // 不碰到東側貨架腳座
   for (const [dx, dz] of [[-660, 300], [-660, -300], [300, -660], [-300, -660]]) block(group, [Math.abs(dx) === 660 ? 40 : 300, 40, Math.abs(dx) === 660 ? 300 : 40], [ib.x + dx, ib.stand + 20, ib.z + dz], MAT.yellow);   // 定位擋條在棧板外、高 40：AGV 叉起棧板（離台 60 mm）弧線駛出時從上方通過
-  // 懸臂吊
+  // 懸臂吊：core 的懸臂吊模型（立柱、手臂、台車、吊鏈、夾桶具）；方位、半徑、夾具高度與開合交給模型的 set()
   const j = ib.jib;
-  cylinder(group, 130, j.armY + 190, [j.x, (j.armY + 190) / 2, j.z], MAT.steelOrange, 'y', 20);
-  block(group, [600, 40, 600], [j.x, 20, j.z], MAT.steelDark);
-  const arm = new THREE.Group(); arm.position.set(j.x, j.armY, j.z); group.add(arm);
-  block(arm, [j.reach, 140, 35], [j.reach / 2, 0, 0], MAT.steelOrange);
-  for (const y of [-85, 85]) block(arm, [j.reach, 30, 180], [j.reach / 2, y, 0], MAT.steelOrange);
-  rod(arm, [100, 180, 0], [j.reach - 300, 100, 0], 18, MAT.steelDark);   // 拉桿隨臂長
-  bolts(group, [-1, 1].flatMap(a => [-1, 1].map(b => [j.x + a * 230, 48, j.z + b * 230])), 20);
-  block(arm, [300, 160, 160], [0, 120, 0], MAT.steelDark);
-  const trolley = new THREE.Group(); arm.add(trolley);
-  block(trolley, [220, 120, 220], [0, -150, 0], MAT.black);
-  motor(trolley, 0, -150, 130, .55);
-  for (const s of [-1, 1]) cylinder(trolley, 45, 28, [0, -50, s * 85], MAT.steel, "z", 28);
-  const chain = cylinder(trolley, 10, 1, [0, 0, 0], MAT.steel, 'y', 6);
-  const clamp = new THREE.Group(); trolley.add(clamp);
-  block(clamp, [520, 50, 120], [0, 25, 0], MAT.steelDark);
-  const claws = [-1, 1].map(s => { const c = block(clamp, [30, 120, 100], [0, -30, 0], MAT.yellow); c.userData.s = s; return c; });
-  // 油桶台車（四輪平台）＋作業員
-  const dolly = new THREE.Group(); group.add(dolly);
-  block(dolly, [640, 40, 640], [0, DOLLY_H - 20, 0], MAT.steelBlue);
-  for (const [x, z] of [[-250, -250], [250, -250], [-250, 250], [250, 250]]) cylinder(dolly, 40, 40, [x, 40, z], MAT.black, 'z', 12);
-  block(dolly, [30, 900, 30], [-340, 500, -200], MAT.steel); block(dolly, [30, 900, 30], [-340, 500, 200], MAT.steel); block(dolly, [30, 30, 430], [-340, 950, 0], MAT.steel);
+  const jib = jibCrane.create({ armY: j.armY, reach: j.reach, gripR: DRUM.R - 10 }); jib.root.position.set(j.x, 0, j.z); group.add(jib.root);
+  // 油桶台車（四輪平台）：core 的平台台車模型，推著走就是移動 root；＋作業員
+  const dolly = dollyModel.create({ height: DOLLY_H }).root; group.add(dolly);
   const worker = person(group);
   plate(group, ['入庫棧板（AGV 取走）'], 900, 140, [ib.x, 450, ib.z + 660], 0, { w: 640, h: 100 });
   return {
@@ -64,10 +46,7 @@ export function createInbound(scene) {
     set({ dollyX, a, r, y, clamp: c, workerX = dollyX - 800, workerZ = ib.dolly.z }) {
       dolly.position.set(dollyX, 0, ib.dolly.z);
       worker.position.set(workerX, 0, workerZ);
-      arm.rotation.y = a * D2R; trolley.position.x = r;
-      const clampY = y + DRUM.H / 2 + 40 - j.armY;   // 夾具在桶頂 L 環上方
-      clamp.position.y = clampY; chain.scale.y = Math.max(1, -clampY - 160); chain.position.y = (clampY + 10 - 150) / 2;   // 吊鏈下端埋進夾具 10 mm
-      for (const k of claws) k.position.x = k.userData.s * (DRUM.R - 10 + (1 - c) * 60);
+      jib.set({ a, r, y: y + DRUM.H / 2 + 40, grip: c });   // 夾具在桶頂 L 環上方
     },
   };
 }

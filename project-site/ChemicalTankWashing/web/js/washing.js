@@ -4,6 +4,8 @@ import { BOOTH, WASTE, ROOM } from './layout.js';
 import { block, blockBetween, cylinder, flowTexture, pipe, plate } from '@core/geom/shapes.js';
 import { MAT } from '@core/geom/materials.js';
 import { flange, gauge, bolts, motor } from '@core/geom/hardware.js';
+import { airKnife, sprayLance, hotAirBlower, vacuumPump, centrifugalPump, diaphragmPump, valve, transferCoupling } from '@core/models/equipment-process.js';
+import { linearAxis } from '@core/models/motion.js';
 
 export function createWashing(scene) {
   const group = new THREE.Group(); group.name = 'washing'; scene.add(group);
@@ -37,12 +39,10 @@ export function createWashing(scene) {
   for (const [x, z] of [[b.x0, b.z0], [b.x1, b.z0], [b.x0, b.z1], [b.x1, b.z1], [ox0, b.z0], [ox1, b.z0]]) block(group, [60, H, 60], [x, H / 2, z], MAT.steel);
   for (const z of [b.z0, b.z1]) block(group, [b.x1 - b.x0 + 60, 60, 60], [(b.x0 + b.x1) / 2, H, z], MAT.steel);
   block(group, [ox1 - ox0 + 20, 50, 50], [(ox0 + ox1) / 2, oy1, b.z0], MAT.steel);
-  // 開口兩側風刀：手臂帶桶退出時吹掉桶外表水珠
+  // 開口兩側風刀：手臂帶桶退出時吹掉桶外表水珠。core 的風刀模型（刀體＋氣流面），原點在刀體中心，氣流往開口內側吹
   const knives = [];
   for (const [x, s] of [[ox0 + 40, 1], [ox1 - 40, -1]]) {
-    block(group, [60, 1700, 80], [x, 1350, b.z0 - 70], MAT.steel);
-    const air = new THREE.Mesh(new THREE.PlaneGeometry(380, 1650), new THREE.MeshBasicMaterial({ color: 0xbfe8ff, transparent: true, opacity: .28, side: THREE.DoubleSide, depthWrite: false }));
-    air.position.set(x + s * 190, 1350, b.z0 - 70); air.visible = false; air.userData.fx = true; group.add(air); knives.push(air);
+    const k = airKnife.create({ side: s }); k.root.position.set(x, 1350, b.z0 - 70); group.add(k.root); knives.push(k.air);
   }
   // 開口上方的防濺簾（條狀 PVC）
   for (let x = ox0 + 60; x < ox1; x += 120) block(group, [100, 220, 4], [x, oy1 - 110, b.z0 + 40], MAT.pp);
@@ -64,26 +64,19 @@ export function createWashing(scene) {
   const [lx, lz] = b.lance, [lx2, lz2] = b.lance2;
   const lanceY = ext => b.lanceUp + (b.lanceDown - b.lanceUp) * ext;   // 噴頭高度
   const LONG = 1750;                                                     // 2" 噴槍管長：伸到桶底時頂端仍在隔間內
-  block(group, [90, 1500, 90], [lx + 110, H + 750, lz], MAT.alu);              // 長行程無桿氣缸導軌
+  // 長行程無桿氣缸導軌：core 的線性模組模型，只畫導軌本體（底座）；氣缸滑塊在 2" 噴槍模型裡，跟著噴槍走
+  group.add(linearAxis.create({ axis: 'y', base: { size: [90, 1500, 90], at: [lx + 110, H + 750, lz], material: MAT.alu }, rails: false, carriage: false, guide: false }).root);
   const guide = new THREE.Mesh(new THREE.CylinderGeometry(40, 40, 1300, 24, 1, true), MAT.ppSolid);
   guide.position.set(lx, H + 650, lz); group.add(guide);           // 中空屋頂導管
   cylinder(group, 50, 300, [lx2, H + 150, lz2], MAT.steel, 'y', 28);
-  const lance = new THREE.Group(); group.add(lance);
-  cylinder(lance, 16, LONG, [0, LONG / 2, 0], MAT.steel, 'y', 12);
-  block(lance, [140, 60, 80], [60, LONG, 0], MAT.steelDark);                    // 氣缸滑塊
-  cylinder(lance, 24, 60, [0, 20, 0], MAT.steelDark, 'y', 12);
-  const lance2 = new THREE.Group(); group.add(lance2);
-  cylinder(lance2, 9, 900, [0, 450, 0], MAT.steel, 'y', 10);
-  cylinder(lance2, 10, 40, [0, 15, 0], MAT.steelDark, 'y', 10);
+  // 兩支噴槍用 core 的沖洗噴槍模型：root 就是伸縮的群組（原點在噴槍管下端），set() 每格直接設位置；噴霧材質兩支共用
   const sprayMat = MAT.water.clone(); sprayMat.opacity = .35; sprayMat.side = THREE.DoubleSide;
-  const spray = new THREE.Mesh(new THREE.ConeGeometry(240, 420, 24, 1, true), sprayMat); spray.position.y = -210; spray.visible = false; spray.userData.fx = true; lance.add(spray);
-  const jet = new THREE.Mesh(new THREE.CylinderGeometry(14, 22, 700, 10, 1, true), sprayMat); jet.position.y = -350; jet.visible = false; jet.userData.fx = true; lance2.add(jet);
-  // 熱風機 HB-1（屋頂）：鼓風機＋電熱器，經 3/4" 噴槍送入熱風
-  block(group, [460, 340, 380], [9330, H + 170, 15150], MAT.steelOrange);
-  plate(group, ['HB-1 熱風機 70°C'], 600, 120, [9330, H + 430, 14955], Math.PI, { w: 640, h: 110 });
-  // 真空泵 VP-1（屋頂）：抽液管頂端軟管 → 真空泵 → 集液槽
-  block(group, [520, 380, 420], [9850, H + 190, 15150], MAT.steelBlue);
-  plate(group, ['VP-1 真空泵（負壓抽液）'], 700, 120, [9850, H + 480, 14935], Math.PI, { w: 640, h: 110 });
+  const l1 = sprayLance.create({ length: LONG, sprayMaterial: sprayMat }), lance = l1.root, spray = l1.spray; group.add(lance);   // 2"：旋轉噴頭（錐形水霧）＋管頂的氣缸滑塊
+  const l2 = sprayLance.create({ length: 900, radius: 9, segments: 10, head: { r: 10, h: 40, y: 15 }, slider: false, spray: { type: 'jet' }, sprayMaterial: sprayMat }), lance2 = l2.root, jet = l2.spray; group.add(lance2);   // 3/4"：直噴水柱
+  // 熱風機 HB-1（屋頂）：鼓風機＋電熱器，經 3/4" 噴槍送入熱風。core 的熱風機模型（箱體＋機內散熱片＋標示牌），原點在箱體底面中心
+  const hb = hotAirBlower.create({ label: { lines: ['HB-1 熱風機 70°C'] } }); hb.root.position.set(9330, H, 15150); group.add(hb.root);
+  // 真空泵 VP-1（屋頂）：抽液管頂端軟管 → 真空泵 → 集液槽。core 的真空泵模型（箱體＋百葉＋標示牌）
+  const vp = vacuumPump.create({ label: { lines: ['VP-1 真空泵（負壓抽液）'] } }); vp.root.position.set(9850, H, 15150); group.add(vp.root);
 
   // ---- 倒液水柱（每幀由桶口位置更新）----
   const streamTex = flowTexture(0x7fcfff); streamTex.repeat.set(1, 6); streamTex.wrapT = THREE.RepeatWrapping;
@@ -114,10 +107,9 @@ export function createWashing(scene) {
   }
   // 泵：P-1 沖洗泵（多段離心，PVDF 接液）、P-2 氣動隔膜泵（集液槽送出）
   const [p1x, p1z] = WASTE.pumpRinse, [p2x, p2z] = WASTE.pumpDrain;
-  block(group, [250, 120, 500], [p1x, 60, p1z], MAT.steelDark); cylinder(group, 100, 300, [p1x, 300, p1z + 60], MAT.steelBlue, 'z', 20); cylinder(group, 110, 120, [p1x, 300, p1z - 160], MAT.ppSolid, 'z', 20);
-  block(group, [250, 420, 360], [p2x, 210, p2z], MAT.ppDark); cylinder(group, 140, 50, [p2x, 260, p2z - 200], MAT.ppSolid, 'z', 20); cylinder(group, 140, 50, [p2x, 260, p2z + 200], MAT.ppSolid, 'z', 20);
-  plate(group, ['P-1 沖洗泵'], 420, 110, [p1x + 130, 560, p1z], Math.PI / 2, { w: 512, h: 130 });
-  plate(group, ['P-2 隔膜泵'], 420, 110, [p2x + 130, 560, p2z], Math.PI / 2, { w: 512, h: 130 });
+  // 兩台泵用 core 的模型（含標示牌），原點在底面中心、泵軸沿 Z
+  const pump1 = centrifugalPump.create({ label: { lines: ['P-1 沖洗泵'] } }); pump1.root.position.set(p1x, 0, p1z); group.add(pump1.root);
+  const pump2 = diaphragmPump.create({ label: { lines: ['P-2 隔膜泵'] } }); pump2.root.position.set(p2x, 0, p2z); group.add(pump2.root);
   const tA = WASTE.tanks.WA, tB = WASTE.tanks.WB, tR = WASTE.tanks.R, tF = WASTE.tanks.F;
   const pipes = {
     fromF: pipe(group, [[tF.x + tF.r, 150, tF.z], [p1x - 180, 150, tF.z], [p1x - 180, 150, p1z - 160], [p1x - 60, 300, p1z - 160]], 30, 0x8fd3ff),
@@ -136,17 +128,17 @@ export function createWashing(scene) {
     outA: pipe(group, [[tA.x, 150, tA.z + tA.r], [tA.x, 150, bz1 - 100], [tA.x, 420, bz1 - 100], [tA.x, 420, ROOM.D - 60], [tA.x, 900, ROOM.D - 60]], 34, 0xff7a45),
     outB: pipe(group, [[tB.x, 150, tB.z + tB.r], [tB.x, 150, bz1 - 100], [tB.x, 420, bz1 - 100], [tB.x, 420, ROOM.D - 60], [tB.x, 900, ROOM.D - 60]], 34, 0xb07cff),
   };
-  block(group, [180, 180, 180], [p2x, 2100, p2z], MAT.steelOrange);                         // V-3 三通切換閥
-  for (const t of [tA, tB]) block(group, [260, 160, 120], [t.x, 900, ROOM.D - 70], MAT.steelOrange);   // 委外清運接頭（酸、鹼分開）
-  block(group, [160, 160, 160], [p2x, 2100, p2z + 200], MAT.steelOrange);                     // V-4 酸／鹼切換閥
+  // 切換閥與清運接頭：core 的模型（目前是箱形示意），原點在中心
+  const v3 = valve.create(); v3.root.position.set(p2x, 2100, p2z); group.add(v3.root);                         // V-3 三通切換閥
+  for (const t of [tA, tB]) { const c = transferCoupling.create(); c.root.position.set(t.x, 900, ROOM.D - 70); group.add(c.root); }   // 委外清運接頭（酸、鹼分開）
+  const v4 = valve.create({ w: 160, h: 160, d: 160 }); v4.root.position.set(p2x, 2100, p2z + 200); group.add(v4.root);   // V-4 酸／鹼切換閥
    // 排氣
   cylinder(group, 140, ROOM.H - H - 100, [8900, H + (ROOM.H - H - 100) / 2, 15250], MAT.ppSolid, 'y', 20);
   plate(group, ['排氣 → 廠務洗滌塔'], 900, 140, [9000, 3700, 14990], Math.PI, { w: 640, h: 100 });
 
-  // 管線法蘭與泵壓表；屋頂機組散熱片。
+  // 管線法蘭與泵壓表（屋頂機組的散熱片與百葉在熱風機、真空泵的模型裡）。
   for (const z of [p1z - 160, p2z]) flange(group, p1x, 600, z, 48);
   gauge(group, p1x - 75, 650, p1z - 180);
-  for (let i = 0; i < 9; i++) { block(group, [5, 190, 280], [9170 + i * 38, H + 210, 15150], MAT.steelDark); block(group, [400, 6, 4], [9850, H + 80 + i * 25, 14937], MAT.black); }
   const _a = new THREE.Vector3(), _b = new THREE.Vector3();
   return {
     group, walls, pipes, tanks, lance, lance2, lanceTip: () => new THREE.Vector3(lx, lanceY(lance.userData.ext || 0), lz),

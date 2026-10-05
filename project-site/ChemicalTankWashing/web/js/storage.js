@@ -1,43 +1,19 @@
 // 穿梭車密集架、棧板、架上桶槽（靜態以 InstancedMesh 繪製）、示範車道與穿梭車。
 import * as THREE from 'three';
 import { RACK, PALLET, DRUM, lanePositions } from './layout.js';
-import { block, cylinder, plate, rod } from '@core/geom/shapes.js';
-import { MAT } from '@core/geom/materials.js';
-import { foot } from '@core/geom/hardware.js';
+import { pallet, shuttleCar, shuttleRack } from '@core/models/transport-handling.js';
 import { createDrumInstances } from './drum.js';
 
-// 塑膠棧板：上板＋三條沿 Z 的底樑（叉子由 Z 向插入，兩側底樑落在穿梭車軌道上）
-export function createPallet(empty = false) {
-  const g = new THREE.Group(), mat = empty ? MAT.palletEmpty : MAT.pallet;
-  block(g, [PALLET.W, 30, PALLET.W], [0, PALLET.H - 15, 0], mat);
-  for (const x of [-550, 0, 550]) block(g, [100, PALLET.H - 30, PALLET.W], [x, (PALLET.H - 30) / 2, 0], mat);
-  return g;
-}
+// 塑膠棧板：core 的塑膠棧板模型（上板＋三條沿 Z 的底樑；叉子由 Z 向插入，兩側底樑落在穿梭車軌道上），回傳 root 群組
+export const createPallet = (empty = false) => pallet.create({ size: PALLET.W, height: PALLET.H, empty }).root;
 const rand = seed => () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32;
 
 export function createStorage(scene, makeDrum) {
   const group = new THREE.Group(); group.name = 'storage'; scene.add(group);
-  const half = RACK.pitch / 2;
-  // ---- 架體：立柱（藍）、軌道（橘）、頂樑；最西一道只做 3 深 ----
-  const blocks = [[0, 1, 2], [3, 4]];
-  const front = l => l === RACK.shortLane ? RACK.shortFront : RACK.zFront;
-  const framesTo = f => [RACK.zBack, 1450, 2750, 4050, f - 50].filter((z, i, a) => z <= f - 50 && (i === 0 || z - a[i - 1] > 300));
-  for (const lanes of blocks) {
-    // 每支立柱的深度取兩側車道較深者
-    const xs = [[RACK.lanes[lanes[0]] - half, front(lanes[0])], ...lanes.map((l, k) => [RACK.lanes[l] + half, Math.max(front(l), k + 1 < lanes.length ? front(lanes[k + 1]) : 0)])];
-    for (const [x, f] of xs) {
-      const zs = framesTo(f);
-      for (const z of zs) { block(group, [90, RACK.topBeam, 90], [x, RACK.topBeam / 2, z], MAT.steelBlue); foot(group, x, z, 130); }
-      for (let k = 0; k < zs.length - 1; k++) for (let y = 430; y < 3100; y += 1330) rod(group, [x, y, zs[k]], [x, y + 980, zs[k + 1]], 12, MAT.steel, 8);
-      for (let k = 0; k < zs.length - 1; k++) block(group, [40, 40, zs[k + 1] - zs[k]], [x, RACK.topBeam - 300, (zs[k] + zs[k + 1]) / 2], MAT.steelBlue);
-    }
-    for (const l of lanes) for (const z of [RACK.zBack, front(l) - 50]) block(group, [RACK.pitch + 90, 120, 70], [RACK.lanes[l], RACK.topBeam - 60, z], MAT.steelBlue);
-    for (const i of lanes) for (const y of RACK.levels) for (const s of [-1, 1]) {
-      block(group, [80, 105, front(i) - RACK.zBack], [RACK.lanes[i] + s * 600, y - 52, (RACK.zBack + front(i)) / 2], MAT.steelOrange);
-      block(group, [60, 220, 60], [RACK.lanes[i] + s * 650, y + 60, front(i) - 30], MAT.steelOrange);   // 入口導引
-    }
-    for (const i of lanes) plate(group, [`第 ${i + 1} 道`], 520, 130, [RACK.lanes[i], RACK.topBeam + 90, front(i) - 10], 0, { w: 512, h: 128 });
-  }
+  // ---- 架體：core 的穿梭車密集架模型（立柱、斜撐、軌道、頂樑、入口導引、車道牌）；root 不位移，座標就是站的絕對座標 ----
+  // 柱子隔開成西 3 道、東 2 道兩座；最西一道只做 3 深（前緣退後）
+  group.add(shuttleRack.create({ lanes: RACK.lanes, pitch: RACK.pitch, levels: RACK.levels, zBack: RACK.zBack, zFront: RACK.zFront, topBeam: RACK.topBeam,
+    fronts: { [RACK.shortLane]: RACK.shortFront }, blocks: [[0, 1, 2], [3, 4]] }).root);
 
   // ---- 架上棧板與桶槽 ----
   const key = (l, v, p) => `${l},${v},${p}`;
@@ -55,11 +31,7 @@ export function createStorage(scene, makeDrum) {
     for (const [dx, dz] of PALLET.slots) inst.add(m.compose(new THREE.Vector3(x + dx, y + PALLET.H + DRUM.H / 2, z + dz), q.setFromAxisAngle(Y, r() * Math.PI * 2), one));
   }
   inst.done(); group.add(inst.group);
-  for (const [w, h, dx, dy] of [[PALLET.W, 30, 0, 135], [100, 120, -550, 60], [100, 120, 0, 60], [100, 120, 550, 60]]) {
-    const deck = new THREE.InstancedMesh(new THREE.BoxGeometry(w, h, PALLET.W), MAT.pallet, palletDeck.length);
-    palletDeck.forEach(([x, y, z], i) => deck.setMatrixAt(i, m.makeTranslation(x + dx, y + dy, z)));
-    deck.castShadow = deck.receiveShadow = true; group.add(deck);
-  }
+  group.add(pallet.instances(palletDeck, { size: PALLET.W, height: PALLET.H }).root);   // 架上的靜態棧板：每種零件一個 InstancedMesh
 
   // ---- 空棧板疊（東側最後一道底層前位）----
   const empties = new THREE.Group(); empties.position.set(RACK.lanes[RACK.emptyLane], RACK.levels[RACK.emptyLevel], RACK.pos[0]); group.add(empties);
@@ -75,11 +47,8 @@ export function createStorage(scene, makeDrum) {
     demo.push({ group: pal, drums });
   }
   // 穿梭車（無線遙控型，在軌道下緣行走，頂升 40 mm 搬運棧板）
-  const shuttle = new THREE.Group(); group.add(shuttle);
-  block(shuttle, [1000, 120, 1080], [0, -80, 0], MAT.yellow);
-  for (const x of [-480, 480]) for (const z of [-400, 400]) cylinder(shuttle, 45, 35, [x, -70, z], MAT.black, "x", 16);
-  block(shuttle, [900, 16, 980], [0, -12, 0], MAT.steelDark);
-  for (const s of [-1, 1]) block(shuttle, [30, 60, 200], [s * 505, -95, 520], MAT.red);
+  // core 的棧板穿梭車模型，原點在軌道頂面（棧板底面）中心
+  const shuttle = shuttleCar.create().root; group.add(shuttle);
   // 其他兩層的穿梭車停在各自車道後端（示意；換道由 AGV 搬運）
   for (const [l, v, p] of RACK.shuttles) if (v !== RACK.demo.level) { const s = shuttle.clone(); s.position.set(RACK.lanes[l], RACK.levels[v], RACK.pos[p]); group.add(s); }
   const laneX = RACK.lanes[RACK.demo.lane], laneY = RACK.levels[RACK.demo.level];

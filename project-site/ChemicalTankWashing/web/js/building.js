@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { ROOM, OUTLINE, DOORS, COLUMN, AISLE, AGV, FOOTPRINTS, WALKWAYS, FILLING, SHUTTLE_BAY, WASTE, RACK, AGV_TURNS, agvSweep, pointInPolygon, doorSwing, ROBOT, rackBlocks, FENCE, INBOUND, INBOUND_AREA, inboundArcPoses } from './layout.js';
 import { block, floorText, rod } from '@core/geom/shapes.js';
 import { MAT } from '@core/geom/materials.js';
+import { agvCharger } from '@core/models/transport-handling.js';
 
 const line = (pts, color, opacity = 1) => {
   const g = new THREE.BufferGeometry().setFromPoints(pts.map(p => new THREE.Vector3(...p)));
@@ -74,7 +75,8 @@ export function createBuilding(scene) {
   // 柱
   block(group, [COLUMN.size, ROOM.H, COLUMN.size], [COLUMN.x, ROOM.H / 2, COLUMN.z], MAT.column);
   // 柱面 AGV 充電櫃
-  { const [x0, z0, x1, z1, h] = FOOTPRINTS.charger; block(group, [x1 - x0, h, z1 - z0], [(x0 + x1) / 2, h / 2, (z0 + z1) / 2], MAT.cabinet); block(group, [120, 120, 6], [(x0 + x1) / 2, h - 200, z1 + 3], MAT.green); }
+  // core 的 AGV 充電櫃模型：原點在櫃體底面中心，指示燈朝 +Z（南面）
+  { const [x0, z0, x1, z1, h] = FOOTPRINTS.charger; const c = agvCharger.create({ w: x1 - x0, h, d: z1 - z0 }); c.root.position.set((x0 + x1) / 2, 0, (z0 + z1) / 2); group.add(c.root); }
 
   // 分區
   const zones = new THREE.Group(); group.add(zones);

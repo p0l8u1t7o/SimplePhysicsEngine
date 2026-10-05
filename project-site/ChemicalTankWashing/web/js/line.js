@@ -7,6 +7,12 @@ import { drumJaws } from './drum.js';
 import { bolts, foot, motor, sensor, cabinetDetails } from '@core/geom/hardware.js';
 import { signalTower, hmi as hmiModel } from '@core/models/indicators.js';
 import { lightCurtain } from '@core/models/sensors.js';
+import { visionCamera } from '@core/models/vision.js';
+import { barLight as barLightModel } from '@core/models/lights.js';
+import { loadCell, airCylinder, linearAxis, nutrunner } from '@core/models/motion.js';
+import { labeler, upender, weighIndicator } from '@core/models/equipment-process.js';
+import { vRollerConveyor, ballTurntable } from '@core/models/transport.js';
+import { create as conveyor } from '@core/models/conveyor.js';
 
 export function createLine(scene) {
   const group = new THREE.Group(); group.name = 'line'; scene.add(group);
@@ -55,14 +61,11 @@ export function createLine(scene) {
   // 桶身落在 V 槽兩側斜面（半角 LYING.vee）；切點 z = R·sinα，由此反推滾輪軸高
   const rollers = [], ly = LYING, va = ly.vee * D2R, r0 = 40, halfL = 260;
   const axisY = ly.y - DRUM.envelopeR * Math.cos(va) - (DRUM.envelopeR * Math.sin(va)) * Math.tan(va) - r0;
-  const hourglass = new THREE.LatheGeometry([[0, -halfL], [r0 + halfL * Math.tan(va), -halfL], [r0, 0], [r0 + halfL * Math.tan(va), halfL], [0, halfL]].map(([r, y]) => new THREE.Vector2(r, y)), 28);
-  for (let x = ly.x0 + 200; x + 170 <= ly.x1; x += 330) {   // 第一支避開龍門翻轉頂板（放料時翻轉軸在 X 5283）
-    if (Math.abs(x - LABEL.x) < 620) continue;              // 標籤站改用旋轉輥
-    const r = new THREE.Mesh(hourglass, MAT.roller); r.rotation.x = Math.PI / 2; r.position.set(x, axisY, ly.z); r.castShadow = r.receiveShadow = true; group.add(r); rollers.push({ mesh: r, axis: 'z', radius: 100, along: x });
-    for (const s of [-1, 1]) cylinder(group, 12, 60, [x, axisY, ly.z + s * (halfL + 30)], MAT.steelDark, 'z', 8);
-  }
-  for (const s of [-1, 1]) block(group, [ly.x1 - ly.x0, 140, 50], [(ly.x0 + ly.x1) / 2, axisY, ly.z + s * (halfL + 60)], MAT.steel);
-  for (let x = ly.x0 + 100; x <= ly.x1; x += 1150) for (const s of [-1, 1]) block(group, [70, axisY - 70, 70], [x, (axisY - 70) / 2, ly.z + s * (halfL + 60)], MAT.steelDark);
+  // V 槽滾輪線：core 的 V 槽滾輪輸送線模型（V 輥＋短軸、側樑、支腳）；root 只移到中心線（Z），本地 X 就是站的座標。
+  // 第一支避開龍門翻轉頂板（放料時翻轉軸在 X 5283）；標籤站那一段（skip）改用旋轉輥
+  const vr = vRollerConveyor.create({ span: [ly.x0, ly.x1], axisY, vee: ly.vee, waist: r0, halfL, rollers: { from: ly.x0 + 200, to: ly.x1 - 170, skip: [[LABEL.x, 620]] } });
+  vr.root.position.z = ly.z; group.add(vr.root);
+  vr.rollers.forEach((mesh, i) => rollers.push({ mesh, axis: 'z', radius: 100, along: vr.positions[i] }));
   block(group, [ly.x1 - ly.x0, 18, 120], [(ly.x0 + ly.x1) / 2, axisY - 100, ly.z + halfL + 160], MAT.yellow);
   // 標籤站旋轉輥（取代該段 V 輥，兩支主動輥平行於桶軸）
   const lab = LABEL;
@@ -72,66 +75,50 @@ export function createLine(scene) {
 
   section('label');
   // ---------------------------------------------------------------- 貼標機（印字貼標頭，南側推出貼附）＋讀碼相機
-  const st = new THREE.Group(); st.position.set(lab.x, 0, lab.standZ); group.add(st);
-  block(st, [600, 900, 500], [0, 450, 200], MAT.cabinet);
-  block(st, [560, 420, 440], [0, 1110, 160], MAT.steelDark);                                  // 印字引擎
-  block(st, [30, 250, 300], [290, 1150, 160], MAT.screen);
-  cylinder(st, 120, 80, [-200, 1200, 340], MAT.cap, 'x', 28);                                     // 標籤捲
-  const padRail = block(st, [80, 60, 480], [0, ly.y, -120], MAT.alu);
-  const pad = new THREE.Group(); st.add(pad);
-  block(pad, [140, 180, 30], [0, ly.y, 0], MAT.black);
-  const padLabel = block(pad, [100, 150, 4], [0, ly.y, -17], MAT.cap); padLabel.visible = false;
+  // 貼標機：core 的貼標機模型（機櫃、印字引擎、標籤捲、導軌、貼標頭），原點在機台基準點
+  const lbl = labeler.create({ applyY: ly.y, stroke: lab.standZ - LYING.z - DRUM.R - 135 });
+  lbl.root.position.set(lab.x, 0, lab.standZ); group.add(lbl.root);
+  const padLabel = lbl.padLabel;
   // 讀碼／定位相機：桶頂端西側斜上方，同一張影像看到兩個桶塞（定位）與桶身上方的標籤（貼後檢查）
+  // core 的工業相機模型：原點在機身中心、光軸 +Z（lookAt 之後朝向目標）；閃光燈在機身中心，
+  // 虛擬相機放在鏡頭前緣（機身中心往目標 150 mm），否則子畫面會拍到自己的鏡筒
   const [cx, cy, cz] = lab.cam.pos, camTarget = new THREE.Vector3(...lab.cam.target);
-  const camLabel = new THREE.Group(); camLabel.position.set(cx, cy, cz); camLabel.lookAt(camTarget); group.add(camLabel);
-  block(camLabel, [90, 90, 140], [0, 0, 0], MAT.black);
-  cylinder(camLabel, 30, 70, [0, 0, 100], MAT.steelDark, 'z', 28);
-  const barLight = block(camLabel, [520, 40, 80], [0, -110, 60], MAT.cap);                  // 側打條形光，避免標籤反光
+  const camL = visionCamera.create({
+    axis: '+z', body: { size: [90, 90], length: 140, at: 0 }, lens: { r: 30, length: 70, at: 100, segments: 28, material: MAT.steelDark }, glass: false, ring: false,
+    spot: { distance: 3000, angle: .7, at: 0, target: new THREE.Vector3(cx, cy, cz).distanceTo(camTarget), power: 900 },
+    view: { fov: lab.cam.fov, near: 50, far: 6000, at: 150, name: '' },
+  });
+  const camLabel = camL.root; camLabel.position.set(cx, cy, cz); camLabel.lookAt(camTarget); group.add(camLabel);
+  // 側打條形光，避免標籤反光：core 的條形光模型（只有發光條，不畫外殼）
+  const bar = barLightModel.create({ axis: 'x', housing: false, length: 520, lensT: 40, lensW: 80, lensMaterial: MAT.cap });
+  bar.root.position.set(0, -110, 60); camLabel.add(bar.root);
+  const barLight = bar.lens, labelCam = camL.camera, labelFlash = camL.light;
   // 支架立在龍門圍籬外（X > 6700），避開龍門東側立柱與翻桶擺動範圍
   rod(group, [cx + 100, 0, cz - 520], [cx + 100, cy + 150, cz - 520], 45, MAT.alu);
   blockBetween(group, [cx + 60, cy + 110, cz - 520], [cx + 140, cy + 170, cz], MAT.alu);
   rod(group, [cx + 100, cy + 140, cz], [cx, cy, cz], 25, MAT.alu);
-  // 虛擬相機放在鏡頭前緣（機身中心往目標 150 mm），否則子畫面會拍到自己的鏡筒
-  const labelCam = new THREE.PerspectiveCamera(lab.cam.fov, 1.5, 50, 6000);
-  labelCam.position.set(cx, cy, cz).addScaledVector(camTarget.clone().sub(labelCam.position).normalize(), 150); labelCam.lookAt(camTarget); group.add(labelCam);
-  const labelFlash = new THREE.SpotLight(0xffffff, 0, 3000, .7, .5, 1); labelFlash.position.set(cx, cy, cz); labelFlash.target.position.copy(camTarget); group.add(labelFlash, labelFlash.target);
 
   section('upender');
   // ---------------------------------------------------------------- 翻桶機
+  // core 的翻桶機模型（機座、軸承座、L 形搖籃、托墊、夾板、側置液壓缸），原點在翻轉軸正下方的地面
   const [ux, uy, uz] = UPENDER.pivot;
-  block(group, [1600, 220, 900], [ux - 300, 110, uz], MAT.steelDark);
-  for (const s of [-1, 1]) cylinder(group, 90, 120, [ux, uy, uz + s * 420], MAT.steelBlue, 'z', 28);
-  for (const s of [-1, 1]) block(group, [120, uy, 120], [ux, uy / 2, uz + s * 420], MAT.steelBlue);
-  const cradle = new THREE.Group(); cradle.position.set(ux, uy, uz); group.add(cradle);
-  block(cradle, [1000, 40, 640], [-500, -27, 0], MAT.steel);                                   // 床面（桶身下方）
-  // 兩條窄墊塊與桶外環相切，避免原寬墊塊插入桶身。
-  const supportZ = 230, supportHalf = 12;
-  const supportTop = DRUM.R - Math.sqrt(DRUM.envelopeR ** 2 - (supportZ - supportHalf) ** 2);
-  for (const s of [-1, 1]) block(cradle, [980, 30, supportHalf * 2], [-500, supportTop - 15, s * supportZ], MAT.pu);
-  block(cradle, [40, 640, 760], [82, 320, 0], MAT.steel);                                      // 桶底靠板（翻後成為承載面）
-  for (let k = 0; k < 4; k++) cylinder(cradle, 30, 700, [30, 80 + k * 150, 0], MAT.roller, 'z', 12);
-  const upClamp = [];
-  for (const s of [-1, 1]) { const c = block(cradle, [700, 160, 30], [-500, DRUM.R, s * (DRUM.R + 60)], MAT.yellow); upClamp.push({ c, s }); }
-  // 侧置液壓缸，活塞端隨翻轉台轉動，避開桶與承載床。
-  const actuator = new THREE.Group(); group.add(actuator);
-  cylinder(actuator, 46, 420, [0, 210, 0], MAT.steelDark, 'y', 28);
-  const piston = cylinder(actuator, 24, 1, [0, 420, 0], MAT.steel, 'y', 28);
-  const anchor = new THREE.Vector3(ux - 800, 230, uz - 570);
-  cylinder(group, 65, 110, [anchor.x, anchor.y, anchor.z], MAT.steelDark, 'z', 28);
+  const upd = upender.create({ pivotY: uy, drumR: DRUM.R, envelopeR: DRUM.envelopeR });
+  upd.root.position.set(ux, 0, uz); group.add(upd.root);
+  const { cradle, actuator, piston } = upd, upClamp = upd.clamps;
 
   section('upright');
   // ---------------------------------------------------------------- 立放輸送：一路往南，取桶位與放回位不設側導引
   const up = UPRIGHT;
-  const uprightRollers = [];
   const frame0 = up.z0 + 500, roll0 = up.z0 + 570;                                       // 輸送架從翻桶機南側軸承座之後開始
-  for (let z = roll0; z < up.z1; z += 120) {
-    if (Math.abs(z - DECAP.z) < 370) continue;
-    const r = cylinder(group, 30, 700, [up.x, up.top - 30, z], MAT.roller, 'x', 20);
-    uprightRollers.push(r); rollers.push({ mesh: r, axis: 'x', radius: 30, along: z });
-    for (const s of [-1, 1]) block(group, [26, 68, 70], [up.x + s * 357, up.top - 36, z], MAT.steelDark);
-  }
-  for (const s of [-1, 1]) block(group, [50, 150, up.z1 - frame0], [up.x + s * 380, up.top - 70, (frame0 + up.z1) / 2], MAT.steel);
-  for (let z = up.z0 + 600; z < up.z1; z += 900) for (const s of [-1, 1]) block(group, [60, up.top - 140, 60], [up.x + s * 380, (up.top - 140) / 2, z], MAT.steelDark);
+  // core 的滾筒輸送線模型（滾筒＋軸承座、側樑、支腳）；開蓋站那一段（skip）是旋轉台。
+  // root 只移 X：滾筒的本地 y／z 就是站的座標（tools/verify-detail.mjs 直接讀）
+  const uc = conveyor({ axis: 'z', span: [frame0, up.z1], width: 700, height: up.top, roller: 30,
+    rollers: { from: roll0, to: up.z1, pitch: 120, skip: [[DECAP.z, 370]] },
+    brackets: { size: [26, 68, 70], offset: 357, y: up.top - 36 }, frame: { offset: 380, y: up.top - 70 },
+    legs: { positions: { from: up.z0 + 600, to: up.z1, pitch: 900 }, size: [60, up.top - 140, 60], foot: false } });
+  uc.root.position.x = up.x; group.add(uc.root);
+  const uprightRollers = uc.rollers;
+  uc.rollers.forEach((mesh, i) => rollers.push({ mesh, axis: 'x', radius: 30, along: uc.positions[i] }));
   for (const [z0, z1] of [[frame0, up.pick - 350], [up.pick + 350, up.place - 350], [up.place + 350, up.z1]])
     for (const s of [-1, 1]) block(group, [30, 120, z1 - z0], [up.x + s * 340, up.top + 160, (z0 + z1) / 2], MAT.yellow);
   for (const z of [up.pick + DRUM.R + 20, up.place + DRUM.R + 20]) block(group, [120, 60, 40], [up.x + 300, up.top + 40, z], MAT.steelOrange);   // 定位擋塊
@@ -143,10 +130,15 @@ export function createLine(scene) {
     block(weigher, [30, 120, 22], [up.x, up.top - 95, z], MAT.steelDark);
   }
   block(weigher, [600, 30, gaps.at(-1) - gaps[0] + 60], [up.x, up.top - 165, (gaps[0] + gaps.at(-1)) / 2], MAT.steelDark);
-  for (const [dx, dz] of [[-240, -180], [240, -180], [-240, 180], [240, 180]]) cylinder(weigher, 35, 50, [up.x + dx, up.top - 205, up.place + dz], MAT.steelBlue, 'y', 28);   // 荷重元
+  for (const [dx, dz] of [[-240, -180], [240, -180], [-240, 180], [240, 180]]) {   // 荷重元：core 的荷重元模型（不畫受力鈕）
+    const lc = loadCell.create({ button: false }); lc.root.position.set(up.x + dx, up.top - 205, up.place + dz); weigher.add(lc.root);
+  }
   block(group, [640, 30, 520], [up.x, up.top - 245, up.place], MAT.steel);                    // 頂升板
-  cylinder(group, 55, up.top - 280, [up.x, (up.top - 280) / 2, up.place], MAT.alu, 'y', 28);           // 頂升氣缸
-  const scaleScreen = block(group, [40, 200, 320], [up.x + 520, 1150, up.place], MAT.screen); block(group, [60, 1050, 60], [up.x + 520, 525, up.place], MAT.steelDark);
+  // 頂升氣缸：core 的氣缸模型（只畫圓柱本體），原點在本體中心
+  const liftCyl = airCylinder.create({ body: { shape: 'cyl', r: 55, length: up.top - 280, segments: 28, material: MAT.alu }, rod: false });
+  liftCyl.root.position.set(up.x, (up.top - 280) / 2, up.place); group.add(liftCyl.root);
+  // 秤重顯示器：core 的立柱式秤重顯示器模型，原點在立柱底面中心
+  const ind = weighIndicator.create(); ind.root.position.set(up.x + 520, 0, up.place); group.add(ind.root);
   block(group, [700, 40, 40], [up.x, up.top + 40, up.z1 - 20], MAT.steelOrange);
   // 站名牌貼在輸送架西側下方：夾爪兩側導軌在桶身高度會掃過 up.x ± 420，牌子不能放在那裡
   plate(group, ['取桶位'], 420, 110, [up.x - 420, up.top - 230, up.pick], -Math.PI / 2, { w: 512, h: 130 });
@@ -158,44 +150,48 @@ export function createLine(scene) {
   const dc = DECAP;
   for (const [dx, dz] of [[-650, -400], [650, -400], [-650, 400], [650, 400]]) block(group, [100, 2600, 100], [up.x + dx, 1300, dc.z + dz], MAT.steelBlue);
   for (const dz of [-400, 400]) block(group, [1400, 120, 100], [up.x, 2560, dc.z + dz], MAT.steelBlue);
-  const turntable = new THREE.Group(); turntable.position.set(up.x, 0, dc.z); group.add(turntable);
-  cylinder(turntable, 330, 30, [0, up.top - 85, 0], MAT.steelDark, 'y', 48);
-  const tableRollers = [];
-  for (let dx = -270; dx <= 270; dx += 90) for (let dz = -270; dz <= 270; dz += 90) {
-    if (Math.hypot(dx, dz) > 300) continue;
-    cylinder(turntable, 29, 30, [dx, up.top - 40, dz], MAT.steelDark, 'y', 28);
-    const r = new THREE.Mesh(new THREE.SphereGeometry(24, 16, 10), MAT.roller); r.position.set(dx, up.top - 24, dz); r.castShadow = true; turntable.add(r); tableRollers.push(r);
-  }
-  cylinder(group, 180, 90, [up.x, up.top - 145, dc.z], MAT.steelBlue, 'y', 28);
-  motor(group, up.x + 225, 180, dc.z, .65);
+  // 旋轉台：core 的萬向球旋轉台模型（盤面、球座、萬向球、迴轉支承、伺服馬達）；轉盤群組留在模型的 root 裡
+  const tt = ballTurntable.create({ top: up.top }); tt.root.position.set(up.x, 0, dc.z); group.add(tt.root);
+  const turntable = tt.table, tableRollers = tt.balls;
   for (const s of [-1, 1]) block(group, [40, 120, 500], [up.x + s * (DRUM.R + 110), up.top + 300, dc.z], MAT.yellow);
   const dcClamp = [];
   for (const s of [-1, 1]) { const c = cylinder(group, 20, 160, [up.x + s * (DRUM.R + 70), up.top + 302, dc.z], MAT.pu, 'y', 28); dcClamp.push({ c, s }); }
   // XY 模組：Z 向導軌在框架兩側，橫樑偏在台車北側，Z 軸立柱不穿過橫樑
-  for (const s of [-1, 1]) { const rail = block(group, [60, 40, 900], [up.x + s * dc.rail, 2510, dc.z], MAT.steel); rail.userData.guide = 'decap-y'; }
+  // 三軸都用 core 的線性模組模型；站的移動群組（dBridge、dCar、dZ）留著，模型的零件加進去，關節與每格改位置的程式不變
+  // Y 軌 ×2：只畫導軌，導軌標 guide 'decap-y'（橫樑群組 on 'decap-y'，全場檢查視為滑動配合）
+  const yAx = linearAxis.create({ axis: 'z', base: false, rails: { size: [60, 40, 900], at: [-1, 1].map(s => [up.x + s * dc.rail, 2510, dc.z]), material: MAT.steel }, carriage: false, guide: 'decap-y' });
+  group.add(yAx.root);
   const dBridge = new THREE.Group(); dBridge.userData.on = 'decap-y'; group.add(dBridge);
-  block(dBridge, [dc.rail * 2 + 60, 100, 160], [up.x, 2440, -150], MAT.alu);
+  // X 橫樑（底座）＋台車（滑座）：滑座群組改掛到站的 dCar
+  const xAx = linearAxis.create({ axis: 'x', base: { size: [dc.rail * 2 + 60, 100, 160], at: [up.x, 2440, -150], material: MAT.alu }, rails: false, carriage: { size: [260, 220, 220], at: [0, 2440, 0], material: MAT.steelDark }, guide: false });
+  dBridge.add(xAx.root);
   const dCar = new THREE.Group(); dBridge.add(dCar);
-  block(dCar, [260, 220, 220], [0, 2440, 0], MAT.steelDark);
+  dCar.add(xAx.carriage);
   const dZ = new THREE.Group(); dCar.add(dZ);
-  block(dZ, [120, 898, 120], [0, 451, 0], MAT.alu);
+  dZ.add(linearAxis.create({ axis: 'y', base: { size: [120, 898, 120], at: [0, 451, 0], material: MAT.alu }, rails: false, carriage: false, guide: false }).root);   // Z 軸立柱
   const spindles = {};
   for (const [k, dx, r] of [['big', -90, DRUM.big.r + 8], ['small', 90, DRUM.small.r + 8]]) {
-    cylinder(dZ, 55, 200, [dx, 120, 0], MAT.black, 'y', 28);
+    // 伺服鎖付軸：core 的模型（本體＋套筒＋撥爪）。站的 sock 群組留著當旋轉關節，模型的套筒群組加進去
+    //（套筒撥爪與 Z 軸立柱的既有重疊靠「直接相連」放行，關節的父群組要維持是 dZ）
+    const n = nutrunner.create({ socketR: r }); n.root.position.set(dx, 0, 0); dZ.add(n.root);
     const sock = new THREE.Group(); sock.position.set(dx, 0, 0); dZ.add(sock);
-    cylinder(sock, r, 60, [0, 30, 0], MAT.steel, 'y', 18);
-    for (let i = 0; i < 4; i++) block(sock, [8, 50, 14], [r * Math.cos(i * Math.PI / 2), 30, r * Math.sin(i * Math.PI / 2)], MAT.black);
+    sock.add(n.socket);
     spindles[k] = sock;
   }
   // 頂視相機：吊在框架北側橫樑外，斜拍桶頂，完全避開 XY 模組行程（橫樑 Z 範圍約 dc.z −430～+130）
   const camPos = new THREE.Vector3(up.x, 2150, dc.z - 600), camAim = new THREE.Vector3(up.x, up.top + DRUM.H, dc.z);
   block(group, [80, 60, 200], [up.x, 2650, dc.z - 510], MAT.alu);
   rod(group, [up.x, 2620, dc.z - 600], [up.x, 2230, dc.z - 600], 22, MAT.alu);
-  const camDecap = new THREE.Group(); camDecap.position.copy(camPos); camDecap.lookAt(camAim); group.add(camDecap);
-  block(camDecap, [90, 90, 140], [0, 0, 0], MAT.black);
-  const ringLight = new THREE.Mesh(new THREE.TorusGeometry(70, 14, 8, 30), MAT.cap); ringLight.position.z = 90; camDecap.add(ringLight);
-  const decapCam = new THREE.PerspectiveCamera(36, 1.5, 50, 6000); decapCam.position.copy(camPos); decapCam.lookAt(camAim); group.add(decapCam);
-  const decapFlash = new THREE.SpotLight(0xffffff, 0, 2500, .5, .5, 1); decapFlash.position.copy(decapCam.position); decapFlash.target.position.set(up.x, up.top + DRUM.H, dc.z); group.add(decapFlash, decapFlash.target);
+  // core 的工業相機模型：機身＋環形光（不畫鏡頭），原點在機身中心、光軸 +Z；虛擬相機與閃光燈都在機身中心。
+  // 環形光用共用材質 MAT.cap（閃光時由 setDecap 換成 MAT.green），glow: false 讓模型不去改它的亮度
+  const camD = visionCamera.create({
+    axis: '+z', body: { size: [90, 90], length: 140, at: 0 }, lens: false, glass: false,
+    ring: { r: 70, tube: 14, at: 90, segments: [8, 30], material: MAT.cap, glow: false },
+    spot: { distance: 2500, angle: .5, at: 0, target: camPos.distanceTo(camAim), power: 900 },
+    view: { fov: 36, near: 50, far: 6000, at: 0, name: '' },
+  });
+  const camDecap = camD.root; camDecap.position.copy(camPos); camDecap.lookAt(camAim); group.add(camDecap);
+  const ringLight = camD.ring, decapCam = camD.camera, decapFlash = camD.light;
   // 桶蓋收集桶（斜槽）
   const bin = new THREE.Group(); bin.position.set(dc.bin.x, 0, dc.bin.z); group.add(bin);
   // 桶高 560：桶口低於立放輸送側導引（底面 y 607）
@@ -301,15 +297,11 @@ export function createLine(scene) {
       gJaws.set(jaw);
     },
     setLabeler({ pad: p, print, spin, flash }) {
-      pad.position.set(0, 0, -120 - p * (lab.standZ - LYING.z - DRUM.R - 135));
-      padLabel.visible = print > .5;
+      lbl.set({ pad: p, print });
       for (const r of rotRollers) r.rotation.x = -spin * Math.PI / 2 * DRUM.envelopeR / 70;
       labelFlash.intensity = flash ? 900 : 0; barLight.material = flash ? MAT.green : MAT.cap;
     },
-    setUpender({ tilt: t, clamp }) { cradle.rotation.z = -t * Math.PI / 2;
-      const end = new THREE.Vector3(-450, -85, -570).applyAxisAngle(new THREE.Vector3(0, 0, 1), -t * Math.PI / 2).add(new THREE.Vector3(ux, uy, uz));
-      const delta = end.clone().sub(anchor), length = delta.length(); actuator.position.copy(anchor);
-      actuator.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), delta.normalize()); piston.scale.y = length - 350; piston.position.y = 350 + (length - 350) / 2; for (const { c, s } of upClamp) c.position.z = s * (DRUM.envelopeR + 15 + (1 - clamp) * 110); },
+    setUpender({ tilt: t, clamp }) { upd.set({ tilt: t, clamp }); },
     setDecap({ hx, hz, hy, spinBig, spinSmall, flash, clamp, table, caps }) {
       dBridge.position.z = DECAP.z + hz; dCar.position.x = up.x + hx; dZ.position.y = hy;
       spindles.big.rotation.y = spinBig * Math.PI * 2 * 2.5; spindles.small.rotation.y = spinSmall * Math.PI * 2 * 2.5;
@@ -319,7 +311,7 @@ export function createLine(scene) {
       tableRollers.forEach(r => { r.rotation.x = 0; });
       capPile.forEach((c, i) => { c.visible = i < caps; });
     },
-    setScale({ on, lift }) { scaleScreen.material = on ? MAT.green : MAT.screen; weigher.position.y = lift * WEIGH.stroke; },
+    setScale({ on, lift }) { ind.set({ on }); weigher.position.y = lift * WEIGH.stroke; },
     setTower(state) { tower.set(state); },
     socket: k => spindles[k],
   };
