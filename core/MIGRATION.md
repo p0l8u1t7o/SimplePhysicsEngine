@@ -180,7 +180,7 @@ Node 端由 `core/tools/loader.mjs` 解析相同的三種名稱，檢查程式�
     - 這是使用者的決定：「換用模型不能改變各站的檢查結果，被蓋住的既有問題另外記待辦」。已知被蓋住的既有問題：化學桶開蓋站的萬向球旋轉台與桶蓋收集桶重疊 37～45 mm；PE 儲槽 TK-F 的視管插進 TK-R 槽體、TK-R 的視管插進防溢堤北牆（各約 10 mm）。
     - 站保留自己的移動群組、把模型的可動子群組 `add` 進去（motion 對照的預設寫法）與直接用模型的子群組當關節，兩種寫法在新規則下放行範圍相同（合成場景比對：站原寫法、兩種換用寫法的干涉筆數、會動零件數、關節數都相同；用改之前的 `scene.mjs` 跑同一組場景則會多報 1 筆與 5 筆）。
   - **各站換用時的共通事項**：
-    - 每換一批都比對三樣：`check.mjs --quick` 的數字、桌面截圖（0 張超過門檻）、場景傾印（`node core/tools/scene-dump.mjs <專案> --out 後.json`，再 `--diff "TEMP/b2-dump/<專案>.json" 後.json --ignore-names`，要得到「完全相同」；走線五金的數量與位置在它的輸出裡另有一段）。`review/determinism.json` 的物件數會因為多了 root 而增加，屬預期。
+    - 每換一批都比對三樣：`check.mjs --quick` 的數字、桌面截圖（0 張超過門檻）、場景傾印（`node core/tools/scene-dump.mjs <專案> --out 後.json`，再 `--diff 前.json 後.json --ignore-names`，要得到「完全相同」；走線五金的數量與位置在它的輸出裡另有一段）。`review/determinism.json` 的物件數會因為多了 root 而增加，屬預期。
     - 模型的 root 要在原本建立那些零件的位置加入（同一個父群組、同一個 `section`、在對它走線的 `cable()` 之前）。
     - `userData` 用 `Object.assign` 或逐欄設定，不要整個換掉（會蓋掉 `coreModel`、`cableHost`）。
     - 模型會給原本沒有名稱的網格預設名稱；站裡用「名稱」或「沒有名稱」判斷的 allow／verify 規則要看一下。
@@ -188,7 +188,7 @@ Node 端由 `core/tools/loader.mjs` 解析相同的三種名稱，檢查程式�
     - RecycleSorter 為 1.9.0 的 HMI 與急停寫的走線暫代（走線時把網格掛回外層群組）可以拿掉。
   - **已拍板不換用的**：化學桶的 PE 儲槽 ×4 這一批暫不換用（`pe-tank` 模型照樣登記）。拍板時的依據是「換了會讓 3 筆被蓋住的視管干涉浮現」；採用上面的安裝關係規則後重跑同一個階層模擬，換用也不會浮現（0 筆），要不要改成現在就換由主 session／使用者決定，見 `1.10.0-equipment.md` 第 4 節；WorkpieceMeasurement 的相機、光源與運動元件不換用（資料驅動幾何，和碰撞資料同源）；ABB OmniCore C30、DSQC 2000 不做成 models（屬電控元件，之後在 `core/electrical` 處理，已登記在 `core/REQUESTS.md`）。
   - **目錄頁**：加搜尋框與模型數；效果件（`userData.fx`）不投影；原點在上方或會往下伸的模型（並聯手臂、吸盤、浮動桿）依狀態兩端的最低點抬到地面上；小件最小以 80 mm 取景（原本 200 mm）。
-  - **場景傾印與比對**（`core/tools/scene-dump.mjs`）：`<專案> --out 檔案.json` 用網頁同一份 `project.js` 建場景（預設情境＋`project.json` 的 variants＋`verify.cables.variants`），在 9 個時間點記下每個零件的簽章（幾何型別與參數、頂點數與頂點雜湊、世界矩陣、材質屬性、陰影旗標、可見性、名稱、`routingHardware`）以及燈光、虛擬相機，排序後存檔——多一層群組、建立順序不同不算差異，檔案沒有時間戳，同一份場景重跑逐位元組相同。`--diff 前.json 後.json [--ignore-names]` 列出每個情境、時間點缺少／多出／不同的零件，走線五金另外統計；完全相同離開碼 0。8 站換用第二批之前的傾印放在本機 `TEMP/b2-dump/`（不進版控）。
+  - **場景傾印與比對**（`core/tools/scene-dump.mjs`）：`<專案> --out 檔案.json` 用網頁同一份 `project.js` 建場景（預設情境＋`project.json` 的 variants＋`verify.cables.variants`），在 9 個時間點記下每個零件的簽章（幾何型別與參數、頂點數與頂點雜湊、世界矩陣、材質屬性、陰影旗標、可見性、名稱、`routingHardware`）以及燈光、虛擬相機，排序後存檔——多一層群組、建立順序不同不算差異，檔案沒有時間戳，同一份場景重跑逐位元組相同。`--diff 前.json 後.json [--ignore-names]` 列出每個情境、時間點缺少／多出／不同的零件，走線五金另外統計；完全相同離開碼 0。換用當時的基準傾印與基準截圖已刪除；要重做比對時，用 `git worktree add <暫存資料夾> f92175a`（各站換用前的提交）在裡面重新傾印與拍截圖。
   - `core/REQUESTS.md`：「走線的夾具固定面只看直接子網格」完成（上面的走線規則）；「並聯（Delta）手臂模型」完成（`abb-irb360.js`；RecycleSorter 的 `delta.js` 改成薄包裝由站代理做，連桿尺寸仍是目測的示意值，選型前要用型錄核對）。
   - 驗證（各站都還沒換用第二批模型）：
     - `check.mjs --quick`（8 站＋core）68/68 通過；各站 `review/` 154 個檔案裡 151 個與改前逐位元組相同，另外 3 個（酸鹼、快門、WM 的 `verification.json`）只有時間戳與耗時不同，已還原。`models` 80/80。
@@ -202,7 +202,7 @@ Node 端由 `core/tools/loader.mjs` 解析相同的三種名稱，檢查程式�
     - PCB：相機 ×8、邊軌輸送、止擋 ×3、頂升氣缸 ×12、柔性供料盤 ×2、線性軸 ×11、吸盤、Z-θ 主軸 ×8。
     - 回收分揀：平皮帶 ×5、IRB 360（`delta.js` 改成薄包裝）、真空發生器、電磁閥、浮動桿、吸盤、編碼器、FRL、櫃側風扇 ×3、教導器、空壓機、儲氣筒、分配座；1.9.0 的走線暫代已拿掉。
     - SSD：邊皮帶輸送 ×3、止擋、氣缸 ×2、門互鎖開關、相機 ×2。快門：12 個模型實例。
-    - 驗證（主 session 重做，不沿用代理的結果）：7 站用 33 個時間點的場景傾印對換用前的提交（`a49c4ef` 的 worktree）比對，14 個情境 462 個時間點全部「完全相同」（零件、燈光、虛擬相機、走線五金）；桌面截圖 88 張對 `TEMP/shots-b2-base` 0 張超過門檻；`check.mjs --quick` 7 站全過；各站 `review/determinism.json` 的物件數因為多了模型的 root 而增加，化學桶 `detail-verification.json` 的翻桶缸 `rodMax` 差 2e-13 mm（改用本地座標計算），其餘 review 檔與換用前相同。
+    - 驗證（主 session 重做，不沿用代理的結果）：7 站用 33 個時間點的場景傾印對換用前的提交（`a49c4ef` 的 worktree）比對，14 個情境 462 個時間點全部「完全相同」（零件、燈光、虛擬相機、走線五金）；桌面截圖 88 張對換用前的基準 0 張超過門檻；`check.mjs --quick` 7 站全過；各站 `review/determinism.json` 的物件數因為多了模型的 root 而增加，化學桶 `detail-verification.json` 的翻桶缸 `rodMax` 差 2e-13 mm（改用本地座標計算），其餘 review 檔與換用前相同。
     - 換用時補的站內標記與寫法（對照文件已補上）：
       - 原本是「站的普通群組」的設備換成模型後，root 有 `coreModel`，父群組上的 `cable()` 會把它的直接子網格當固定面。附近 65 mm 內有線夾時要標 `root.userData.cableHost = false`（酸鹼的分析天平、快門的下視相機）；沒標而結果相同的不用動。
       - `airCylinder` 用 `grow` 時桿端群組 `tip` 每格都在動，全場檢查會把它算成關節。推板要掛在 `tip` 上（不是 `rod`），關節數才和換用前相同（軍規的推／拉料氣缸）。
