@@ -270,7 +270,7 @@ switch (cmd) {
         const { coreModels, linkCoreModels } = await import('./lib/thumbs.mjs');
         const hits = linkCoreModels(db, coreModels(join(REPO, 'core')), { dryRun: !!o['dry-run'] });
         for (const h of hits) console.log(`${h.code} ${h.name} → ${h.model}`);
-        console.log(`${o['dry-run'] ? '（試跑，沒有寫入）' : ''}連上 ${hits.length} 個元件（型號對得上的手臂，以及三色燈、HMI、急停、光柵、力覺感測器、光源、相機）；其他通用模型請在元件庫的編輯面板手動選`);
+        console.log(`${o['dry-run'] ? '（試跑，沒有寫入）' : ''}連上 ${hits.length} 個元件（型號對得上的手臂，以及名稱是單一市購設備的：指示與操作、感測與安全、視覺、輸送、氣動、實驗室與製程設備）；整包品項與其他通用模型請在元件庫的編輯面板手動選`);
       } else if (sub === 'merge') {
         if (rest.length !== 2) fail('用法：vs3d parts merge <保留 id> <併入 id>');
         const p = db.mergeParts(rest[0], rest[1]);
