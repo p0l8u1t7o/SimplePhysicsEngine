@@ -5,7 +5,7 @@
       "variant": "預設",
       "params": {},
       "ok": true,
-      "objects": 2848,
+      "objects": 2897,
       "samples": 40,
       "failures": []
     },
@@ -15,7 +15,7 @@
         "recipe": "round-72"
       },
       "ok": true,
-      "objects": 2848,
+      "objects": 2897,
       "samples": 40,
       "failures": []
     }
