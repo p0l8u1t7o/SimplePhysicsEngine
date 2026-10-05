@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { createProject } from '../web/js/project.js';
 import { LAYOUT } from '../web/js/layout.js';
-import { CT, BELT_V, TOTAL, CHAPTERS, MIX, mixedCT, perHour, ABB_CT, ABB_PHASES, PRE_ROLL } from '../web/js/schedule.js';
+import { CT, BELT_V, TOTAL, CHAPTERS, MIX, mixedCT, perHour, ABB_CT, ABB_PHASES, PRE_ROLL, laneAt, leadOf } from '../web/js/schedule.js';
 import { deltaIK } from '../web/js/delta.js';
 
 const L = LAYOUT, scene = new THREE.Scene(), project = createProject({ scene });
@@ -17,9 +17,9 @@ const world = it => it.grp.getWorldPosition(new THREE.Vector3());
 const at = t => { const st = project.apply(t); scene.updateMatrixWorld(true); return st; };
 
 // ---------------------------------------------------------------- 1. 節拍
-// 2026-10-05 補上前段（既有 ABB 分選站）後，播放時間多 21 s、製程時間後移 PRE_ROLL；51 s 之後就是原本 30 s 之後的後段
-F(TOTAL === 117, `動畫總長 ${TOTAL} s 與企劃的 117 s（前段 21 s＋原 96 s）不符`);
-F(near(timing.tau(51), 20.1 + PRE_ROLL, 1e-6), `後段起點的製程時間 ${timing.tau(51).toFixed(3)} s 與原時間軸（20.1 s＋預跑 ${PRE_ROLL} s）對不上`);
+// 2026-10-05 補上前段（既有 ABB 分選站）後，播放時間多 24 s、製程時間後移 PRE_ROLL；54 s 之後就是原本 30 s 之後的後段
+F(TOTAL === 120, `動畫總長 ${TOTAL} s 與企劃的 120 s（前段 24 s＋原 96 s）不符`);
+F(near(timing.tau(54), 20.1 + PRE_ROLL, 1e-6), `後段起點的製程時間 ${timing.tau(54).toFixed(3)} s 與原時間軸（20.1 s＋後移 ${PRE_ROLL} s）對不上`);
 F(CT <= 1.4 + 1e-9, `節拍 ${CT} s 超過規格 1.4 s`);
 const gaps = project.ctGaps;
 F(Math.min(...gaps) >= CT - 1e-3, `取放間隔 ${Math.min(...gaps).toFixed(3)} s 小於節拍 ${CT} s`);
@@ -99,22 +99,20 @@ for (const m of missed) {
 const endState = at(TOTAL - .01);
 F(endState.alarm && endState.counts.missed === missed.length, `結束時漏抓警報狀態不正確（missed=${endState.counts.missed}）`);
 
-// ---------------------------------------------------------------- 8. 導料板：工件全程在開口內
+// ---------------------------------------------------------------- 8. 導料板：工件全程在兩段導料板的通道內
+// 通道（開口與中心線）由 schedule.js 的 laneAt() 定義，板面也是照它畫的；寬度取工件前緣所在的位置。
 for (let t = 0; t <= TOTAL; t += .5) {
   at(t);
   for (const it of items) {
-    if (!it.grp.visible || (it.job && endStateTau(t) >= it.job.grabTau)) continue;
-    const p = world(it); if (Math.abs(p.y - (beltTop + 2)) > 1) continue;
-    const gap = p.x <= L.guide.x[0] ? L.guide.open : p.x >= L.guide.x[1] ? L.guide.close
-      : L.guide.open + (L.guide.close - L.guide.open) * (p.x - L.guide.x[0]) / (L.guide.x[1] - L.guide.x[0]);
-    const room = (gap - it.extent) / 2;
-    F(Math.abs(p.z - L.pick.cz) <= room + .5, `t=${t.toFixed(1)}s 工件 ${it.id} 超出導料板開口（Z ${p.z.toFixed(0)}、可用 ±${room.toFixed(0)}）`);
+    if (!it.grp.visible) continue;
+    const p = world(it); if (Math.abs(p.y - (beltTop + 2)) > 1) continue;      // 只看還在主帶上的
+    const { gap, center } = laneAt(p.x + leadOf(it)), room = (gap - it.extent) / 2;
+    F(Math.abs(p.z - center) <= room - L.guide.margin / 2 + .5, `t=${t.toFixed(1)}s 工件 ${it.id} 超出導料板通道（Z ${p.z.toFixed(0)}、中心 ${center.toFixed(0)}、可用 ±${room.toFixed(0)}）`);
   }
   if (failures.length > 10) break;
 }
-function endStateTau(t) { return timing.tau(t); }
 
-// ---------------------------------------------------------------- 9. 前段 ABB：先到先抓、沒空就放行
+// ---------------------------------------------------------------- 9. 前段 ABB：先到先抓、沒空就放行；抓到的放上既有分類帶
 const AB = L.abb, { abbJobs, passed, front } = project;
 const PRE = ABB_PHASES.slice(0, 3).reduce((s, p) => s + p.dur, 0);
 F(abbJobs.length >= 10, `前段 ABB 只抓 ${abbJobs.length} 件，不足以展示第一道分選`);
@@ -132,7 +130,11 @@ for (const job of abbJobs) {
   F(d >= 0 && d < 5, `ABB 抓工件 ${it.id} 的瞬間吸嘴口與頂面距離 ${d.toFixed(2)} mm（需 0…5 mm）`);
   F(Math.abs(p.x - AB.x) <= AB.window + 1, `ABB 抓工件 ${it.id} 的位置 X ${p.x.toFixed(0)} 在抓取窗口 ${AB.x} ±${AB.window} 之外`);
   F(Math.hypot(st.abb.p.x - p.x, st.abb.p.z - p.z) < 1, `ABB 抓工件 ${it.id} 時吸嘴沒有對在工件上方`);
-  F((it.cls === 'food') === (job.side < 0), `工件 ${it.id}（${it.cls}）放到 ${job.side < 0 ? '食品' : '非食品'}側的滑槽`);
+  F((it.cls === 'food') === (job.zone.key === 'food'), `工件 ${it.id}（${it.cls}）放到分類帶的${job.zone.key === 'food' ? '食品' : '非食品'}段`);
+  // 放料後落在對的那一段分類帶上、而且往帶尾走
+  at(timing.timeAt(job.landTau + .02)); const q = world(it), SO = AB.sort;
+  F(near(q.y, SO.top + 2, 6) && q.x >= job.zone.x[0] && q.x <= job.zone.x[1] && Math.abs(q.z - front.sortZ) <= SO.width / 2, `工件 ${it.id} 沒有落在分類帶上（${q.x.toFixed(0)}, ${q.y.toFixed(0)}, ${q.z.toFixed(0)}）`);
+  F((job.zone.exit - job.rel.x) * job.zone.dir > 0, `工件 ${it.id} 的分類帶方向與帶尾位置不一致`);
 }
 for (let i = 1; i < abbJobs.length; i++) F(abbJobs[i].grabTau - abbJobs[i - 1].grabTau >= ABB_CT - 1e-6, `ABB 第 ${i} 與 ${i + 1} 趟只隔 ${(abbJobs[i].grabTau - abbJobs[i - 1].grabTau).toFixed(3)} s，小於單趟 ${ABB_CT} s`);
 // 放行必須是真的來不及：目標離開窗口時，上一趟放完料再趕過來（接近＋下降＋吸附）還到不了
@@ -141,8 +143,8 @@ for (const it of passed) F(it.pass.busyUntil + PRE > it.pass.leave, `工件 ${it
 for (let t = 0; t <= TOTAL; t += .2) { const st = at(t); if (!deltaIK(front.toPlatform(st.abb.p.x, st.abb.p.y, st.abb.p.z), AB.delta)) { F(false, `t=${t.toFixed(1)}s ABB 逆解失敗`); break; } }
 at(TOTAL - .01);
 for (const job of abbJobs) {
-  const p = world(job.item), [kx, , kz] = AB.basket.size, zc = L.belt.z + job.side * AB.basket.z;
-  F(Math.abs(p.x - job.zone.x) <= kx / 2 && Math.abs(p.z - zc) <= kz / 2 && p.y < 420, `工件 ${job.item.id} 結束時不在 ABB 的收料籃內（${p.x.toFixed(0)}, ${p.y.toFixed(0)}, ${p.z.toFixed(0)}）`);
+  const p = world(job.item), [kx, ky, kz] = AB.sort.bin, bx = job.zone.slots[1].x;
+  F(Math.abs(p.x - bx) <= kx / 2 && Math.abs(p.z - front.sortZ) <= kz / 2 && p.y < ky, `工件 ${job.item.id} 結束時不在分類帶帶尾的收料箱內（${p.x.toFixed(0)}, ${p.y.toFixed(0)}, ${p.z.toFixed(0)}）`);
 }
 notes.push(`前段 ABB 抓 ${abbJobs.length} 件（單趟 ${ABB_CT} s、最短間隔 ${Math.min(...project.abbMetrics.gaps).toFixed(2)} s），放行 ${passed.length} 件 → 後段補抓 ${jobs.length}、漏抓 ${missed.length}`);
 

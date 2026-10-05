@@ -3,8 +3,8 @@
   "params": {},
   "ok": true,
   "applicable": true,
-  "devices": 20,
-  "connections": 28,
+  "devices": 19,
+  "connections": 27,
   "enclosures": 1,
   "feedthroughs": {
     "plates": 1,
@@ -58,7 +58,7 @@
         65
       ],
       "role": "power",
-      "description": "供三台輸送變頻器與手臂控制器。",
+      "description": "供兩台分流帶變頻器與手臂控制器。",
       "source": "QS1",
       "category": "ac",
       "model": "示意",
@@ -273,22 +273,6 @@
       "row": 3
     },
     {
-      "id": "D1",
-      "kind": "drive",
-      "title": "主輸送帶變頻器",
-      "size": [
-        45,
-        100,
-        110
-      ],
-      "role": "motion",
-      "description": "0.2 kW 齒輪減速馬達，帶速 0.2 m/s。",
-      "source": "K2",
-      "category": "ac",
-      "model": "示意",
-      "row": 4
-    },
-    {
       "id": "D2",
       "kind": "drive",
       "title": "分流帶 A 變頻器",
@@ -330,15 +314,15 @@
         320
       ],
       "role": "motion",
-      "description": "櫃外落地在電盤 +X 側、面板朝 +Z；以編碼器同步做 conveyor tracking，經 GW1 與 PLC 交握。用 core 的 robotController() 建，建完要補 userData.electrical.free = true。",
+      "description": "裝在既有電控櫃下游半的下層（系統盤正下方）、面板朝操作走道（−Z）；以外掛編碼器同步做 conveyor tracking，經 GW1 與 PLC 交握。用 core 的 robotController() 建，建完要補 userData.electrical.free = true。",
       "source": "QF2",
       "category": "ac",
       "model": "RC8A 標準型包絡（示意）",
       "free": true,
       "at": [
-        900,
-        700,
-        -1910
+        -1325,
+        300,
+        -1310
       ]
     }
   ],
@@ -346,9 +330,9 @@
     "report": [
       {
         "scenario": "預設",
-        "samples": 391,
-        "routes": 91,
-        "supports": 171,
+        "samples": 401,
+        "routes": 83,
+        "supports": 160,
         "carriers": 1,
         "feedthroughs": {
           "plates": 1,

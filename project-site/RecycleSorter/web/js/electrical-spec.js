@@ -1,4 +1,6 @@
 // 已拍板的第二段電盤配置；尺寸與未選定型號皆為示意。
+// 2026-10-05 拍板：整組系統盤裝進現場既有的電控櫃（layout.js 的 siteCabinet），這裡的 center／backZ 等仍是箱體自己的座標，
+// electrical.js 把整個群組轉 180°、移進櫃內；主輸送帶沿用既有驅動，所以拿掉主帶變頻器（D1），元件由 20 個變 19 個。
 export const ELECTRICAL_SPEC = {
   "cabinet": {
     "center": [
@@ -23,7 +25,7 @@ export const ELECTRICAL_SPEC = {
       -1865
     ],
     "top": 1200,
-    "doorFacing": "+Z（朝機台），門前維修走道 850 mm",
+    "doorFacing": "−Z（朝操作走道）；整組裝在既有電控櫃下游半的上層",
     "entries": [
       {
         "id": "E1",
@@ -41,7 +43,7 @@ export const ELECTRICAL_SPEC = {
         "hole": 14,
         "wire": 5,
         "port": 1,
-        "use": "輸送馬達動力 ×3"
+        "use": "分流帶馬達動力 ×2"
       },
       {
         "id": "E3",
@@ -107,7 +109,7 @@ export const ELECTRICAL_SPEC = {
       "row": 4,
       "y": -330,
       "title": "驅動",
-      "width": 163,
+      "width": 104,
       "limit": 415
     }
   ],
@@ -158,7 +160,7 @@ export const ELECTRICAL_SPEC = {
       "source": "QS1",
       "row": 1,
       "model": "示意",
-      "description": "供三台輸送變頻器與手臂控制器。"
+      "description": "供兩台分流帶變頻器與手臂控制器。"
     },
     {
       "id": "PS1",
@@ -369,22 +371,6 @@ export const ELECTRICAL_SPEC = {
       "description": "PLC ↔ 手臂控制器的抓取命令、完成與異常狀態。"
     },
     {
-      "id": "D1",
-      "kind": "drive",
-      "title": "主輸送帶變頻器",
-      "size": [
-        45,
-        100,
-        110
-      ],
-      "role": "motion",
-      "category": "ac",
-      "source": "QF2",
-      "row": 4,
-      "model": "示意",
-      "description": "0.2 kW 齒輪減速馬達，帶速 0.2 m/s。"
-    },
-    {
       "id": "D2",
       "kind": "drive",
       "title": "分流帶 A 變頻器",
@@ -430,12 +416,12 @@ export const ELECTRICAL_SPEC = {
       "source": "QF2",
       "free": true,
       "at": [
-        900,
-        700,
-        -1910
+        -1325,
+        300,
+        -1310
       ],
       "model": "RC8A 標準型包絡（示意）",
-      "description": "櫃外落地在電盤 +X 側、面板朝 +Z；以編碼器同步做 conveyor tracking，經 GW1 與 PLC 交握。用 core 的 robotController() 建，建完要補 userData.electrical.free = true。"
+      "description": "裝在既有電控櫃下游半的下層（系統盤正下方）、面板朝操作走道（−Z）；以外掛編碼器同步做 conveyor tracking，經 GW1 與 PLC 交握。用 core 的 robotController() 建，建完要補 userData.electrical.free = true。"
     }
   ]
 };

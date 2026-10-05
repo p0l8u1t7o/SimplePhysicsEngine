@@ -2,15 +2,22 @@
   "variant": "預設",
   "params": {},
   "ok": true,
-  "count": 31,
+  "count": 32,
   "failures": [],
   "rows": [
     {
       "group": "前段",
-      "name": "前段雙眼重疊視野涵蓋帶寬 600 mm",
+      "name": "前段雙眼重疊視野涵蓋導料後的料流 400 mm",
       "ok": true,
-      "value": "624 / 600 mm",
-      "note": "WD 1050、單眼視野 924 × 693 mm（示意）"
+      "value": "404 / 400 mm",
+      "note": "與後段同規格：WD 800、單眼視野 704 × 528 mm"
+    },
+    {
+      "group": "前段",
+      "name": "刮料簾限高：單層過、疊料擋",
+      "ok": true,
+      "value": "110 mm（95…124）",
+      "note": "簾底高度要高於最高的單層工件、低於最矮的兩件 HDPE 疊起來的高度"
     },
     {
       "group": "前段",
@@ -22,19 +29,19 @@
       "group": "前段",
       "name": "ABB 逆解全程有效、主動臂 −45°…+85° 內",
       "ok": true,
-      "value": "-23°…48°"
+      "value": "-17°…54°"
     },
     {
       "group": "前段",
       "name": "ABB 動平台在工作直徑 1600 內",
       "ok": true,
-      "value": "最遠 599 / 800 mm"
+      "value": "最遠 618 / 800 mm"
     },
     {
       "group": "前段",
       "name": "ABB 吸嘴峰值速度 ≤ 6 m/s（示意）",
       "ok": true,
-      "value": "3.6 m/s"
+      "value": "3.8 m/s"
     },
     {
       "group": "前段",
@@ -44,15 +51,15 @@
     },
     {
       "group": "前段",
-      "name": "ABB 搬運工件越過側牆淨空 ≥80 mm",
+      "name": "ABB 搬運工件越過側牆淨空 ≥30 mm",
       "ok": true,
-      "value": "104 mm"
+      "value": "38 mm"
     },
     {
       "group": "前段",
-      "name": "帶上工件互不重疊（間隙 ≥15 mm）",
+      "name": "帶上工件互不重疊（三種通道寬度，間隙 ≥10 mm）",
       "ok": true,
-      "value": "最小 20 mm"
+      "value": "最小 10 mm"
     },
     {
       "group": "前段",
@@ -112,7 +119,7 @@
       "group": "淨空",
       "name": "工具掃掠在機台框架平面內",
       "ok": true,
-      "value": "Z ≤689 / 700、X -419…675"
+      "value": "Z ≤688 / 700、X -419…675"
     },
     {
       "group": "淨空",
@@ -173,7 +180,7 @@
       "group": "軸速（示意）",
       "name": "J1 峰值 ≤700°/s",
       "ok": true,
-      "value": "698°/s"
+      "value": "699°/s"
     },
     {
       "group": "軸速（示意）",

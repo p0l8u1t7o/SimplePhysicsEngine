@@ -32,9 +32,9 @@ assert.ok(Math.abs(fov[0]-704)<1e-8 && Math.abs(fov[1]-528)<1e-8);
 assert.equal(p.visionCameras.length,2);
 assert.equal(p.visionCameras[0].root.position.distanceTo(p.visionCameras[1].root.position),300);
 // 前段（ABB 站）的立體取像站與後段同規格
-const frontFov=p.frontCameras[0].fieldOfView(1050);
-assert.ok(Math.abs(frontFov[0]-924)<1e-8 && Math.abs(frontFov[1]-693)<1e-8);
-assert.ok(frontFov[0]-300>=600,'前段雙眼重疊視野要涵蓋 600 帶寬');
+const frontFov=p.frontCameras[0].fieldOfView(800);
+assert.ok(Math.abs(frontFov[0]-704)<1e-8 && Math.abs(frontFov[1]-528)<1e-8);
+assert.ok(frontFov[0]-300>=400,'前段雙眼重疊視野要涵蓋導料後的 400 mm 料流');
 assert.equal(p.frontCameras.length,2);
 assert.equal(p.frontCameras[0].root.position.distanceTo(p.frontCameras[1].root.position),300);
 const snapshot=()=>{
@@ -42,7 +42,7 @@ const snapshot=()=>{
   return p.items.map(i=>[i.id,i.grp.visible,...i.grp.matrixWorld.elements]);
 };
 const frames=[];
-for(const t of [0,41,46,51.8,57,62,80.4,95.6,109,117,46,57]) {
+for(const t of [0,44,49,54.8,60,65,83.4,98.6,112,120,49,60]) {
   p.apply(t);const original=snapshot(), q={...p.state.q};
   const sample=[];
   for(const source of ['CAM1','CAM2','CAM3','CAM4','auto']) {
@@ -71,10 +71,10 @@ assert.ok(frames.some(f=>f.sample.some(s=>s.regions.some(r=>r.region&&!r.region.
 const frontFrames=[14.85,20,14.85].map(t=>{p.apply(t);let out;withVisionFrame(p,scene,'CAM3',data=>{assert.ok(data.title.includes('前段'));out=data.marks.marks.map(m=>({label:m.label,status:m.status,region:projectRegion(m.points,data.camera,704,528)}));});return out;});
 assert.deepEqual(frontFrames[0],frontFrames[1],'前段分析段維持前次取像');assert.deepEqual(frontFrames[0],frontFrames[2],'前段倒序回到相同時間應取到相同影像');
 assert.ok(frontFrames[0].some(r=>r.status==='ok'&&r.region&&!r.region.clipped)&&frontFrames[0].some(r=>r.status==='preview'&&r.region&&!r.region.clipped),'前段取像應同時看到派給 ABB 與放行的目標');
-p.apply(73);const before=snapshot();
+p.apply(76);const before=snapshot();
 const patchBefore=p.lightPatch.visible;
 assert.throws(()=>withVisionFrame(p,scene,'CAM1',()=>{throw new Error('測試還原');}));
-assert.equal(p.state.t,73);const after=snapshot();
+assert.equal(p.state.t,76);const after=snapshot();
 assert.equal(p.lightPatch.visible,patchBefore,'取像失敗也應還原展示光斑');
 for(let i=0;i<after.length;i++) if(before[i][1]) assert.deepEqual(after[i],before[i]);
 // 手機隱藏子畫面時不得倒轉製程、更新 HMI 或執行相機繪製；重新開啟仍還原時間。
@@ -83,10 +83,10 @@ p.apply=(...args)=>{applyCalls++;return originalApply(...args);};
 assert.equal(renderVisionFrame(p,scene,'CAM1',()=>{drawCalls++;},false),false);
 assert.equal(applyCalls,0);assert.equal(drawCalls,0);assert.deepEqual(snapshot(),after);
 assert.equal(renderVisionFrame(p,scene,'CAM2',data=>{drawCalls++;assert.ok(data.title.includes('CAM-R'));},true),true);
-assert.equal(applyCalls,2);assert.equal(drawCalls,1);assert.equal(p.state.t,73);
+assert.equal(applyCalls,2);assert.equal(drawCalls,1);assert.equal(p.state.t,76);
 assert.equal(p.lightPatch.visible,patchBefore);p.apply=originalApply;
 const connections=[];scene.traverse(o=>{if(o.userData.electricalWire)connections.push(o.userData.electricalWire);});
-for(const [from,to] of [['QF2','K1'],['K1','K2'],['K2','D1'],['K2','D2'],['K2','D3'],['GC1','K1'],['GC1','K2'],['K1','IO2'],['K2','IO2'],['QF1','IPC1']])
+for(const [from,to] of [['QF2','K1'],['K1','K2'],['K2','D2'],['K2','D3'],['GC1','K1'],['GC1','K2'],['K1','IO2'],['K2','IO2'],['QF1','IPC1']])
   assert.ok(connections.some(w=>w.from===from&&w.to===to),`缺少功能連線 ${from} → ${to}`);
 assert.equal(p.electrical.rc.userData.electrical.free,true);
 assert.ok(p.verify.cables.obstacles().includes(p.arm.armParts[0]));

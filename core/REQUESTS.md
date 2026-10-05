@@ -22,6 +22,12 @@
 - 期望介面：`core/models/robots/abb-irb360.js`，照共用模型的 `meta`＋`create(params) → { root, set(state) }`；state 是動平台中心 `[x, y, z]`，另匯出閉式逆解與幾何常數。工具與軟管留在專案
 - 影響：之後有高速取放（食品、包裝、分揀）的站都會用到。搬進 core 時連桿尺寸要用型錄核對，目前是現場照片目測的示意值
 
+### 電控檢視器「聚焦元件」要能指定盤面朝向
+- 提出：RecycleSorter（2026-10-05）
+- 暫代：`project-site/RecycleSorter/web/js/main.js`——在檢視器的「元件特寫」按鈕與元件選單上再掛一個事件，聚焦之後把鏡頭鏡射到元件的另一側
+- 期望介面：`createElectricalInspector({ …, facing: [0, 0, -1] })`（或由元件的世界朝向自動判斷）；目前 `focus()` 固定把鏡頭放在元件的 +Z 側
+- 影響：電盤門不是朝 +Z 的站（本站把系統盤裝進門朝 −Z 的既有電控櫃）；`robotController()` 的面板朝向也固定是本地 +Z，本站用轉 180° 的安裝座暫代
+
 ### 擴張網護板材質
 - 提出：RecycleSorter（2026-10-05）
 - 暫代：`project-site/RecycleSorter/web/js/frontline.js` 的 `meshGuard` 材質與 `guard(parent, a, b)`（網目貼圖依實際尺寸換算 UV，所有護板共用一個材質）

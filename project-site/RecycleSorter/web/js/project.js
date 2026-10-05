@@ -18,10 +18,10 @@ import { floor } from '@core/geom/environment.js';
 import { createHSR065, HSR065, fk } from '@core/models/robots/denso-hsr065.js';
 import { LAYOUT, STATIONS } from './layout.js';
 import { buildItem } from './items.js';
-import { createTiming, ITEMS, CHAPTERS, chapterAt, PHASES, GRAB_PHASES, AXIS, CT, BELT_V, TOTAL, VISION_TO_PICK, MIX, mixedCT, perHour, ABB_PHASES, ABB_CT, footprintGap, upstreamZ } from './schedule.js';
+import { createTiming, ITEMS, CHAPTERS, chapterAt, PHASES, GRAB_PHASES, AXIS, CT, BELT_V, TOTAL, VISION_TO_PICK, MIX, mixedCT, perHour, ABB_PHASES, ABB_CT, footprintGap, zOf, leadOf, laneAt, LANE_X } from './schedule.js';
 import { createCameras, createElectrical } from './electrical.js';
 import { SURFACE, beltTexture, detailBatch, addDetails, createLightPatch } from './appearance.js';
-import { createFrontLine } from './frontline.js';
+import { createFrontLine, RUST, SITE_FRAME } from './frontline.js';
 import { deltaIK } from './delta.js';
 
 const L = LAYOUT, G = 9810;                          // 重力 mm/s²
@@ -44,39 +44,44 @@ const sumDur = (ds, k) => ds.slice(0, k).reduce((s, d) => s + d, 0);
 export function createProject({ scene }) {
   const timing = createTiming();
 
-  floor(scene, { size: [8400, 5600], center: [-1900, -300], cell: 200 });        // 含上游的既有分選線
+  floor(scene, { size: [9000, 5600], center: [-2300, -300], cell: 200 });        // 含上游的既有分選線
 
   // ================================================================ 主輸送帶（平皮帶）
   // core/models/conveyor.js 是滾筒輸送線，薄膜與小件會掉落，所以平皮帶在專案自建。
+  // 已拍板（2026-10-05）：這就是現場既有的那條皮帶——由上游端（L.site.x0）一路到後段機台下游，後段直接架在上面；
+  // 外觀照現場（綠色皮帶、鏽色鋼板側牆、藍綠色機架），驅動馬達也是既有的，後段電盤不驅動它，只外掛編碼器。
   const belt = new THREE.Group(); belt.name = 'mainBelt'; scene.add(belt);
   const b = L.belt, bz = b.z, bw = b.width, g0 = L.guide, [gx0, gx1] = g0.x, gLen = gx1 - gx0;
-  const gapAt = x => g0.open + (g0.close - g0.open) * Math.min(1, Math.max(0, (x - gx0) / gLen));
-  const beltTex = beltTexture(0x426950); beltTex.repeat.set((b.x[1] - b.x[0]) / 120, 1);
-  block(belt, [2500, 16, bw], [0, b.top - 8, bz], std(0xffffff, .93, .01, { map: beltTex }));   // 承載面
-  block(belt, [2500, 12, bw], [0, 658, bz], BELT_MAT);                             // 回程面
-  block(belt, [2460, 18, bw - 40], [0, 723, bz], SURFACE.support);                   // 支撐板
-  const rollers = b.x.map(x => cylinder(belt, b.roller, bw + 20, [x, 700, bz], finished(MAT.roller, 'metal'), 'z', 24));
-  for (const dz of [-320, 320]) block(belt, [2600, 130, 24], [0, 660, bz + dz], MAT.frame);        // 側樑
-  for (const dz of [-308, 308]) block(belt, [2600, 70, 14], [0, b.top + 35, bz + dz], MAT.alu);    // 擋板
-  for (const x of b.legX) {
-    for (const z of b.legZ) { block(belt, [70, 595, 70], [x, 298, z], MAT.frame); foot(belt, x, z, 150); }
-    block(belt, [60, 50, 570], [x, 170, bz], MAT.frame);
+  const bx0 = L.site.x0, bx1 = b.x[1], bLen = bx1 - bx0 - 2 * b.roller, bcx = (bx0 + bx1) / 2;
+  const beltTex = beltTexture(0x426950); beltTex.repeat.set(bLen / 120, 1);
+  block(belt, [bLen, 16, bw], [bcx, b.top - 8, bz], std(0xffffff, .93, .01, { map: beltTex }));   // 承載面
+  block(belt, [bLen, 12, bw], [bcx, 658, bz], BELT_MAT);                           // 回程面
+  block(belt, [bLen - 40, 18, bw - 40], [bcx, 723, bz], SURFACE.support);          // 支撐板
+  const rollers = [bx0, bx1].map(x => cylinder(belt, b.roller, bw + 20, [x, 700, bz], finished(MAT.roller, 'metal'), 'z', 24));
+  for (const s of [-1, 1]) {
+    block(belt, [bx1 - bx0, 130, 24], [bcx, 660, bz + s * 320], SITE_FRAME);       // 側樑
+    block(belt, [bx1 - bx0, L.site.wall + 10, 10], [bcx, b.top + L.site.wall / 2 - 5, bz + s * 311], RUST);   // 側牆（高於帶面 110）
   }
-  motor(belt, 1250, 450, bz - 410, .6);                                            // 驅動馬達（示意）
+  for (const x of [...L.site.legX, ...b.legX]) {
+    for (const z of b.legZ) { block(belt, [70, 595, 70], [x, 298, z], SITE_FRAME); foot(belt, x, z, 150); }
+    block(belt, [60, 50, 570], [x, 170, bz], SITE_FRAME);
+  }
+  motor(belt, 1250, 450, bz - 410, .6);                                            // 既有的驅動馬達（示意）
   sensor(belt, L.encoder.x + 90, b.top + 40, L.encoder.z + 20, Math.PI / 2);       // 入料光電
   cylinder(belt, 30, 70, [L.encoder.x, 700, L.encoder.z], MAT.black, 'z', 20);     // 外掛旋轉編碼器
   cylinder(belt, 12, 60, [L.encoder.x, 700, L.encoder.z + 50], MAT.chrome, 'z', 16);
   decal(belt, 170, 42, [L.encoder.x, 600, L.encoder.z - 38], [0, Math.PI, 0], '1000 ppr', { color: '#9fb3c0', center: true });
-  // 入料導料板：開口 600 → 280，把混合料流收攏到手臂實際能覆蓋的帶寬內
-  const guideZ = (side, x) => bz + side * (gapAt(x) / 2 + 6);
+  // 後段導料板：接在前段導料板（600 → 400）之後，開口 400 → 280，把料流收攏到手臂實際能覆蓋的帶寬內。
+  // 板面位置照 schedule.js 的 laneAt()（開口與中心線），和工件走的通道是同一份定義；中心線由皮帶中心移到抓取區中心。
+  const guideZ = (side, x) => { const { gap, center } = laneAt(x); return center + side * (gap / 2 + 6); };
   const guideDetails = detailBatch(belt);
   for (const side of [-1, 1]) {
     const z0 = guideZ(side, gx0), z1 = guideZ(side, gx1);
     const pl = block(belt, [Math.hypot(gLen, z1 - z0), g0.h, 12], [(gx0 + gx1) / 2, b.top + 6 + g0.h / 2, (z0 + z1) / 2], MAT.alu);
-    pl.rotation.y = -Math.atan2(z1 - z0, gLen);
+    pl.rotation.y = -Math.atan2(z1 - z0, gLen); pl.name = 'guide plate';
     // 上緣折邊與入口圓角包邊在料流外側，不變更既有導料開口。
-    block(pl, [Math.hypot(gLen, z1 - z0) - 8, 5, 22], [0, g0.h / 2 + 3.5, side * 5], SURFACE.support);
-    cylinder(belt, 6, g0.h - 10, [gx0, b.top + 6 + g0.h / 2, z0 + side * 6], SURFACE.support, 'y', 12);
+    block(pl, [Math.hypot(gLen, z1 - z0) - 8, 5, 22], [0, g0.h / 2 + 3.5, side * 5], SURFACE.support).name = 'guide plate';
+    cylinder(belt, 6, g0.h - 10, [gx0, b.top + 6 + g0.h / 2, z0 + side * 6], SURFACE.support, 'y', 12).name = 'guide plate';
     for (const mx of g0.mountX) {
       const mz = bz + side * (bw / 2 - 23), shape = new THREE.Shape();
       shape.moveTo(-34, -15); shape.lineTo(34, -15); shape.lineTo(34, 15); shape.lineTo(-34, 15); shape.closePath();
@@ -90,7 +95,7 @@ export function createProject({ scene }) {
       blockBetween(belt, [mx - 20, b.top + 26, guideZ(side, mx)], [mx + 20, b.top + 64, bz + side * (bw / 2 + 8)], MAT.frame);
   }
   guideDetails.flush();
-  decal(belt, 280, 25, [-1100, 805, -14], [0, 0, 0], '導料開口 600 → 280（示意）', { center: true, color: '#26383e', bg: '#d7e1de' });
+  decal(belt, 280, 25, [-1100, 805, bz + 317], [0, 0, 0], '導料開口 400 → 280（示意）', { center: true, color: '#26383e', bg: '#d7e1de' });
 
   // ================================================================ 立體取像站
   // 架台整座在 X −700：手臂底座 (150, 140) 的動作半徑 650 只到 X −500，所以相機與架台都不會被第二臂掃到。
@@ -152,7 +157,7 @@ export function createProject({ scene }) {
   cylinder(tool, 22, 150, [0, -102, 0], finished(MAT.alu, 'metal'), 'y', 22);       // 浮動桿外套
   const plunger = new THREE.Group(); tool.add(plunger);                            // 浮動段（隨 fl 下移）
   cylinder(plunger, 14, 200, [0, -137, 0], MAT.chrome, 'y', 20).userData.nested = tool;
-  block(plunger, [26, 20, T.cupSpan + 40], [0, -240, 0], MAT.steelDark);
+  block(plunger, [26, 20, T.cupSpan + 30], [0, -240, 0], MAT.steelDark);          // 橫桿兩端各收 5 mm：擺動時讓開手臂基座後方的出線管
   for (const dz of [-T.cupSpan / 2, T.cupSpan / 2])
     cylinder(plunger, T.cupR, 8, [0, -256, dz], MAT.black, 'y', 20, 13).name = 'suction cup';
 
@@ -238,7 +243,7 @@ export function createProject({ scene }) {
     block(fovMark, [w, 6, d], [v.x + sx * fovL / 2, b.top + 6, bz + sz * fovW / 2], MARK.fov);
   rod(fovMark, [v.x, v.camY - 100, v.camZ[0]], [v.x, v.camY - 100, v.camZ[1]], 6, MARK.dim, 6);
   // ================================================================ 前段：既有輸送帶、前段立體取像站、ABB 網籠與並聯手臂
-  const front = createFrontLine(scene, L);
+  const front = createFrontLine(scene, L, belt);
   leds.push(...front.leds);                                                         // 前段條燈與後段同一個觸發訊號
   const F = L.front, frontFov = mk('frontFov'), abbWin = mk('abbWindow');
   for (const cz of F.camZ) for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]])
@@ -269,7 +274,7 @@ export function createProject({ scene }) {
     const grp = buildItem(it.kind); itemsG.add(grp);
     const extent = it.L * Math.abs(Math.sin(it.theta)) + it.W * Math.abs(Math.cos(it.theta));
     const rec = { ...it, grp, extent };
-    rec.zAt = it.zFix != null ? () => it.zFix : x => pk.cz + it.lat * Math.max(0, (gapAt(x) - g0.margin - extent) / 2);
+    rec.zAt = x => zOf(it, x);                                                     // 兩段導料板的通道（schedule.js）
     rec.z = rec.zAt(pk.cx);
     return rec;
   });
@@ -280,13 +285,12 @@ export function createProject({ scene }) {
   // 規則只有一條（先到先抓、沒空就放行）：目標進到抓取線前後 ±window 的窗口時，手臂若能在它離開窗口前就位就抓；
   // 上一件還沒放完、趕不到，就放行給後段。哪幾件被放行不是指定的，是這條規則跑出來的結果——
   // 後段的取放工單（下面的 jobs）只排「沒被 ABB 抓走」的目標。
-  const AB = L.abb, abbDur = ABB_PHASES.map(p => p.dur), ABB_PRE = sumDur(abbDur, 3);
+  // 抓到的工件橫移到旁邊的既有分類帶：食品類放下游那段（往下游走）、非食品類放上游那段（往上游走），由帶尾落進收料箱。
+  const AB = L.abb, SO = AB.sort, abbDur = ABB_PHASES.map(p => p.dur), ABB_PRE = sumDur(abbDur, 3);
   const abbHome = { x: AB.x, y: AB.carryY, z: bz };
   const abbJobs = [], passed = [], abbSegs = [];
   const frontTargets = items.filter(it => it.cls !== 'other').sort((p, q) => q.off - p.off);   // 依到達順序
   {
-    const ch = AB.chute, slideLen = (ch.zOut - AB.release) / Math.cos(front.slope);
-    const slideAcc = G * (Math.sin(front.slope) - .22 * Math.cos(front.slope));     // 滑槽上的加速度（摩擦係數 0.22，示意）
     let ready = -Infinity, pos = abbHome, tau = 0;                                  // ready：上一趟放完料、可以再出發的時間
     const push = s => abbSegs.push(s);
     for (const it of frontTargets) {
@@ -294,13 +298,12 @@ export function createProject({ scene }) {
       const grab = Math.max(enter, ready + ABB_PRE);
       if (grab > leave + 1e-9) { it.pass = { enter, leave, busyUntil: ready }; passed.push(it); continue; }
       const t0 = grab - ABB_PRE, at = k => t0 + sumDur(abbDur, k), z = it.zAt(AB.x), grabY = b.top + 2 + it.H + 1.5;
-      const side = it.cls === 'food' ? -1 : 1, zones = front.zones.filter(zn => zn.side === side);
-      const zone = zones[zones[0].used <= zones[1].used ? 0 : 1], slot = zone.slots[zone.used++ % zone.slots.length];
-      const rel = { x: zone.x, y: AB.carryY, z: bz + side * AB.release };
-      const job = { item: it, tau0: t0, grabTau: grab, endTau: t0 + ABB_CT, releaseTau: at(5) + .03, side, zone, slot, rel };
-      job.landTau = job.releaseTau + Math.sqrt(2 * Math.max(1, AB.carryY - 1.5 - it.H - front.chuteY(AB.release) - 2) / G);
-      job.exitTau = job.landTau + Math.sqrt(2 * slideLen / slideAcc);
-      job.binTau = job.exitTau + .45;
+      const zone = front.zones[it.cls === 'food' ? 'food' : 'nonfood'], slot = zone.slots[zone.used++ % zone.slots.length];
+      const rel = { x: zone.drop, y: SO.release, z: front.sortZ };
+      const job = { item: it, tau0: t0, grabTau: grab, endTau: t0 + ABB_CT, releaseTau: at(5) + .03, zone, slot, rel };
+      job.landTau = job.releaseTau + Math.sqrt(2 * Math.max(1, SO.release - 1.5 - it.H - SO.top - 2) / G);
+      job.exitTau = job.landTau + Math.abs(zone.exit - rel.x) / SO.v;
+      job.binTau = job.exitTau + .6;
       it.abbJob = job; abbJobs.push(job);
       if (pos === abbHome && t0 > tau) push({ kind: 'hold', tau0: tau, dur: t0 - tau, p0: abbHome, action: 'ABB：待機', sub: '窗口內沒有目標' });
       else if (t0 - tau > .9) {                                                     // 有空檔：先回抓取線上方待機
@@ -312,7 +315,7 @@ export function createProject({ scene }) {
       push({ ...meta, ...ABB_PHASES[1], kind: 'track', tau0: at(1), dur: abbDur[1], y: [AB.carryY, grabY], z });
       push({ ...meta, ...ABB_PHASES[2], kind: 'track', tau0: at(2), dur: abbDur[2], y: [grabY, grabY], z });
       push({ ...meta, ...ABB_PHASES[3], kind: 'move', tau0: at(3), dur: abbDur[3], p0: pg, p1: pu });
-      push({ ...meta, ...ABB_PHASES[4], kind: 'move', tau0: at(4), dur: abbDur[4], p0: pu, p1: rel, sub: `${it.cls === 'food' ? '食品' : '非食品'} HDPE → ${side < 0 ? '−Z' : '+Z'} 側滑槽` });
+      push({ ...meta, ...ABB_PHASES[4], kind: 'move', tau0: at(4), dur: abbDur[4], p0: pu, p1: rel, sub: `${it.cls === 'food' ? '食品' : '非食品'} HDPE → 分類帶${zone.dir > 0 ? '下游' : '上游'}段` });
       push({ ...meta, ...ABB_PHASES[5], kind: 'hold', tau0: at(5), dur: abbDur[5], p0: rel });
       ready = job.endTau; pos = rel; tau = job.endTau;
     }
@@ -477,8 +480,10 @@ export function createProject({ scene }) {
     const ch = chapterAt(t), τ = timing.tau(t), s = BELT_V * τ;
     beltTex.offset.x = -s / 120;
     for (const r of rollers) r.rotation.y = s / b.roller;                           // 滾筒繞自己的軸轉（網格已先繞 X 轉 90°，自轉軸是本地 Y）
-    front.tex.offset.x = -s / 120;
-    for (const r of front.rollers) r.rotation.y = s / L.site.roller;
+    for (const zn of Object.values(front.zones)) {                                // 既有分類帶：兩段反向，帶速同後段分流帶
+      zn.tex.offset.x = -zn.dir * s * (SO.v / BELT_V) / 100;
+      for (const r of zn.rollers) r.rotation.y = zn.dir * s * (SO.v / BELT_V) / 42;
+    }
     const abb = abbAt(τ);
     front.delta.set(front.toPlatform(abb.p.x, abb.p.y, abb.p.z));
 
@@ -490,24 +495,22 @@ export function createProject({ scene }) {
     const counts = { A: 0, B: 0, other: 0, missed: 0, abb: 0, handoff: 0 };
     for (const it of items) {
       const job = it.job, grp = it.grp;
-      let x = it.off + s, y = b.top + 2, z = it.zAt(x), rot = it.theta, show = true, tilt = 0;
+      let x = it.off + s, y = b.top + 2, z = it.zAt(x), rot = it.theta, show = true;
       const aj = it.abbJob;
       if (it.pass && τ >= it.pass.leave) counts.handoff++;
       if (aj && τ >= aj.grabTau) {
-        const zRel = AB.chute.zOut, yEnd = front.chuteY(zRel) + 2;
         if (τ < aj.releaseTau) {                                                   // 吸附中：跟著 ABB 吸嘴口
           x = abb.p.x; z = abb.p.z; y = abb.p.y - 1.5 - it.H;
-        } else if (τ < aj.landTau) {                                               // 放料後自由落下到滑槽
+        } else if (τ < aj.landTau) {                                               // 放料後自由落下到分類帶
           const dt = τ - aj.releaseTau;
-          x = aj.rel.x; z = aj.rel.z; y = AB.carryY - 1.5 - it.H - G * dt * dt / 2;
-        } else if (τ < aj.exitTau) {                                               // 沿滑槽等加速度滑下
-          const u = (τ - aj.landTau) / (aj.exitTau - aj.landTau), zr = AB.release + (zRel - AB.release) * u * u;
-          x = aj.rel.x; z = bz + aj.side * zr; y = front.chuteY(zr) + 2; tilt = aj.side * front.slope;
-        } else if (τ < aj.binTau) {                                                // 落進收料籃
+          x = aj.rel.x; z = aj.rel.z; y = SO.release - 1.5 - it.H - G * dt * dt / 2;
+        } else if (τ < aj.exitTau) {                                               // 在分類帶上
+          x = aj.rel.x + aj.zone.dir * SO.v * (τ - aj.landTau); z = aj.rel.z; y = SO.top + 2;
+        } else if (τ < aj.binTau) {                                                // 由帶尾落進收料箱
           const u = (τ - aj.exitTau) / (aj.binTau - aj.exitTau);
-          x = aj.rel.x + (aj.slot.x - aj.rel.x) * u; z = bz + aj.side * zRel + (aj.slot.z - bz - aj.side * zRel) * u;
-          y = yEnd + (aj.slot.y - yEnd) * u * u; rot = it.theta + (aj.slot.theta - it.theta) * u; tilt = aj.side * front.slope * (1 - u);
-        } else {                                                                   // 籃內定位
+          x = aj.zone.exit + (aj.slot.x - aj.zone.exit) * u; z = aj.rel.z + (aj.slot.z - aj.rel.z) * u;
+          y = SO.top + 2 + (aj.slot.y - SO.top - 2) * u * u; rot = it.theta + (aj.slot.theta - it.theta) * u;
+        } else {                                                                   // 箱內定位
           x = aj.slot.x; z = aj.slot.z; y = aj.slot.y; rot = aj.slot.theta;
         }
         if (τ >= aj.landTau) counts.abb++;
@@ -531,9 +534,9 @@ export function createProject({ scene }) {
       } else if (x > b.x[1]) {
         show = false;
         if (it.cls === 'other') counts.other++; else counts.missed++;
-      } else if (x < L.site.x[0] + L.site.roller) show = false;                    // 還在上游入料罩裡
+      } else if (x - leadOf(it) < L.site.x0 + L.site.roller) show = false;         // 還沒整件上到帶面（在上游入料罩裡）
       grp.visible = show;
-      if (show) { grp.position.set(x, y, z); grp.rotation.y = rot; grp.rotation.x = tilt; }
+      if (show) { grp.position.set(x, y, z); grp.rotation.y = rot; }
     }
 
     fovMark.visible = ch.id === 'vision' || ch.id === 'ai';
@@ -636,22 +639,31 @@ export function createProject({ scene }) {
       prev = p;
     }
     out.gaps = abbJobs.slice(1).map((j, i) => +(j.grabTau - abbJobs[i].grabTau).toFixed(4));
-    out.clear = AB.carryY - 1.5 - Math.max(...abbJobs.map(j => j.item.H)) - (b.top + L.site.wall);
-    const up = items.map(it => ({ ...it, x: it.off, z: upstreamZ(it) }));
-    out.itemGap = Math.min(...up.flatMap((p, i) => up.slice(i + 1).map(q => footprintGap(p, q))));
+    // 搬運中的工件越過主帶側牆時的淨空：橫移段每 1/40 取樣，工件底面對牆頂
+    out.clear = Infinity;
+    for (const seg of abbSegs) if (seg.key === 'traverse') for (let k = 0; k <= 40; k++) {
+      const { p } = abbAt(seg.tau0 + seg.dur * k / 40), d = Math.abs(p.z - bz), r = seg.item.L / 2;      // 工件還有任何一部分在側牆（離中心 300…320）上方
+      if (d + r > bw / 2 && d - r < bw / 2 + 20) out.clear = Math.min(out.clear, p.y - 1.5 - seg.item.H - (b.top + L.site.wall));
+    }
+    // 帶上工件的間隙：通道的三種寬度（600、400、280）各取一處；ABB 的目標不會流到 280 那一段
+    out.itemGap = Math.min(...LANE_X.flatMap((x, k) => {
+      const list = items.filter(it => k < 2 || !it.front).map(it => ({ ...it, x: it.off, z: zOf(it, x) }));
+      return list.flatMap((p, i) => list.slice(i + 1).map(q => footprintGap(p, q)));
+    }));
     return out;
   })();
   const passedOk = passed.every(it => it.job || missed.some(m => m.item === it));
 
   const layoutChecks = () => [
-    { group: '前段', name: `前段雙眼重疊視野涵蓋帶寬 ${bw} mm`, ok: front.cameras[0].fieldOfView(F.wd)[0] - F.baseline >= bw, value: `${Math.round(front.cameras[0].fieldOfView(F.wd)[0] - F.baseline)} / ${bw} mm`, note: `WD ${F.wd}、單眼視野 ${front.cameras[0].fieldOfView(F.wd).map(Math.round).join(' × ')} mm（示意）` },
+    { group: '前段', name: `前段雙眼重疊視野涵蓋導料後的料流 ${L.frontGuide.close} mm`, ok: front.cameras[0].fieldOfView(F.wd)[0] - F.baseline >= L.frontGuide.close, value: `${Math.round(front.cameras[0].fieldOfView(F.wd)[0] - F.baseline)} / ${L.frontGuide.close} mm`, note: `與後段同規格：WD ${F.wd}、單眼視野 ${front.cameras[0].fieldOfView(F.wd).map(Math.round).join(' × ')} mm` },
+    { group: '前段', name: '刮料簾限高：單層過、疊料擋', ok: L.curtain.clear - maxBeltH >= 10 && L.curtain.clear < 2 * Math.min(...items.filter(it => it.cls !== 'other').map(it => it.H)), value: `${L.curtain.clear} mm（${maxBeltH}…${2 * Math.min(...items.filter(it => it.cls !== 'other').map(it => it.H))}）`, note: '簾底高度要高於最高的單層工件、低於最矮的兩件 HDPE 疊起來的高度' },
     { group: '前段', name: '前段取像到 ABB 抓取的飛行時間 > 視覺鏈路 0.29 s', ok: (AB.x - AB.window - F.x) / BELT_V > .29, value: `${((AB.x - F.x) / BELT_V).toFixed(2)} s` },
     { group: '前段', name: 'ABB 逆解全程有效、主動臂 −45°…+85° 內', ok: !abbMetrics.bad && abbMetrics.maxTheta <= 85 && abbMetrics.minTheta >= -45, value: `${abbMetrics.minTheta.toFixed(0)}°…${abbMetrics.maxTheta.toFixed(0)}°` },
     { group: '前段', name: `ABB 動平台在工作直徑 ${2 * AB.reach} 內`, ok: abbMetrics.maxR <= AB.reach, value: `最遠 ${abbMetrics.maxR.toFixed(0)} / ${AB.reach} mm` },
     { group: '前段', name: 'ABB 吸嘴峰值速度 ≤ 6 m/s（示意）', ok: abbMetrics.v <= 6000, value: `${(abbMetrics.v / 1000).toFixed(1)} m/s` },
     { group: '前段', name: `ABB 抓取間隔不小於單趟 ${ABB_CT.toFixed(2)} s`, ok: Math.min(...abbMetrics.gaps) >= ABB_CT - 1e-6, value: `最短 ${Math.min(...abbMetrics.gaps).toFixed(2)} s · ${abbJobs.length} 趟` },
-    { group: '前段', name: 'ABB 搬運工件越過側牆淨空 ≥80 mm', ok: abbMetrics.clear >= 80, value: `${abbMetrics.clear.toFixed(0)} mm` },
-    { group: '前段', name: '帶上工件互不重疊（間隙 ≥15 mm）', ok: abbMetrics.itemGap >= 15, value: `最小 ${abbMetrics.itemGap.toFixed(0)} mm` },
+    { group: '前段', name: 'ABB 搬運工件越過側牆淨空 ≥30 mm', ok: abbMetrics.clear >= 30, value: `${abbMetrics.clear.toFixed(0)} mm` },
+    { group: '前段', name: '帶上工件互不重疊（三種通道寬度，間隙 ≥10 mm）', ok: abbMetrics.itemGap >= 10, value: `最小 ${abbMetrics.itemGap.toFixed(0)} mm` },
     { group: '前段', name: 'ABB 放行的目標都由後段接手', ok: passedOk && passed.length === jobs.length + missed.length, value: `放行 ${passed.length} 件 → 補抓 ${jobs.length}、漏抓 ${missed.length}` },
     { group: '可達性', name: '抓放全程在動作半徑內', ok: metrics.maxR <= a.reach - 20, value: `最遠 ${metrics.maxR.toFixed(0)} / ${a.reach - 20} mm` },
     { group: '可達性', name: '不進入最小迴轉半徑', ok: metrics.minR >= 60, value: `最近 ${metrics.minR.toFixed(0)} mm` },
@@ -700,13 +712,15 @@ export function createProject({ scene }) {
       dt: .6,
       cables: { interval: .3, obstacles: () => {
         const meshes = [...arm.armParts, ...windowFrame, divider];
+        for (const it of items) it.grp.traverse(m => { if (m.isMesh) meshes.push(m); });   // 搬運中的工件也不能掃到線材
         tool.traverse(m => { if (m.isMesh && !m.userData.routingHardware) meshes.push(m); });
         return meshes;
       } },
       skip: o => o === marks || o.parent === marks,
       allow: [
         { why: '工件被吸盤吸附時與吸盤面接觸', test: (x, y, ctx) => [x, y].some(m => m.name === 'suction cup') && [x, y].some(m => ctx.moduleOf(m) === 'items') },
-        { why: '工件由輸送帶、分流帶、滑槽或收料箱（籃）承載', test: (x, y, ctx) => [x, y].some(m => ctx.moduleOf(m) === 'items') && [x, y].some(m => ['mainBelt', 'siteBelt', 'divA', 'divB', 'bins', 'abbBins'].includes(ctx.moduleOf(m))) },
+        // 只放行承載面與箱體；同在皮帶群組裡的導料板、刮料簾與入料罩不是承載面，工件撞到要抓出來
+        { why: '工件由輸送帶、分流帶、既有分類帶或收料箱承載', test: (x, y, ctx) => [x, y].some(m => ctx.moduleOf(m) === 'items') && [x, y].some(m => ['mainBelt', 'divA', 'divB', 'bins', 'abbSort'].includes(ctx.moduleOf(m)) && !/guide plate|curtain strip|hood/.test(m.name)) },
         { why: '真空軟管的兩端接在吸嘴接頭與固定管上', test: (x, y) => [x, y].some(m => m.name === 'vacuum hose') && [x, y].some(m => m.name === 'hose port' || m.name === 'hose anchor') },
       ],
       envelope: ['robot', 'abbRobot'],

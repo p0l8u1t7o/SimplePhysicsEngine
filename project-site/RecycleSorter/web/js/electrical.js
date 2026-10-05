@@ -1,4 +1,5 @@
 // 第二段電控與外露配線。只讀取製程狀態，不修改第一段排程或關節。
+// 2026-10-05 拍板：DENSO 系統盤與 RC8A 裝進現場既有的電控櫃（frontline.js 建的 siteCabinet），主輸送帶沿用既有驅動。
 import * as THREE from 'three';
 import { component, robotController, CIRCUITS } from '@core/electrical/electrical-components.js';
 import { cabinetShell, controlPanel, entryGland, panelFeed } from '@core/electrical/electrical-cabinet.js';
@@ -30,6 +31,11 @@ export function createCameras(vision, v) {
 export function createElectrical(scene, { cab, frame, robot, belt, vision, hmi, marks, cameras, tool, leds, towerLights, L }) {
   const e = new THREE.Group(); e.name = 'electrical'; scene.add(e);
   const spec = S.cabinet;
+  // 系統盤整組（箱體、背板、穿板接頭、櫃後立管）放在既有電控櫃下游半的上層隔板上。群組裡的座標照原本獨立電盤的寫法
+  // （中心 300, 600, −1760、門朝 +Z），整個群組轉 180° 讓門朝操作走道（−Z），再抬到隔板上、移進櫃內。
+  const K = L.siteCabinet, DROP = K.shelf, [KX, KZ] = K.denso;
+  cab.rotation.y = Math.PI; cab.position.set(KX + 300, DROP, KZ - 1760);
+  const world = ([x, y, z]) => [KX + 300 - x, y + DROP, KZ - 1760 - z];             // 群組座標 → 世界座標
   const shell = cabinetShell(cab, 'CTRL / 電盤櫃（示意）', spec);
   const panel = controlPanel(cab, 'CTRL / 背板', { center: spec.panelCenter, width: spec.panel[0], height: spec.panel[1], backZ: spec.backZ, schedule: SCHEDULE });
   // 額外電源、網路與安全回授；沿每列下方與兩側線槽，與主要 source 連線共用元件端子。
@@ -56,9 +62,9 @@ export function createElectrical(scene, { cab, frame, robot, belt, vision, hmi, 
   const feedColors = [CABLE.power, CABLE.power, CABLE.power, CABLE.signal, CABLE.signal, 0xefda57];
   const wires = [];
   const routeNumber = name => {
-    if (name.includes('櫃後立管')) return {E1:'#1',E2:'#2–4',E3:'#5',E4:'#8–10',E5:'#11–14',E6:'#15–16b'}[name.split(' ')[0]];
+    if (name.includes('櫃後立管')) return {E1:'#1',E2:'#3–4',E3:'#5',E4:'#8–10',E5:'#11–14',E6:'#15–16b'}[name.split(' ')[0]];
     if (name.startsWith('CAM')) return name.includes('硬體') ? '#9' : '#8';
-    if (name.startsWith('D1')) return '#2'; if (name.startsWith('D2')) return '#3'; if (name.startsWith('D3')) return '#4';
+    if (name.startsWith('D2')) return '#3'; if (name.startsWith('D3')) return '#4';
     if (name.includes('手臂編碼器')) return '#7'; if (name.includes('手臂動力')) return '#6';
     if (name.startsWith('E1')) return '#1'; if (name.startsWith('E3')||name.startsWith('RC1 背面')) return '#5';
     if (name.startsWith('E4')) return '#8–10'; if (name.includes('同步觸發分接')) return '#9';
@@ -76,57 +82,59 @@ export function createElectrical(scene, { cab, frame, robot, belt, vision, hmi, 
     dressRoute(g, routeNumber(name), wires.length); wires.push(g); return g;
   };
   const tray = (name, a, b, parent = e, width = 46) => cableTray(parent, name, a, b, { width });
-  // 地面主幹：貼電盤左側跨越走道，分支由機台內部通過。
+  // 地面主幹 C1：由既有電控櫃背後（+Z 側）沿機台操作側往下游走，分支由機台內部通過。
   for (const [name, a, b] of [
-    ['C1', [-850, 60, -830], [-40, 60, -830]], ['C2', [-40, 60, -830], [-40, 60, -1950]],
-    ['C3', [-40, 60, -1950], [1050, 60, -1950]], ['C7-A', [-500, 60, -830], [-500, 60, 420]],
-    ['C7-B', [700, 60, -830], [700, 60, 170]], ['C1 延伸', [-40, 60, -830], [1200, 60, -830]],
-    ['手臂支路', [150, 60, -830], [150, 60, -50]], ['氣源支路', [420, 60, -830], [420, 60, 310]],
+    ['C1', [-850, 60, -830], [-40, 60, -830]], ['C1 上游段', [-1600, 60, -830], [-880, 60, -830]], ['C7-A', [-500, 60, -830], [-500, 60, 420]],
+    ['C7-B', [700, 60, -830], [700, 60, 170]], ['C1 延伸', [-40, 60, -830], [720, 60, -830]],
+    ['手臂支路', [150, 60, -830], [150, 60, -100]], ['氣源支路', [420, 60, -830], [420, 60, 310]],
   ]) {
     const g=tray(name,a,b);
-    if (['C1','C2','C3'].includes(name)) trayCover(g,new THREE.Vector3(...a).distanceTo(new THREE.Vector3(...b)));
+    if (['C1','C1 上游段'].includes(name)) trayCover(g,new THREE.Vector3(...a).distanceTo(new THREE.Vector3(...b)));
   }
   tray('C5 / 編碼器與入料感測', [-1250, 660, -686], [-910, 660, -686], belt, 30);
   // 線槽以腳座落地，未用支架懸在地面上方。
-  for (const [x, z] of [[-850,-830],[-500,-830],[-40,-830],[-40,-1400],[-40,-1950],[560,-1950],[1050,-1950],[-500,420],[700,170],[1200,-830],[150,-50],[420,310]])
+  for (const [x, z] of [[-1600,-830],[-1200,-830],[-850,-830],[-500,-830],[-40,-830],[-500,420],[700,170],[720,-830],[150,-100],[420,310]])
     block(e, [30, 50, 30], [x, 25, z], MAT.steelDark);
   const entries = spec.entries.map((en, i) => {
     const x = 300 + en.x, z = -1760 + en.z, p = panel.ports[en.port];
     entryGland(cab, `${en.id} / ${en.use}`, { at: [x, 1200, z], ...en, thickness: 20 });
     panelFeed(cab, `${en.id} / 穿板至端子`, [[x,1240,z],[x,1140,z],[x,1140,p[2]],[p[0],1140,p[2]],p], { radius: en.wire, color: feedColors[i] });
-    route(cab, `${en.id} / 櫃後立管`, [[x,1240,z],[x,1240,-1930],[x,60,-1930],[x,60,-1950]], feedColors[i], en.wire);
-    // 櫃後固定夾的承接軌，上端高於櫃頂 40 mm。
-    block(cab, [12,1230,8], [x,615,-1920], MAT.steelDark);
+    // 立管在箱體背後（既有電控櫃隔板後方的線槽空間）一路下到地面；群組被抬高了 DROP，所以下端是群組座標的 60 − DROP。
+    route(cab, `${en.id} / 櫃後立管`, [[x,1240,z],[x,1240,-1930],[x,60-DROP,-1930],[x,60-DROP,-1950]], feedColors[i], en.wire);
+    // 櫃後固定夾的承接軌，上端高於櫃頂 40 mm，下端落地。
+    block(cab, [12,1160+DROP,8], [x,(1300-DROP)/2,-1920], MAT.steelDark);
     for (const y of [200,600,1000]) block(cab, [18,14,18], [x,y,-1912], MAT.alu);
-    return [x,60,-1950];
+    return world([x,60-DROP,-1950]);
   });
   plate(cab, ['電控盤（示意）', 'AC 220 V／24 VDC 240 W'], 390, 90, [300,1080,-1605], 0);
   cabinetDetails(cab,shell,panel);
   lightAdjusters(vision,L.vision);
   const rcSpec = S.components.find(c => c.id === 'RC1');
-  const rc = robotController(e, { at: rcSpec.at }); Object.assign(rc.userData.electrical, rcSpec);
+  // RC8A 在既有電控櫃下游半的下層；robotController() 的面板固定朝本地 +Z，所以放進一個轉 180° 的安裝座
+  const rcMount = new THREE.Group(); rcMount.name = 'RC1 安裝座'; rcMount.rotation.y = Math.PI; rcMount.position.set(K.rc[0], 0, K.rc[2]); e.add(rcMount);
+  const rc = robotController(rcMount, { at: [0, K.rc[1], -rcSpec.size[2] / 2] }); Object.assign(rc.userData.electrical, rcSpec);
+  const rcBack = K.rc[2] + rcSpec.size[2] / 2;                                       // RC8A 背面（朝 +Z）的世界座標
   // 元件表的 source 表示主要交握；串聯動力與安全回授另以連線表明確列出。
   const fromPanel = (id, dst, points, color, radius=4) => route(e, `${id} → ${dst}`, points, color, radius);
-  fromPanel('E1', '廠務 AC 220 V（示意）', [entries[0],[100,7,-2070],[100,7,-2270]], CABLE.power,6);
-  // 貼地進線以兩侧斜邊壓條保護；跨越上升段留出進線口。
-  block(e,[38,3,200],[100,17,-2170],MAT.steelDark);
-  for(const x of [78,122]) block(e,[9,17,200],[x,8.5,-2170],MAT.steelDark);
-  fromPanel('E3', 'RC1 動力與交握', [entries[2],[1050,60,-1950],[1050,660,-1950],[1000,660,-1950],[1000,660,-1710],[1000,652,-1702]], CABLE.power,5);
-  tray('RC1 背側理線', [1050,60,-1950], [1050,670,-1950]);
-  route(e, 'RC1 背面服務線', [[1000,660,-1950],[900,660,-1950],[900,705,-1914]], CABLE.signal,4, {backing:{offset:[0,-12,0],feet:[[0,[1050,660,-1950]],[2,[900,653,-1910]]],radius:4}});
-  const trunk = i => [entries[i],[-40,60,-1950],[-40,60,-830]];
+  // E1：由既有電控櫃的主電源分電（同一座櫃內），不另拉廠務進線
+  const feedZ = K.z[1] - 20 - 26;
+  block(e,[90,120,52],[entries[0][0],330,feedZ],MAT.steelDark).name='既有電控櫃主電源分電盒';
+  fromPanel('E1', '既有電控櫃主電源分電（示意）', [entries[0],[entries[0][0],60,feedZ],[entries[0][0],272,feedZ]], CABLE.power,6);
+  // E3 與手臂纜線：RC8A 就在系統盤正下方，纜線由 RC8A 背面下到地面，穿過櫃背底部的進出線口接到 C1
+  const rcX = K.rc[0] + 100;
+  fromPanel('E3', 'RC1 動力與交握', [entries[2],[rcX,60,entries[2][2]],[rcX,K.rc[1],entries[2][2]],[rcX,K.rc[1],rcBack-2]], CABLE.power,5);
+  const trunk = i => [entries[i],[entries[i][0],60,-830]];
   for (const [j,z] of [[0,-10],[1,-10]]) {
-    route(robot, j ? 'RC1 / 手臂編碼器與煞車' : 'RC1 / 手臂動力', [[900+j*16,652,-1702],[900+j*16,620,-1950],[900+j*16,60,-1950],[-40,60,-1950],[-40,60,-830],[150+j*16,60,-830],[150+j*16,60,z],[150+j*16,1025,z],[150+j*16,1040,-110],[150,1090,-128]], j?CABLE.signal:CABLE.power,j?4:5);
+    const x = K.rc[0] - 155 + j * 16;
+    route(robot, j ? 'RC1 / 手臂編碼器與煞車' : 'RC1 / 手臂動力', [[x,K.rc[1],rcBack-2],[x,K.rc[1],rcBack+28],[x,60,rcBack+28],[x,60,-830],[150+j*16,60,-830],[150+j*16,60,z],[150+j*16,1025,z],[150+j*16,1040,-110],[150,1090,-128]], j?CABLE.signal:CABLE.power,j?4:5);
   }
   // 原廠基座後方出線口離立座 120 mm：L 形托架承接服務彎，避開底座本體。
-  block(robot,[100,12,165],[150,1038,-92],MAT.steelDark);
+  // 托架只伸到出線口正下方（Z −121）：再往外就進到搬運中工件的掃掠範圍（0.1 s 取樣抓到瓶蓋擦過原本伸到 Z −175 的托架）。
+  block(robot,[100,12,112],[150,1038,-65],MAT.steelDark);
   block(robot,[100,65,10],[150,1008,-12],MAT.steelDark);
   block(robot,[24,940,4],[150,510,-3],MAT.alu);
 
-  // 馬達支路沿地面線槽與支脚上升，不穿過承載面。
-  route(belt,'D1 / 主帶馬達', [...trunk(1),[1200,60,-830],[1200,450,-830],[1250,450,-808]],CABLE.power,5);
-  block(belt,[16,370,16],[1200,270,-797],MAT.steelDark);
-  block(belt,[100,12,70],[1210,452,-779],MAT.steelDark);
+  // 馬達支路沿地面線槽與支脚上升，不穿過承載面。主輸送帶是既有皮帶，沿用既有驅動，這裡只拉 A／B 兩條分流帶。
   for (const [key,x,leg,cross] of [['A',-860,-600,-500],['B',860,600,700]]) {
     const group = scene.getObjectByName('div'+key);
     motor(group,x,560,490,.42);
@@ -196,7 +204,7 @@ export function createElectrical(scene, { cab, frame, robot, belt, vision, hmi, 
   route(robot,'廠務 / 壓縮空氣',[[-850,6,-880],[-850,6,-865],[420,6,-865],[420,6,310],[230,6,310],[230,470,310],[213,470,304]],CABLE.air,6);
   route(robot,'FRL / 臂內氣路入口',[[88,470,304],[65,470,304],[65,1010,304],[65,1020,-110],[150,1060,-110],[150,1090,-128]],CABLE.air,4,
     {backing:{offset:[-12,0,0],feet:[[0,[105,470,280]],[2,[65,1000,280]],[5,[150,1038,-128]]],radius:4}});
-  route(robot,'VAC1 / 氣壓回授',[[230,470,304],[240,470,304],[240,60,310],[420,60,310],[420,60,-830],[-40,60,-830],[-40,60,-1950],entries[4]],CABLE.signal,3);
+  route(robot,'VAC1 / 氣壓回授',[[230,470,304],[240,470,304],[240,60,310],[420,60,310],[420,60,-830],[entries[4][0],60,-830],entries[4]],CABLE.signal,3);
   route(tool,'工具 / 真空訊號',[[48,-24,48],[67,-24,70],[67,-100,70],[30,-115,80]],CABLE.signal,2,
     {backing:{offset:[8,0,0],feet:[[0,[60,-30,46]],[2,[40,-80,86]]],radius:2}});
   route(tool,'工具 / 氣管',[[46,-24,52],[67,-24,100],[67,-60,100],[42,-60,86]],CABLE.air,3);

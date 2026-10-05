@@ -6,8 +6,8 @@
 //   rate = 1 為實時、1/6 為慢動作展示、0 為凍結（AI 分析段）。手臂的每個子動作時間也以製程時間計，
 //   所以慢動作段的帶速、手臂速度、節拍彼此一致，不是把帶子單獨調慢的假畫面。
 //
-// 2026-10-05 補上前段（現場既有的 ABB 分選站）：播放時間在最前面多 21 s 的前段敘事（51 s 之後就是原本 30 s 之後的內容），
-// 製程時間整體後移 PRE_ROLL = 3 s（帶上工件一起往上游退 600 mm），所以後段的取放工單、節拍與相對時序都沒有變。
+// 2026-10-05 補上前段（現場既有的 ABB 分選站）：播放時間在最前面多 24 s 的前段敘事（54 s 之後就是原本 30 s 之後的內容），
+// 製程時間整體後移 PRE_ROLL = 6 s（帶上工件一起往上游退 1200 mm），所以後段的取放工單、節拍與相對時序都沒有變。
 import { LAYOUT } from './layout.js';
 import { KINDS } from './items.js';
 
@@ -50,7 +50,7 @@ export const PHASES = [
 export const GRAB_PHASES = 3;                  // 前三段結束＝抓取瞬間
 
 // ---------------------------------------------------------------- 前段 ABB 並聯手臂的六個子動作（示意）
-// 合計 1.15 s／件：吸嘴接大口徑軟管、放料要橫移到帶外的滑槽，所以比型錄的空載節拍慢得多。待現場實測。
+// 合計 1.15 s／件：吸嘴接大口徑軟管、放料要橫移到旁邊的既有分類帶，所以比型錄的空載節拍慢得多。待現場實測。
 // 規則（project.js 的 ABB 排程）：目標進到抓取線前後 ±window 的窗口時手臂有空就抓；
 // 上一件還沒放完、趕不到，就放行——由後段補抓站接手。
 export const ABB_PHASES = [
@@ -58,15 +58,16 @@ export const ABB_PHASES = [
   { key: 'descend', dur: .17, action: 'ABB：下降、吸嘴貼近頂面', sub: '下降量取自立體量測的頂面高度' },
   { key: 'vacuum', dur: .10, action: 'ABB：吸附', sub: '吸塵器式真空源，大流量吸附' },
   { key: 'lift', dur: .16, action: 'ABB：上升到搬運高度', sub: '' },
-  { key: 'traverse', dur: .32, action: 'ABB：橫移到滑槽上方', sub: '' },
-  { key: 'release', dur: .12, action: 'ABB：放料', sub: '工件沿滑槽滑進帶旁的收料籃' },
+  { key: 'traverse', dur: .32, action: 'ABB：橫移到分類帶上方', sub: '' },
+  { key: 'release', dur: .12, action: 'ABB：放料', sub: '工件落在既有分類帶上，由帶尾進收料箱' },
 ];
 export const ABB_CT = +ABB_PHASES.reduce((s, p) => s + p.dur, 0).toFixed(3);
 
 // ---------------------------------------------------------------- 播放速率（播放時間 → 製程時間）
 // [t0, t1, rate0, rate1]；rate 在段內線性變化，所以 τ 在段內是二次式，倒序取樣也一致。
-// 前段（0～51 s）用「長度, rate0, rate1」列出，累加成 [t0, t1, rate0, rate1]；51 s 之後是原本 30 s 之後的後段，整體後移 21 s。
-export const PRE_ROLL = 3;                     // 前段預跑的製程時間（s）：工件先流進前段取像站，畫面才凍結分析
+// 前段（0～54 s）用「長度, rate0, rate1」列出，累加成 [t0, t1, rate0, rate1]；54 s 之後是原本 30 s 之後的後段，整體後移 24 s。
+// PRE_ROLL：製程時間後移的秒數＝前段預跑 3 s（工件先流進前段取像站，畫面才凍結分析）＋ABB 到後段多出的 600 mm 路程 3 s（中間放既有電控櫃）
+export const PRE_ROLL = 6;
 const FRONT_RATE = [
   [9.5, 0, 0],               // 概觀：全線待機
   [.8, 0, 1],                // 啟動
@@ -78,9 +79,9 @@ const FRONT_RATE = [
   [.6, 1, .2],
   [10, .2, .2],              // ABB 抓取＋緊跟在後的目標放行（1/5 慢動作）
   [.6, .2, 1],
-  [10.73, 1, 1],             // 放行的目標流向後段：過渡板、導料板、後段立體取像（實時）
+  [13.73, 1, 1],             // 放行的目標沿同一條皮帶流向後段：刮料簾、導料板、後段立體取像（實時）
 ];
-const REAR_SHIFT = 21, REAR_RATE = [
+const REAR_SHIFT = 24, REAR_RATE = [
   [30.0, 30.8, 1, 0],        // 取像完成，畫面凍結
   [30.8, 41.0, 0, 0],        // AI 分類與 3D 定位（凍結分析）
   [41.0, 41.6, 0, .24],      // 恢復
@@ -133,29 +134,29 @@ export function createTiming(table = RATE) {
 // ---------------------------------------------------------------- 敘事段落（播放列的步驟與預設視角）
 // front：前段的段落——面板與焦點追隨改看 ABB；flow：側欄「整合流程」目前亮哪一步（見 FLOW）。
 export const CHAPTERS = [
-  { id: 'overview', name: '全線概觀', t: [0, 10], station: 0, view: 'line', flow: -1, front: true, note: '現場既有的 ABB 分選站（上游）與後段補抓站（下游），兩站都用新的雙相機立體視覺' },
-  { id: 'frontVision', name: '前段立體取像', t: [10, 14.85], station: 1, view: 'frontVision', flow: 0, front: true, note: '新視覺取代既有相機：與後段同一套雙相機，工作距離加高到 1050，雙眼重疊視野涵蓋整個 600 帶寬' },
+  { id: 'overview', name: '全線概觀', t: [0, 10], station: 0, view: 'line', flow: -1, front: true, note: '同一條既有皮帶上：上游是既有的 ABB 分選站，下游是後段補抓站；兩站都用新的雙相機立體視覺，共用一座電控櫃' },
+  { id: 'frontVision', name: '前段整列與立體取像', t: [10, 14.85], station: 1, view: 'frontVision', flow: 0, front: true, note: '刮料簾把疊料攤成單層、導料板收到 400 mm；新視覺取代既有相機，規格與後段完全相同（基線 300、工作距離 800）' },
   { id: 'frontAI', name: '前段 AI 分類與抓取分配', t: [14.85, 24.4], station: 1, view: 'frontTop', flow: 1, front: true, note: '分類、頂面高度與角度一次算出；ABB 節拍內抓得到的派給 ABB，緊跟在後的標記為交後段' },
-  { id: 'abbTrack', name: 'ABB 追蹤與抓取', t: [24.4, 29.1], station: 2, view: 'abb', flow: 2, front: true, note: '座標隨編碼器推進 1400 mm 到抓取線；落單的目標 ABB 一趟 1.15 s 抓走（實時）' },
-  { id: 'abbPick', name: 'ABB 抓取與放行', t: [29.1, 40.3], station: 2, view: 'abbPick', flow: 2, front: true, note: '兩件相鄰 100 mm：前一件抓走放進滑槽，後一件進窗口時手臂還沒空，放行（1/5 慢動作）' },
-  { id: 'handoff', name: '放行目標交後段', t: [40.3, 45.5], station: 2, view: 'handoff', flow: 3, front: true, note: '放行清單（類別、高度、編碼器位置）交給後段；工件經過渡板流向補抓站' },
-  { id: 'infeed', name: '後段入料整列', t: [45.5, 48.5], station: 3, view: 'infeed', flow: 4, note: '導料板把料流由 600 收攏到帶中央 280 mm，工件位置會偏移，所以後段要再取像' },
-  { id: 'vision', name: '後段立體取像', t: [48.5, 51.8], station: 4, view: 'vision', flow: 4, note: '雙相機同步觸發 60 fps、基線 300、工作距離 800，對放行目標重新定位' },
-  { id: 'ai', name: 'AI 分類與 3D 定位', t: [51.8, 62], station: 5, view: 'visionTop', flow: 4, note: '實例分割 → 材質與食品屬性；左右視差 → 頂面高度與長軸角度' },
-  { id: 'track', name: '編碼器追蹤', t: [62, 69.8], station: 6, view: 'track', flow: 5, note: '座標隨帶位置推進，進入 240 mm 追蹤窗口排隊（1/4 慢動作）' },
-  { id: 'pickA', name: '補抓：食品 HDPE', t: [69.8, 80.4], station: 7, view: 'pick', flow: 5, note: '七個子動作拆解，投放到 A 帶（1/6 慢動作）' },
-  { id: 'pickB', name: '補抓：非食品 HDPE', t: [80.4, 89.6], station: 7, view: 'pick', flow: 5, note: '同一手臂改投放到 B 帶；擺幅較大，單趟節拍比 1.40 s 長（1/5 慢動作）' },
-  { id: 'pass', name: '混合料流與非目標續流', t: [89.6, 95.6], station: 7, view: 'outfeed', flow: 5, note: 'PET／鐵罐／薄膜不抓，由主帶末端續流；非食品 HDPE 轉到 B 帶（跨帶擺幅大，單趟節拍較長）' },
-  { id: 'burst', name: '後段連續運轉節拍 CT 1.4 s', t: [95.6, 109], station: 7, view: 'overview', flow: 5, note: '前段剛才每 1.4 s 抓一件、放行一件，放行的 9 件接連到後段：滿載 7 連抓驗證同類節拍 1.40 s，最後一件間距只有 240 mm 被漏抓' },
-  { id: 'result', name: '分流結果與承諾產能', t: [109, 117], station: 8, view: 'outfeed', flow: 6, note: '前段、後段兩路成果統計、漏抓警報，以及後段混合料流加權平均節拍換算的承諾產能' },
+  { id: 'abbTrack', name: 'ABB 追蹤與抓取', t: [24.4, 29.1], station: 2, view: 'abb', flow: 2, front: true, note: '座標隨編碼器推進 1400 mm 到抓取線；落單的目標 ABB 一趟 1.15 s 抓走，放到旁邊的既有分類帶（實時）' },
+  { id: 'abbPick', name: 'ABB 抓取與放行', t: [29.1, 40.3], station: 2, view: 'abbPick', flow: 2, front: true, note: '兩件相鄰 100 mm：前一件抓走放上分類帶，後一件進窗口時手臂還沒空，放行（1/5 慢動作）' },
+  { id: 'handoff', name: '放行目標交後段', t: [40.3, 48.5], station: 2, view: 'handoff', flow: 3, front: true, note: '放行清單（類別、高度、編碼器位置）在同一座電控櫃內交給後段；工件沿同一條皮帶流向補抓站' },
+  { id: 'infeed', name: '後段整列', t: [48.5, 51.5], station: 3, view: 'infeed', flow: 4, note: '第二道刮料簾與導料板把料流由 400 收到帶中央 280 mm，工件位置會偏移，所以後段要再取像' },
+  { id: 'vision', name: '後段立體取像', t: [51.5, 54.8], station: 4, view: 'vision', flow: 4, note: '雙相機同步觸發 60 fps、基線 300、工作距離 800，對放行目標重新定位' },
+  { id: 'ai', name: 'AI 分類與 3D 定位', t: [54.8, 65], station: 5, view: 'visionTop', flow: 4, note: '實例分割 → 材質與食品屬性；左右視差 → 頂面高度與長軸角度' },
+  { id: 'track', name: '編碼器追蹤', t: [65, 72.8], station: 6, view: 'track', flow: 5, note: '座標隨帶位置推進，進入 240 mm 追蹤窗口排隊（1/4 慢動作）' },
+  { id: 'pickA', name: '補抓：食品 HDPE', t: [72.8, 83.4], station: 7, view: 'pick', flow: 5, note: '七個子動作拆解，投放到 A 帶（1/6 慢動作）' },
+  { id: 'pickB', name: '補抓：非食品 HDPE', t: [83.4, 92.6], station: 7, view: 'pick', flow: 5, note: '同一手臂改投放到 B 帶；擺幅較大，單趟節拍比 1.40 s 長（1/5 慢動作）' },
+  { id: 'pass', name: '混合料流與非目標續流', t: [92.6, 98.6], station: 7, view: 'outfeed', flow: 5, note: 'PET／鐵罐／薄膜不抓，由皮帶末端續流；非食品 HDPE 轉到 B 帶（跨帶擺幅大，單趟節拍較長）' },
+  { id: 'burst', name: '後段連續運轉節拍 CT 1.4 s', t: [98.6, 112], station: 7, view: 'overview', flow: 5, note: '前段剛才每 1.4 s 抓一件、放行一件，放行的 9 件接連到後段：滿載 7 連抓驗證同類節拍 1.40 s，最後一件間距只有 240 mm 被漏抓' },
+  { id: 'result', name: '分流結果與承諾產能', t: [112, 120], station: 8, view: 'outfeed', flow: 6, note: '前段、後段兩路成果統計、漏抓警報，以及後段混合料流加權平均節拍換算的承諾產能' },
 ];
 // 整合流程（側欄）：新視覺系統把兩支手臂串成一條線
 export const FLOW = [
-  '前段立體取像（雙相機）',
+  '刮料簾、導料板整列 → 前段立體取像',
   'AI 分類＋頂面高度＋抓取分配',
-  'ABB 並聯手臂第一道抓取',
+  'ABB 並聯手臂抓取 → 既有分類帶',
   '放行清單交後段（編碼器追蹤）',
-  '後段立體取像再定位',
+  '後段整列、立體取像再定位',
   'DENSO SCARA 補抓 → A／B 分流',
   '統計、漏抓警報與產能',
 ];
@@ -186,18 +187,18 @@ const ITEM_TABLE = [
 // 最前面兩件與最後六件是落單的目標（ABB 正常抓走）；尾段另補四件非目標物，後段連抓時上游仍有料流。
 // 洗衣精罐從這裡排入料流，模型庫 12 款都有展示。
 const ABB_TABLE = [
-  ['pet', -10500], ['can', -11000], ['film', -11500], ['carton', -12000],      // 尾段的非目標物（續流到主帶末端）
+  ['pet', -10500], ['can', -11000], ['film', -11500], ['carton', -12000],      // 尾段的非目標物（續流到皮帶末端）
   ['lactic', -2790], ['alcohol', -3790],
-  ['yogurt', -4360], ['detergent', -4740],                    // 牛奶罐、洗髮精罐的前一件
-  ['milkBottle', -5350], ['alcohol', -5950],                  // 混合料流段
+  ['yogurt', -4360], ['lactic', -4740],                       // 牛奶罐、洗髮精罐的前一件
+  ['milkBottle', -5350], ['yogurt', -5960],                  // 混合料流段
   ['yogurt', -6470], ['alcohol', -6750], ['lactic', -7030], ['yogurt', -7310],   // 滿載段：每 280 mm 一件
-  ['milkBottle', -7590], ['alcohol', -7870], ['yogurt', -8150], ['lactic', -8430],
+  ['milkBottle', -7590], ['alcohol', -7870], ['lactic', -8150], ['yogurt', -8430],
   ['alcohol', -8670],
-  ['alcohol', -9350], ['milkJug', -9750], ['detergent', -10250], ['shampoo', -10750], ['lactic', -11250], ['alcohol', -11750],   // 尾段：落單的目標
+  ['alcohol', -9350], ['milkJug', -9750], ['detergent', -10250], ['shampoo', -10750], ['alcohol', -11250], ['alcohol', -11750],   // 尾段：落單的目標
 ];
 
 // 固定的橫向位置與長軸角度（確定性的擬隨機，不用 Math.random，倒序與跳播結果才一致）。
-// lat 是正規化的橫向位置（−1…1）：實際 Z 由 project.js 依導料板在該 X 的開口寬度換算，所以物件一定在板內。
+// lat 是正規化的橫向位置（−1…1）：實際 Z 依導料板在該 X 的開口寬度換算（zOf），所以物件一定在板內。
 const lat = i => +Math.sin(i * 2.3 + .7).toFixed(4);
 const theta = i => +(.9 * Math.sin(i * 1.7 + 1.1)).toFixed(4);            // ±52°
 
@@ -209,34 +210,51 @@ export function footprintGap(a, b) {
   for (const u of [...axes(a), ...axes(b)]) gap = Math.max(gap, Math.abs((b.x - a.x) * u[0] + (b.z - a.z) * u[1]) - half(a, u) - half(b, u));
   return gap;
 }
-const G0 = LAYOUT.guide, extentOf = it => it.L * Math.abs(Math.sin(it.theta)) + it.W * Math.abs(Math.cos(it.theta));
-/** 導料板上游（開口 600）的橫向位置：既有工件由 lat 換算，ABB 目標是固定值 */
-export const upstreamZ = it => it.zFix ?? LAYOUT.pick.cz + it.lat * Math.max(0, (G0.open - G0.margin - extentOf(it)) / 2);
 
-/** 工件清單：{ id, kind, cls, off, lat, theta, H, L, W, front?, zFix? }；front＝排給前段 ABB 的目標 */
+// ---------------------------------------------------------------- 料流通道：兩段導料板
+// 前段導料板把料流由 600 收到 400（立體相機的雙眼重疊視野），後段導料板再由 400 收到 280（SCARA 的有效抓取帶寬），
+// 同時把中心由皮帶中心移到抓取區中心。抓取點（X ≥ 後段導料板出口）的寬度與中心和補上前段之前相同。
+const FG = LAYOUT.frontGuide, RG = LAYOUT.guide;
+const ramp = (x, [a, b]) => Math.min(1, Math.max(0, (x - a) / (b - a)));
+/** X 處的料流通道：{ gap 板間開口, center 中心線 Z } */
+export function laneAt(x) {
+  const f = ramp(x, FG.x), r = ramp(x, RG.x);
+  return { gap: FG.open + (FG.close - FG.open) * f + (RG.close - RG.open) * r, center: LAYOUT.belt.z + (LAYOUT.pick.cz - LAYOUT.belt.z) * r };
+}
+const extentOf = it => it.L * Math.abs(Math.sin(it.theta)) + it.W * Math.abs(Math.cos(it.theta));
+/** 工件沿輸送方向的半長（含瓶蓋凸出的 12 mm） */
+export const leadOf = it => (it.L * Math.abs(Math.cos(it.theta)) + it.W * Math.abs(Math.sin(it.theta))) / 2 + 12;
+/**
+ * 工件中心在 X 處的橫向位置：離板面至少 margin/2。通道寬度取工件「前緣」所在的位置——
+ * 導料板是斜的，前緣先碰到比較窄的地方；板子以外的直段前緣與中心的寬度相同，結果不變。
+ */
+export const zOf = (it, x) => { const { gap, center } = laneAt(x + leadOf(it)); return center + it.lat * Math.max(0, (gap - RG.margin - extentOf(it)) / 2); };
+/** 取樣通道的三個寬度（600、400、280）各一處，檢查工件間隙用 */
+export const LANE_X = [FG.x[0] - 100, (FG.x[1] + RG.x[0]) / 2, RG.x[1] + 100];
+
+/** 工件清單：{ id, kind, cls, off, lat, theta, H, L, W, front? }；front＝排給前段 ABB 的目標（不會流到後段） */
 export const ITEMS = (() => {
   const base = ITEM_TABLE.map(([kind, off], i) => ({
     id: i, kind, cls: KINDS[kind].cls, off: off - PRE_ROLL * BELT_V, lat: lat(i), theta: theta(i),
     H: KINDS[kind].H, L: KINDS[kind].L, W: KINDS[kind].W,
   }));
-  // ABB 目標的橫向位置：在帶寬內每 10 mm 找一個離鄰近工件最遠的位置（純計算，結果固定）
-  const B = LAYOUT.belt, placed = base.map(it => ({ ...it, x: it.off, z: upstreamZ(it) }));
-  const n0 = base.length;
+  // ABB 目標的橫向位置與角度：在通道內找一個離鄰近工件最遠的擺法（600 與 400 兩種寬度都要讓得開；純計算，結果固定）
+  const at = (it, x) => ({ ...it, x: it.off, z: zOf(it, x) }), n0 = base.length;
   ABB_TABLE.forEach(([kind, off], k) => {
     const i = n0 + k, K = KINDS[kind];
-    if (K.cls === 'other') {                                                       // 非目標物會流過後段的導料板，橫向位置照既有工件由 lat 換算
-      const it = { id: i, kind, cls: K.cls, off: off - PRE_ROLL * BELT_V, lat: lat(i), theta: theta(i), H: K.H, L: K.L, W: K.W };
-      placed.push({ ...it, x: it.off, z: upstreamZ(it) }); base.push(it); return;
+    const it = { id: i, kind, cls: K.cls, off: off - PRE_ROLL * BELT_V, lat: lat(i), theta: theta(i), H: K.H, L: K.L, W: K.W };
+    if (K.cls !== 'other') {                                                       // 非目標物會流過後段的導料板，照既有工件的算法；目標另外找位置
+      // 大致順著輸送方向擺（±9° 內），並排時才讓得開；橫向位置與角度一起找
+      it.front = true;
+      const near = base.filter(o => Math.abs(o.off - it.off) < 420);
+      let best = null;
+      for (const th of [0, -.08, .08, -.16, .16]) for (let j = -20; j <= 20; j++) {
+        const cand = { ...it, lat: j / 20, theta: th };
+        const gap = Math.min(999, ...near.flatMap(o => LANE_X.slice(0, 2).map(x => footprintGap(at(cand, x), at(o, x)))));
+        if (!best || gap > best.gap + 1e-9) best = { lat: cand.lat, theta: th, gap };
+      }
+      it.lat = best.lat; it.theta = best.theta;
     }
-    const it = { id: i, kind, cls: K.cls, off: off - PRE_ROLL * BELT_V, lat: 0, theta: +(.3 * Math.sin(i * 1.9 + .4)).toFixed(4), H: K.H, L: K.L, W: K.W, front: true };
-    const room = B.width / 2 - 30 - extentOf(it) / 2, near = placed.filter(o => Math.abs(o.x - it.off) < 420);
-    let best = null;
-    for (let z = B.z - room; z <= B.z + room + 1e-9; z += 10) {
-      const gap = Math.min(999, ...near.map(o => footprintGap({ ...it, x: it.off, z }, o)));
-      if (!best || gap > best.gap + 1e-9) best = { z, gap };
-    }
-    it.zFix = Math.round(best.z);
-    placed.push({ ...it, x: it.off, z: it.zFix });
     base.push(it);
   });
   return base;
