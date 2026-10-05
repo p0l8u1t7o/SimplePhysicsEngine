@@ -75,7 +75,7 @@ test('給代理用的元件清單：依群組與類別分段、沿用編號、�
     md = catalogMarkdown(db, { today: '2026-10-05' });
     assert.match(md, /^# 元件資料庫清單（2026-10-05，3 個元件）/);
     assert.ok(md.indexOf('## 視覺') < md.indexOf('## 我的群組') && md.indexOf('## 我的群組') < md.indexOf('## 未分組'), '預設群組在前、自訂的其次、沒有群組的最後');
-    assert.match(md, new RegExp(`\\| #${cam.id} \\| 工業相機 \\| Basler \\| ace 2 \\| 500 萬／GigE；介面：GigE \\| 台 \\| NT\\$20,000（B） \\| RecycleSorter \\| 甲客戶指定 \\|`));
+    assert.match(md, new RegExp(`\\| ${cam.code} \\| 工業相機 \\| Basler \\| ace 2 \\| 500 萬／GigE；介面：GigE \\| 台 \\| NT\\$20,000（B） \\| RecycleSorter \\| 甲客戶指定 \\|`));
     } finally { db.close(); }
     assert.equal(writeCatalog(J, { file, redact: s => s.split('甲客戶').join('（用戶）') }), 3);
     const text = readFileSync(join(J.studio, 'parts-catalog.md'), 'utf8');

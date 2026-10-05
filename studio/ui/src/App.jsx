@@ -1,6 +1,7 @@
 // 版面：左側深綠側欄（導覽、工作區的專案清單、新建專案），右側主面板（上方是搜尋與狀態列，下面是選取的畫面）。
 // 本庫 project-site/ 的站不放在側欄，集中在「本庫的站」那一頁。
-// 網址 hash 記住目前的畫面（#home 儀表板、#stations、#new、#parts、#settings、#p/<專案>）。
+// 網址 hash 記住目前的畫面（#home 儀表板、#stations、#new、#parts、#settings、#accounts、#p/<專案>）。
+// 有帳號之後要先登入（App 先問 /api/auth/me，沒登入就顯示登入頁）；還沒有任何帳號時和以前一樣直接使用。
 import { useCallback, useEffect, useState } from 'react';
 import { api, useEvents, STAGE } from './api.js';
 import { NewProject } from './NewProject.jsx';
@@ -9,11 +10,22 @@ import { Settings } from './Settings.jsx';
 import { Parts } from './Parts.jsx';
 import { Dashboard } from './Dashboard.jsx';
 import { Stations } from './Stations.jsx';
+import { Login, Accounts, ChangePassword } from './Accounts.jsx';
 import { Icon, Logo } from './icons.jsx';
 
 const readHash = () => { const h = decodeURIComponent(location.hash.slice(1)); return h.startsWith('p/') ? { view: 'project', id: h.slice(2) } : { view: h || 'home' }; };
 
 export function App() {
+  const [me, setMe] = useState(undefined);      // undefined：還在問伺服器；之後是 { required, user, roles }
+  const loadMe = useCallback(() => api.me().then(setMe).catch(() => setMe({ required: false, user: null, roles: {} })), []);
+  useEffect(() => { loadMe(); addEventListener('vs3d-unauthorized', loadMe); return () => removeEventListener('vs3d-unauthorized', loadMe); }, [loadMe]);
+  if (me === undefined) return null;
+  if (me.required && !me.user) return <Login onDone={loadMe} />;
+  return <Shell me={me} onAuthChange={loadMe} />;
+}
+
+function Shell({ me, onAuthChange }) {
+  const user = me.user, [menu, setMenu] = useState(false);
   const [route, setRoute] = useState(readHash());
   const [info, setInfo] = useState(null);
   const [projects, setProjects] = useState([]);
@@ -39,7 +51,8 @@ export function App() {
   const waiting = projects.filter(p => p.pending > 0), questions = waiting.reduce((n, p) => n + p.pending, 0);
   const inStations = route.view === 'stations' || (route.view === 'project' && route.id?.startsWith('@'));
   const nav = [['home', '儀表板', 'home', route.view === 'home'], ...(stations.length || info?.repo ? [['stations', '本庫的站', 'folder', inStations]] : []),
-    ['parts', '元件庫', 'parts', route.view === 'parts'], ['settings', '設定', 'settings', route.view === 'settings']];
+    ['parts', '元件庫', 'parts', route.view === 'parts'], ['settings', '設定', 'settings', route.view === 'settings'],
+    ...(!user || user.role === 'admin' ? [['accounts', '帳號', 'user', route.view === 'accounts']] : [])];
 
   return (
     <div className="app">
@@ -81,12 +94,22 @@ export function App() {
               {running ? `● 執行中：${running.id}（${running.cmd}）` : '閒置'}</button>
             <button className="round" disabled={!questions} title={questions ? `${questions} 個問題等你回答：${waiting.map(p => p.title).join('、')}` : '沒有等待回答的問題'}
               onClick={() => waiting[0] && go({ view: 'project', id: waiting[0].id })}><Icon name="bell" />{questions > 0 && <span className="badge">{questions}</span>}</button>
+            {user && <div className="user">
+              <button className="round avatar" title={`${user.display}（${me.roles[user.role]}）`} aria-expanded={menu} onClick={() => setMenu(m => !m)}>{user.display.slice(0, 1).toUpperCase()}</button>
+              {menu && <div className="user-menu" onMouseLeave={() => setMenu(false)}>
+                <div className="u-name"><b>{user.display}</b><span className="mute">{user.name} · {me.roles[user.role]}</span></div>
+                <button onClick={() => { setMenu(false); go({ view: 'accounts' }); }}>{user.role === 'admin' ? '帳號管理' : '改密碼'}</button>
+                <button onClick={() => api.logout().then(onAuthChange)}>登出</button>
+              </div>}
+            </div>}
           </div>
         </div>
+        {user?.role === 'viewer' && <div className="notice warn" style={{ margin: '0 26px 10px' }}>你用的是唯讀帳號：可以看所有內容，不能執行流程或修改資料。</div>}
         {route.view === 'home' && <Dashboard go={go} tick={tick} />}
         {route.view === 'stations' && <Stations projects={projects} query={query} go={go} />}
         {route.view === 'new' && <NewProject info={info} running={running} onCreated={id => { refresh(); go({ view: 'project', id }); }} />}
         {route.view === 'settings' && <Settings info={info} />}
+        {route.view === 'accounts' && (!user || user.role === 'admin' ? <Accounts me={user} onAuthChange={onAuthChange} /> : <div className="page narrow"><h2>我的帳號</h2><p className="sub">{user.display}（{user.name}）· {me.roles[user.role]}</p><ChangePassword /></div>)}
         {route.view === 'parts' && <Parts projectNames={stations.map(p => p.name)} />}
         {route.view === 'project' && <ProjectView key={route.id} id={route.id} tick={tick} running={running} onChange={refresh} onDeleted={() => { refresh(); go({ view: 'home' }); }} />}
       </main>

@@ -49,7 +49,7 @@ test('檢查結果：快速與完整兩份取每一項最新的那次', () => {
 
 test('元件資料庫統計：類別、專案、各成本表金額、到期提醒、待整理', () => {
   const db = openPartsDb(':memory:');
-  assert.deepEqual(db.overview('2026-10-05').quality, { total: 0, uncategorized: 0, unpriced: 0, noSupplier: 0 });
+  assert.deepEqual(db.overview('2026-10-05').quality, { total: 0, uncategorized: 0, unpriced: 0, noSupplier: 0, pending: 0 });
   const s = db.createSupplier({ name: '甲代理商' });
   const cam = db.createPart({ name: '相機', category: '相機與讀碼' }), lens = db.createPart({ name: '鏡頭' }), usd = db.createPart({ name: '感測器', category: '量測與感測' });
   db.createPart({ name: '還沒報價的', category: '相機與讀碼' });
@@ -66,6 +66,6 @@ test('元件資料庫統計：類別、專案、各成本表金額、到期提�
   assert.deepEqual(o.projects, [{ name: 'X', parts: 3 }, { name: 'Y', parts: 1 }]);
   assert.deepEqual(o.sources, [{ project: 'X', source: 'cost.xlsx', items: 3, amount: 4 * 20000 + 2 * 6500 }, { project: 'Y', source: '', items: 1, amount: 0 }]);
   assert.deepEqual(o.expiring.map(x => [x.name, x.valid_until, x.supplier]), [['相機', '2026-10-01', '甲代理商'], ['鏡頭', '2026-10-20', null]]);
-  assert.deepEqual(o.quality, { total: 4, uncategorized: 1, unpriced: 1, noSupplier: 2 });
+  assert.deepEqual(o.quality, { total: 4, uncategorized: 1, unpriced: 1, noSupplier: 2, pending: 0 });
   db.close();
 });

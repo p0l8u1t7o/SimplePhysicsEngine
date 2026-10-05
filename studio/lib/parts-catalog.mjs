@@ -14,7 +14,7 @@ export function catalogMarkdown(db, { redact = s => s, today = new Date().toLoca
   const { parts, total } = db.listParts({ limit: 5000 });
   const out = [`# 元件資料庫清單（${today}，${total} 個元件）`, '',
     '這是公司元件資料庫的摘要：過去專案用過或評估過的元件、規格與參考單價。由 app 在每次執行開始時更新，**不要修改這個檔**。', '',
-    '- 選型時先在這裡找有沒有合用的元件；有就沿用，並在提案、說明或成本估算裡寫出編號（例如 `#132 工業相機`）。',
+    '- 選型時先在這裡找有沒有合用的元件；有就沿用，並在提案、說明或成本估算裡寫出元件編號（例如 `P-00132 工業相機`）；編號是唯一的，不會變。',
     '- 清單裡沒有合用的才另外選型，並標明「新元件」和選型理由，方便之後補進資料庫。',
     '- 參考單價是新台幣未稅的預算價（括號是估價等級：A 型錄或近期採購價 ±10%、B 同級品預算價 ±20%、C 規格未定或自製 ±30%），不是報價。',
     '- 「用過的專案」是本庫其他專案的代號，只當作參考來源，不要寫進網頁或說明文字。', ''];
@@ -23,7 +23,7 @@ export function catalogMarkdown(db, { redact = s => s, today = new Date().toLoca
     if (p.grp !== group) { group = p.grp; category = null; out.push(`## ${group || '未分組'}`, ''); }
     if (p.category !== category) { category = p.category; out.push(`### ${category || '未分類'}`, '', '| 編號 | 名稱 | 廠牌 | 型號／選型 | 規格 | 單位 | 參考單價 | 用過的專案 | 選型備註 |', '|---|---|---|---|---|---|---|---|---|'); }
     const attrs = Object.entries(p.attrs).map(([k, v]) => `${k}：${v}`).join('；');
-    out.push(`| #${p.id} | ${[p.name, p.brand, p.model, [p.spec, attrs].filter(Boolean).join('；'), p.unit, price(p), p.projects.join('、'), [p.selection_note, p.alternatives && `替代：${p.alternatives}`].filter(Boolean).join('；')].map(cell).join(' | ')} |`);
+    out.push(`| ${p.code} | ${[p.status ? `${p.name}（${p.status}）` : p.name, p.brand, p.model, [p.spec, attrs].filter(Boolean).join('；'), p.unit, price(p), p.projects.join('、'), [p.selection_note, p.alternatives && `替代：${p.alternatives}`].filter(Boolean).join('；')].map(cell).join(' | ')} |`);
     const next = parts[parts.indexOf(p) + 1];
     if (!next || next.category !== category || next.grp !== group) out.push('');
   }

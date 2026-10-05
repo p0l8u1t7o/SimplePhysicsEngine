@@ -1,14 +1,17 @@
 // 元件資料庫：左邊樹狀選單（群組 → 類別），右邊清單；查詢、新增、編輯、刪除元件；每個元件底下有多筆價格紀錄與專案使用紀錄；另一個分頁管理供應商。
 // 資料在本機的 SQLite 檔（studio/data/parts.db，不進版控），各站做設計、選型與成本表時由這裡查。
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { api } from './api.js';
+import { api, sameHost } from './api.js';
+import { Icon } from './icons.jsx';
 import { Select, ConfirmButton } from './fields.jsx';
 
 const CURRENCIES = ['TWD', 'USD', 'JPY', 'EUR', 'CNY'];
 const UNCATEGORIZED = '（未分類）', UNGROUPED = '（未分組）';
 const today = () => new Date().toLocaleDateString('sv');
 export const money = (v, currency = 'TWD') => v == null ? '' : `${currency === 'TWD' ? 'NT$' : currency} ${Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
-const BLANK_PART = { grp: '', category: '', name: '', brand: '', model: '', spec: '', unit: '', selection_note: '', alternatives: '', tags: '', url: '', note: '' };
+const PENDING = '待確認';
+const size = n => n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`;
+const BLANK_PART = { status: '', model_id: '', grp: '', category: '', name: '', brand: '', model: '', spec: '', unit: '', selection_note: '', alternatives: '', tags: '', url: '', note: '' };
 
 // 可以逐列編輯的表格（價格紀錄、使用紀錄、供應商共用）。
 // columns：{ key, label, type: text｜number｜date｜select, options, list（datalist 的 id）, show(row)（顯示用）, cls }
@@ -37,7 +40,7 @@ function RecordTable({ columns, rows, blank, onSave, onDelete, addLabel, empty, 
 }
 
 // 單一元件：基本資料、自由規格欄位、價格紀錄、使用紀錄
-function PartEditor({ id, facets, suppliers, projectNames, onClose, onChanged }) {
+function PartEditor({ id, facets, suppliers, models, projectNames, onClose, onChanged }) {
   const [part, setPart] = useState(null);       // 伺服器上的內容（新增時是 null）
   const [form, setForm] = useState(BLANK_PART);
   const [attrs, setAttrs] = useState([]);       // [[名稱, 值], …]
@@ -81,8 +84,11 @@ function PartEditor({ id, facets, suppliers, projectNames, onClose, onChanged })
     <div className="modal" onMouseDown={e => { if (e.target === e.currentTarget && !dirty) onClose(); }}>
       <div className="panel" role="dialog" aria-label="元件">
         <div className="head">
-          <div><h2>{part ? part.name : '新增元件'}</h2>{part && <div className="meta"><span className="mute">#{part.id}</span><span className="mute">更新於 {part.updated_at.slice(0, 10)}</span></div>}</div>
-          <button type="button" onClick={onClose}>✕ 關閉</button>
+          <div><h2>{part ? part.name : '新增元件'}</h2>{part && <div className="meta"><code className="p-code">{part.code}</code>{part.status && <span className="chip warn">{part.status}</span>}<span className="mute">更新於 {part.updated_at.slice(0, 10)}</span></div>}</div>
+          <div className="bar" style={{ margin: 0 }}>
+            {part?.status === PENDING && <button type="button" className="primary" title="代理提案帶進來的新元件：看過沒問題就按這裡" onClick={() => api.savePart(part.id, { ...part, status: '' }).then(p => { fill(p); setMsg('✓ 已確認'); onChanged(p.id); }).catch(e => setMsg('✗ ' + e.message))}>✓ 確認這個元件</button>}
+            <button type="button" onClick={onClose}>✕ 關閉</button>
+          </div>
         </div>
         <form onSubmit={save}>
           <section className="card form"><h3>基本資料</h3>
@@ -96,6 +102,9 @@ function PartEditor({ id, facets, suppliers, projectNames, onClose, onChanged })
               <label style={{ flex: 2 }}><span>型號／建議選型</span><input value={form.model} onChange={e => set('model', e.target.value)} /></label>
               <label style={{ flex: '0 1 110px', minWidth: 90 }}><span>單位</span><input value={form.unit} onChange={e => set('unit', e.target.value)} list="parts-units" placeholder="台、組、式" /></label>
             </div>
+            <label><span>3D 模型（core 共用模型）</span>
+              <Select value={form.model_id} onChange={v => set('model_id', v)} options={[['', '（沒有）'], ...models.models.map(m => [m.id, `${m.category}｜${m.name}`]), ...(form.model_id && !models.models.some(m => m.id === form.model_id) ? [[form.model_id, `${form.model_id}（找不到這個模型）`]] : [])]} />
+              <small className="mute">選了之後下面會顯示這個模型的 3D 畫面。它和各專案用的是同一份模型程式，模型一改這裡就是新的。</small></label>
             <label><span>規格</span><textarea rows={2} value={form.spec} onChange={e => set('spec', e.target.value)} placeholder="主要規格與需求" /></label>
             <div>
               <div className="lbl">自由規格欄位<small className="mute">依元件種類自訂，例如 解析度、行程、負載、介面</small></div>
@@ -123,7 +132,21 @@ function PartEditor({ id, facets, suppliers, projectNames, onClose, onChanged })
             </div>
           </section>
         </form>
+        {form.model_id && models.models.some(m => m.id === form.model_id) && <section className="card"><h3>3D 顯示<span className="chip">{models.models.find(m => m.id === form.model_id).name}</span></h3>
+          <iframe className="frame model" title="3D 模型" src={sameHost(`http://127.0.0.1:${models.catalogPort}/core/catalog/#${form.model_id}`)} key={form.model_id} />
+          <p className="mute hint" style={{ margin: '8px 0 0' }}>可以拖曳旋轉、調參數、按「來回動作」看動畫。這是模型目錄頁，左邊的清單可以看其他共用模型。</p>
+        </section>}
         {part ? <>
+          <section className="card"><h3>附件（CAD 檔、型錄）<span className="chip">{part.files.length}</span></h3>
+            <p className="mute hint">匯入的 STEP、IGES、DWG、SLDPRT、PDF 等原始檔存在這台電腦（資料庫旁邊的 <code>parts-files/</code>），可以下載；目前不會把 CAD 轉成 3D 畫面。單一檔案上限 300 MB。</p>
+            {part.files.length > 0 && <table className="data"><tbody>{part.files.map(f => <tr key={f.id}>
+              <td><Icon name="file" size={15} /> <a href={`/api/parts/${part.id}/files/${f.id}`} download={f.name}>{f.name}</a></td><td className="mute num">{size(f.size)}</td><td className="mute nowrap">{f.added_at.slice(0, 10)}</td>
+              <td className="ops"><ConfirmButton onConfirm={() => api.deletePartFile(f.id).then(() => { load(); onChanged(part.id); }).catch(e => setMsg('✗ ' + e.message))} /></td></tr>)}</tbody></table>}
+            <div className="bar"><label className="file"><span className="btn">＋ 加入檔案<input type="file" multiple hidden onChange={async e => {
+              const list = [...e.target.files]; e.target.value = '';
+              try { for (const f of list) { setMsg(`上傳 ${f.name}…`); await api.uploadPartFile(part.id, f); } setMsg('✓ 已上傳'); await load(); onChanged(part.id); } catch (err) { setMsg('✗ ' + err.message); }
+            }} /></span></label><span className={msg.startsWith('✗') ? 'bad' : 'mute'}>{/上傳/.test(msg) ? msg : ''}</span></div>
+          </section>
           <section className="card"><h3>價格紀錄<span className="chip">{part.prices.length}</span></h3>
             <p className="mute hint">清單上的參考單價取報價日最新的一筆。等級沿用成本表的 A／B／C（幅度 ±10%／±20%／±30%）。</p>
             <RecordTable columns={priceColumns} rows={part.prices} blank={{ quoted_on: today(), unit_price: '', currency: 'TWD', grade: '', supplier_id: '', source: '', valid_until: '', note: '' }}
@@ -185,7 +208,7 @@ function Tree({ tree, sel, onSel }) {
 }
 
 // 清單：依類別分段（每段一條綠色的類別標題），同一段內隔列上淺色
-function PartList({ parts, onOpen, empty }) {
+function PartList({ parts, thumbs, onOpen, empty }) {
   const rows = [];
   let key = null, n = 0;
   for (const p of parts) {
@@ -195,7 +218,10 @@ function PartList({ parts, onOpen, empty }) {
     const model = p.brand && p.model.toLowerCase().startsWith(p.brand.toLowerCase()) ? p.model.slice(p.brand.length).trim() : p.model;
     rows.push(
       <tr key={p.id} className={`part ${n++ % 2 ? 'alt' : ''}`} tabIndex={0} onClick={() => onOpen(p.id)} onKeyDown={e => { if (e.key === 'Enter') onOpen(p.id); }}>
-        <td><div className="p-name">{p.name}</div>{(p.brand || model) && <div className="p-model">{p.brand && <b>{p.brand}</b>}{p.brand && model ? '　' : ''}{model}</div>}</td>
+        <td><div className="p-cell">{thumbs.has(p.model_id) && <img className="p-thumb" src={`/api/models/${p.model_id}/thumb?h=${thumbs.get(p.model_id)}`} alt="" loading="lazy" />}<div>
+          <div className="p-name">{p.name}{p.status && <span className="chip warn">{p.status}</span>}</div>{(p.brand || model) && <div className="p-model">{p.brand && <b>{p.brand}</b>}{p.brand && model ? '　' : ''}{model}</div>}
+          <div className="p-sub"><code className="p-code">{p.code}</code>{p.model_id && <span title="有 3D 模型">　<Icon name="parts" size={12} /> 3D</span>}{p.file_count > 0 && <span title="附件">　<Icon name="file" size={12} /> {p.file_count}</span>}</div>
+        </div></div></td>
         <td><div className="p-spec" title={p.spec}>{p.spec}</div></td>
         <td>{p.unit}</td>
         <td className="num">{p.unit_price == null ? <span className="mute">—</span> : <>
@@ -207,7 +233,7 @@ function PartList({ parts, onOpen, empty }) {
   }
   return (
     <div className="card table scroll"><table className="parts">
-      <thead><tr><th>名稱／廠牌、型號</th><th>規格</th><th>單位</th><th className="num">參考單價</th><th>供應商</th><th>用過的專案</th></tr></thead>
+      <thead><tr><th>名稱／廠牌、型號／編號</th><th>規格</th><th>單位</th><th className="num">參考單價</th><th>供應商</th><th>用過的專案</th></tr></thead>
       <tbody>{rows}{!parts.length && <tr className="none"><td colSpan={6} className="mute">{empty}</td></tr>}</tbody>
     </table></div>
   );
@@ -217,7 +243,8 @@ export function Parts({ projectNames = [] }) {
   const [tab, setTab] = useState('parts');
   const [q, setQ] = useState('');
   const [sel, setSel] = useState({ group: '', category: '' });       // 樹狀選單選到的群組／類別
-  const [filter, setFilter] = useState({ project: '', supplier: '' });
+  const [filter, setFilter] = useState({ project: '', supplier: '', status: '' });
+  const [models, setModels] = useState({ models: [], catalogPort: 0, rendering: false });
   const [data, setData] = useState(null);
   const [sup, setSup] = useState({ suppliers: [], kinds: [] });
   const [open, setOpen] = useState(null);       // null｜'new'｜元件 id
@@ -226,8 +253,13 @@ export function Parts({ projectNames = [] }) {
   const loadSuppliers = useCallback(() => api.suppliers().then(setSup).catch(e => setError(e.message)), []);
   useEffect(() => { const t = setTimeout(load, 200); return () => clearTimeout(t); }, [load]);     // 打字時稍等再查
   useEffect(() => { loadSuppliers(); }, [loadSuppliers]);
+  // core 共用模型與渲染圖：縮圖過期時伺服器會在背景重拍，拍的時候每 4 秒再問一次
+  const loadModels = useCallback(() => api.models().then(setModels).catch(() => {}), []);
+  useEffect(() => { loadModels(); }, [loadModels]);
+  useEffect(() => { if (!models.rendering) return; const t = setTimeout(loadModels, 4000); return () => clearTimeout(t); }, [models, loadModels]);
+  const thumbs = new Map(models.models.filter(m => m.thumb).map(m => [m.id, m.hash]));
   const setF = (k, v) => setFilter(f => ({ ...f, [k]: v }));
-  const filtered = q || filter.project || filter.supplier, narrowed = filtered || sel.group;
+  const filtered = q || filter.project || filter.supplier || filter.status, narrowed = filtered || sel.group;
   const close = useCallback(() => setOpen(null), []);
   const count = data ? data.tree.reduce((n, g) => n + g.count, 0) : 0;
 
@@ -251,17 +283,18 @@ export function Parts({ projectNames = [] }) {
             <input className="grow" type="search" value={q} onChange={e => setQ(e.target.value)} placeholder="搜尋名稱、廠牌、型號、規格、專案、供應商…（空白分隔多個關鍵字）" aria-label="搜尋元件" />
             <Select value={filter.project} onChange={v => setF('project', v)} options={[['', '全部專案'], ...data.projects.map(p => [p.name, `${p.name}（${p.count}）`])]} />
             <Select value={filter.supplier} onChange={v => setF('supplier', v)} options={[['', '全部供應商'], ...sup.suppliers.map(s => [String(s.id), s.name])]} />
-            {narrowed && <button onClick={() => { setQ(''); setFilter({ project: '', supplier: '' }); setSel({ group: '', category: '' }); }}>清除條件</button>}
+            {(data.pending > 0 || filter.status) && <button className={filter.status ? 'primary' : ''} title="代理提案帶進來、還沒審核的新元件" onClick={() => setF('status', filter.status ? '' : PENDING)}>待確認 {data.pending}</button>}
+            {narrowed && <button onClick={() => { setQ(''); setFilter({ project: '', supplier: '', status: '' }); setSel({ group: '', category: '' }); }}>清除條件</button>}
           </div>
           <div className="crumb">
             <b>{sel.category || sel.group || '全部元件'}</b>{sel.category && <span>{sel.group}</span>}
             <span>{narrowed ? `符合 ${data.total} 個` : `共 ${data.total} 個`}{data.total > data.parts.length ? `，只列出前 ${data.parts.length} 個，請加上條件縮小範圍` : ''}</span>
           </div>
-          <PartList parts={data.parts} onOpen={setOpen} empty={narrowed ? '沒有符合條件的元件' : '資料庫還是空的：按「＋ 新增元件」，或執行 node studio/vs3d.mjs parts seed 從各站的成本表匯入。'} />
+          <PartList parts={data.parts} thumbs={thumbs} onOpen={setOpen} empty={narrowed ? '沒有符合條件的元件' : '資料庫還是空的：按「＋ 新增元件」，或執行 node studio/vs3d.mjs parts seed 從各站的成本表匯入。'} />
         </div>
       </div>)}
       {tab === 'suppliers' && <Suppliers suppliers={sup.suppliers} kinds={sup.kinds} reload={() => Promise.all([loadSuppliers(), load()])} />}
-      {open != null && data && <PartEditor id={open} facets={data} suppliers={sup.suppliers} projectNames={projectNames} onClose={close}
+      {open != null && data && <PartEditor id={open} facets={data} suppliers={sup.suppliers} models={models} projectNames={projectNames} onClose={close}
         onChanged={id => { load(); if (id != null && open === 'new') setOpen(id); }} />}
     </div>
   );

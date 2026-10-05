@@ -22,7 +22,8 @@
 //   開工時該站不能有未提交的改動，每次指令開一個本機分支 <範圍>/vs3d-…，只提交該站的路徑，不會 checkout／reset／stash。
 //   node studio/vs3d.mjs probe <名稱> [--cli …] [--other <專案>] [--simulate]   寫入隔離自我測試（--simulate：app 另外模擬越界寫入）
 //   node studio/vs3d.mjs models                                   各 CLI 可用的模型與各角色目前的指派
-//   node studio/vs3d.mjs ui [--port 8780] [--no-open]             開啟網頁介面（http://127.0.0.1:8780/）
+//   node studio/vs3d.mjs ui [--port 8780] [--no-open] [--host 0.0.0.0]   開啟網頁介面（http://127.0.0.1:8780/）；--host 0.0.0.0 讓區網的其他電腦也能連（先建立帳號）
+//   node studio/vs3d.mjs users [add <帳號> --level admin|editor|viewer --password <密碼>｜passwd <帳號> --password <密碼>｜remove <帳號>]   介面的登入帳號（忘記密碼時從這裡重設）
 //   node studio/vs3d.mjs parts [search <關鍵字…>] [--category 類別] [--project 專案] [--json]   查元件資料庫（選型、單價、哪些專案用過）
 //   node studio/vs3d.mjs parts show <id> [--json]                 單一元件的規格、價格紀錄、使用紀錄
 //   node studio/vs3d.mjs parts seed [--dry-run]                   從各站 docs/ 的成本表匯入採購品項（可重複執行，已匯入的列會跳過）
@@ -49,7 +50,7 @@ import { exportHandoff, importHandoff } from './lib/handoff.mjs';
 import * as repoGit from './lib/repo.mjs';
 import { REPO, git, findFfmpeg } from './lib/util.mjs';
 
-const VALUE = new Set(['--text', '--text-file', '--workspace', '--private', '--prompt', '--prompt-file', '--title', '--summary', '--cli', '--model', '--role', '--effort', '--note', '--max-rounds', '--timeout', '--other', '--focus', '--port', '--out', '--name', '--category', '--project', '--db']);
+const VALUE = new Set(['--text', '--text-file', '--workspace', '--private', '--prompt', '--prompt-file', '--title', '--summary', '--cli', '--model', '--role', '--effort', '--note', '--max-rounds', '--timeout', '--other', '--focus', '--port', '--out', '--name', '--category', '--project', '--db', '--host', '--password', '--level']);
 
 // 測試用：VS3D_EXTRA_ADAPTERS 指向一個匯出 { adapters: { 名稱: adapter } } 的模組（例如假代理），讓介面的端對端測試走真正的命令列
 if (process.env.VS3D_EXTRA_ADAPTERS) Object.assign(ADAPTERS, (await import(pathToFileURL(resolve(process.env.VS3D_EXTRA_ADAPTERS)).href)).adapters);
@@ -244,14 +245,14 @@ switch (cmd) {
         const r = db.listParts({ q: rest.join(' '), category: o.category || '', project: o.project || '' });
         if (o.json) console.log(JSON.stringify(r.parts, null, 2));
         else {
-          for (const p of r.parts) console.log(`#${String(p.id).padEnd(4)} [${p.category || '未分類'}] ${p.name}${p.model ? `｜${p.model}` : ''}｜${money(p)}${p.unit ? `／${p.unit}` : ''}${p.projects.length ? `｜${p.projects.join('、')}` : ''}`);
+          for (const p of r.parts) console.log(`${p.code} [${p.category || '未分類'}] ${p.status ? `（${p.status}）` : ''}${p.name}${p.model ? `｜${p.model}` : ''}｜${money(p)}${p.unit ? `／${p.unit}` : ''}${p.projects.length ? `｜${p.projects.join('、')}` : ''}`);
           console.log(`${r.total} 個元件${r.total > r.parts.length ? `（只列出前 ${r.parts.length} 個）` : ''}；資料庫：${db.file}`);
         }
       } else if (sub === 'show') {
         const p = db.getPart(rest[0]);
         if (o.json) console.log(JSON.stringify(p, null, 2));
         else {
-          console.log(`#${p.id} [${p.category || '未分類'}] ${p.name}`);
+          console.log(`${p.code} [${p.grp ? p.grp + '／' : ''}${p.category || '未分類'}] ${p.name}${p.status ? `（${p.status}）` : ''}`);
           for (const [label, v] of [['廠牌', p.brand], ['型號／選型', p.model], ['規格', p.spec], ...Object.entries(p.attrs), ['單位', p.unit], ['選型備註', p.selection_note], ['替代方案', p.alternatives], ['標籤', p.tags], ['連結', p.url], ['備註', p.note]]) if (v) console.log(`  ${label}：${v}`);
           console.log('  價格紀錄：' + (p.prices.length ? '' : '（無）'));
           for (const x of p.prices) console.log(`    ${x.quoted_on || '（無日期）'}  ${money(x)}${x.supplier ? `  ${x.supplier}` : ''}${x.source ? `  ${x.source}` : ''}${x.valid_until ? `  有效至 ${x.valid_until}` : ''}${x.note ? `  ${x.note}` : ''}`);
@@ -267,16 +268,31 @@ switch (cmd) {
       } else if (sub === 'merge') {
         if (rest.length !== 2) fail('用法：vs3d parts merge <保留 id> <併入 id>');
         const p = db.mergeParts(rest[0], rest[1]);
-        console.log(`已合併到 #${p.id} ${p.name}：${p.prices.length} 筆價格、${p.usages.length} 筆使用紀錄`);
+        console.log(`已合併到 ${p.code} ${p.name}：${p.prices.length} 筆價格、${p.usages.length} 筆使用紀錄`);
       } else fail('用法：vs3d parts [search <關鍵字…>｜show <id>｜seed｜merge <保留 id> <併入 id>]');
     } catch (e) { if (e instanceof PartsError) fail(e.message); throw e; } finally { db.close(); }
+    break;
+  }
+  case 'users': {
+    // 介面的登入帳號（studio/data/users.json）；忘記管理者密碼時從命令列重設
+    const { createAuth, AuthError, ROLE_LABEL } = await import('./lib/auth.mjs');
+    const auth = createAuth();
+    try {
+      if (!name || name === 'list') {
+        for (const u of auth.list()) console.log(`${u.name.padEnd(16)} ${ROLE_LABEL[u.role]}${u.disabled ? '（停用）' : ''}${u.display !== u.name ? `　${u.display}` : ''}`);
+        console.log(auth.enabled() ? `${auth.list().length} 個帳號；介面需要登入` : '還沒有帳號：介面不需要登入（單機模式）');
+      } else if (name === 'add') { const u = auth.create({ name: rest[0], role: o.level || 'editor', password: o.password }); console.log(`已建立 ${u.name}（${ROLE_LABEL[u.role]}）`); }
+      else if (name === 'passwd') { if (!o.password) fail('請用 --password 給新密碼'); auth.update(rest[0], { password: o.password }); console.log(`已重設 ${rest[0]} 的密碼`); }
+      else if (name === 'remove') { auth.remove(rest[0]); console.log(`已刪除 ${rest[0]}`); }
+      else fail('用法：vs3d users [list｜add <帳號> --level admin|editor|viewer --password <密碼>｜passwd <帳號> --password <密碼>｜remove <帳號>]');
+    } catch (e) { if (e instanceof AuthError) fail(e.message); throw e; }
     break;
   }
   case 'ui': {
     const { startUi } = await import('./lib/server.mjs');
     // 從本庫執行時同時列出 project-site/ 的各站（本庫模式）；--no-repo 只看工作區
     const repoRoot = o['no-repo'] ? null : isRepo(REPO) ? REPO : null;
-    const ui = await startUi(o.repo ? defaultWorkspace() : ws, { port: +(o.port || 8780), repo: repoRoot, partsDb: o.db ? resolve(o.db) : undefined });
+    const ui = await startUi(o.repo ? defaultWorkspace() : ws, { port: +(o.port || 8780), repo: repoRoot, partsDb: o.db ? resolve(o.db) : undefined, host: o.host || '127.0.0.1' });
     if (!o['no-open'] && process.platform === 'win32') spawn('cmd', ['/c', 'start', '', `http://127.0.0.1:${ui.port}/`], { windowsHide: true, detached: true, stdio: 'ignore' }).unref();
     process.on('SIGINT', () => { ui.close(); process.exit(0); });
     break;

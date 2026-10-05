@@ -55,6 +55,14 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
   }
   // 元件資料庫的清單寫一份到專案裡給代理查（資料庫不存在、是空的、或 Node 版本太舊沒有 node:sqlite 就略過）
   try { const { writeCatalog } = await import('./parts-catalog.mjs'); const names = readClientNames(ws); writeCatalog(J, { redact: s => redactNames(s, names) }); } catch { /* 沒有清單不影響流程 */ }
+  // 提案確認後：把規劃角色寫的元件表匯入元件資料庫（沿用的加使用紀錄，新的標「待確認」）；沒有元件表或讀不了資料庫都不影響流程
+  async function importParts() {
+    try {
+      const { importFromProject } = await import('./parts-import.mjs'); const names = readClientNames(ws);
+      const r = importFromProject(J, { redact: s => redactNames(s, names) });
+      if (r && (r.reused || r.created)) log(`  元件資料庫：沿用 ${r.reused} 個、新增 ${r.created} 個（標「待確認」，到元件庫審核）${r.existing ? `、之前已匯入 ${r.existing} 個` : ''}`);
+    } catch (e) { log(`  ! 元件表沒有匯入元件資料庫：${String(e.message || e).split('\n')[0]}`); }
+  }
   const roleCtx = () => loadRoleContext(P.settings, J.studioJson, override);
   // 段落：工作階段與角色指派分段（第二段的開發不續接第一段的工作階段）
   const seg = () => state.segment || 1, sk = role => seg() === 2 ? role + '@2' : role, resolve = role => resolveRole(role, roleCtx(), seg());
@@ -199,7 +207,7 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
             break;
           }
           if (proposal && planSession) {
-            if (state.proposalApproved || override.autoApprove) { state.stage = 'build'; break; }
+            if (state.proposalApproved || override.autoApprove) { await importParts(); state.stage = 'build'; break; }
             // 提案做成提問卡片請使用者確認（計畫書第 5 節第 3 步）
             log(`\n${seg() === 2 ? '第二段提案' : '配置提案'}：${join(J.plan, pfile)}`);
             const qid = `vs3d-proposal-r${state.round}`;

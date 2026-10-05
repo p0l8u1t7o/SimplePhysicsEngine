@@ -146,6 +146,7 @@ function PartsStats({ parts, go }) {
       <Meter slot={0} label="已分類" done={q.total - q.uncategorized} total={q.total} />
       <Meter slot={1} label="有價格" done={q.total - q.unpriced} total={q.total} />
       <Meter slot={2} label="價格有供應商" done={q.total - q.unpriced - q.noSupplier} total={q.total - q.unpriced} />
+      {q.pending > 0 && <p className="small"><span className="status warn"><Icon name="alert" size={14} />待確認</span>有 {q.pending} 個代理提案帶入的新元件還沒審核，到「元件庫」按「待確認」篩出來看。</p>}
       <h3 className="sub-h">報價到期提醒</h3>
       {parts.expiring.length ? <ul className="plain">{parts.expiring.slice(0, 6).map(x => <li key={x.id}>
         <span className={`status ${x.valid_until < parts.today ? 'bad' : 'warn'}`}><Icon name={x.valid_until < parts.today ? 'alert' : 'clock'} size={14} />{x.valid_until < parts.today ? '已過期' : '快到期'}</span>

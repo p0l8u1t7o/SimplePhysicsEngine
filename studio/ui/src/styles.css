@@ -277,6 +277,26 @@ table.parts .p-sub { color: var(--mute); font-size: 12px; margin-top: 1px; }
 .grade { display: inline-block; min-width: 18px; text-align: center; border-radius: 5px; padding: 0 5px; font-size: 11.5px; font-weight: 700; background: var(--accent-soft); color: var(--ink); margin-right: 5px; }
 .clip { max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chip.proj { margin: 1px 3px 1px 0; white-space: nowrap; }
+table.parts .p-cell { display: flex; gap: 10px; align-items: flex-start; }
+table.parts .p-thumb { width: 64px; height: 48px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); flex: none; background: var(--panel2); }
+table.parts .p-name .chip { margin-left: 6px; font-weight: 500; }
+.p-code { background: none; padding: 0; font-size: 12px; color: var(--mute); letter-spacing: .02em; }
+.head .p-code { font-size: 13px; color: var(--ink); background: var(--accent-soft); padding: 1px 8px; border-radius: 6px; }
+.frame.model { height: 440px; }
+/* 登入頁與右上角的帳號選單 */
+.login { min-height: 100%; display: grid; place-items: center; padding: 20px; background: var(--page); }
+.login .card { width: min(380px, 100%); padding: 26px 26px 22px; }
+.login-brand { display: flex; align-items: center; gap: 10px; color: var(--ink); margin-bottom: 4px; }
+.login-brand h1 { margin: 0; font-size: 20px; }
+.login button.big { justify-content: center; }
+.user { position: relative; }
+.tools button.avatar { background: #fff; color: var(--side); font-weight: 700; }
+.tools button.avatar:hover:not(:disabled) { background: #fff; filter: brightness(.94); }
+.user-menu { position: absolute; right: 0; top: 40px; z-index: 20; background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 14px; padding: 8px; min-width: 190px; box-shadow: 0 10px 26px rgba(10, 40, 24, .18); display: grid; gap: 2px; }
+.user-menu .u-name { display: grid; padding: 6px 10px 8px; border-bottom: 1px solid var(--line); margin-bottom: 4px; font-size: 13px; }
+.user-menu .u-name span { font-size: 12px; }
+.tools .user-menu button { color: var(--fg); justify-content: flex-start; border-radius: 9px; width: 100%; min-height: 34px; }
+.tools .user-menu button:hover:not(:disabled) { background: var(--panel2); }
 /* 本庫的站：卡片清單 */
 .cards { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); }
 .scard { display: flex; flex-direction: column; align-items: stretch; gap: 8px; text-align: left; white-space: normal; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 16px 18px; min-height: 0; box-shadow: var(--shadow); border-top: 4px solid var(--accent); }

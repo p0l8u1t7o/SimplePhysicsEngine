@@ -35,7 +35,7 @@ export function handoff({ J, check, shotsDir, notes = [], violations = [] }) {
   const out = ['## 交接摘要', ''];
   out.push(`- 需求與已拍板事項：\`AGENTS.md\``);
   if (readText(join(J.plan, 'proposal.md'))) out.push(`- 配置提案：\`.studio/plan/proposal.md\``);
-  if (readText(join(J.studio, 'parts-catalog.md'))) out.push(`- 元件資料庫清單：\`.studio/parts-catalog.md\`（過去專案用過的元件、規格與參考單價；選型、列元件表、估成本時先查，沿用的寫出編號，例如 #132；清單沒有的標「新元件」。不要修改這個檔）`);
+  if (readText(join(J.studio, 'parts-catalog.md'))) out.push(`- 元件資料庫清單：\`.studio/parts-catalog.md\`（過去專案用過的元件、規格與參考單價；選型、列元件表、估成本時先查，沿用的寫出元件編號，例如 P-00132；清單沒有的標「新元件」。不要修改這個檔）`);
   if (readText(join(J.plan, 'segment2.md'))) out.push(`- 第二段提案：\`.studio/plan/segment2.md\`、\`.studio/plan/segment2.json\`；寫法見 \`core/examples/segment2/README.md\``);
   if (check) out.push(`- 最近一次檢查（${check.quick ? '快速' : '完整'}）：${check.ok ? '全部通過' : `${check.failures.length} 項失敗`}`);
   if (shotsDir) out.push(`- 截圖：\`${rel(J.dir, shotsDir)}\``);
@@ -51,10 +51,19 @@ export const TASK = {
 
 1. 製程流程：工站與順序
 2. 站位配置：各設備的位置與尺寸範圍（mm）
-3. 設備選型：手臂、相機、輸送等；先找 \`core/models\` 有沒有現成模型，並查元件資料庫清單（\`.studio/parts-catalog.md\`，有這個檔的話）有沒有過去用過的同類元件，沿用的寫出編號（例如 #132）；規格沒指定的用合理選型並標「示意」，清單裡沒有的標「新元件」
+3. 設備選型：手臂、相機、輸送等；先找 \`core/models\` 有沒有現成模型，並查元件資料庫清單（\`.studio/parts-catalog.md\`，有這個檔的話）有沒有過去用過的同類元件，沿用的寫出元件編號（例如 P-00132）；規格沒指定的用合理選型並標「示意」，清單裡沒有的標「新元件」
 4. 節拍估算：各步驟秒數與總節拍
 5. 第一段範圍：場景、排程、視角、播放列、手機與平板版面；列出這一段不做的事（電控、配線、相機子畫面屬於第二段）
 6. 假設與待確認事項
+
+另外寫一份元件表 \`.studio/plan/parts.json\`（使用者確認提案後，app 會把它匯入公司的元件資料庫）：列出提案裡要採購或選型的元件（手臂、夾爪、相機、鏡頭、光源、感測器、PLC、驅動、輸送等；自製的機架、治具不用列），格式如下。\`ref\` 是沿用的元件編號（查 \`.studio/parts-catalog.md\`）；資料庫沒有合用的就不要寫 \`ref\`，app 會新增成「待確認」的新元件。
+
+\`\`\`json
+{ "parts": [
+  { "ref": "P-00132", "name": "工業相機", "qty": 2, "reason": "沿用：兩站各一台" },
+  { "name": "環形光源", "brand": "", "model": "示意", "spec": "白光、外徑 90 mm", "category": "光源", "unit": "組", "qty": 2, "reason": "新元件：資料庫沒有合用的" }
+] }
+\`\`\`
 
 資料裡如果出現用戶（客戶、委託方）的公司或品牌名稱，一行一個寫進 \`.studio/plan/client-names.txt\`（app 會加進名單，之後所有角色都不得顯示）；提案本身也改用中性描述。
 
@@ -111,7 +120,17 @@ ${check ? failureText(check) : '（沒有檢查結果）'}
 }
 \`\`\`
 
-\`kind\`、\`role\`、\`category\` 的可用值見 \`core/examples/segment2/README.md\`。需要使用者拍板的事（例如電盤放哪一側、相機數量、規格不清楚）寫成問題檔，一輪最多 4 題。
+\`kind\`、\`role\`、\`category\` 的可用值見 \`core/examples/segment2/README.md\`。
+
+另外寫一份元件表 \`.studio/plan/parts-segment2.json\`（使用者確認提案後，app 會把它匯入公司的元件資料庫）：列出第二段新增的採購元件（PLC、I/O、驅動器、安全元件、電源、相機、鏡頭、光源、視覺電腦等；線材與自製件不用列），格式如下。\`ref\` 是沿用的元件編號（查 \`.studio/parts-catalog.md\`）；資料庫沒有合用的就不要寫 \`ref\`，app 會新增成「待確認」的新元件。
+
+\`\`\`json
+{ "parts": [
+  { "ref": "P-00132", "name": "工業相機", "qty": 2, "reason": "沿用：兩站各一台" },
+  { "name": "環形光源", "brand": "", "model": "示意", "spec": "白光、外徑 90 mm", "category": "光源", "unit": "組", "qty": 2, "reason": "新元件：資料庫沒有合用的" }
+] }
+\`\`\`
+需要使用者拍板的事（例如電盤放哪一側、相機數量、規格不清楚）寫成問題檔，一輪最多 4 題。
 這一輪只寫 \`.studio/plan/\` 與 \`.studio/questions/\`，不要建立或修改網頁與程式檔。`,
 
   build2: () => `## 任務：第二段開發（電控、電盤、配線、相機）

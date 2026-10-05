@@ -1,6 +1,6 @@
 // 單一專案：狀態列與操作按鈕（續跑、取消流程、審查與補強、匯出、刪除專案）；分頁：進度、問題、提案、審查、預覽、截圖、補強對照、規則與紀錄。
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api, fileUrl, STAGE, ROLE } from './api.js';
+import { api, fileUrl, sameHost, STAGE, ROLE } from './api.js';
 import { QuestionCard } from './QuestionCard.jsx';
 import { Select, ConfirmButton, RENDER_FOCUS } from './fields.jsx';
 
@@ -52,7 +52,7 @@ export function ProjectView({ id, tick, running, onChange, onDeleted }) {
           </div>
         </div>
         <div className="bar" style={{ margin: 0 }}>
-          <a className="btn" href={p.previewUrl} target="_blank" rel="noreferrer">↗ 在新分頁開啟預覽</a>
+          <a className="btn" href={sameHost(p.previewUrl)} target="_blank" rel="noreferrer">↗ 在新分頁開啟預覽</a>
           {!p.repo && <button className="danger" disabled={isRunning} title={isRunning ? '執行中不能刪除，先停止' : '刪除這個專案'} onClick={() => setDel(del == null ? '' : null)}>刪除專案</button>}
         </div>
       </div>
@@ -162,7 +162,7 @@ export function ProjectView({ id, tick, running, onChange, onDeleted }) {
         <div className="card"><h3>建議補強（{rv.suggest.length}）</h3><table><tbody>{rv.suggest.map(x => <tr key={x.id}><td>{x.id}</td><td>{x.area}</td><td>{x.item}</td><td className="mute">優先 {x.priority ?? 2}</td></tr>)}</tbody></table></div>
       </> : <p className="mute">第一段完成後才會審查。</p>)}
 
-      {tab === 'preview' && <iframe className="frame" title="3D 預覽" src={p.previewUrl} />}
+      {tab === 'preview' && <iframe className="frame" title="3D 預覽" src={sameHost(p.previewUrl)} />}
 
       {tab === 'shots' && (p.shots.length ? <div className="grid">{p.shots.map(f => <figure key={f}><img src={fileUrl(id, f)} loading="lazy" onClick={() => setZoom(fileUrl(id, f))} /><figcaption>{f.split('/').pop()}</figcaption></figure>)}</div> : <p className="mute">檢查通過後才會截圖。</p>)}
 
