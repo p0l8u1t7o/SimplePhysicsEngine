@@ -20,14 +20,27 @@ export function coreModels(core) {
 }
 // 元件庫自動連到 core 模型：模型 id 去掉廠牌後帶數字的那一段當型號關鍵字（denso-vs068 → vs068），
 // 元件的名稱、廠牌、型號去掉空白與符號後含有這個關鍵字就連上。只處理還沒連模型的元件；
-// 沒有型號數字的通用模型（camera、conveyor、motor…）對不準，不自動連，在介面上手動選。
+// 沒有型號數字的通用模型用名稱規則（GENERIC）：只列名稱一看就對得上的市購小件；其他（輸送線、馬達…）在介面上手動選。
 const squash = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 export const modelKey = id => { const k = squash(id.replace(/^[a-z]+-/, '')); return /\d/.test(k) && k.length >= 5 ? k : null; };
+// [模型 id, 元件名稱要符合的, 名稱不能含有的]；由上而下取第一個符合的
+const GENERIC = [
+  ['signal-tower', /三色燈|警示燈/, /線|支架/],
+  ['estop', /^急停/, /線/],
+  ['light-curtain', /安全光柵|安全光幕/, /線|支架/],
+  ['ft-sensor', /力覺感測器/, /授權|線/],
+  ['dome-light', /穹頂光/, /控制器|線/],
+  ['bar-light', /條形.*光源|條光|條形光/, /控制器|線|支架/],
+  ['hmi', /^(維修 )?HMI|觸控螢幕/, /軟體|授權|線/],
+  ['camera', /相機/, /線|支架|防塵罩|鏡頭$|觸發|保護鏡|校正/],
+];
 export function linkCoreModels(db, models, { dryRun = false } = {}) {
-  const keyed = models.map(m => ({ ...m, key: modelKey(m.id) })).filter(m => m.key), out = [];
+  const keyed = models.map(m => ({ ...m, key: modelKey(m.id) })).filter(m => m.key), ids = new Set(models.map(m => m.id)), out = [];
   for (const p of db.listParts({ limit: 5000 }).parts) {
     if (p.model_id) continue;
-    const text = squash(`${p.name} ${p.brand} ${p.model}`), hit = keyed.find(m => text.includes(m.key));
+    const text = squash(`${p.name} ${p.brand} ${p.model}`);
+    const rule = GENERIC.find(([id, yes, no]) => ids.has(id) && yes.test(p.name) && !no.test(p.name));
+    const hit = keyed.find(m => text.includes(m.key)) || (rule && { id: rule[0] });
     if (!hit) continue;
     if (!dryRun) db.updatePart(p.id, { ...p, model_id: hit.id });
     out.push({ code: p.code, name: p.name, model: hit.id });
