@@ -89,12 +89,13 @@ export function Dashboard({ go, tick }) {
         </ChartCard>
         <section className="card span12">
           <div className="chart-h"><div><h3>最近的執行</h3></div></div>
-          <div className="scroll"><table className="data click"><thead><tr><th>專案</th><th>輪</th><th>角色</th><th>CLI／模型</th><th className="num">耗時</th><th>結果</th><th>開始</th></tr></thead><tbody>
+          <div className="scroll"><table className="data click"><thead><tr><th>專案</th><th>輪</th><th>角色</th><th>CLI／模型</th><th className="num">耗時</th><th>結果</th><th>開始</th><th>啟動的人</th></tr></thead><tbody>
             {agents.recent.map((r, i) => <tr key={i} tabIndex={0} onClick={() => open(r.id)} onKeyDown={e => { if (e.key === 'Enter') open(r.id); }}>
               <td><b>{r.title}</b></td><td>{r.round}</td><td>{ROLE[r.role] || r.role}</td><td>{CLI[r.cli] || r.cli} <span className="mute">{r.model}</span></td><td className="num">{dur(r.seconds)}</td>
-              <td><Status ok={r.ok}>{r.ok ? '完成' : '失敗'}</Status>{r.violations > 0 && <span className="chip warn">越界 {r.violations}</span>}</td><td className="mute nowrap">{ago(r.at)}</td>
+              <td><Status ok={r.ok}>{r.ok ? '完成' : '失敗'}</Status>{r.violations > 0 && <span className="chip warn">越界 {r.violations}</span>}</td><td className="mute nowrap">{ago(r.at)}</td><td className="mute">{r.by || '—'}</td>
             </tr>)}
           </tbody></table></div>
+          {agents.byUser?.some(u => u.user) && <p className="mute hint" style={{ margin: '10px 0 0' }}>依啟動的人：{agents.byUser.map(u => `${u.user || '命令列／未登入'} ${u.rounds} 輪 ${dur(u.seconds)}${u.costUsd ? `（$${u.costUsd.toFixed(2)}）` : ''}`).join('、')}</p>}
         </section>
       </div>}
 

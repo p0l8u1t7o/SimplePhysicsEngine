@@ -25,8 +25,11 @@ export function agentStats(list, { days = 14, today = new Date(), recent = 8 } =
   const at = Object.fromEntries(daily.map(d => [d.day, d]));
   for (const r of runs) { const d = r.startedAt && at[day(r.startedAt)]; if (d) { d.rounds++; d.seconds += r.seconds || 0; } }
   const last = runs.filter(r => r.startedAt).sort((a, b) => new Date(b.startedAt) - new Date(a.startedAt)).slice(0, recent)
-    .map(r => ({ id: r.id, title: r.title, round: r.round, role: r.role, cli: r.cli, model: r.model || '', seconds: r.seconds || 0, ok: !!r.ok, at: new Date(r.startedAt).toISOString(), violations: r.violations?.length || 0 }));
-  return { totals, clis: [...clis].sort(), byRole: [...roles.values()], daily, recent: last };
+    .map(r => ({ id: r.id, title: r.title, round: r.round, role: r.role, cli: r.cli, model: r.model || '', seconds: r.seconds || 0, ok: !!r.ok, at: new Date(r.startedAt).toISOString(), violations: r.violations?.length || 0, by: r.by || '' }));
+  // 依啟動的人（代理佇列記下的帳號；命令列或沒有帳號時是空字串）
+  const users = new Map();
+  for (const r of runs) { const u = users.get(r.by || '') || users.set(r.by || '', { user: r.by || '', rounds: 0, seconds: 0, costUsd: 0 }).get(r.by || ''); u.rounds++; u.seconds += r.seconds || 0; u.costUsd += r.costUsd || 0; }
+  return { totals, clis: [...clis].sort(), byRole: [...roles.values()], byUser: [...users.values()].sort((a, b) => b.seconds - a.seconds), daily, recent: last };
 }
 
 // files：core check 寫出的結果檔內容 [{ at, quick, results: [{ project, check, ok, note }] }]（快速與完整各一份，可能只跑了部分專案）。

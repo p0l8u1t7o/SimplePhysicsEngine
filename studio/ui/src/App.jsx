@@ -31,17 +31,19 @@ function Shell({ me, onAuthChange }) {
   const [info, setInfo] = useState(null);
   const [projects, setProjects] = useState([]);
   const [running, setRunning] = useState(null);
+  const [queue, setQueue] = useState([]);         // 代理佇列裡排隊中的（執行中的是 running）
   const [tick, setTick] = useState(0);
   const [query, setQuery] = useState('');
   const go = r => { location.hash = r.view === 'project' ? `p/${r.id}` : r.view; };
   useEffect(() => { const f = () => setRoute(readHash()); addEventListener('hashchange', f); return () => removeEventListener('hashchange', f); }, []);
 
   const refresh = useCallback(async () => {
-    try { const j = await api.projects(); setProjects(j.projects); setRunning(j.running); } catch { /* 伺服器重啟中 */ }
+    try { const j = await api.projects(); setProjects(j.projects); setRunning(j.running); setQueue(j.queue || []); } catch { /* 伺服器重啟中 */ }
   }, []);
   useEffect(() => { api.info().then(setInfo).catch(() => {}); refresh(); const t = setInterval(refresh, 5000); return () => clearInterval(t); }, [refresh]);
   useEvents({
-    hello: d => setRunning(d.running),
+    hello: d => { setRunning(d.running); setQueue(d.queue || []); },
+    queue: d => { setRunning(d.running); setQueue(d.queue || []); refresh(); },
     line: () => setTick(t => t + 1),
     exit: () => { refresh(); setTick(t => t + 1); },
   });
@@ -92,7 +94,9 @@ function Shell({ me, onAuthChange }) {
           </label>
           <div className="tools">
             <button className={`state ${running ? 'run' : ''}`} disabled={!running} title={running ? '開啟正在執行的專案' : '目前沒有在執行'} onClick={() => running && go({ view: 'project', id: running.id })}>
-              {running ? `● 執行中：${running.id}（${running.cmd}）` : '閒置'}</button>
+              {running ? `● 執行中：${running.id}（${running.cmd}${running.by ? `，${running.by}` : ''}）` : '閒置'}</button>
+            {queue.length > 0 && <button className="state" title={`排隊中：${queue.map((q, i) => `${i + 1}. ${q.id}（${q.cmd}${q.by ? `，${q.by}` : ''}）`).join('\n')}`}
+              onClick={() => go({ view: 'project', id: queue[0].id })}>排隊 {queue.length}</button>}
             <button className="round" disabled={!questions} title={questions ? `${questions} 個問題等你回答：${waiting.map(p => p.title).join('、')}` : '沒有等待回答的問題'}
               onClick={() => waiting[0] && go({ view: 'project', id: waiting[0].id })}><Icon name="bell" />{questions > 0 && <span className="badge">{questions}</span>}</button>
             {user && <div className="user">
@@ -112,7 +116,7 @@ function Shell({ me, onAuthChange }) {
         {route.view === 'settings' && <Settings info={info} user={user} />}
         {route.view === 'accounts' && (!user || user.role === 'admin' ? <Accounts me={user} onAuthChange={onAuthChange} /> : <div className="page narrow"><h2>我的帳號</h2><p className="sub">{user.display}（{user.name}）· {me.roles[user.role]}</p><ChangePassword /></div>)}
         {route.view === 'parts' && <Parts projectNames={stations.map(p => p.name)} readOnly={readOnly} />}
-        {route.view === 'project' && <ProjectView key={route.id} id={route.id} tick={tick} running={running} onChange={refresh} onDeleted={() => { refresh(); go({ view: 'home' }); }} />}
+        {route.view === 'project' && <ProjectView key={route.id} id={route.id} tick={tick} running={running} queue={queue} onChange={refresh} onDeleted={() => { refresh(); go({ view: 'home' }); }} />}
       </main>
     </div>
   );

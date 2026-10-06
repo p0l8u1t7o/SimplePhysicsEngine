@@ -103,9 +103,10 @@ export function NewProject({ info, running, onCreated }) {
         </section>
 
         {error && <div className="notice bad">{error}</div>}
-        {running && <div className="notice warn">工作區正在執行 {running.id}，要等它結束才能開始新專案。</div>}
-        <div className="bar"><button className="primary big" disabled={busy || !!running || uploading}>{busy ? '建立中…' : uploading ? '等上傳完成…' : '建立並開始'}</button></div>
+        {running && <div className="notice warn">目前在執行 {running.id}：新專案會進代理佇列排隊，輪到時自動開始。</div>}
+        <div className="bar"><button className="primary big" disabled={busy || uploading}>{busy ? '建立中…' : uploading ? '等上傳完成…' : '建立並開始'}</button></div>
       </form>
+      {/* 匯入會直接在工作區建資料夾，代理執行中做會被當成越界寫入，所以要等執行結束 */}
       <ImportHandoff onCreated={onCreated} disabled={!!running} />
     </div>
   );

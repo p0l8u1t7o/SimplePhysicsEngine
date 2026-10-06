@@ -37,7 +37,7 @@ function Members({ id, onChange }) {
   </section>;
 }
 
-export function ProjectView({ id, tick, running, onChange, onDeleted }) {
+export function ProjectView({ id, tick, running, queue = [], onChange, onDeleted }) {
   const [p, setP] = useState(null);
   const [tab, setTab] = useState('progress');
   const [error, setError] = useState('');
@@ -56,7 +56,8 @@ export function ProjectView({ id, tick, running, onChange, onDeleted }) {
   useEffect(() => { if (pending.length && tab === 'progress') setTab('questions'); }, [pending.length]);    // eslint-disable-line
 
   if (!p) return <div className="page mute">{error ? `專案建立中…（${error}）` : '載入中…'}</div>;
-  const isRunning = running?.id === id, busy = !!running;
+  // 代理佇列：別的專案在執行時，這裡按下的指令會排隊；這個專案自己在執行或排隊中才停用按鈕
+  const isRunning = running?.id === id, mine = queue.find(q => q.id === id), position = mine ? queue.indexOf(mine) + 1 : 0, busy = isRunning || !!mine;
   const act = async (fn) => { setError(''); try { await fn(); onChange?.(); load(); } catch (e) { setError(e.message); } };
   const s = p.state, rv = s.reviewData;
   const agentRounds = p.rounds.filter(r => r.role);
@@ -119,7 +120,9 @@ export function ProjectView({ id, tick, running, onChange, onDeleted }) {
               onConfirm={() => act(async () => { const r = await api.cancel(id); setNotice(`已取消流程，回到「完成」。${r.questions ? `${r.questions} 個還沒回答的問題已收起來。` : ''}${r.branch ? `已提交的內容留在分支 ${r.branch}。` : ''}`); })} />
           </div>}
           {!isRunning && pending.length > 0 && <small className="warn">先到「問題」分頁回答，才能繼續{p.cancellable ? '；不想繼續就按「取消流程」' : ''}。</small>}
-          {!isRunning && busy && <small className="mute">工作區正在執行 {running.id}。</small>}
+          {mine && <div className="bar"><span className="chip warn">排隊中：第 {position} 位（{mine.cmd}）</span>
+            <button onClick={() => act(() => api.cancelQueued(mine.qid))}>取消排隊</button></div>}
+          {!busy && running && <small className="mute">目前在執行 {running.id}；這裡按下的指令會排隊，輪到時自動開始。</small>}
         </section>
 
         <section className="group">

@@ -54,10 +54,18 @@ const listen = (server, port, host) => new Promise((ok, fail) => server.listen(p
 function previewProxy(target, { tls, auth }) {
   const handler = (req, res) => {
     if (auth.enabled() && !auth.fromRequest(req)) { res.writeHead(401, { 'Content-Type': MIME['.html'] }); res.end('<meta charset="utf-8"><p>請先登入 3D工作室。</p>'); return; }
-    const up = httpRequest({ host: '127.0.0.1', port: target, method: req.method, path: req.url, headers: { ...req.headers, host: `127.0.0.1:${target}` } },
-      r => { res.writeHead(r.statusCode, r.headers); r.pipe(res); });
-    up.on('error', () => { if (!res.headersSent) res.writeHead(502); res.end(); });
-    req.pipe(up);
+    // 剛啟動時 serve.mjs 可能還沒開始聽：GET／HEAD 連不上就每 250 ms 重試，最多約 5 秒
+    const retry = req.method === 'GET' || req.method === 'HEAD';
+    const send = (n = 0) => {
+      const up = httpRequest({ host: '127.0.0.1', port: target, method: req.method, path: req.url, headers: { ...req.headers, host: `127.0.0.1:${target}` } },
+        r => { res.writeHead(r.statusCode, r.headers); r.pipe(res); });
+      up.on('error', e => {
+        if (retry && e.code === 'ECONNREFUSED' && n < 20) return setTimeout(() => send(n + 1), 250);
+        if (!res.headersSent) res.writeHead(502); res.end();
+      });
+      if (retry) up.end(); else req.pipe(up);
+    };
+    send();
   };
   return tls ? createHttpsServer(tls, handler) : createServer(handler);
 }
@@ -76,7 +84,10 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
   const runner = createRunner(ws, {
     onLine: (id, line) => broadcast('line', { id, line }),
     onExit: (id, status) => broadcast('exit', { id, status }),
+    onQueue: () => broadcast('queue', { running: runner.current, queue: runner.queue }),
   });
+  // 這個專案在不在佇列裡（執行中或排隊中）
+  const busyWith = id => runner.current?.id === id || runner.queue.some(q => q.id === id);
 
   // 3D 預覽：工作區 core 的 serve.mjs（工作區模式會從 projects/ 找專案）
   // serve.mjs 只聽本機（previewInner），對外的是代理（previewPort）
@@ -92,7 +103,7 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
   if (repoServer) await listen(repoServer, repoPort, host);
   const loc = raw => raw.startsWith('@') ? { root: repo, name: raw.slice(1), repo: true } : { root: ws, name: raw, repo: false };
   const Jof = raw => { const l = loc(raw); return projectPaths(l.root, l.name); };
-  const start = (cmd, raw, args = []) => { const l = loc(raw); return runner.start(cmd, raw, args, { name: l.name, root: l.root }); };
+  const start = (cmd, raw, args = [], by = '') => { const l = loc(raw); return runner.start(cmd, raw, args, { name: l.name, root: l.root, by }); };
   const repoIds = () => repo && existsSync(join(repo, 'project-site')) ? readdirSync(join(repo, 'project-site')).filter(n => existsSync(join(repo, 'project-site', n, 'project.json'))).map(n => '@' + n) : [];
   const projectIds = () => [...(existsSync(P.projects) ? readdirSync(P.projects).filter(n => existsSync(join(P.projects, n, 'studio.json'))) : []), ...repoIds()];
   // 本庫的站：別的工具改過、還沒提交的檔案（清單一次算完；vs3d 執行中的站不算，那是代理正在改）
@@ -102,6 +113,7 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
     let updated = 0; try { updated = statSync(J.state).mtimeMs; } catch { updated = statSync(J.dir).mtimeMs; }
     return { id, name: loc(id).name, repo: loc(id).repo, branch: s.branch || null, flowActive: !!s.flowActive, title: pj.title || id, summary: pj.summary || '', stage: s.stage, segment: s.segment || 1, round: s.round, pending: pending.length, lastCheck: s.lastCheck && { ok: s.lastCheck.ok, quick: s.lastCheck.quick },
       render: s.render?.result || null, reviews: s.reviews || 0, updated, running: runner.current?.id === id,
+      queued: (i => i < 0 ? 0 : i + 1)(runner.queue.findIndex(q => q.id === id)),      // 排隊中的第幾位（0 是沒在排隊）
       dirty: loc(id).repo && runner.current?.id !== id ? ((dirtyMap || repoDirty())[loc(id).name] || []) : [] };
   };
   // 匯出的成品：TEMP/exports/ 底下的壓縮檔、HTML、影片（影片在子資料夾）
@@ -154,9 +166,10 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
     });
     let partsInfo;
     try { partsInfo = (await parts()).overview(); } catch (e) { partsInfo = { error: e.code === 'ERR_UNKNOWN_BUILTIN_MODULE' ? '元件資料庫需要 Node.js 22.13 以上' : String(e.message || e) }; }
-    return { projects: list, running: runner.current, agents: agentStats(list.map(p => ({ id: p.id, title: p.title, rounds: readRounds(Jof(p.id).rounds) }))), stations, parts: partsInfo };
+    return { projects: list, running: runner.current, queue: runner.queue, agents: agentStats(list.map(p => ({ id: p.id, title: p.title, rounds: readRounds(Jof(p.id).rounds) }))), stations, parts: partsInfo };
   };
-  const resumeIfReady = id => { const J = Jof(id); if (!runner.current && !loadQuestions(J).list.some(q => !q.answered)) start('resume', id); };
+  // 問題都回答完就排入續跑（已經在佇列裡就不重複排）
+  const resumeIfReady = (id, by) => { const J = Jof(id); if (!busyWith(id) && !loadQuestions(J).list.some(q => !q.answered)) start('resume', id, [], by); };
 
   const handler = async (req, res) => {
     const url = new URL(req.url, 'http://x'), seg = url.pathname.split('/').filter(Boolean).map(decodeURIComponent);
@@ -219,11 +232,11 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
         }
         if (a === 'events') {
           res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive' });
-          res.write(`event: hello\ndata: ${JSON.stringify({ running: runner.current })}\n\n`);
+          res.write(`event: hello\ndata: ${JSON.stringify({ running: runner.current, queue: runner.queue })}\n\n`);
           clients.add(res); req.on('close', () => clients.delete(res)); return;
         }
         // options：介面的下拉選單（各 CLI 可選的模型與推理強度），不必呼叫 CLI
-        if (a === 'info') return json(200, { options: Object.fromEntries(Object.values(ADAPTERS).filter(x => x.name !== 'fake').map(x => [x.name, { label: x.label, models: x.listModels(), efforts: x.efforts || [] }])), ws, repo, running: runner.current, ffmpeg: !!ffmpeg, previewPort, roles: ROLES });
+        if (a === 'info') return json(200, { options: Object.fromEntries(Object.values(ADAPTERS).filter(x => x.name !== 'fake').map(x => [x.name, { label: x.label, models: x.listModels(), efforts: x.efforts || [] }])), ws, repo, running: runner.current, queue: runner.queue, ffmpeg: !!ffmpeg, previewPort, roles: ROLES });
         if (a === 'doctor') return json(200, Object.values(ADAPTERS).filter(x => x.name !== 'fake').map(x => ({ name: x.name, label: x.label, models: x.listModels(), ...x.detect() })));
         if (a === 'settings') {
           if (req.method === 'PUT') { const v = await jbody(); writeJson(P.settings, { defaultCli: v.defaultCli || 'claude', roles: v.roles || {} }); }
@@ -234,6 +247,16 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
         if (a === 'stop' && req.method === 'POST') {
           if (runner.current && !canEditProject(user, await membersOf(runner.current.id))) return json(403, { error: '你不是執行中專案的成員，不能停止它' });
           return json(200, { stopped: runner.stop() });
+        }
+        // 代理佇列：GET 看執行中與排隊中的；DELETE /api/queue/:qid 取消排隊中的一筆（要是那個專案的成員）
+        if (a === 'queue') {
+          if (id && req.method === 'DELETE') {
+            const item = runner.queued(id);
+            if (!item) return json(404, { error: '找不到這筆排隊（可能已經開始執行）' });
+            if (!canEditProject(user, await membersOf(item.id))) return json(403, { error: '你不是這個專案的成員，不能取消它的排隊' });
+            return json(200, { cancelled: runner.cancel(id) });
+          }
+          return json(200, { running: runner.current, queue: runner.queue });
         }
         if (a === 'uploads' && req.method === 'POST') {
           const token = (url.searchParams.get('token') || '').replace(/[^\w-]/g, '') || randomUUID(), name = basename(url.searchParams.get('name') || 'file');
@@ -255,6 +278,8 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
           const v = await jbody(), dir = join(P.ws, '.studio', 'uploads', String(v.token || '').replace(/[^\w-]/g, ''));
           const zip = existsSync(dir) ? readdirSync(dir).find(f => /\.zip$/i.test(f)) : null;
           if (!zip) return json(400, { error: '請先上傳交接包（.zip）' });
+          // 匯入直接在工作區建資料夾：代理執行中做會被每輪的雜湊比對當成越界寫入
+          if (runner.current) return json(400, { error: `目前在執行 ${runner.current.id}，等它結束再匯入` });
           try {
             const r = await importHandoff(ws, join(dir, zip), { id: (v.name || '').trim() || undefined, log: () => {} });
             (await store())?.claimProject(r.id, user?.name);          // 匯入的人成為擁有者
@@ -278,12 +303,12 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
             if (v.effort) args.push('--effort', v.effort);
             if (v.autoApprove) args.push('--auto-approve');
             if (v.pick) args.push('--pick');
-            runner.start('new', v.id, args);
+            let q; try { q = runner.start('new', v.id, args, { by: user?.name || '' }); } catch (e) { return json(400, { error: e.message }); }
             (await store())?.claimProject(v.id, user?.name);         // 建立的人成為擁有者
-            return json(200, { started: true });
+            return json(200, { started: true, ...q });
           }
           const members = (await store())?.allMembers() || {};
-          return json(200, { projects: (d => projectIds().map(id => ({ ...summary(id, d), canEdit: canEditProject(user, members[id]) })))(repoDirty()).sort((x, y) => y.updated - x.updated), running: runner.current });
+          return json(200, { projects: (d => projectIds().map(id => ({ ...summary(id, d), canEdit: canEditProject(user, members[id]) })))(repoDirty()).sort((x, y) => y.updated - x.updated), running: runner.current, queue: runner.queue });
         }
         if (a === 'projects' && id) {
           if (!projectIds().includes(id)) return json(404, { error: `找不到專案：${id}` });
@@ -305,12 +330,12 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
           if (!b && req.method === 'DELETE') {
             const v = await jbody(), l = loc(id);
             if (l.repo) return json(400, { error: '本庫的站在版控裡，不能從這裡刪除（要移除請用 git）' });
-            if (runner.current?.id === id) return json(400, { error: '這個專案正在執行，先停止再刪除' });
+            if (busyWith(id)) return json(400, { error: '這個專案正在執行或排隊中，先停止或取消排隊再刪除' });
             if (String(v.confirm || '') !== l.name) return json(400, { error: '請輸入專案名稱確認刪除' });
             try { const movedTo = deleteProject(ws, l.name); (await store())?.dropMembers(id); return json(200, { deleted: id, movedTo }); } catch (e) { return json(400, { error: e.message }); }
           }
           if (b === 'cancel' && req.method === 'POST') {
-            if (runner.current?.id === id) return json(400, { error: '這個專案正在執行，先按「停止」再取消流程' });
+            if (busyWith(id)) return json(400, { error: '這個專案正在執行或排隊中，先按「停止」或取消排隊再取消流程' });
             const l = loc(id);
             try { return json(200, cancelFlow(l.root, l.name)); } catch (e) { return json(400, { error: e.message }); }
           }
@@ -319,8 +344,8 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
             if (!q) return json(404, { error: `找不到問題 ${v.qid}` });
             const parsed = v.text ? { choices: [], text: v.text } : parseChoice(q, (v.choices || []).map(i => i + 1).join(','));
             recordAnswer(J, q, { ...parsed, note: v.note || '' });
-            resumeIfReady(id);
-            return json(200, { ok: true, running: runner.current });
+            resumeIfReady(id, user?.name || '');
+            return json(200, { ok: true, running: runner.current, queue: runner.queue });
           }
           if (b === 'run' && req.method === 'POST') {
             const v = await jbody(), cmd = ['resume', 'review', 'render', 'stage2', 'export', 'handoff', 'change', 'check', 'push'].includes(v.cmd) ? v.cmd : 'resume';
@@ -329,8 +354,7 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
               : cmd === 'change' ? ['--text', String(v.text).trim(), ...(v.keepTiming ? ['--keep-timing'] : [])]
               : cmd === 'check' ? (v.full ? ['--full'] : [])
               : [...(v.pick ? ['--pick'] : []), ...(v.focus ? ['--focus', v.focus] : [])];
-            start(cmd, id, args);
-            return json(200, { started: true });
+            try { return json(200, { started: true, ...start(cmd, id, args, user?.name || '') }); } catch (e) { return json(400, { error: e.message }); }
           }
         }
         if (['parts', 'prices', 'usages', 'suppliers', 'files', 'system'].includes(a)) {

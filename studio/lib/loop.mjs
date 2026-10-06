@@ -97,7 +97,8 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
     if (res.sessionId) state.sessions[sk(role)] = { cli: rc.cli, model: rc.model, sessionId: res.sessionId };
     state.violations = violations;
     appendJsonl(J.rounds, { round: n, role, segment: seg(), cli: rc.cli, model: rc.model, effort: rc.effort, sessionId: res.sessionId, resumed: !!sessionId, startedAt: t0, seconds: res.seconds,
-      ok: res.ok, aborted: res.aborted, timedOut: res.timedOut, usage: res.usage, costUsd: res.costUsd, turns: res.turns, commit, violations, summary: short(res.text, 400) });
+      ok: res.ok, aborted: res.aborted, timedOut: res.timedOut, usage: res.usage, costUsd: res.costUsd, turns: res.turns, commit, violations, summary: short(res.text, 400),
+      ...(process.env.VS3D_BY ? { by: process.env.VS3D_BY } : {}) });      // 從介面啟動時記下是誰（代理佇列給的環境變數）
     save();
     log(`  ${res.ok ? '✓' : '✗'} 第 ${n} 輪結束（${res.seconds} s${commit ? `，commit ${commit}` : '，沒有變更'}）`);
     if (!res.ok) {

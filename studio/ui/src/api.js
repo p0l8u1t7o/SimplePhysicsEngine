@@ -31,6 +31,7 @@ export const api = {
   answer: (id, v) => call('POST', `/api/projects/${encodeURIComponent(id)}/answer`, v),
   run: (id, v) => call('POST', `/api/projects/${encodeURIComponent(id)}/run`, v),
   stop: () => call('POST', '/api/stop'),
+  cancelQueued: qid => call('DELETE', `/api/queue/${encodeURIComponent(qid)}`),     // 取消代理佇列裡排隊中的一筆
   cancel: id => call('POST', `/api/projects/${encodeURIComponent(id)}/cancel`),
   // 專案成員（依專案分權限）：members 是 [{ user, role: owner｜member }]
   members: id => call('GET', `/api/projects/${encodeURIComponent(id)}/members`),
@@ -76,7 +77,7 @@ export function useEvents(handlers) {
   const ref = useRef(handlers); ref.current = handlers;
   useEffect(() => {
     const es = new EventSource('/api/events');
-    for (const ev of ['hello', 'line', 'exit']) es.addEventListener(ev, e => ref.current[ev]?.(JSON.parse(e.data)));
+    for (const ev of ['hello', 'line', 'exit', 'queue']) es.addEventListener(ev, e => ref.current[ev]?.(JSON.parse(e.data)));
     return () => es.close();
   }, []);
 }
