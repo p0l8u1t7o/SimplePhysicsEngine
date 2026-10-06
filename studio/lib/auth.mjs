@@ -34,6 +34,7 @@ export const canManageProject = (user, members = []) => !user || user.role === '
 // 這個角色能不能做這個請求；回傳 null（可以）或拒絕的原因。path 是 /api/ 後面的片段陣列
 export function denied(role, method, [a]) {
   if (a === 'auth') return null;                                  // 登入、登出、改自己的密碼
+  if (a === 'optics') return null;                                // 光學計算（POST 只是送參數，不改資料）
   if (a === 'users') return role === 'admin' ? null : '只有管理者可以管理帳號';
   if (a === 'secrets') return role === 'admin' ? null : '只有管理者可以看與改 API 金鑰';
   if (a === 'trash') return role === 'admin' ? null : '只有管理者可以管理回收桶';

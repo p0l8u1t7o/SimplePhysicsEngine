@@ -382,3 +382,21 @@ td.ops button { min-height: 28px; padding: 0 11px; margin-left: 4px; font-size: 
   .page { padding: 4px 14px 30px; } .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .modal .panel { border-radius: 0; padding: 16px 14px 30px; }
 }
+/* 光學工作台 */
+.optics-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 16px; align-items: start; }
+.optics-side { position: sticky; top: 76px; display: grid; gap: 0; }
+.optics-frame { height: 360px; }
+.optics-res td { vertical-align: top; }
+.optics-res tr.fail td:first-child { color: var(--bad); font-weight: 600; }
+.optics .tfields { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+table.compare td, table.compare th { white-space: nowrap; }
+tr.on td { background: var(--accent-soft); }
+@media (max-width: 1180px) { .optics-layout { grid-template-columns: minmax(0, 1fr); } .optics-side { position: static; } }
+/* 元件補全（AI 查規格） */
+.spin { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--accent-soft); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.enrich-review td { vertical-align: top; }
+.enrich-review .q { font-size: 12px; margin-top: 2px; }
+.enrich-review tr.bad-row td { background: var(--bad-soft); }
+.enrich-review .conf.high { color: var(--ok); } .enrich-review .conf.low { color: var(--warn); }
+.card.enrich details { margin-top: 10px; }

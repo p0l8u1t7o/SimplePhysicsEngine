@@ -2,6 +2,7 @@
 // 光軸是本地 −Y（預設朝下）；鏡頭前緣在原點。要斜看或朝上時旋轉 root。state：light（光源亮度 0～1）。
 import * as THREE from 'three';
 import { MAT } from '../geom/materials.js';
+import { angularFov, pinholeFov } from '../optics/optics.js';
 
 export const meta = {
   id: 'camera', name: '工業相機＋鏡頭＋環形光源', category: '視覺',
@@ -18,8 +19,8 @@ export const meta = {
   usage: "import { create as visionCamera, lensFov } from '@core/models/camera.js';\nconst cam = visionCamera({ focal: 16 }); cam.root.position.set(x, 900, z); scene.add(cam.root);\ncam.set({ light: 1 }); workspace.renderCamera({ renderer, scene, camera: cam.camera, aspect: cam.aspect, title: '上視相機' });\ncam.fieldOfView(工作距離) → [寬, 高] mm（視野）",
 };
 
-// 垂直視角（度）：感光元件高 h、焦距 f
-export const lensFov = (h, f) => 2 * Math.atan(h / 2 / f) * 180 / Math.PI;
+// 垂直視角（度）：感光元件高 h、焦距 f（公式在 core/optics，光學工作台與檢查用同一份）
+export const lensFov = angularFov;
 
 export function create(p = {}) {
   const P = { ...Object.fromEntries(Object.entries(meta.params).map(([k, v]) => [k, v.value])), ...p };
@@ -43,7 +44,7 @@ export function create(p = {}) {
   const camera = new THREE.PerspectiveCamera(fov, aspect, 5, 8000); camera.name = 'camera view'; camera.rotation.x = -Math.PI / 2; root.add(camera);
   return {
     root, params: P, camera, fov, aspect,
-    fieldOfView: wd => [wd * P.sensorW / P.focal, wd * P.sensorH / P.focal],
+    fieldOfView: wd => pinholeFov(P.sensorW, P.sensorH, P.focal, wd),      // 針孔近似；選型評估用 core/optics 的 evaluate（薄透鏡）
     set({ light = 1 } = {}) { if (ringMat) ringMat.emissiveIntensity = light; },
   };
 }

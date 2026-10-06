@@ -2,7 +2,7 @@
   "title": "軍規電腦檢測系統",
   "summary": "DENSO VM-60B1 搭配第七軸，完成軍規筆電的翻轉、接口取像與檢測。",
   "order": 3,
-  "coreVersion": "1.10.0",
+  "coreVersion": "1.11.0",
   "checks": {
     "quick": [
       "tools/verify.mjs"

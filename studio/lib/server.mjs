@@ -17,6 +17,8 @@
 //   POST /api/stop                  停止目前的執行
 //   GET  /api/events                SSE：line（輸出一行）、exit（執行結束）
 //   GET｜POST｜PUT｜DELETE /api/parts、/api/prices、/api/usages、/api/suppliers、/api/files   元件資料庫（lib/parts-api.mjs）
+//   POST /api/parts/:id/enrich { fields }；POST /api/enrich/batch { parts, fields }   元件補全（排進代理佇列；一次最多 10 個）
+//   GET /api/enrich?status=&part=；GET｜DELETE /api/enrich/:工作；POST /api/enrich/:工作/accept { keys, price, files }   補全結果、放棄、逐欄採用
 //   GET｜PUT /api/system            系統設定（附件上限、成本費率、代理的認證方式…；改只有管理者）
 //   GET；PUT｜DELETE /api/secrets/:anthropic｜openai   API 金鑰（只有管理者；只回末四碼）
 //   GET /api/trash；DELETE /api/trash/:項目；POST /api/trash/purge { days }   回收桶（刪除的專案；只有管理者）
@@ -88,7 +90,11 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
   const broadcast = (event, data) => { const msg = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`; for (const c of clients) c.write(msg); };
   const runner = createRunner(ws, {
     onLine: (id, line) => broadcast('line', { id, line }),
-    onExit: (id, status) => broadcast('exit', { id, status }),
+    onExit: (id, status) => {
+      broadcast('exit', { id, status });
+      // 元件補全的子程序結束了，工作卻還在排隊中或查詢中（被停止、當掉）：改成失敗
+      if (id.startsWith('enrich:')) store().then(st => st?.enrich.failStale(id.slice(7), status === 'done' ? '執行結束但沒有結果' : '執行中斷')).catch(() => {});
+    },
     onQueue: () => broadcast('queue', { running: runner.current, queue: runner.queue }),
   });
   // 這個專案在不在佇列裡（執行中或排隊中）
@@ -272,6 +278,42 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
           return json(200, { settings: readJson(P.settings, {}), resolved: Object.fromEntries(Object.keys(ROLES).map(r => [r, resolveRole(r, ctx)])) });
         }
         if (a === 'dashboard') return json(200, await dashboard());
+        // 元件補全（lib/enrich.mjs）：建工作後排進代理佇列（vs3d enrich <元件> --job <id>）；結果待審核，逐欄採用
+        if (a === 'enrich' || (a === 'parts' && b === 'enrich')) {
+          const st = await store(); if (!st) return json(500, { error: '元件資料庫開不了（需要 Node.js 22.13 以上）' });
+          const E = st.enrich, m = req.method, by = user?.name || '';
+          const queue = job => {
+            try { runner.start('enrich', `enrich:${job.code}`, ['--job', String(job.id), ...(partsDb ? ['--db', partsDb] : [])], { name: job.code, root: ws, by }); }
+            catch (e) { E.finish(job.id, { error: e.message }); throw Object.assign(new Error(e.message), { status: 400 }); }
+            return E.get(job.id);
+          };
+          try {
+            return await st.withActor(by, async () => {
+              if (a === 'parts' && m === 'POST') return json(200, queue(E.create(id, { fields: (await jbody()).fields || [], by })));
+              if (id === 'batch' && m === 'POST') {
+                const { MAX_BATCH } = await import('./enrich.mjs'), v = await jbody(), list = [...new Set(v.parts || [])];
+                if (!list.length || list.length > MAX_BATCH) return json(400, { error: `一次可以補 1～${MAX_BATCH} 個元件` });
+                const jobs = [], errors = [];
+                for (const p of list) { try { jobs.push(queue(E.create(p, { fields: v.fields || [], by }))); } catch (e) { errors.push(`${p}：${e.message}`); } }
+                return json(200, { jobs, errors });
+              }
+              if (!id && m === 'GET') return json(200, { jobs: E.list({ status: url.searchParams.get('status') || '', part: url.searchParams.get('part') || '' }) });
+              if (id && !b && m === 'GET') return json(200, { ...E.get(id), sources: E.sources(E.get(id).part_id) });
+              if (id && b === 'accept' && m === 'POST') { const v = await jbody(); return json(200, await E.accept(id, { keys: v.keys || [], price: !!v.price, files: v.files || [], by })); }
+              if (id && !b && m === 'DELETE') {
+                const j = E.get(id), q = runner.queue.find(x => x.id === `enrich:${j.code}`);
+                if (j.status === 'queued' && q) runner.cancel(q.qid);
+                return json(200, E.dismiss(id, by));
+              }
+              return json(404, { error: '未知的 API' });
+            });
+          } catch (e) { if (e.status) return json(e.status, { error: e.message }); throw e; }
+        }
+        // 光學計算（core/optics；引用的元件用元件庫的規格欄位補參數）：POST /api/optics/eval { setup }；唯讀帳號也可以算
+        if (a === 'optics' && id === 'eval' && req.method === 'POST') {
+          const st = await store(); if (!st) return json(500, { error: '元件資料庫開不了（需要 Node.js 22.13 以上）' });
+          try { return json(200, st.aoi.evaluate((await jbody()).setup || {})); } catch (e) { if (e.status) return json(e.status, { error: e.message }); throw e; }
+        }
         if (a === 'stop' && req.method === 'POST') {
           if (runner.current && !canEditProject(user, await membersOf(runner.current.id))) return json(403, { error: '你不是執行中專案的成員，不能停止它' });
           return json(200, { stopped: runner.stop() });
@@ -389,6 +431,21 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
                 return json(404, { error: '未知的 API' });
               });
             } catch (e) { return err(e); }
+          }
+          // AOI 方案（lib/aoi.mjs）：GET｜POST /aoi；PUT｜DELETE /aoi/:id；POST /aoi/:id/choose（選用，元件加進 BOM）
+          if (b === 'aoi') {
+            const st = await store(); if (!st) return json(500, { error: '元件資料庫開不了（需要 Node.js 22.13 以上）' });
+            const A = st.aoi, [, , , , c, d] = seg, m = req.method, ok = v => json(200, v);
+            try {
+              return await st.withActor(user?.name, async () => {
+                if (!c && m === 'GET') return ok({ setups: A.list(id) });
+                if (!c && m === 'POST') return ok(A.save(id, await jbody()));
+                if (c && !d && m === 'PUT') return ok(A.save(id, await jbody(), c));
+                if (c && !d && m === 'DELETE') return ok(A.delete(id, c));
+                if (c && d === 'choose' && m === 'POST') return ok(A.choose(id, c));
+                return json(404, { error: '未知的 API' });
+              });
+            } catch (e) { if (e.status) return json(e.status, { error: e.message }); throw e; }
           }
           if (!b && req.method === 'DELETE') {
             const v = await jbody(), l = loc(id);

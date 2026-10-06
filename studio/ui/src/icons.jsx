@@ -17,6 +17,7 @@ const PATHS = {
   clock: 'M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17ZM12 7.5V12l3 2',
   table: 'M4 5.5h16v13H4v-13ZM4 10h16M4 14.5h16M9.5 5.5v13',
   chart: 'M4 20V4M4 20h16M8 16v-5M12 16V8M16 16v-3',
+  lens: 'M4 8h4l1.5-2.5h5L16 8h4v11H4V8ZM12 10.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z',
 };
 
 export function Icon({ name, size = 18, className = '' }) {

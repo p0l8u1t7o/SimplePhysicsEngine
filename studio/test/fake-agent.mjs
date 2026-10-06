@@ -16,7 +16,18 @@ const log = process.env.FAKE_LOG; if (log) appendFileSync(log, prompt.split('\n'
 
 let text = 'DONE';
 const reviewN = /任務：審查(?:第一段|修改後的|第二段（[^）]*）)成品（第 (\d+) 次）/.exec(prompt)?.[1];
-if (/任務：依使用者的要求修改/.test(prompt)) {
+if (/任務：元件補全/.test(prompt)) {
+  // 元件補全：照 part.json 寫 result.json（一個合格、一個沒有來源、一個數字欄位寫錯；FAKE_ENRICH_FILE 是可以下載的網址）
+  const part = JSON.parse(readFileSync(join(cwd, 'part.json'), 'utf8')), src = 'https://example.com/cam';
+  w(join(cwd, 'result.json'), JSON.stringify({
+    matched: true, note: `查到 ${part.name} 的原廠頁面`,
+    fields: { brand: { value: '示範廠', source: src, quote: 'Brand: 示範廠', confidence: 'high' }, model: { value: 'DEMO-5MP' } },
+    attrs: { 像素尺寸: { value: '3.45 µm', source: src, quote: 'Pixel size 3.45 µm', confidence: 'high' }, 幀率: { value: '很快', source: src }, 介面: { value: 'GigE', source: src, confidence: 'medium' } },
+    price: { value: 21000, currency: 'TWD', date: '2026-10-01', source: src, quote: '含稅 21,000' },
+    files: process.env.FAKE_ENRICH_FILE ? [{ url: process.env.FAKE_ENRICH_FILE, kind: 'datasheet', title: '規格書' }] : [],
+  }));
+  text = '查到 4 個欄位';
+} else if (/任務：依使用者的要求修改/.test(prompt)) {
   // 修改指令：在專案裡加一個檔，並改一個既有檔
   w(join(cwd, 'web/change.txt'), 'changed');
   const readme = join(cwd, 'README.md'); appendFileSync(readme, '\n修改紀錄：假代理\n'); tool('Edit', readme);

@@ -8,6 +8,7 @@
 // 依段落指派（2026-10-04 拍板）：第二段（電控、電盤、配線、相機）的開發與修正預設 Codex gpt-6-astra high，審查維持 Claude opus。
 // 各層可以用「角色@段」只指定某一段，例如 studio.json 的 roles: { "build@2": { cli: 'claude', model: 'opus' } }、--role build@2=codex:gpt-6-astra。
 // P2 中 sonnet 在兩站都明顯較弱，而且規劃時容易偏離範圍。
+// 元件補全（enrich，Q5）工作單純、次數多，Claude 預設用 sonnet。
 import { readJson } from './util.mjs';
 
 export const ROLES = {
@@ -16,12 +17,13 @@ export const ROLES = {
   fix: '修正：依檢查失敗摘要修正',
   review: '審查：對照截圖與參考資料列出缺漏（P4b）',
   render: '渲染與細節補強（P4b）',
+  enrich: '元件補全：上網查元件規格，結果由使用者逐欄審核（評估平台 Q5；唯一可以上網的角色）',
 };
 
 // 空字串的 model 代表用該 CLI 帳號的預設模型
 export const PRESETS = {
-  claude: { plan: 'opus', build: 'opus', fix: 'opus', review: 'opus', render: 'opus' },
-  codex: { plan: '', build: '', fix: '', review: '', render: '' },
+  claude: { plan: 'opus', build: 'opus', fix: 'opus', review: 'opus', render: 'opus', enrich: 'sonnet' },
+  codex: { plan: '', build: '', fix: '', review: '', render: '', enrich: '' },
 };
 
 // 指定 CLI 的角色預設（最底層；工作區、專案或命令列指定 CLI 時會被蓋過）

@@ -1,6 +1,6 @@
 // 版面：左側深綠側欄（導覽、工作區的專案清單、新建專案），右側主面板（上方是搜尋與狀態列，下面是選取的畫面）。
 // 本庫 project-site/ 的站不放在側欄，集中在「本庫的站」那一頁。
-// 網址 hash 記住目前的畫面（#home 儀表板、#stations、#new、#parts、#settings、#accounts、#p/<專案>）。
+// 網址 hash 記住目前的畫面（#home 儀表板、#stations、#new、#parts、#optics 光學工作台、#settings、#accounts、#p/<專案>）。
 // 有帳號之後要先登入（App 先問 /api/auth/me，沒登入就顯示登入頁）；還沒有任何帳號時和以前一樣直接使用。
 import { useCallback, useEffect, useState } from 'react';
 import { api, useEvents, STAGE } from './api.js';
@@ -8,6 +8,7 @@ import { NewProject } from './NewProject.jsx';
 import { ProjectView } from './ProjectView.jsx';
 import { Settings } from './Settings.jsx';
 import { Parts } from './Parts.jsx';
+import { Optics } from './Optics.jsx';
 import { Dashboard } from './Dashboard.jsx';
 import { Stations } from './Stations.jsx';
 import { Login, Accounts, ChangePassword } from './Accounts.jsx';
@@ -54,7 +55,7 @@ function Shell({ me, onAuthChange }) {
   const waiting = projects.filter(p => p.pending > 0), questions = waiting.reduce((n, p) => n + p.pending, 0);
   const inStations = route.view === 'stations' || (route.view === 'project' && route.id?.startsWith('@'));
   const nav = [['home', '儀表板', 'home', route.view === 'home'], ...(stations.length || info?.repo ? [['stations', '本庫的站', 'folder', inStations]] : []),
-    ['parts', '元件庫', 'parts', route.view === 'parts'], ['settings', '設定', 'settings', route.view === 'settings'],
+    ['parts', '元件庫', 'parts', route.view === 'parts'], ['optics', '光學', 'lens', route.view === 'optics'], ['settings', '設定', 'settings', route.view === 'settings'],
     ...(!user || user.role === 'admin' ? [['accounts', '帳號', 'user', route.view === 'accounts']] : [])];
 
   return (
@@ -116,9 +117,17 @@ function Shell({ me, onAuthChange }) {
         {route.view === 'new' && <fieldset className="plain" disabled={readOnly}><NewProject info={info} running={running} onCreated={id => { refresh(); go({ view: 'project', id }); }} /></fieldset>}
         {route.view === 'settings' && <Settings info={info} user={user} />}
         {route.view === 'accounts' && (!user || user.role === 'admin' ? <Accounts me={user} onAuthChange={onAuthChange} /> : <div className="page narrow"><h2>我的帳號</h2><p className="sub">{user.display}（{user.name}）· {me.roles[user.role]}</p><ChangePassword /></div>)}
+        {route.view === 'optics' && <OpticsPage projects={projects} />}
         {route.view === 'parts' && <Parts projectNames={stations.map(p => p.name)} readOnly={readOnly} isAdmin={!user || user.role === 'admin'} />}
         {route.view === 'project' && <ProjectView key={route.id} id={route.id} tick={tick} running={running} queue={queue} onChange={refresh} onDeleted={() => { refresh(); go({ view: 'home' }); }} />}
       </main>
     </div>
   );
+}
+
+// 光學工作台需要模型目錄的 port（3D 視錐頁在 core/optics/view.html，和模型目錄同一個預覽伺服器）
+function OpticsPage({ projects }) {
+  const [port, setPort] = useState(0);
+  useEffect(() => { api.models().then(m => setPort(m.catalogPort)).catch(() => {}); }, []);
+  return <Optics projects={projects} catalogPort={port} />;
 }

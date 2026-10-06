@@ -35,6 +35,8 @@
 //   node studio/vs3d.mjs parts link [--dry-run]                   把型號對得上的元件連到 core 共用模型（3D 顯示）；core 新增模型後再跑一次
 //   node studio/vs3d.mjs parts bom <專案> [--json]                專案的成本表（平台即時計算；本庫的站寫 @<站>）
 //   node studio/vs3d.mjs parts bom-import [--project 站]          把各站 docs/ 的成本表轉成平台的 BOM（@<站>），逐行與摘要和原檔比對（先跑過 parts seed）
+//   node studio/vs3d.mjs enrich <元件> [--fields 欄位,…] [--cli …] [--model …]   元件補全：enrich 角色上網查規格，結果待審核（只有這個角色可以上網）
+//   node studio/vs3d.mjs enrich [list [--status review]｜show <工作>｜accept <工作> (--all｜--keys a,attrs.b) [--price] [--download 0,1]｜dismiss <工作>]
 //                                                                 資料庫檔只留本機：studio/data/studio.db（--db 或環境變數 VS3D_DB 可以改位置）
 // 共通選項：--workspace <資料夾>（預設 %USERPROFILE%\Documents\3D-Studio，或環境變數 VS3D_WORKSPACE）
 //   --cli、--model（所有角色）、--role plan=opus,fix=haiku（個別角色；可寫 codex:<模型>）、--effort
@@ -57,7 +59,7 @@ import { exportHandoff, importHandoff } from './lib/handoff.mjs';
 import * as repoGit from './lib/repo.mjs';
 import { REPO, git, findFfmpeg } from './lib/util.mjs';
 
-const VALUE = new Set(['--text', '--text-file', '--workspace', '--private', '--prompt', '--prompt-file', '--title', '--summary', '--cli', '--model', '--role', '--effort', '--note', '--max-rounds', '--timeout', '--other', '--focus', '--port', '--out', '--name', '--category', '--project', '--db', '--host', '--password', '--level', '--pfx', '--cert', '--key', '--purge', '--older-than']);
+const VALUE = new Set(['--text', '--text-file', '--workspace', '--private', '--prompt', '--prompt-file', '--title', '--summary', '--cli', '--model', '--role', '--effort', '--note', '--max-rounds', '--timeout', '--other', '--focus', '--port', '--out', '--name', '--category', '--project', '--db', '--host', '--password', '--level', '--pfx', '--cert', '--key', '--purge', '--older-than', '--job', '--fields', '--keys', '--download', '--status']);
 
 // 測試用：VS3D_EXTRA_ADAPTERS 指向一個匯出 { adapters: { 名稱: adapter } } 的模組（例如假代理），讓介面的端對端測試走真正的命令列
 if (process.env.VS3D_EXTRA_ADAPTERS) Object.assign(ADAPTERS, (await import(pathToFileURL(resolve(process.env.VS3D_EXTRA_ADAPTERS)).href)).adapters);
@@ -259,6 +261,63 @@ switch (cmd) {
     needProject();
     const r = await isolationProbe(ws, name, { cli: o.cli || 'claude', model: o.model, other: o.other, simulate: !!o.simulate });
     process.exitCode = r.ok ? 0 : 1;
+    break;
+  }
+  // 光學計算（core/optics）：vs3d optics eval <方案.json> [--json]；方案引用的元件用元件庫的規格欄位補參數（代理與檢查用）
+  case 'optics': {
+    if (name !== 'eval' || !rest[0]) fail('用法：vs3d optics eval <方案.json> [--json]（方案格式見 core/optics/README.md）');
+    let setup; try { setup = JSON.parse(readFileSync(resolve(rest[0]), 'utf8').replace(/^﻿/, '')); } catch (e) { fail(`讀不了方案檔：${e.message}`); }
+    let r;
+    try { const { openPartsDb, defaultPartsDb } = await import('./lib/partsdb.mjs'), db = openPartsDb(resolve(o.db || defaultPartsDb())); try { r = db.aoi.evaluate(setup.data || setup); } finally { db.close(); } }
+    catch (e) { if (e.status) fail(e.message); const { evaluate } = await import('../core/optics/optics.js'); r = evaluate(setup.data || setup); }
+    if (o.json) console.log(JSON.stringify(r, null, 2));
+    else {
+      const mark = { ok: '✓', warn: '!', fail: '✗', info: '·' };
+      for (const x of r.results) console.log(`${mark[x.status]} ${x.label}：${x.value ?? '—'}${x.unit ? ` ${x.unit}` : ''}${x.note ? `（${x.note}）` : ''}`);
+      if (r.cost) console.log(`元件參考成本：NT$ ${r.cost.toLocaleString('en-US')}`);
+      console.log(r.status === 'fail' ? '✗ 有不符合的項目' : r.status === 'warn' ? '! 有要注意的項目' : '✓ 全部符合');
+    }
+    if (r.status === 'fail') process.exitCode = 1;
+    break;
+  }
+  case 'enrich': {
+    // 元件補全（評估平台 Q5）：enrich 角色上網查元件規格，結果存成待審核，到介面「元件庫」逐欄採用（或用 accept）
+    const { openPartsDb, defaultPartsDb } = await import('./lib/partsdb.mjs'), { runEnrichJob, JOB_STATUS } = await import('./lib/enrich.mjs');
+    const db = openPartsDb(resolve(o.db || defaultPartsDb()));
+    const showJob = j => {
+      console.log(`#${j.id} ${j.code} ${j.name}｜${j.status_label}${j.cli ? `｜${j.cli}${j.model ? ' ' + j.model : ''}` : ''}${j.cost ? `｜US$ ${j.cost.toFixed(3)}` : ''}${j.error ? `｜${j.error}` : ''}`);
+      const r = j.result || {};
+      if (r.note) console.log(`  ${r.matched === false ? '✗ 型號對不上：' : ''}${r.note}`);
+      for (const x of r.items || []) console.log(`  ${x.error ? '✗' : x.same ? '=' : '+'} ${x.key}：${x.value}${x.unit ? ` ${x.unit}` : ''}${x.current && !x.same ? `（原本 ${x.current}）` : ''}　[${x.confidence}] ${x.source}${x.error ? `　${x.error}` : ''}`);
+      if (r.price) console.log(`  ${r.price.error ? '✗' : '$'} 價格 ${r.price.currency} ${r.price.value}　${r.price.source}${r.price.error ? `　${r.price.error}` : ''}`);
+      (r.files || []).forEach((f, i) => console.log(`  ${f.error ? '✗' : '↓'} 檔案 ${i}：${f.kind} ${f.title || ''} ${f.url}`));
+    };
+    try {
+      if (name === 'list' || !name) {
+        const list = db.enrich.list({ status: o.status || '' });
+        if (o.json) console.log(JSON.stringify(list, null, 2)); else { for (const j of list) console.log(`#${j.id} ${j.code} ${j.name}｜${j.status_label}｜${j.created_at.slice(0, 16).replace('T', ' ')}${j.created_by ? `｜${j.created_by}` : ''}`); console.log(`${list.length} 筆（狀態：${Object.values(JOB_STATUS).join('、')}）`); }
+      } else if (name === 'show') {
+        const j = db.enrich.get(rest[0]); if (o.json) console.log(JSON.stringify(j, null, 2)); else showJob(j);
+      } else if (name === 'accept') {
+        // --all：所有合格且有變動的欄位；--keys brand,attrs.像素尺寸；--price；--download 0,1
+        const j = db.enrich.get(rest[0]), split = s => String(s || '').split(',').map(x => x.trim()).filter(Boolean);
+        const keys = o.all ? (j.result.items || []).filter(x => !x.error && !x.same).map(x => x.key) : split(o.keys);
+        const r = await db.enrich.accept(j.id, { keys, price: !!o.price, files: split(o.download).map(Number), by: process.env.VS3D_BY || 'cli' });
+        console.log(`✓ 採用 ${r.job.applied.keys.length} 個欄位${r.job.applied.price ? '、1 筆價格' : ''}${r.job.applied.files.length ? `、${r.job.applied.files.length} 個檔案` : ''}；${r.part.code} 現在是 v${r.part.version}`);
+        for (const e of r.job.applied.errors) console.log(`  ! ${e}`);
+      } else if (name === 'dismiss') {
+        db.enrich.dismiss(rest[0], process.env.VS3D_BY || 'cli'); console.log(`已放棄 #${rest[0]}`);
+      } else {
+        // vs3d enrich <元件> [--fields 欄位,…]：建工作並馬上執行；--job <id>：執行佇列建好的工作（介面用）
+        const rc = resolveRole('enrich', loadRoleContext(paths(ws).settings, '', override));
+        const job = o.job ? db.enrich.get(o.job) : db.enrich.create(name, { fields: o.fields || '', by: process.env.VS3D_BY || '' });
+        if (o.job && db.getPart(job.part_id).code !== db.getPart(name).code) fail(`補全工作 #${job.id} 不是 ${name} 的`);
+        const j = await runEnrichJob(db, job.id, { rc, timeoutMin: +(o.timeout || 20) });
+        showJob(j);
+        if (j.status === 'failed') process.exitCode = 2;
+        else console.log(`到介面「元件庫」審核，或：node studio/vs3d.mjs enrich accept ${j.id} --all [--price] [--download 0,1]`);
+      }
+    } catch (e) { if (e.status) fail(e.message); throw e; } finally { db.close(); }
     break;
   }
   case 'models': {

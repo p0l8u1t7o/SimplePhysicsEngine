@@ -18,6 +18,8 @@ import { categoryOps, V5_CATEGORIES } from './categories.mjs';
 import { linkOps, V5_LINKS } from './part-links.mjs';
 import { versionOps, V6_VERSIONS } from './versions.mjs';
 import { bomOps, V6_BOM } from './bom.mjs';
+import { aoiOps, V7_AOI } from './aoi.mjs';
+import { enrichOps, V8_ENRICH } from './enrich.mjs';
 
 export const defaultPartsDb = () => process.env.VS3D_DB || process.env.VS3D_PARTS_DB || join(STUDIO, 'data', 'studio.db');
 
@@ -50,7 +52,7 @@ export const GROUPS = {
 };
 export const groupOf = category => Object.keys(GROUPS).find(g => GROUPS[g].includes(category)) || '';
 
-const SCHEMA_VERSION = 6;      // 2：parts.grp（群組）；3：唯一編號 code、狀態 status、core 模型 model_id、附件 files；4：系統設定、附件的類型／雜湊／上傳者／價格紀錄、元件封面圖；5：分類樹與欄位範本、關聯件與模組；6：元件版本、BOM 與成本表
+const SCHEMA_VERSION = 8;      // 2：parts.grp（群組）；3：唯一編號 code、狀態 status、core 模型 model_id、附件 files；4：系統設定、附件的類型／雜湊／上傳者／價格紀錄、元件封面圖；5：分類樹與欄位範本、關聯件與模組；6：元件版本、BOM 與成本表；7：AOI 方案；8：元件補全（AI 查規格的工作與來源）
 export const PENDING = '待確認';
 export const codeOf = n => `P-${String(n).padStart(5, '0')}`;
 const CODE_RE = /^P-\d+$/i;
@@ -201,6 +203,7 @@ export function openPartsDb(file = defaultPartsDb()) {
   if (file !== ':memory:') { mkdirSync(dirname(file), { recursive: true }); renameLegacy(file); }
   const db = new DatabaseSync(file);
   db.exec('PRAGMA foreign_keys = ON');
+  db.exec('PRAGMA busy_timeout = 5000');      // 代理佇列的子程序（元件補全）和介面的伺服器同時開著資料庫
   let depth = 0;      // 交易的巢狀深度（tx 用）
   // 附件的內容：資料庫旁邊的 files/<SHA-256>，同一個檔只存一份
   const filesDir = file === ':memory:' ? null : join(dirname(file), 'files');
@@ -295,8 +298,12 @@ export function openPartsDb(file = defaultPartsDb()) {
   if (version === 5) tx(() => {
     db.exec(V6_VERSIONS); db.exec(V6_BOM); db.exec('DROP VIEW part_latest'); db.exec(VIEW);
     for (const p of all("SELECT id FROM parts ORDER BY kind = 'module', id")) versions.bump(p.id, { note: '升級時建立' });
-    db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`); version = 6;
+    db.exec('PRAGMA user_version = 6'); version = 6;
   });
+  // 6 → 7：AOI 方案（光學工作台）
+  if (version === 6) tx(() => { db.exec(V7_AOI); db.exec('PRAGMA user_version = 7'); version = 7; });
+  // 7 → 8：元件補全（評估平台 Q5）
+  if (version === 7) tx(() => { db.exec(V8_ENRICH); db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`); version = 8; });
   // 元件放進哪個分類：給 category_id 就用它（null 是未分類）；只給文字（成本表匯入、代理提案、命令列）就依名稱找，createCategory 時找不到就建
   function placement(v, { createCategory = false } = {}) {
     let id;
@@ -382,6 +389,7 @@ export function openPartsDb(file = defaultPartsDb()) {
         links: links.linksOf(part.id),
         ...(part.kind === 'module' ? { sum: links.sumPrice(part.id), childUpdates: versions.childUpdates(part.id) } : {}),
         versions: versions.list(part.id), boms: bomUse(part.id),
+        sources: all('SELECT * FROM part_sources WHERE part_id = ? ORDER BY id DESC', part.id),      // 元件補全採用的值從哪裡來
       };
     },
     // 分類樹與欄位範本（lib/categories.mjs）、關聯件與模組（lib/part-links.mjs）
@@ -541,5 +549,7 @@ export function openPartsDb(file = defaultPartsDb()) {
     stats: () => get('SELECT (SELECT count(*) FROM parts) AS parts, (SELECT count(*) FROM prices) AS prices, (SELECT count(*) FROM usages) AS usages, (SELECT count(*) FROM suppliers) AS suppliers'),
   };
   api.bom = bomOps({ all, get, run, insert, update, tx, now, fail, findPart, versions, actor: () => actor, system: () => api.readSettings() });
+  api.enrich = enrichOps({ all, get, run, insert, now, fail, findPart, api });
+  api.aoi = aoiOps({ all, get, run, insert, now, fail, findPart, getPart: id => api.getPart(id), bom: api.bom, actor: () => actor });
   return api;
 }

@@ -22,7 +22,7 @@ export const DISALLOWED_TOOLS = [
 ];
 
 const short = (s, n = 120) => (s = String(s ?? '').replace(/\s+/g, ' ').trim()).length > n ? s.slice(0, n) + '…' : s;
-const toolDetail = (name, i = {}) => short(i.file_path || i.notebook_path || i.command || i.pattern || i.path || i.description || '');
+const toolDetail = (name, i = {}) => short(i.file_path || i.notebook_path || i.command || i.pattern || i.path || i.query || i.url || i.description || '');
 
 export const claude = {
   name: 'claude',
@@ -39,14 +39,15 @@ export const claude = {
   listModels() { return this.models; },
 
   // settings：認證要加的設定（API 金鑰模式的 apiKeyHelper，lib/agent-auth.mjs），和寫檔關卡一起用 --settings 傳入
-  command({ prompt, sessionId, model, effort, readDirs = [], allowWrite = [], denyWrite = [], settings: extra = {} }) {
+  // tools：這個角色另外的工具清單 { allow, deny }（例如元件補全只能讀寫檔與上網、不能用 shell）
+  command({ prompt, sessionId, model, effort, readDirs = [], allowWrite = [], denyWrite = [], settings: extra = {}, tools = null }) {
     const settings = { ...extra, hooks: { PreToolUse: [{ matcher: 'Write|Edit|MultiEdit|NotebookEdit', hooks: [{ type: 'command', command: `node "${posix(GUARD)}"` }] }] } };
     const args = ['-p', '--output-format', 'stream-json', '--verbose', '--permission-mode', 'acceptEdits', '--settings', JSON.stringify(settings)];
     if (model) args.push('--model', model);
     if (effort) args.push('--effort', effort);
     if (sessionId) args.push('--resume', sessionId);
     for (const d of readDirs) args.push('--add-dir', d);
-    args.push('--disallowedTools', ...DISALLOWED_TOOLS, '--allowedTools', ...ALLOWED_TOOLS);
+    args.push('--disallowedTools', ...(tools?.deny || DISALLOWED_TOOLS), '--allowedTools', ...(tools?.allow || ALLOWED_TOOLS));
     return { cmd: 'claude', args, input: prompt, env: { VS3D_ALLOW: JSON.stringify(allowWrite), VS3D_DENY: JSON.stringify(denyWrite) } };
   },
 

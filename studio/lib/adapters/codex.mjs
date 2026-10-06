@@ -44,7 +44,8 @@ export const codex = {
     return [...new Set([...(configured ? [configured] : []), ...this.models])];
   },
 
-  command({ prompt, sessionId, model, effort, images = [] }) {
+  // search：開啟網路搜尋（codex --search；只有元件補全用）
+  command({ prompt, sessionId, model, effort, images = [], search = false }) {
     const { cmd, pre } = resolveCodex();
     const common = ['--json', '-c', 'sandbox_mode="workspace-write"', '-c', 'approval_policy="never"'];
     if (model) common.push('-m', model);
@@ -52,7 +53,7 @@ export const codex = {
     // 審查截圖：用 --image=路徑，避免 -i 的多值參數把後面的工作階段 ID 與提示 "-" 也當成圖片
     for (const f of images) common.push(`--image=${f}`);
     const args = sessionId ? ['exec', 'resume', ...common, sessionId, '-'] : ['exec', ...common, '-'];
-    return { cmd, args: [...pre, ...args], input: prompt, env: {} };
+    return { cmd, args: [...pre, ...(search ? ['--search'] : []), ...args], input: prompt, env: {} };
   },
 
   parse(e) {

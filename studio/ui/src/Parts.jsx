@@ -9,6 +9,7 @@ import { Select, ConfirmButton } from './fields.jsx';
 import { CategoryTree, CategoryEditor, CategorySelect, TemplateFields, flatten, pathText } from './PartsCategories.jsx';
 import { PartLinks } from './PartLinks.jsx';
 import { PartVersions } from './PartVersions.jsx';
+import { PartEnrich, EnrichJobs, EnrichBatch } from './PartEnrich.jsx';
 
 const CURRENCIES = ['TWD', 'USD', 'JPY', 'EUR', 'CNY'];
 const UNCATEGORIZED = '（未分類）';
@@ -209,6 +210,7 @@ function PartEditor({ id, facets, suppliers, models, system, readOnly, projectNa
         </section>}
         {part ? <>
           {part.kind !== form.kind && <p className="notice warn">種類改了還沒儲存：先儲存，才會出現模組的組成。</p>}
+          <PartEnrich part={part} readOnly={readOnly} onChanged={reload} />
           <PartLinks part={part} rels={facets.linkRels} onChanged={reload} onOpen={onOpen} />
           <Attachments part={part} system={system} onChanged={reload} />
           <PartVersions part={part} onChanged={reload} />
@@ -303,6 +305,7 @@ export function Parts({ projectNames = [], readOnly = false, isAdmin = false }) 
   const [catEdit, setCatEdit] = useState(null); // 分類設定：{ id } 或 { parent_id }
   const [fieldTypes, setFieldTypes] = useState({});
   const [error, setError] = useState('');
+  const [batch, setBatch] = useState(false), [note, setNote] = useState('');     // 批次補全的視窗與完成訊息
   const load = useCallback(() => api.parts({ q, cat, ...filter }).then(d => { setData(d); setError(''); }).catch(e => setError(e.message)), [q, cat, filter]);
   const loadSuppliers = useCallback(() => api.suppliers().then(setSup).catch(e => setError(e.message)), []);
   useEffect(() => { const t = setTimeout(load, 200); return () => clearTimeout(t); }, [load]);     // 打字時稍等再查
@@ -328,8 +331,10 @@ export function Parts({ projectNames = [], readOnly = false, isAdmin = false }) 
       <div className="tabs">
         <button className={tab === 'parts' ? 'on' : ''} onClick={() => setTab('parts')}>元件{data ? ` ${count}` : ''}</button>
         <button className={tab === 'suppliers' ? 'on' : ''} onClick={() => setTab('suppliers')}>供應商 {sup.suppliers.length}</button>
+        <button className={tab === 'enrich' ? 'on' : ''} onClick={() => setTab('enrich')} title="AI 上網查元件規格，結果逐欄審核">AI 補全</button>
       </div>
       {error && <div className="notice bad">{error}</div>}
+      {note && <div className={`notice ${note.startsWith('✓') ? '' : 'bad'}`}>{note}</div>}
 
       {tab === 'parts' && (!data ? <p className="mute">載入中…</p> : <div className="parts-layout">
         <CategoryTree tree={data.tree} sel={cat} onSel={setCat} isAdmin={isAdmin && !readOnly} onEdit={setCatEdit} />
@@ -340,6 +345,7 @@ export function Parts({ projectNames = [], readOnly = false, isAdmin = false }) 
             <Select value={filter.supplier} onChange={v => setF('supplier', v)} options={[['', '全部供應商'], ...sup.suppliers.map(s => [String(s.id), s.name])]} />
             <Select value={filter.kind} onChange={v => setF('kind', v)} options={[['', '全部種類'], ...Object.entries(data.partKinds)]} />
             {(data.pending > 0 || filter.status) && <button className={filter.status ? 'primary' : ''} title="代理提案帶進來、還沒審核的新元件" onClick={() => setF('status', filter.status ? '' : PENDING)}>待確認 {data.pending}</button>}
+            <button disabled={readOnly || !data.parts.length} title="從目前的清單勾選元件，讓 AI 上網查規格（一次最多 10 個）" onClick={() => setBatch(true)}>AI 批次補全</button>
             {narrowed && <button onClick={() => { setQ(''); setFilter({ project: '', supplier: '', status: '', kind: '' }); setCat(''); }}>清除條件</button>}
           </div>
           <div className="crumb">
@@ -349,6 +355,8 @@ export function Parts({ projectNames = [], readOnly = false, isAdmin = false }) 
           <PartList parts={data.parts} thumbs={thumbs} onOpen={setOpen} empty={narrowed ? '沒有符合條件的元件' : '資料庫還是空的：按「＋ 新增元件」，或執行 node studio/vs3d.mjs parts seed 從各站的成本表匯入。'} />
         </div>
       </div>)}
+      {tab === 'enrich' && <EnrichJobs onOpen={setOpen} />}
+      {batch && data && <EnrichBatch parts={data.parts} onClose={() => setBatch(false)} onDone={m => { setBatch(false); setNote(m); setTab('enrich'); }} />}
       {tab === 'suppliers' && <Suppliers suppliers={sup.suppliers} kinds={sup.kinds} reload={() => Promise.all([loadSuppliers(), load()])} readOnly={readOnly} />}
       {open != null && data && <PartEditor key={open} id={open} facets={data} tree={data.tree} suppliers={sup.suppliers} models={models} system={system} readOnly={readOnly} projectNames={projectNames} onClose={close}
         onOpen={setOpen} onChanged={id => { load(); if (id != null && open === 'new') setOpen(id); }} />}

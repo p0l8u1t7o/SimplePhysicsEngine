@@ -58,6 +58,12 @@ export const api = {
   // 元件版本：兩版的差異；模組依子件的新版升一版
   partVersions: (id, a, b) => call('GET', `/api/parts/${id}/versions/${a}..${b}`),
   refreshModule: id => call('POST', `/api/parts/${id}/refresh`),
+  // 元件補全（評估平台 Q5）
+  enrichStart: (partId, fields = []) => call('POST', `/api/parts/${partId}/enrich`, { fields }),
+  enrichBatch: parts => call('POST', '/api/enrich/batch', { parts }),
+  enrichJobs: query => call('GET', `/api/enrich?${new URLSearchParams(query)}`),
+  enrichAccept: (job, v) => call('POST', `/api/enrich/${job}/accept`, v),
+  enrichDismiss: job => call('DELETE', `/api/enrich/${job}`),
   // 專案的 BOM 與成本表
   bom: id => call('GET', `/api/projects/${encodeURIComponent(id)}/bom`),
   addBomItem: (id, v) => call('POST', `/api/projects/${encodeURIComponent(id)}/bom/items`, v),
@@ -69,6 +75,12 @@ export const api = {
   bomSnapshot: (id, v) => call('POST', `/api/projects/${encodeURIComponent(id)}/bom/snapshots`, v),
   bomGetSnapshot: (id, sid) => call('GET', `/api/projects/${encodeURIComponent(id)}/bom/snapshots/${sid}`),
   bomCompare: (id, sid) => call('GET', `/api/projects/${encodeURIComponent(id)}/bom/compare/${sid}`),
+  // 光學計算與 AOI 方案
+  opticsEval: setup => call('POST', '/api/optics/eval', { setup }),
+  aoiList: id => call('GET', `/api/projects/${encodeURIComponent(id)}/aoi`),
+  aoiSave: (id, sid, v) => sid ? call('PUT', `/api/projects/${encodeURIComponent(id)}/aoi/${sid}`, v) : call('POST', `/api/projects/${encodeURIComponent(id)}/aoi`, v),
+  aoiDelete: (id, sid) => call('DELETE', `/api/projects/${encodeURIComponent(id)}/aoi/${sid}`),
+  aoiChoose: (id, sid) => call('POST', `/api/projects/${encodeURIComponent(id)}/aoi/${sid}/choose`),
   // 匯率（改只有管理者）
   fx: () => call('GET', '/api/fx'),
   setFx: v => call('PUT', '/api/fx', v),

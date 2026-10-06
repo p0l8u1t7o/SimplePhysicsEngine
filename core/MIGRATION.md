@@ -217,6 +217,7 @@ Node 端由 `core/tools/loader.mjs` 解析相同的三種名稱，檢查程式�
 
 | 版本 | 日期 | 內容 |
 |---|---|---|
+| 1.11.0 | 2026-10-06 | 光學計算 `core/optics/`（L1：視野、倍率、每像素、最小缺陷、景深、運動模糊、行頻、像圈、接口、頻寬、打光；3D 配置檢視 `optics/view.html`）；`models/camera.js` 的 `lensFov`／`fieldOfView` 改用它（公式不變，畫面不變）。評估平台 Q4 |
 | 1.10.0 | 2026-10-05 | 第二批市購品共用模型 58 個（視覺、氣動與運動、機器人與專用設備、輸送與搬運；共 80 個）、`core/migrations/` 換用對照、走線固定面與全場檢查的安裝關係認得共用模型（`coreModel`／`coreModelPart`／`cableHost`）、目錄頁搜尋 |
 | 1.9.0 | 2026-10-05 | 市購小件共用模型：三色燈、HMI、急停、盒型感測器、安全光柵、力覺感測器、條形光、穹頂光（`models/indicators.js`、`sensors.js`、`lights.js`） |
 | 1.8.1 | 2026-10-05 | ffmpeg／ffprobe 的預設位置改成共用的 `tools/bin/`（原本在軍規專案的 `tools/bin/`）；`setup.ps1 -Ffmpeg` 會把舊位置的搬過去 |
