@@ -442,11 +442,11 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
             const st = await store(); if (!st) return json(500, { error: '元件資料庫開不了（需要 Node.js 22.13 以上）' });
             const A = await import('./assess.mjs'), c = seg[4], q = url.searchParams;
             try {
-              if (c === 'check' && req.method === 'GET') return json(200, { checks: A.checkProject(st, id) });
+              if (c === 'check' && req.method === 'GET') return json(200, { checks: A.checkProject(st, id, { components: A.componentsOf(readJson(Jof(id).studioJson, {})) }) });
               if (!c && req.method === 'GET' && q.get('kind') && q.get('version')) return json(200, st.assess.version(id, q.get('kind'), q.get('version')));
               if (!c && req.method === 'GET') return json(200, { components: A.componentsOf(readJson(Jof(id).studioJson, {})), kinds: A.KINDS, verdicts: A.VERDICTS, sections: A.FEAS_SECTIONS.map(x => x[0]),
                 proposal: st.assess.latest(id, 'proposal'), feasibility: st.assess.latest(id, 'feasibility'),
-                history: { proposal: st.assess.history(id, 'proposal'), feasibility: st.assess.history(id, 'feasibility') }, checks: A.checkProject(st, id) });
+                history: { proposal: st.assess.history(id, 'proposal'), feasibility: st.assess.history(id, 'feasibility') }, checks: A.checkProject(st, id, { components: A.componentsOf(readJson(Jof(id).studioJson, {})) }) });
               if (!c && req.method === 'PUT') {
                 const v = await jbody(), names = readClientNames(ws), red = s => redactNames(String(s ?? ''), names);
                 if (v.kind === 'feasibility') { const r = A.checkFeasibility(v.content, v.data); if (!r.ok) return json(400, { error: `可行性分析的格式不對：${r.errors.join('；')}` }); }
@@ -519,11 +519,11 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
             return json(200, { ok: true, running: runner.current, queue: runner.queue });
           }
           if (b === 'run' && req.method === 'POST') {
-            const v = await jbody(), cmd = ['resume', 'review', 'render', 'stage2', 'export', 'handoff', 'change', 'check', 'push', 'assess'].includes(v.cmd) ? v.cmd : 'resume';
-            if ((cmd === 'change' || cmd === 'assess') && !String(v.text || '').trim()) return json(400, { error: '請輸入要修改的內容' });
+            const v = await jbody(), cmd = ['resume', 'review', 'render', 'stage2', 'export', 'handoff', 'change', 'check', 'push', 'assess', 'optics'].includes(v.cmd) ? v.cmd : 'resume';
+            if ((cmd === 'change' || cmd === 'assess' || cmd === 'optics') && !String(v.text || '').trim()) return json(400, { error: '請輸入要修改的內容' });
             const args = cmd === 'export' ? (v.formats || ['zip', 'html']).filter(f => ['zip', 'html', 'mp4'].includes(f)).map(f => '--' + f)
               : cmd === 'change' ? ['--text', String(v.text).trim(), ...(v.keepTiming ? ['--keep-timing'] : [])]
-              : cmd === 'assess' ? ['--text', String(v.text).trim()]
+              : cmd === 'assess' || cmd === 'optics' ? ['--text', String(v.text).trim()]
               : cmd === 'check' ? (v.full ? ['--full'] : [])
               : [...(v.pick ? ['--pick'] : []), ...(v.focus ? ['--focus', v.focus] : [])];
             try { return json(200, { started: true, ...start(cmd, id, args, user?.name || '') }); } catch (e) { return json(400, { error: e.message }); }

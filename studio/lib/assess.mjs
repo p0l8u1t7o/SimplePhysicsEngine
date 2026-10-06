@@ -196,7 +196,19 @@ export function writeBomSummary(db, project, J) {
 }
 
 // 平台的檢查：{ check, ok, level: 'fail'|'warn'|'ok', note, detail[] }
-export function checkProject(db, project, { scheduleTotal = null } = {}) {
+export function checkProject(db, project, { scheduleTotal = null, components = [] } = {}) {
+  const out = [];
+  // AOI（評估平台 Q7）：有勾 AOI 的專案要有方案、選用一個，選用的要通過 L1＋L2
+  if (components.includes('aoi')) {
+    const list = db.aoi.list(project), chosen = list.find(s => s.status === 'chosen');
+    const bad = chosen ? chosen.result.results.filter(r => r.status === 'fail').map(r => `${r.label}：${r.note || r.value}`) : [];
+    out.push({ check: 'aoi', ok: !!chosen && !bad.length, level: !list.length || bad.length ? 'fail' : !chosen ? 'warn' : chosen.result.status === 'warn' ? 'warn' : 'ok',
+      note: !list.length ? '還沒有 AOI 方案（光學工作台或光學代理）' : !chosen ? `${list.length} 個方案，還沒選用` : `選用「${chosen.name}」`, detail: bad });
+  }
+  if (!components.length || components.includes('assess') || db.assess.latest(project, 'feasibility')) out.push(...checkAssess(db, project, { scheduleTotal }));
+  return out;
+}
+function checkAssess(db, project, { scheduleTotal }) {
   const out = [];
   const fe = db.assess.latest(project, 'feasibility');
   if (!fe) out.push({ check: 'feasibility', ok: false, level: 'fail', note: '還沒有可行性分析', detail: [] });

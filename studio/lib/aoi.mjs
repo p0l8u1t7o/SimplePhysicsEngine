@@ -2,6 +2,9 @@
 // 方案的內容是 core/optics 的 setup（camera／lens／light／scene），相機、鏡頭、光源可以引用元件庫的元件（part：元件編號或 id），
 // 計算前用元件的規格欄位補上沒填的參數（方案裡自己填的值優先）。計算結果一起存，清單與比較直接用。
 // 「選用」一個方案：同專案的其他方案改回草稿，這個方案引用的元件加進專案的 BOM（已經有同一個元件的行就不重複加）。
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { STUDIO, posix } from './util.mjs';
 import { evaluate, fromAttrs } from '../../core/optics/optics.js';
 
 export const V7_AOI = `
@@ -70,4 +73,61 @@ export function aoiOps({ all, get, run, insert, now, fail, findPart, getPart, bo
     },
   };
   return ops;
+}
+
+// ---- 光學代理（評估平台 Q7）：依 AOI 需求提 2～3 個方案，平台用 L1＋L2 檢查，通過的存成 AOI 方案 ----
+export const OPTICS_DIR = '.studio/optics';
+const VS3D = posix(join(STUDIO, 'vs3d.mjs'));
+// 給代理的元件清單：相機、鏡頭、光源分類（含子分類）的元件、規格欄位與最新參考單價
+export function opticsCatalog(db) {
+  const tree = db.categories.tree(), flat = [], walk = (ns, path) => ns.forEach(n => { flat.push({ ...n, path: [...path, n.name] }); walk(n.children || [], [...path, n.name]); });
+  walk(tree.nodes, []);
+  const out = {};
+  for (const [k, name] of Object.entries({ camera: '相機與讀碼', lens: '鏡頭與光學', light: '光源' })) {
+    const node = flat.find(n => n.name === name), ids = node ? flat.filter(n => n.path.includes(name)).map(n => n.id) : [];
+    out[k] = ids.flatMap(id => db.listParts({ cat: String(id), limit: 500 }).parts).filter((p, i, a) => a.findIndex(x => x.id === p.id) === i)
+      .map(p => ({ code: p.code, name: p.name, brand: p.brand, model: p.model, attrs: db.getPart(p.id).attrs, price: p.unit_price, currency: p.currency, status: p.status || '' }));
+  }
+  return out;
+}
+export const opticsPrompt = request => `## 任務：AOI 光學方案
+
+使用者的 AOI 需求：
+
+${String(request).split('\n').map(l => '> ' + l).join('\n')}
+
+另外參考 \`AGENTS.md\` 的需求、\`docs/\` 的資料與 \`.studio/plan/\`（有的話）。可以選的元件在 \`${OPTICS_DIR}/parts.json\`（相機、鏡頭、光源，含規格欄位與參考單價）。
+
+請提出 2～3 個方案（例如 5MP＋遠心＋同軸光 vs 12MP＋一般鏡頭＋低角度環形光），寫成 \`${OPTICS_DIR}/setups.json\`：
+
+\`\`\`json
+{ "setups": [
+  { "name": "甲：5MP＋0.35× 遠心＋同軸光", "rationale": "為什麼這樣選、優缺點",
+    "setup": {
+      "camera": { "part": "P-00132" }, "lens": { "part": "P-00140" }, "light": { "part": "P-00160", "distance": 50 },
+      "scene": { "wd": 110, "target": { "w": 20, "h": 16, "heightRange": 1 }, "defect": 0.05, "pxPerDefect": 3, "speed": 0, "exposureUs": 200, "taktS": 3, "imagesPerCycle": 1,
+                 "material": "鏡面金屬", "background": "黑色塑膠", "defectKinds": ["刮傷", "髒污"] },
+      "quantity": { "camera": 1, "lens": 1, "light": 1 } } }
+], "compare": "幾句話比較這些方案，建議哪一個、為什麼" }
+\`\`\`
+
+- 相機、鏡頭、光源優先引用 parts.json 的元件（\`part\` 寫元件編號）；元件缺的參數直接寫在同一個物件裡（自己寫的值優先）。清單裡沒有合適的，可以不寫 part、只寫參數，並在 rationale 註明「新元件」。
+- 欄位與單位照 core 的 \`optics/README.md\`（長度 mm、像素尺寸 µm、曝光 µs、速度 mm/s）。光源類型：環形、條形、穹頂、同軸、背光、點光、線光、平面；\`distance\` 是光源到工件的距離，條形與點光可以加 \`offset\`（水平偏移）。
+- 工件材質 \`material\`：鏡面金屬、霧面金屬、黑色塑膠、白色塑膠、透明、PCB 綠漆、銅箔；\`defectKinds\` 是要檢出的缺陷（刮傷、凹痕、髒污、缺件），平台會用幾何打光模型估算每種缺陷的對比，對比太低的方案不通過。有治具擋住視線時用 \`obstacles\`（[{ x, y, w, d, h }]，工件座標 mm）。
+- 每個方案都要通過平台的檢查（視野、解析度、最小缺陷、景深、運動模糊、頻寬、要檢出的缺陷）；可以先自己檢查：\`node "${VS3D}" optics eval <只含 setup 的 JSON 檔> --json\`。
+- 只寫 \`${OPTICS_DIR}/\` 與 \`.studio/questions/\`；需求不清楚就寫問題檔。
+`;
+// 檢查代理的方案檔：回傳 { setups: [{ name, rationale, setup, result }], errors: [] }
+export function checkSetups(db, file) {
+  let raw; try { raw = JSON.parse(readFileSync(file, 'utf8')); } catch (e) { return { setups: [], errors: [`${OPTICS_DIR}/setups.json 讀不到或不是 JSON：${e.message}`], compare: '' }; }
+  const list = Array.isArray(raw?.setups) ? raw.setups : [], errors = [];
+  if (list.length < 2) errors.push(`至少要 2 個方案（現在 ${list.length} 個）`);
+  const setups = list.map((s, i) => {
+    const name = text(s?.name) || `方案 ${i + 1}`;
+    let result; try { result = db.aoi.evaluate(s?.setup || {}); } catch (e) { errors.push(`「${name}」：${e.message}`); return null; }
+    const bad = result.results.filter(r => r.status === 'fail');
+    if (bad.length) errors.push(`「${name}」沒有通過：${bad.map(r => `${r.label}（${r.note || r.value}）`).join('；')}`);
+    return { name, rationale: text(s?.rationale), setup: s.setup, result };
+  }).filter(Boolean);
+  return { setups, errors, compare: text(raw?.compare) };
 }

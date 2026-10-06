@@ -19,9 +19,10 @@ import { pptx } from './office-fixtures.mjs';
 Object.assign(ADAPTERS, fakeAdapters);
 
 let ws;
-after(() => { for (const d of [paths(ws).core, paths(ws).pristine]) setReadOnly(d, false); rmSync(ws, { recursive: true, force: true }); });
+after(() => { delete process.env.VS3D_DB; for (const d of [paths(ws).core, paths(ws).pristine]) setReadOnly(d, false); rmSync(ws, { recursive: true, force: true }); });
 before(async () => {
   ws = mkdtempSync(join(tmpdir(), 'vs3d-ws-'));
+  process.env.VS3D_DB = join(ws, 'studio.db');      // 元件資料庫用暫存檔（流程會寫元件清單、匯入提案的元件），不要動到本機的 studio/data/studio.db
   initWorkspace(ws, { log: () => {} });
   await createProject(ws, { id: 'Alpha', title: '測試 A', prompt: '輸送帶＋龍門' });
   await createProject(ws, { id: 'Beta', title: '測試 B' });

@@ -66,7 +66,7 @@ export function Assessment({ id, canEdit, busy, done }) {
 
     <section className="card">
       <h3>平台檢查</h3>
-      <ul className="checks">{d.checks.map(c => <li key={c.check} className={c.level}><b>{MARK[c.level]} {({ feasibility: '可行性分析', bom: 'BOM', cost: '成本表' })[c.check] || c.check}</b>　{c.note}
+      <ul className="checks">{d.checks.map(c => <li key={c.check} className={c.level}><b>{MARK[c.level]} {({ feasibility: '可行性分析', bom: 'BOM', cost: '成本表', aoi: 'AOI 方案' })[c.check] || c.check}</b>　{c.note}
         {c.detail.length > 0 && <ul>{c.detail.slice(0, 12).map((x, i) => <li key={i} className="mute">{x}</li>)}</ul>}</li>)}</ul>
       <div className="bar">
         <span>匯出評估報告</span>

@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { createStage, exposeSim } from '@core/ui/stage.js';
 import { create as cameraModel } from '@core/models/camera.js';
 import { evaluate } from './optics.js';
+import { lighting, simulateImage, defectsOf } from './lighting.js';
 
 const $ = id => document.getElementById(id);
 const stage = createStage({ canvas: $('c'), camera: { near: 1, far: 20000 }, exposure: 1.05, sun: { position: [-600, 1500, 900], target: [0, 0, 0] } });
@@ -37,6 +38,23 @@ function build(setup) {
     const top = tele ? [fw / 2, fd / 2] : [Math.min(fw / 2, 17), Math.min(fd / 2, 17) * (fd / fw || 1)];
     for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) group.add(line([[sx * top[0], wd, sz * top[1]], [sx * fw / 2, 0, sz * fd / 2]], C.fov, .8));
     if (d.dof) for (const y of [d.dof / 2, -d.dof / 2]) { group.add(plane(fw, fd, y, C.dof, .16)); group.add(rect(fw, fd, y, C.dof, .9)); }
+    // L2：明暗場分布貼在視野範圍（暖色＝鏡面反光進鏡頭的明場，藍色＝暗場，亮度是漫射照度；灰色＝相機被擋住）與缺陷位置
+    if (light.type && sc.material && fov[1]) {
+      const L = lighting(setup, d), m = L.map, cv = document.createElement('canvas'); cv.width = m.nx; cv.height = m.ny;
+      const g = cv.getContext('2d'), im = g.createImageData(m.nx, m.ny);
+      for (let k = 0; k < m.nx * m.ny; k++) {
+        const e = Math.min(1, m.irr[k]) * (1 - Math.min(1, m.shadow[k])), s = Math.min(1, m.spec[k]);
+        const rgb = m.hidden[k] ? [90, 90, 90] : L.field === 'back' ? [240, 240, 240] : [40 + 215 * s, 70 + 150 * s + 60 * e * (1 - s), 140 + 115 * e * (1 - s) - 90 * s];
+        im.data.set([...rgb.map(v => Math.max(0, Math.min(255, v))), 255], k * 4);
+      }
+      g.putImageData(im, 0, 0);
+      const tex = new THREE.CanvasTexture(cv); tex.magFilter = THREE.LinearFilter; tex.colorSpace = THREE.SRGBColorSpace;
+      const mp = new THREE.Mesh(new THREE.PlaneGeometry(fw, fd), new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: .88, depthWrite: false, side: THREE.DoubleSide }));
+      mp.rotation.x = -Math.PI / 2; mp.position.y = .2; mp.scale.y = -1; group.add(mp);
+      for (const f of defectsOf(sc, fov)) { const ring = new THREE.Mesh(new THREE.RingGeometry(Math.max(f.size, fw * .01), Math.max(f.size, fw * .01) * 1.6, 24), new THREE.MeshBasicMaterial({ color: 0xff5cc8, side: THREE.DoubleSide })); ring.rotation.x = -Math.PI / 2; ring.position.set(f.x ?? 0, .4, f.y ?? 0); group.add(ring); }
+      $('field').textContent = `${L.label}　視野內 ${Math.round(L.brightRatio * 100)}% 反光進鏡頭`;
+      $('legend2').hidden = false;
+    } else { $('field').textContent = ''; $('legend2').hidden = true; }
   }
   // 光源：畫在設定的高度（同軸、背光、穹頂只標位置）；照射錐用光束角
   if (light.type && light.distance) {
@@ -60,9 +78,22 @@ const view = (k = 'iso', instant = true) => {
 document.querySelectorAll('#views button').forEach(b => { b.onclick = () => view(b.dataset.v, false); });
 
 let current = null;
-function show(setup, fit = true) { current = setup; build(setup); if (fit) view('iso'); }
+function show(setup, fit = true) { current = setup; build(setup); if (fit) view('iso'); if (!$('sim').hidden) drawSim(); }
+// 模擬影像（L2 近似預覽）：整個視野＋每個缺陷的原解析度特寫
+function drawSim() {
+  const r = evaluate(current), out = $('simBody'); out.textContent = '';
+  const img = current.scene?.material ? simulateImage(current, r.derived) : null;
+  if (!img) { out.textContent = '要有相機、鏡頭、工作距離與工件材質，才能產生模擬影像。'; return; }
+  const put = (x, cls, label) => { const cv = document.createElement('canvas'); cv.width = x.width; cv.height = x.height; cv.className = cls; const g = cv.getContext('2d'), im = g.createImageData(x.width, x.height);
+    for (let k = 0; k < x.data.length; k++) im.data.set([x.data[k], x.data[k], x.data[k], 255], k * 4); g.putImageData(im, 0, 0); const fig = document.createElement('figure'); fig.append(cv); const cap = document.createElement('figcaption'); cap.textContent = label; fig.append(cap); out.append(fig); };
+  put(img.full, 'full', `整個視野（${img.full.width} × ${img.full.height}，每格 ${(img.full.mmPerPx * 1000).toFixed(0)} µm）`);
+  const dl = r.derived.lighting?.defects || [];
+  img.crops.forEach((c, i) => put(c, 'crop', `${c.kind}：對比 ${Math.round((dl[i]?.contrast ?? 0) * 100)}%（原解析度 ${c.width} px）`));
+  const note = document.createElement('p'); note.textContent = img.note; out.append(note);
+}
+$('simBtn').onclick = () => { $('sim').hidden = !$('sim').hidden; $('simBtn').classList.toggle('on', !$('sim').hidden); if (!$('sim').hidden) drawSim(); };
 addEventListener('message', e => { if (e.data?.type === 'optics' && e.data.setup) show(e.data.setup, e.data.fit !== false); });
 try { show(location.hash.length > 1 ? JSON.parse(decodeURIComponent(location.hash.slice(1))) : { camera: { sensorW: 8.8, sensorH: 6.6, pixel: 3.45, hPx: 2448, vPx: 2048 }, lens: { focal: 25, fNumber: 8 }, scene: { wd: 300 } }); }
 catch (e) { $('msg').textContent = '設定格式不對：' + e.message; }
 stage.loop(() => false);
-exposeSim({ seekTo: () => {}, setView: k => view(k), views: Object.keys(VIEWS), total: 0, show: s => show(s), get setup() { return current; } });
+exposeSim({ seekTo: () => {}, setView: k => view(k), views: Object.keys(VIEWS), total: 0, show: s => show(s), get setup() { return current; }, simulate: () => { $('sim').hidden = false; drawSim(); return $('simBody').querySelectorAll('canvas').length; } });

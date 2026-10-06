@@ -272,6 +272,28 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
           await round('plan', planSession ? `你還沒有寫出 \`.studio/plan/${pfile}\`。請完成提案（需要拍板的事寫問題檔）。` : rolePrompt('plan', ctxFor({ role: 'plan' })) + note, { resume: !!planSession });
           break;
         }
+        case 'optics-design': {   // AOI 光學方案（評估平台 Q7）：optics 角色提 2～3 個方案 → 平台用 L1＋L2 檢查（不通過退回，最多 3 次）→ 存成 AOI 方案
+          const { opticsCatalog, opticsPrompt, checkSetups, OPTICS_DIR } = await import('./aoi.mjs'), dir = join(J.dir, ...OPTICS_DIR.split('/')), file = join(dir, 'setups.json');
+          if (!state.opticsAsked) {
+            mkdirSync(dir, { recursive: true });
+            await withDb(db => writeJson(join(dir, 'parts.json'), opticsCatalog(db)));
+            await round('optics', [header({ ...ctxFor({ role: 'optics' }), role: 'optics' }), '', opticsPrompt(state.opticsRequest || '')].join('\n'), { resume: false });
+            state.opticsAsked = true; state.opticsTries = 0; break;
+          }
+          const r = await withDb(db => checkSetups(db, file));
+          if (r.errors.length) {
+            state.opticsTries = (state.opticsTries || 0) + 1;
+            if (state.opticsTries > 3) throw new Stop(`光學方案修了 3 次還沒通過檢查：${r.errors.slice(0, 4).join('；')}`);
+            log(`  ! 光學方案沒有通過檢查（${r.errors.length} 項），退回光學角色`); for (const e of r.errors.slice(0, 8)) log(`    ✗ ${e}`);
+            await round('optics', `app 用 core/optics 檢查 \`${OPTICS_DIR}/setups.json\`，發現下列問題，請修正方案（可以換元件、改距離或光源）後結束：\n\n${r.errors.map(e => '- ' + e).join('\n')}`, { resume: true });
+            break;
+          }
+          const saved = await withDb(db => db.withActor('optics 代理', () => r.setups.map(s => db.aoi.save(pkey, { name: s.name, data: s.setup, note: [s.rationale, r.compare && `比較：${r.compare}`].filter(Boolean).join('\n') }))));
+          log(`  ✓ 光學方案 ${saved.length} 個存進專案的 AOI 方案：${saved.map(s => `${s.name}（${{ ok: '全部符合', warn: '有要注意的項目' }[s.result.status] || s.result.status}）`).join('、')}；到光學工作台比較、選用`);
+          if (r.compare) log(`  比較：${short(r.compare, 300)}`);
+          Object.assign(state, { opticsAsked: false, opticsRequest: null, opticsTries: 0, flow: null });
+          state.stage = 'done'; break;
+        }
         case 'assess-revise': {   // 修改評估（評估平台 Q6）：資料庫的最新版寫回 .studio/plan/ → 規劃角色照要求改 → 檢查格式 → 存回資料庫
           if (!state.assessRevised) {
             await withDb(db => writePlanFiles(db, pkey, J));
@@ -540,6 +562,7 @@ export function pickItems(all, text = '') {
 
 // 角色的可寫範圍：寫檔關卡（Claude）用 allow／deny；結束後再用 git 檢查追蹤中的檔案
 export function roleScope(role, J) {
+  if (role === 'optics') return { allow: [join(J.studio, 'optics'), J.questions], deny: [], text: '只有 `.studio/optics/` 與 `.studio/questions/`' };
   if (role === 'plan' || role === 'review') {
     const allow = role === 'plan' ? [J.plan, J.questions] : [join(J.studio, 'reviews'), J.questions];
     return { allow, deny: [], text: role === 'plan' ? '只有 `.studio/plan/` 與 `.studio/questions/`' : '只有 `.studio/reviews/` 與 `.studio/questions/`' };
@@ -551,7 +574,7 @@ export function roleScope(role, J) {
 // 用 git 檢查這一輪追蹤中的變更；不在角色範圍內的檔案退回開工前的版本（工作區的專案由 app 管理，可以直接還原）
 function enforceRoleScope(role, J, startHead) {
   const changed = J.repo ? repoGit.changes(J) : git(J.dir, ['status', '--porcelain', '-z', '--untracked-files=all']).split('\0').filter(Boolean).map(l => ({ code: l.slice(0, 2), path: l.slice(3) }));
-  const bad = changed.filter(c => role === 'plan' || role === 'review' || ['AGENTS.md', 'CLAUDE.md', 'studio.json', '.gitignore'].includes(c.path));
+  const bad = changed.filter(c => role === 'plan' || role === 'review' || role === 'optics' || ['AGENTS.md', 'CLAUDE.md', 'studio.json', '.gitignore'].includes(c.path));
   const out = [];
   for (const c of bad) {
     let restored = false;

@@ -68,6 +68,17 @@ if (/任務：元件補全/.test(prompt)) {
 } else if (/任務：配置提案/.test(prompt)) {
   w(join(cwd, '.studio/questions/site-1.json'), JSON.stringify({ id: 'site-1', header: '站位', question: '輸送帶放左邊還是右邊？', options: [{ label: '左邊', description: 'a' }, { label: '右邊', description: 'b' }], recommended: 0 }));
   text = '寫了 1 個問題';
+} else if (/任務：AOI 光學方案/.test(prompt) || /檢查 `\.studio\/optics\/setups\.json`/.test(prompt)) {
+  // 光學方案：第一次的乙案用一般鏡頭看 0.05 mm 的缺陷（像素不夠，要被退回），修正後改成 0.5× 遠心＋低角度環形光看刮傷
+  const fix = /檢查 `\.studio\/optics\/setups\.json`/.test(prompt), parts = JSON.parse(readFileSync(join(cwd, '.studio/optics/parts.json'), 'utf8'));
+  const cam = { pixel: 3.45, hPx: 2448, vPx: 2048, fps: 23, interface: 'GigE', ...(parts.camera[0] ? { part: parts.camera[0].code } : {}) };
+  const a = { name: '甲：5MP＋0.35× 遠心＋同軸光', rationale: '同軸光看鏡面上的髒污', setup: { camera: cam, lens: { type: '遠心', magnification: 0.35, fNumber: 8, wd: 110 }, light: { type: '同軸', size: 40 },
+    scene: { wd: 110, target: { w: 20, h: 16, heightRange: 1 }, defect: 0.05, material: '鏡面金屬', defectKinds: ['髒污'] }, quantity: { camera: 1, lens: 1, light: 1 } } };
+  const b = fix ? { name: '乙：5MP＋0.5× 遠心＋低角度環形光', rationale: '暗場凸顯刮傷', setup: { camera: cam, lens: { type: '遠心', magnification: 0.5, fNumber: 8, wd: 110 }, light: { type: '環形', size: 120, distance: 15 },
+    scene: { wd: 110, target: { w: 16, h: 12, heightRange: 0.5 }, defect: 0.05, material: '鏡面金屬', defectKinds: ['刮傷'] } } }
+    : { name: '乙：5MP＋25 mm 鏡頭', rationale: '便宜', setup: { camera: cam, lens: { focal: 25, fNumber: 4 }, light: { type: '環形', size: 90, distance: 60 }, scene: { wd: 300, target: { w: 20, h: 16 }, defect: 0.05 } } };
+  w(join(cwd, '.studio/optics/setups.json'), JSON.stringify({ setups: [a, b], compare: '甲看髒污、乙看刮傷；兩種缺陷都要檢時建議兩站' }));
+  text = fix ? '已修正方案' : '提了 2 個方案';
 } else if (/任務：修改評估/.test(prompt)) {
   // 修改評估：照資料庫寫回的版本改（結論改成可行、BOM 加一行工程）
   const fj = join(cwd, '.studio/plan/feasibility.json'), bj = join(cwd, '.studio/plan/bom.json');

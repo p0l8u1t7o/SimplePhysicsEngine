@@ -17,13 +17,14 @@ export const ROLES = {
   fix: '修正：依檢查失敗摘要修正',
   review: '審查：對照截圖與參考資料列出缺漏（P4b）',
   render: '渲染與細節補強（P4b）',
+  optics: '光學：依 AOI 需求提出 2～3 個相機、鏡頭、光源方案，平台用 L1＋L2 檢查（評估平台 Q7）',
   enrich: '元件補全：上網查元件規格，結果由使用者逐欄審核（評估平台 Q5；唯一可以上網的角色）',
 };
 
 // 空字串的 model 代表用該 CLI 帳號的預設模型
 export const PRESETS = {
-  claude: { plan: 'opus', build: 'opus', fix: 'opus', review: 'opus', render: 'opus', enrich: 'sonnet' },
-  codex: { plan: '', build: '', fix: '', review: '', render: '', enrich: '' },
+  claude: { plan: 'opus', build: 'opus', fix: 'opus', review: 'opus', render: 'opus', optics: 'opus', enrich: 'sonnet' },
+  codex: { plan: '', build: '', fix: '', review: '', render: '', optics: '', enrich: '' },
 };
 
 // 指定 CLI 的角色預設（最底層；工作區、專案或命令列指定 CLI 時會被蓋過）

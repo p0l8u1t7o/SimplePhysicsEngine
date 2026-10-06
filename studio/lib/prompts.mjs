@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { readText, rel } from './util.mjs';
 import { formatAnswers } from './questions.mjs';
 
-const ROLE_TITLE = { change: '依要求修改', plan: '規劃（配置提案）', build: '開發（第一段）', fix: '修正', review: '審查', render: '渲染與細節補強' };
+const ROLE_TITLE = { change: '依要求修改', optics: '光學方案（AOI）', plan: '規劃（配置提案）', build: '開發（第一段）', fix: '修正', review: '審查', render: '渲染與細節補強' };
 const ROLE_TITLE2 = { plan: '第二段規劃（電控、電盤、配線、相機）', build: '開發（第二段）', fix: '修正（第二段）', review: '審查（第二段）', render: '渲染與細節補強 B（第二段）' };
 
 export function header({ ws, J, role, adapter, scope, segment = 1 }) {

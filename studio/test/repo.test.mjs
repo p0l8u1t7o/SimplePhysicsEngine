@@ -13,7 +13,7 @@ import * as repoGit from '../lib/repo.mjs';
 
 let root;
 const vs3d = (...args) => spawnSync(process.execPath, [join(STUDIO, 'vs3d.mjs'), ...args, '--workspace', root, '--cli', 'fake', '--no-wait'],
-  { encoding: 'utf8', env: { ...process.env, VS3D_EXTRA_ADAPTERS: join(STUDIO, 'test', 'fake-adapters.mjs') } });
+  { encoding: 'utf8', env: { ...process.env, VS3D_EXTRA_ADAPTERS: join(STUDIO, 'test', 'fake-adapters.mjs'), VS3D_DB: join(root, 'studio.db') } });      // 元件資料庫用暫存檔
 before(() => {
   root = mkdtempSync(join(tmpdir(), 'vs3d-repo-'));
   cpSync(join(REPO, 'core'), join(root, 'core'), { recursive: true, filter: s => !/[\\/]review([\\/]|$)/.test(s.slice(REPO.length)) });

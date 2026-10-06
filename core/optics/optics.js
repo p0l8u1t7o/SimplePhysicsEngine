@@ -6,6 +6,8 @@
 // 遠心鏡頭的倍率固定（廠商標示），工作距離是鏡頭規格。
 // 這些都是選型時的估算，不能取代實際打樣（POC）；結果的 note 會寫出假設。
 
+import { lighting } from './lighting.js';      // L2 打光幾何（只在方案有工件材質時用到）
+
 // ---- 基本公式 --------------------------------------------------------------
 const deg = r => r * 180 / Math.PI, rad = d => d * Math.PI / 180;
 export const round = (v, n = 3) => v == null || !Number.isFinite(v) ? v : Math.round(v * 10 ** n) / 10 ** n;
@@ -119,6 +121,20 @@ export function evaluate(setup) {
     d.lightAngle = angle;
     push('light', '打光方式', angle != null ? `${kind}，入射角約 ${round(angle, 1)}°` : kind || t, '', 'info', angle != null ? `光源半徑 ${r} mm、距離工件 ${h} mm（入射角從法線算）` : '');
     if (h && num(light.beamAngle) && r != null) { d.lightSpot = 2 * (r + h * Math.tan(rad(light.beamAngle / 2))); if (d.fov) push('lightSpot', '照射範圍（直徑）', d.lightSpot, 'mm', d.lightSpot >= Math.hypot(d.fov[0], d.fov[1] || 0) ? 'ok' : 'warn', '要蓋住整個視野'); }
+  }
+  // L2 打光幾何（core/optics/lighting.js）：有工件材質時才算。scene.defectKinds 是要檢出的缺陷種類（判定符合與否），沒列的只當資訊
+  if (light.type && sc.material && d.fov) {
+    const L = lighting(setup, d), want = Array.isArray(sc.defectKinds) ? sc.defectKinds : null, needPx = num(sc.pxPerDefect) ?? 3;
+    d.lighting = { field: L.field, brightRatio: L.brightRatio, uniformity: L.uniformity, hiddenRatio: L.hiddenRatio, shadowRatio: L.shadowRatio, defects: L.defects.map(({ kind, contrast, polarity, px }) => ({ kind, contrast, polarity, px })) };
+    push('field', '明暗場（平整表面）', L.label, '', L.field === 'mixed' ? 'warn' : 'info', `${L.material}；視野內 ${round(L.brightRatio * 100, 0)}% 的位置鏡面反光進鏡頭（幾何估算）`);
+    if (L.field !== 'back') push('uniformity', '照度均勻度', L.uniformity * 100, '%', L.uniformity >= 0.7 ? 'ok' : 'warn', '視野內最暗處 ÷ 最亮處（只算光源幾何）');
+    if (L.hiddenRatio > 0) push('occlusion', '相機被擋住', L.hiddenRatio * 100, '%', 'warn', '視野內被治具或障礙物擋住、相機看不到的比例');
+    if (L.shadowRatio > 0.05) push('shadow', '陰影', L.shadowRatio * 100, '%', 'warn', '視野內超過 1/4 的光被擋住的比例');
+    for (const x of L.defects) {
+      const judged = want ? want.includes(x.kind) : false, pxOk = x.px == null || x.px >= needPx;
+      const status = !judged ? 'info' : x.contrast >= 0.2 && pxOk ? 'ok' : x.contrast >= 0.1 && pxOk ? 'warn' : 'fail';
+      push(`defect-${x.kind}`, `缺陷可見度：${x.kind}`, x.contrast * 100, '%', status, `${x.polarity === '亮' ? '亮點在暗背景' : '暗點在亮背景'}；對比 = |缺陷 − 周圍| ÷ 較亮者${x.px != null ? `；佔 ${round(x.px, 1)} px` : ''}${judged ? '（要檢出：對比 ≥ 20% 才算看得到）' : ''}`);
+    }
   }
   const worst = out.some(r => r.status === 'fail') ? 'fail' : out.some(r => r.status === 'warn') ? 'warn' : 'ok';
   return { derived: d, results: out, status: worst };

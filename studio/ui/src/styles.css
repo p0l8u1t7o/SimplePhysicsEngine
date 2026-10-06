@@ -411,3 +411,7 @@ ul.checks ul { margin: 4px 0 0 18px; padding: 0; font-size: 12.5px; }
 .doc.md table { border-collapse: collapse; margin: 8px 0; } .doc.md th, .doc.md td { border: 1px solid var(--line, #dfe8e2); padding: 4px 8px; }
 textarea.mono { font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
 .bar.components { margin: 0 0 10px; }
+.agent-ask { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 10px; }
+.agent-ask textarea { width: 100%; }
+.optics-res td.lab { min-width: 6.5em; } .optics-res td.txt { min-width: 10em; }
+.optics-side .card { overflow-x: auto; }

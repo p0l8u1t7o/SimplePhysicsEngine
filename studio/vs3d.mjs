@@ -5,6 +5,7 @@
 //   node studio/vs3d.mjs new <名稱> --prompt "<需求>" [--files 檔案…] [--title 標題] [--cli claude|codex] [--private "用戶名稱,…"]
 //                                                                 --private：不得顯示的用戶名稱（加進工作區名單，需求原文裡換成「（用戶）」）
 //                                                                 --components assess,3d,aoi：專案組成（評估＋成本／3D 動畫／AOI；沒指定是只有 3D）
+//   node studio/vs3d.mjs optics <專案> --text "AOI 需求"          光學角色提 2～3 個相機、鏡頭、光源方案，平台用 L1＋L2 檢查後存成 AOI 方案
 //   node studio/vs3d.mjs components <名稱> [--set assess,3d,aoi]   看或改專案組成（只做評估的專案加上 3D 後用 resume 開始第一段）
 //   node studio/vs3d.mjs assess <名稱> [show｜check] [--json]      評估資料：最新的可行性分析；平台檢查（feasibility、bom、cost）
 //   node studio/vs3d.mjs assess <名稱> --text "要改的內容"          請規劃角色修改提案、可行性分析或 BOM（資料庫的最新版寫回後改，改完存成新的一版）
@@ -204,7 +205,7 @@ switch (cmd) {
         if (A.componentsOf(readJson(J.studioJson, {})).includes('3d') && loadState(J).buildStarted) {
           const fp = await runFingerprint(ws, name); if (fp.ok && Number.isFinite(fp.variants[0]?.total)) scheduleTotal = fp.variants[0].total;
         }
-        const res = A.checkProject(db, key, { scheduleTotal });
+        const res = A.checkProject(db, key, { scheduleTotal, components: A.componentsOf(readJson(J.studioJson, {})) });
         if (o.json) console.log(JSON.stringify(res, null, 2));
         else for (const c of res) { console.log(`${{ ok: '✓', warn: '!', fail: '✗' }[c.level]} ${c.check}：${c.note}`); for (const d of c.detail) console.log(`    ${d}`); }
         if (res.some(c => !c.ok)) process.exitCode = 1;
@@ -316,7 +317,18 @@ switch (cmd) {
   }
   // 光學計算（core/optics）：vs3d optics eval <方案.json> [--json]；方案引用的元件用元件庫的規格欄位補參數（代理與檢查用）
   case 'optics': {
-    if (name !== 'eval' || !rest[0]) fail('用法：vs3d optics eval <方案.json> [--json]（方案格式見 core/optics/README.md）');
+    // vs3d optics <專案> --text "AOI 需求"：optics 角色提 2～3 個方案，平台檢查後存成 AOI 方案（評估平台 Q7）
+    if (name && name !== 'eval') {
+      const J = needProject(), s = loadState(J), text = (o['text-file'] ? readText(resolve(o['text-file'])) : o.text || '').trim();
+      if (!text) fail('用法：vs3d optics <專案> --text "AOI 需求（檢測項目、缺陷尺寸、工件材質、節拍、空間限制）"');
+      if (s.stage !== 'done') fail(`專案目前在「${s.stage}」階段，完成後才能請光學角色提方案（續跑用 vs3d resume）`);
+      Object.assign(s, { stage: 'optics-design', flow: 'optics', opticsRequest: text, opticsAsked: false, opticsTries: 0, waiting: null });
+      beginRepoFlow(J, s, 'optics');
+      writeJson(J.state, s);
+      report(await runProject(ws, name, { ...runOpts(), review: false, render: false, stage2: false }));
+      break;
+    }
+    if (name !== 'eval' || !rest[0]) fail('用法：vs3d optics eval <方案.json> [--json]（方案格式見 core/optics/README.md），或 vs3d optics <專案> --text "AOI 需求"');
     let setup; try { setup = JSON.parse(readFileSync(resolve(rest[0]), 'utf8').replace(/^﻿/, '')); } catch (e) { fail(`讀不了方案檔：${e.message}`); }
     let r;
     try { const { openPartsDb, defaultPartsDb } = await import('./lib/partsdb.mjs'), db = openPartsDb(resolve(o.db || defaultPartsDb())); try { r = db.aoi.evaluate(setup.data || setup); } finally { db.close(); } }

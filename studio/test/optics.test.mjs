@@ -69,3 +69,58 @@ test('元件的規格欄位 → 參數；AOI 方案：引用元件補參數、�
   assert.throws(() => db.aoi.save('Other', { name: 'x', data }, a.id), /不是這個專案/);
   db.close();
 });
+
+// ---- L2 打光幾何、模擬影像、光學代理（評估平台 Q7） ----
+import { lighting, simulateImage, lightSamples, MATERIALS } from '../../core/optics/lighting.js';
+const mirror = { camera: { pixel: 3.45, hPx: 2448, vPx: 2048 }, lens: { type: '遠心', magnification: 0.35, fNumber: 8, wd: 110 }, scene: { wd: 110, target: { w: 20, h: 16 }, defect: 0.05, material: '鏡面金屬' } };
+const withLight = (light, scene = {}) => ({ ...mirror, light, scene: { ...mirror.scene, ...scene } });
+const L2 = s => lighting(s, evaluate(s).derived), dc = (L, k) => L.defects.find(x => x.kind === k);
+
+test('L2 明暗場：同軸光照鏡面是明場、低角度環形光是暗場、穹頂是漫射；刮傷在明場變暗、在暗場變亮', () => {
+  const coax = L2(withLight({ type: '同軸', size: 40 })), ring = L2(withLight({ type: '環形', size: 120, distance: 15 })), dome = L2(withLight({ type: '穹頂', size: 200, distance: 100 }));
+  assert.equal(coax.field, 'bright'); assert.equal(coax.brightRatio, 1);
+  assert.equal(ring.field, 'dark'); assert.equal(ring.brightRatio, 0);
+  assert.equal(dome.field, 'diffuse');
+  assert.equal(dc(coax, '刮傷').polarity, '暗'); assert.ok(dc(coax, '刮傷').contrast > 0.3);
+  assert.equal(dc(ring, '刮傷').polarity, '亮'); assert.ok(dc(ring, '刮傷').contrast > 0.4, '暗場凸顯刮傷');
+  assert.ok(dc(ring, '凹痕').contrast < 0.05, '平滑的凹痕在低角度環形光下幾乎看不到');
+  assert.ok(dc(coax, '凹痕').contrast > 0.3, '凹痕在同軸光下看得到');
+  // 一般鏡頭、高角度環形光（光源半徑小、距離遠）照鏡面：看得到光環的反射（模糊的亮環），低角度大環形光完全看不到
+  const high = L2({ camera: mirror.camera, lens: { focal: 25, fNumber: 4 }, scene: { wd: 300, target: { w: 60, h: 45 }, material: '鏡面金屬' }, light: { type: '環形', size: 40, distance: 280 } });
+  const low = L2({ ...withLight({ type: '環形', size: 200, distance: 20 }), lens: { focal: 25, fNumber: 4 }, scene: { wd: 300, target: { w: 60, h: 45 }, material: '鏡面金屬' } });
+  assert.ok(Math.max(...high.map.spec) > 0.2 && Math.max(...low.map.spec) < 0.01, '高角度看得到光環的反射、低角度看不到');
+  // 穹頂：遠心鏡頭看鏡面只看到相機孔（暗），一般鏡頭只有中心一塊暗（相機孔的反射）
+  const teleDome = L2(withLight({ type: '穹頂', size: 200, distance: 100 })), stdDome = L2({ ...withLight({ type: '穹頂', size: 200, distance: 100 }), lens: { focal: 25, fNumber: 4 }, scene: { wd: 300, target: { w: 60, h: 45 }, material: '鏡面金屬' } });
+  assert.ok(teleDome.map.spec.reduce((a, v) => a + v, 0) / teleDome.map.spec.length < 0.05, '遠心＋穹頂看鏡面是相機孔的暗區');
+  const m = stdDome.map, mid = m.spec[Math.floor(m.ny / 2) * m.nx + Math.floor(m.nx / 2)], corner = m.spec[0];
+  assert.ok(mid < 0.1 && corner > 0.9, `一般鏡頭：中心暗（${mid}）、角落亮（${corner}）`);
+  assert.equal(lightSamples({ type: '環形', size: 100, distance: 50 }).reduce((a, s) => a + s.w, 0).toFixed(6), '1.000000');
+  assert.ok(Object.keys(MATERIALS).includes('PCB 綠漆'));
+});
+
+test('L2 遮擋、陰影與要檢出的缺陷：治具擋住相機與光；defectKinds 列的種類才判定符合與否', () => {
+  const blocked = L2(withLight({ type: '環形', size: 120, distance: 15 }, { obstacles: [{ x: 9, y: 0, w: 6, d: 30, h: 60 }] }));
+  assert.ok(blocked.hiddenRatio > 0.05 && blocked.hiddenRatio < 0.5, `相機被擋住 ${blocked.hiddenRatio}`);
+  assert.ok(blocked.shadowRatio > 0, '有陰影');
+  const judged = evaluate(withLight({ type: '環形', size: 120, distance: 15 }, { defectKinds: ['刮傷', '凹痕'] })), res = k => judged.results.find(x => x.key === k);
+  assert.equal(res('defect-刮傷').status, 'ok'); assert.equal(res('defect-凹痕').status, 'fail'); assert.equal(res('defect-髒污').status, 'info');
+  assert.equal(judged.status, 'fail');
+  assert.equal(res('field').value.startsWith('暗場'), true);
+  assert.ok(judged.derived.lighting && !('map' in judged.derived.lighting), '存進資料庫的結果不含取樣陣列');
+  assert.equal(evaluate(mirror).results.some(x => x.key === 'field'), false, '沒有光源時不算 L2');
+});
+
+test('L2 模擬影像：明場亮、暗場暗、缺陷特寫是原解析度、景深不足時模糊、每次結果相同', () => {
+  const s1 = withLight({ type: '同軸', size: 40 }), s2 = withLight({ type: '環形', size: 120, distance: 15 });
+  const a = simulateImage(s1, evaluate(s1).derived), b = simulateImage(s2, evaluate(s2).derived);
+  const mean = x => x.data.reduce((p, v) => p + v, 0) / x.data.length, center = x => x.data[Math.floor(x.height / 2) * x.width + Math.floor(x.width / 2)];
+  assert.equal(a.full.width, 480); assert.equal(a.crops.length, 4); assert.equal(a.crops[0].width, 64);
+  assert.ok(center(a.full) > 150 && center(b.full) < 40, `明場中心 ${center(a.full)}、暗場中心 ${center(b.full)}`);
+  const scratchA = a.crops.find(c => c.kind === '刮傷'), scratchB = b.crops.find(c => c.kind === '刮傷');
+  assert.ok(center(scratchA) < mean(scratchA), '明場下刮傷比周圍暗'); assert.ok(center(scratchB) > mean(scratchB), '暗場下刮傷比周圍亮');
+  assert.deepEqual(simulateImage(s1, evaluate(s1).derived).full.data, a.full.data, '決定性');
+  const deep = withLight({ type: '同軸', size: 40 }, { target: { w: 20, h: 16, heightRange: 6 } }), sharp = a.crops.find(c => c.kind === '缺件'), soft = simulateImage(deep, evaluate(deep).derived).crops.find(c => c.kind === '缺件');
+  const edge = x => { let e = 0; for (let k = 1; k < x.data.length; k++) e += Math.abs(x.data[k] - x.data[k - 1]); return e; };
+  assert.ok(edge(soft) < edge(sharp), '景深不足時邊緣變軟');
+  assert.equal(simulateImage({ camera: {}, lens: {}, scene: {} }, {}), null);
+});

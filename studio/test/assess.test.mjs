@@ -136,3 +136,22 @@ test('只做評估的專案（假代理）：格式不對退回 → 提案確認
   } finally { db.close(); }
   assert.equal(loadState(J).stage, 'done');
 });
+
+test('光學代理（假代理）：提 2 個方案 → 一個沒通過被退回 → 修正後存成 AOI 方案', async () => {
+  const J = await createProject(ws, { id: 'Aoi', title: 'AOI 評估', prompt: '鏡面工件的刮傷與髒污' });
+  writeJson(J.studioJson, { ...readJson(J.studioJson, {}), components: ['aoi'] });
+  writeJson(J.state, { stage: 'optics-design', flow: 'optics', opticsRequest: '鏡面工件，刮傷與髒污都要檢出，最小 0.05 mm', round: 0, sessions: {}, streak: {}, waiting: null, violations: [] });
+  const logs = [], r = await runProject(ws, 'Aoi', { override: { cli: 'fake', roles: {} }, full: false, shots: false, review: false, render: false, stage2: false, log: s => logs.push(s) });
+  assert.equal(r.status, 'done', logs.join('\n'));
+  assert.ok(logs.some(l => /光學方案沒有通過檢查/.test(l)) && logs.some(l => /最小缺陷佔的像素/.test(l)), '一般鏡頭看 0.05 mm 缺陷要被退回');
+  assert.ok(existsSync(join(J.dir, '.studio', 'optics', 'parts.json')), '給代理的元件清單');
+  const db = openPartsDb(dbFile);
+  try {
+    const list = db.aoi.list('Aoi');
+    assert.deepEqual(list.map(s => s.name).sort(), ['乙：5MP＋0.5× 遠心＋低角度環形光', '甲：5MP＋0.35× 遠心＋同軸光']);
+    assert.ok(list.every(s => s.result.status !== 'fail' && s.created_by === 'optics 代理' && /比較：/.test(s.note)));
+    assert.equal(list.find(s => s.name.startsWith('乙')).result.results.find(x => x.key === 'defect-刮傷').status, 'ok');
+  } finally { db.close(); }
+  const rounds = readFileSync(J.rounds, 'utf8').trim().split('\n').map(l => JSON.parse(l)).filter(x => x.role);
+  assert.deepEqual(rounds.map(x => x.role), ['optics', 'optics']);
+});

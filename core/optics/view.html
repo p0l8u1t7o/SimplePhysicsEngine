@@ -21,12 +21,27 @@ html, body { margin: 0; height: 100%; background: #0d1117; color: #e6edf3; font:
 #msg { position: absolute; left: 10px; bottom: 8px; color: #ffb4a8; }
 #views { position: absolute; right: 10px; top: 8px; display: flex; gap: 6px; }
 #views button { background: #102734e8; color: #d4f3ff; border: 1px solid #41616d; border-radius: 4px; padding: 3px 8px; font: inherit; cursor: pointer; }
+#views button.on { background: #1f6f8b; }
+#field { position: absolute; left: 10px; top: 34px; padding: 4px 9px; background: #0b1118cc; border-radius: 6px; pointer-events: none; }
+#field:empty { display: none; }
+#legend2 { position: absolute; left: 10px; top: 62px; padding: 4px 9px; background: #0b1118cc; border-radius: 6px; pointer-events: none; }
+#legend2 span { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin: 0 4px 0 10px; vertical-align: -1px; }
+#legend2 span:first-child { margin-left: 0; }
+#sim { position: absolute; inset: 40px 10px 30px; overflow: auto; background: #0b1118f2; border: 1px solid #2c3a44; border-radius: 8px; padding: 10px; }
+#simBody { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
+#simBody figure { margin: 0; } #simBody figcaption { color: #9fb3c0; font-size: 12px; }
+#simBody canvas.full { max-width: 100%; image-rendering: auto; }
+#simBody canvas.crop { width: 192px; height: 192px; image-rendering: pixelated; }
+#simBody p { flex-basis: 100%; color: #ffd079; margin: 4px 0 0; }
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
 <div id="legend"><span style="background:#61d5ff"></span>視野<span style="background:#69efb0"></span>景深<span style="background:#ffd079"></span>光源<span style="background:#b7c3cd"></span>工件</div>
-<div id="views"><button data-v="iso">斜看</button><button data-v="side">側面</button><button data-v="top">正上方</button></div>
+<div id="views"><button data-v="iso">斜看</button><button data-v="side">側面</button><button data-v="top">正上方</button><button id="simBtn" title="近似的灰階影像（幾何打光模型）">模擬影像</button></div>
+<div id="field"></div>
+<div id="legend2" hidden><span style="background:#ffd84a"></span>明場（反光進鏡頭）<span style="background:#2f8fd8"></span>暗場<span style="background:#5a5a5a"></span>被擋住<span style="background:#ff5cc8"></span>缺陷</div>
+<div id="sim" hidden><div id="simBody"></div></div>
 <div id="msg"></div>
 <script type="module" src="./view.js"></script>
 </body>

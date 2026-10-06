@@ -9,6 +9,26 @@ import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { mdToHtml, esc } from './md.mjs';
 import { REPO } from './util.mjs';
+import { evaluate } from '../../core/optics/optics.js';
+import { simulateImage } from '../../core/optics/lighting.js';
+import { encodePng } from '../../core/tools/png.mjs';
+
+// 灰階影像 → PNG 的 data URI（模擬影像用）
+const grayPng = img => {
+  const rgba = Buffer.alloc(img.width * img.height * 4);
+  for (let k = 0; k < img.data.length; k++) { rgba[k * 4] = rgba[k * 4 + 1] = rgba[k * 4 + 2] = img.data[k]; rgba[k * 4 + 3] = 255; }
+  return `data:image/png;base64,${encodePng({ width: img.width, height: img.height, data: rgba }).toString('base64')}`;
+};
+// AOI 方案的近似模擬影像（有工件材質與光源時）：整個視野＋缺陷特寫
+function aoiImages(a) {
+  const s = a.result?.setup;
+  if (!s?.scene?.material || !s.light?.type) return '';
+  const ev = evaluate(s), img = simulateImage(s, ev.derived);
+  if (!img) return '';
+  const dl = ev.derived.lighting?.defects || [];
+  return `<div class="sim"><figure><img alt="模擬影像" src="${grayPng(img.full)}"><figcaption class="note">整個視野（近似預覽）</figcaption></figure>${img.crops.map((x, i) =>
+    `<figure><img class="crop" alt="${esc(x.kind)}" src="${grayPng(x)}"><figcaption class="note">${esc(x.kind)}：對比 ${Math.round((dl[i]?.contrast ?? 0) * 100)}%</figcaption></figure>`).join('')}</div><p class="note">${esc(img.note)}</p>`;
+}
 
 // 文件開頭的大標（# 配置提案）和報告的章節標題重複，拿掉
 const body = md => mdToHtml(String(md || '').replace(/^\s*#\s[^\n]*\n/, ''));
@@ -36,6 +56,7 @@ pre { background: #f4f6f5; padding: 10px; overflow: auto; }
 blockquote { margin: 8px 0; padding: 4px 14px; border-left: 3px solid var(--line); color: var(--mute); }
 .shots { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .shots img { width: 100%; border: 1px solid var(--line); }
+.sim { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; } .sim figure { margin: 0; } .sim img { max-width: 420px; border: 1px solid var(--line); } .sim img.crop { width: 128px; image-rendering: pixelated; }
 .note { color: var(--mute); font-size: 12.5px; }
 ul.cond li { margin: 2px 0; }
 @media print { main { padding: 0; } h2.sec { page-break-before: auto; } table { page-break-inside: auto; } tr { page-break-inside: avoid; } }
@@ -68,7 +89,7 @@ ${s.option ? `<tr><td>選配</td><td></td><td class="num">${money(s.option)}</td
 ${d.bom.lines.map(l => `<tr><td>${esc(l.line)}</td><td>${esc(l.name)}${l.code ? `<div class="note">${esc(l.code)} v${l.part_version}</div>` : ''}</td><td>${esc([l.model, l.spec].filter(Boolean).join('｜'))}</td><td class="num">${l.qty} ${esc(l.unit)}</td><td class="num">${money(l.unit_twd)}</td><td class="num">${money(l.subtotal)}</td><td>${esc(l.grade)}</td></tr>`).join('\n')}
 </tbody></table>`;
   const aoi = d.aoi.length && d.aoi.map(a => `<h3>${esc(a.name)}${a.status === 'chosen' ? '（選用）' : ''}</h3><table><tbody>${(a.result.results || []).filter(r => r.status !== 'info' || r.value != null).map(r =>
-    `<tr><td>${esc(r.label)}</td><td class="num">${esc(r.value ?? '—')} ${esc(r.unit || '')}</td><td>${STATUS[r.status] || ''}</td><td class="note">${esc(r.note || '')}</td></tr>`).join('')}</tbody></table>`).join('\n');
+    `<tr><td>${esc(r.label)}</td><td class="num">${esc(r.value ?? '—')} ${esc(r.unit || '')}</td><td>${STATUS[r.status] || ''}</td><td class="note">${esc(r.note || '')}</td></tr>`).join('')}</tbody></table>${aoiImages(a)}`).join('\n');
   const shots = d.shots.length && `<div class="shots">${d.shots.map(p => `<figure><img alt="${esc(basename(p))}" src="data:image/png;base64,${readFileSync(p).toString('base64')}"><figcaption class="note">${esc(basename(p, '.png'))}</figcaption></figure>`).join('')}</div>`;
   return `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(d.title)} 評估報告</title><style>${CSS}</style></head><body><main>
 <header class="cover"><div class="kind">自動化設備評估報告</div><h1>${esc(d.title)}</h1>

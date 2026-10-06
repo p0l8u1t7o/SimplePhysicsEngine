@@ -7,14 +7,17 @@ import { Select, ConfirmButton } from './fields.jsx';
 import { flatten } from './PartsCategories.jsx';
 
 const MOUNTS = ['', 'C', 'CS', 'F', 'M42', 'M58', 'M72'];
+const MATS = ['', '鏡面金屬', '霧面金屬', '黑色塑膠', '白色塑膠', '透明', 'PCB 綠漆', '銅箔'];
+const DEFECTS = ['刮傷', '凹痕', '髒污', '缺件'];
 const F = {
   camera: [['sensorW', '感光元件寬', 'mm'], ['sensorH', '感光元件高', 'mm'], ['pixel', '像素尺寸', 'µm'], ['hPx', '水平像素', 'px'], ['vPx', '垂直像素', 'px'], ['fps', '幀率', 'fps'],
     ['interface', '介面', '', ['', 'GigE', '2.5GigE', '5GigE', '10GigE', 'USB3', 'CoaXPress', 'Camera Link']], ['mount', '鏡頭接口', '', MOUNTS], ['lineScan', '線掃描', '', ['', '是']], ['lineRate', '最高行頻', 'kHz']],
   lens: [['type', '鏡頭類型', '', ['', '定焦', '遠心', '變焦', '微距', '線掃描']], ['focal', '焦距', 'mm'], ['magnification', '倍率（遠心）', '×'], ['fNumber', '使用光圈', 'F'],
     ['imageCircle', '像圈', 'mm'], ['mount', '鏡頭接口', '', MOUNTS], ['mod', '最近對焦距離', 'mm'], ['wd', '工作距離（遠心）', 'mm']],
-  light: [['type', '光源類型', '', ['', '環形', '條形', '穹頂', '同軸', '背光', '點光', '線光', '平面']], ['size', '發光尺寸', 'mm'], ['distance', '距離工件', 'mm'], ['beamAngle', '光束角', '°'], ['wavelength', '波長', 'nm']],
+  light: [['type', '光源類型', '', ['', '環形', '條形', '穹頂', '同軸', '背光', '點光', '線光', '平面']], ['size', '發光尺寸', 'mm'], ['distance', '距離工件', 'mm'], ['beamAngle', '光束角', '°'], ['wavelength', '波長', 'nm'], ['offset', '水平偏移（條形、點光）', 'mm'], ['width', '發光寬度', 'mm']],
   scene: [['wd', '工作距離', 'mm'], ['target.w', '工件寬', 'mm'], ['target.h', '工件長', 'mm'], ['target.heightRange', '工件高低差', 'mm'], ['defect', '最小缺陷', 'mm'], ['pxPerDefect', '缺陷要佔幾個像素', 'px'],
-    ['speed', '輸送速度', 'mm/s'], ['exposureUs', '曝光時間', 'µs'], ['taktS', '節拍', 's'], ['imagesPerCycle', '每節拍取像', '張']],
+    ['speed', '輸送速度', 'mm/s'], ['exposureUs', '曝光時間', 'µs'], ['taktS', '節拍', 's'], ['imagesPerCycle', '每節拍取像', '張'],
+    ['material', '工件材質（L2 打光）', '', MATS], ['background', '背景材質', '', MATS]],
 };
 const TITLE = { camera: '相機', lens: '鏡頭', light: '光源', scene: '工件與場景' };
 const CAT = { camera: '相機與讀碼', lens: '鏡頭與光學', light: '光源' };
@@ -28,6 +31,7 @@ const val = (f, v) => v === '' ? undefined : f[2] && !f[3] ? Number(v) : f[0] ==
 
 export function Optics({ projects, catalogPort }) {
   const [project, setProject] = useState(''), [setups, setSetups] = useState([]), [cur, setCur] = useState({ id: null, name: '', data: BLANK });
+  const [ask, setAsk] = useState(''), [waitN, setWaitN] = useState(0);      // 光學代理：需求、送出時的方案數（之後輪詢到變多就停）
   const [res, setRes] = useState(null), [msg, setMsg] = useState(''), [opts, setOpts] = useState({}), [cmp, setCmp] = useState(new Set());
   const frame = useRef(null);
   const proj = projects.find(p => p.id === project), canEdit = proj?.canEdit !== false;
@@ -41,6 +45,8 @@ export function Optics({ projects, catalogPort }) {
   }, []);
   const loadSetups = useCallback(() => project && api.aoiList(project).then(r => setSetups(r.setups)).catch(e => setMsg('✗ ' + e.message)), [project]);
   useEffect(() => { loadSetups(); setCmp(new Set()); }, [loadSetups]);
+  useEffect(() => { if (!waitN) return; if (setups.length >= waitN) { setWaitN(0); setMsg('✓ 光學代理的方案已加進清單'); return; } const t = setTimeout(loadSetups, 4000); return () => clearTimeout(t); }, [waitN, setups, loadSetups]);
+  const askAgent = async () => { setMsg(''); try { await api.run(project, { cmd: 'optics', text: ask }); setWaitN(setups.length + 2); setAsk(''); setMsg('✓ 已排進代理佇列：光學角色提 2～3 個方案，通過檢查後會出現在方案清單（幾分鐘）'); } catch (e) { setMsg('✗ ' + e.message); } };
   // 即時計算（停止輸入 300 ms 後），結果也送給 3D 檢視
   useEffect(() => {
     const t = setTimeout(() => api.opticsEval(cur.data).then(r => { setRes(r); frame.current?.contentWindow?.postMessage({ type: 'optics', setup: r.setup }, '*'); }).catch(e => setMsg('✗ ' + e.message)), 300);
@@ -67,10 +73,13 @@ export function Optics({ projects, catalogPort }) {
         {f[3] ? <Select value={shownVal} onChange={v => set(path, val(f, v))} options={f[3].map(o => [o, o || (ph ? `（元件：${ph}）` : '—')])} />
           : <input inputMode="decimal" value={shownVal} placeholder={ph} onChange={e => set(path, val(f, e.target.value))} aria-label={`${TITLE[kind]} ${f[1]}`} />}</label>;
     })}</div>
+    {kind === 'scene' && <div className="bar"><span>要檢出的缺陷</span>{DEFECTS.map(k => <label key={k} className="check"><input type="checkbox" checked={(cur.data.scene?.defectKinds || []).includes(k)}
+      onChange={e => set('scene.defectKinds', e.target.checked ? DEFECTS.filter(x => x === k || (cur.data.scene?.defectKinds || []).includes(x)) : (cur.data.scene?.defectKinds || []).filter(x => x !== k))} />{k}</label>)}
+      <small className="mute">有工件材質時，用幾何打光模型估算每種缺陷的對比；勾的種類對比太低就不符合</small></div>}
   </section>;
 
   return <div className="page wide optics">
-    <div className="head"><div><h2>光學工作台</h2><div className="sub" style={{ marginBottom: 0 }}>評估 AOI 架構：相機、鏡頭、光源的選用與配置。公式在 core/optics（L1 計算，薄透鏡近似）；結果是選型估算，不能取代實際打樣。</div></div>
+    <div className="head"><div><h2>光學工作台</h2><div className="sub" style={{ marginBottom: 0 }}>評估 AOI 架構：相機、鏡頭、光源的選用與配置。公式在 core/optics（L1 計算，薄透鏡近似；L2 幾何打光：明暗場、缺陷對比、近似模擬影像，在 3D 配置按「模擬影像」）；結果是選型估算，不能取代實際打樣。</div></div>
       <label className="inline">專案 <Select value={project} onChange={v => { setProject(v); setCur({ id: null, name: '', data: BLANK }); }} options={projects.map(p => [p.id, `${p.title}${p.repo ? '（本庫）' : ''}`])} /></label></div>
     {msg && <div className={`notice ${msg.startsWith('✗') ? 'bad' : 'ok'}`}>{msg}</div>}
     <div className="optics-layout">
@@ -78,7 +87,7 @@ export function Optics({ projects, catalogPort }) {
       <div className="optics-side">
         <section className="card"><h3>結果{res && <span className={`chip ${res.status === 'fail' ? 'bad' : res.status === 'warn' ? 'warn' : 'ok'}`}>{STATUS[res.status] || '✓ 符合'}</span>}</h3>
           {!res ? <p className="mute">計算中…</p> : <table className="data optics-res"><tbody>{res.results.map(r => <tr key={r.key} className={r.status}>
-            <td>{r.label}</td><td className="num nowrap"><b>{r.value ?? '—'}</b> {r.unit}</td><td className={`nowrap ${r.status === 'fail' ? 'bad' : r.status === 'warn' ? 'warn' : 'ok'}`}>{STATUS[r.status]}</td><td className="mute">{r.note}</td></tr>)}</tbody></table>}
+            <td className="lab">{r.label}</td><td className={typeof r.value === 'number' ? 'num nowrap' : 'txt'}><b>{r.value ?? '—'}</b> {r.unit}</td><td className={`nowrap ${r.status === 'fail' ? 'bad' : r.status === 'warn' ? 'warn' : 'ok'}`}>{STATUS[r.status]}</td><td className="mute">{r.note}</td></tr>)}</tbody></table>}
           {res?.cost > 0 && <p>元件參考成本：<b>{nt(res.cost)}</b>　<span className="mute">（引用元件的最新參考單價 × 數量）</span></p>}
         </section>
         <section className="card"><h3>3D 配置</h3>
@@ -103,6 +112,11 @@ export function Optics({ projects, catalogPort }) {
                 {canEdit && s.status !== 'chosen' && <button title="其他方案改回草稿；這個方案的相機、鏡頭、光源加進專案的成本表" onClick={() => act(async () => { const r = await api.aoiChoose(project, s.id); setMsg(`✓ 已選用「${s.name}」${r.added.length ? `，${r.added.join('、')} 加進成本表` : ''}`); })}>選用</button>}
                 {canEdit && <ConfirmButton onConfirm={() => act(() => api.aoiDelete(project, s.id), '已刪除')} />}</td></tr>)}
           </tbody></table>}
+          {canEdit && project && <div className="agent-ask">
+            <div className="lbl">請光學代理提方案<small className="mute">需求寫檢測項目、缺陷尺寸、工件材質、節拍、空間限制；代理從元件庫挑相機、鏡頭、光源，平台用 L1＋L2 檢查，沒通過會退回重做</small></div>
+            <textarea rows={2} value={ask} onChange={e => setAsk(e.target.value)} placeholder="例如「鏡面不鏽鋼蓋 40×30 mm，刮傷 0.05 mm 與髒污都要檢出，節拍 3 秒」" aria-label="光學需求" />
+            <div className="bar"><span className="grow" />{waitN > 0 && <span className="mute">代理工作中…</span>}<button className="primary" disabled={!ask.trim() || waitN > 0} onClick={askAgent}>送出</button></div>
+          </div>}
           {shown.length > 1 && <div className="scroll"><table className="data compare"><thead><tr><th>項目</th>{shown.map(s => <th key={s.id}>{s.name}</th>)}</tr></thead><tbody>
             {[...new Set(shown.flatMap(s => s.result.results.map(r => r.key)))].map(k => { const lab = shown.map(s => s.result.results.find(r => r.key === k)).find(Boolean); return <tr key={k}><td>{lab.label}</td>
               {shown.map(s => { const r = s.result.results.find(x => x.key === k); return <td key={s.id} className={r?.status === 'fail' ? 'bad' : r?.status === 'warn' ? 'warn' : ''}>{r ? `${r.value ?? '—'} ${r.unit}` : '—'}</td>; })}</tr>; })}

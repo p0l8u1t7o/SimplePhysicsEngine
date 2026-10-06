@@ -15,7 +15,7 @@
 | `anim/` | `track.js`：時間軌與時間軸（`createTimeline`、`Track`、`smooth`），狀態只由時間決定；`sequence.js`：單一手臂的步驟序列；`arrival.js`：手臂到位閘門（播放時等手臂到位、逾時故障） |
 | `electrical/` | 線材、拖鏈、電盤、電控元件（`component()` 元件表）與檢視器 |
 | `examples/` | `segment2/`：第二段（電控、電盤、配線、相機子畫面、視覺疊圖）的完整範例與說明，跟著 core 一起檢查；新專案照 `examples/segment2/README.md` 做 |
-| `optics/` | 機器視覺的光學計算（純函式：視野、倍率、每像素、最小缺陷、景深、運動模糊、行頻、像圈、接口、頻寬、打光）與 3D 配置檢視頁 `optics/view.html`；studio 的光學工作台、`vs3d optics eval`、相機模型共用，說明在 `optics/README.md` |
+| `optics/` | 機器視覺的光學計算（純函式：L1 視野、倍率、每像素、最小缺陷、景深、運動模糊、行頻、像圈、接口、頻寬、打光；L2 `lighting.js` 明暗場、缺陷對比、遮擋、近似模擬影像）與 3D 配置檢視頁 `optics/view.html`；studio 的光學工作台、`vs3d optics eval`、相機模型共用，說明在 `optics/README.md` |
 | `movie/` | 錄影程式（4K 取樣 1080p、絕對時間取樣、追焦運鏡），各專案以 `?movie` 呼叫 |
 | `ui/` | `stage.js`（renderer／場景／相機／燈光／3D 標籤／視角轉場／畫面迴圈／`exposeSim`）、`player.js`（標準播放列）、`viewer-workspace`（相機視窗與焦點追隨，所有專案共用）、`vision-overlay` |
 | `verify/` | 統一檢查：`scene.mjs`（全場干涉＋重合面閃爍）、`electrical.mjs`（電控配置）、`cables.mjs`（配線動態取樣）、`feedthroughs.mjs`（穿板孔）、`clearance.mjs`（有向包圍盒間距）、`determinism.mjs`（倒序一致）、`fingerprint.mjs`／`fingerprint-compare.mjs`（排程指紋，渲染補強前後比對）、`run.mjs`（執行入口）、`dom-stub.mjs` |
