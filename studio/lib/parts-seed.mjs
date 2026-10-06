@@ -12,7 +12,7 @@ import { REPO } from './util.mjs';
 const COLUMNS = {
   code: /^編號$/, subsystem: /^子系統$/, group: /^類別$/, name: /^(項目|品項)$/, spec: /^(功能需求／)?規格(要求)?$/, model: /^(主選型號|建議選型)/,
   reason: /^選型理由/, remark: /^(說明|備註)$/, alt: /^替代方案$/, qty: /^數量$/, qtyTotal: /^數量合計$/, unit: /^單位$/, price: /^單價/, usd: /USD/,
-  grade: /^(等級|分級|信心)$/, basis: /依據$/, kind: /^(性質|範圍)$/, xref: /^對應成本表$/,
+  grade: /^(等級|分級|信心)$/, basis: /依據$/, kind: /^(性質|範圍)$/, xref: /^對應成本表$/, part: /^部分$/,
 };
 const QTY_PARTS = /站$|共用$/;      // 品項表的分站數量欄（數量合計是公式，沒有快取值時用這幾欄加總）
 
@@ -97,7 +97,7 @@ export function readCostSheet(file) {
       out.push({
         sheet: sh.name, code: cell('code'), subsystem: cell('subsystem') || (/\D/.test(cell('group')) ? cell('group') : ''), name: cell('name'), spec: cell('spec'), model: cell('model'),
         reason: cell('reason'), remark: cell('remark'), alt: cell('alt'), qty, unit: cell('unit'), price: num(cell('price')), usd: num(cell('usd')),
-        grade: cell('grade').toUpperCase().match(/^[ABC]$/)?.[0] || '', basis: cell('basis'), kind: cell('kind'), xref: cell('xref'),
+        grade: cell('grade').toUpperCase().match(/^[ABC]$/)?.[0] || '', basis: cell('basis'), kind: cell('kind'), xref: cell('xref'), part: cell('part'),
       });
     }
   }

@@ -16,6 +16,8 @@ import { basename, dirname, extname, join } from 'node:path';
 import { STUDIO, now } from './util.mjs';
 import { categoryOps, V5_CATEGORIES } from './categories.mjs';
 import { linkOps, V5_LINKS } from './part-links.mjs';
+import { versionOps, V6_VERSIONS } from './versions.mjs';
+import { bomOps, V6_BOM } from './bom.mjs';
 
 export const defaultPartsDb = () => process.env.VS3D_DB || process.env.VS3D_PARTS_DB || join(STUDIO, 'data', 'studio.db');
 
@@ -48,7 +50,7 @@ export const GROUPS = {
 };
 export const groupOf = category => Object.keys(GROUPS).find(g => GROUPS[g].includes(category)) || '';
 
-const SCHEMA_VERSION = 5;      // 2：parts.grp（群組）；3：唯一編號 code、狀態 status、core 模型 model_id、附件 files；4：系統設定、附件的類型／雜湊／上傳者／價格紀錄、元件封面圖；5：分類樹與欄位範本、關聯件與模組
+const SCHEMA_VERSION = 6;      // 2：parts.grp（群組）；3：唯一編號 code、狀態 status、core 模型 model_id、附件 files；4：系統設定、附件的類型／雜湊／上傳者／價格紀錄、元件封面圖；5：分類樹與欄位範本、關聯件與模組；6：元件版本、BOM 與成本表
 export const PENDING = '待確認';
 export const codeOf = n => `P-${String(n).padStart(5, '0')}`;
 const CODE_RE = /^P-\d+$/i;
@@ -260,7 +262,8 @@ export function openPartsDb(file = defaultPartsDb()) {
     if (!row) throw new PartsError(`找不到${label}（${id}）`, 404);
     return row;
   }
-  const touch = partId => run('UPDATE parts SET updated_at = ? WHERE id = ?', now(), partId);
+  // 元件有異動：記下更新時間，並檢查要不要升版（只有影響選型或成本的欄位變了才會升，見 lib/versions.mjs）
+  const touch = partId => { run('UPDATE parts SET updated_at = ? WHERE id = ?', now(), partId); bump(partId); };
   const needSupplier = id => { if (id != null) need('suppliers', id, '供應商'); };
   const unique = fn => { try { return fn(); } catch (e) { if (/UNIQUE/.test(e.message)) bad('已經有同名的供應商'); throw e; } };
   const withAttrs = p => ({ ...p, attrs: JSON.parse(p.attrs || '{}') });
@@ -268,12 +271,31 @@ export function openPartsDb(file = defaultPartsDb()) {
   const findPart = id => CODE_RE.test(String(id)) ? get('SELECT * FROM parts WHERE code = ? COLLATE NOCASE', String(id).trim())
     : Number.isInteger(Number(id)) ? get('SELECT * FROM parts WHERE id = ?', Number(id)) : null;
   const cats = categoryOps({ all, get, run, insert, tx, now, fail });
-  const links = linkOps({ all, get, run, insert, now, fail, findPart });
+  const linksRaw = linkOps({ all, get, run, insert, now, fail, findPart });
+  const versions = versionOps({ all, get, run, insert, now, links: linksRaw });
+  // 誰在改（版本紀錄的 by）：HTTP 介面在處理請求時用 withActor 包起來
+  let actor = '';
+  const bump = id => versions.bump(id, { by: actor });
+  // 哪些專案的 BOM（目前的或快照）引用這個元件
+  const bomUse = partId => all('SELECT DISTINCT b.project FROM bom_items i JOIN boms b ON b.id = i.bom_id WHERE i.part_id = ? ORDER BY b.project', partId).map(r => r.project);
+  // 模組的子件有異動就檢查模組要不要升版
+  const links = {
+    ...linksRaw,
+    addLink(id, v) { return tx(() => { const r = linksRaw.addLink(id, v); if (r.rel === 'component') bump(r.part_id); return r; }); },
+    updateLink(id, v) { return tx(() => { const r = linksRaw.updateLink(id, v); if (r.rel === 'component') bump(r.part_id); return r; }); },
+    deleteLink(id) { return tx(() => { const r = linksRaw.deleteLink(id); if (r.rel === 'component') bump(r.part_id); return r; }); },
+  };
   // 4 → 5：分類樹（現有的群組與類別放進預設的樹）、欄位範本、關聯件與模組。建表、放資料、改版本號在同一個交易裡
   if (version === 4) tx(() => {
     db.exec(V5_CATEGORIES); db.exec(V5_LINKS); db.exec('DROP VIEW part_latest'); db.exec(VIEW);
     cats.seedDefaults(); cats.placeLegacyParts();
-    db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`); version = 5;
+    db.exec('PRAGMA user_version = 5'); version = 5;
+  });
+  // 5 → 6：元件版本；現有元件都建成 v1（模組最後建，子件的版本才記得到）
+  if (version === 5) tx(() => {
+    db.exec(V6_VERSIONS); db.exec(V6_BOM); db.exec('DROP VIEW part_latest'); db.exec(VIEW);
+    for (const p of all("SELECT id FROM parts ORDER BY kind = 'module', id")) versions.bump(p.id, { note: '升級時建立' });
+    db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`); version = 6;
   });
   // 元件放進哪個分類：給 category_id 就用它（null 是未分類）；只給文字（成本表匯入、代理提案、命令列）就依名稱找，createCategory 時找不到就建
   function placement(v, { createCategory = false } = {}) {
@@ -301,7 +323,7 @@ export function openPartsDb(file = defaultPartsDb()) {
     return { kind, price_id: pid };
   }
 
-  return {
+  const api = {
     file,
     close: () => db.close(),
     tx,
@@ -358,12 +380,18 @@ export function openPartsDb(file = defaultPartsDb()) {
         usages: all('SELECT * FROM usages WHERE part_id = ? ORDER BY project, source, item_code, id', part.id),
         files: all('SELECT * FROM files WHERE part_id = ? ORDER BY id', part.id),
         links: links.linksOf(part.id),
-        ...(part.kind === 'module' ? { sum: links.sumPrice(part.id) } : {}),
+        ...(part.kind === 'module' ? { sum: links.sumPrice(part.id), childUpdates: versions.childUpdates(part.id) } : {}),
+        versions: versions.list(part.id), boms: bomUse(part.id),
       };
     },
     // 分類樹與欄位範本（lib/categories.mjs）、關聯件與模組（lib/part-links.mjs）
     categories: cats,
-    links,
+    links, versions,
+    bom: null,            // 下面建好之後填入（BOM 與成本表，lib/bom.mjs）
+    // 版本紀錄的 by：HTTP 介面處理一個請求時用它包起來
+    withActor(name, fn) { const prev = actor; actor = name || ''; try { return fn(); } finally { actor = prev; } },
+    // 模組的子件出了新版：手動更新模組（模組升一版、記下子件現在的版本）
+    refreshModule(id) { const p = need('parts', id, '元件'); if (p.kind !== 'module') bad('只有模組可以更新子件版本'); bump(p.id); return this.getPart(p.id); },
     findByCode: code => get('SELECT * FROM parts WHERE code = ? COLLATE NOCASE', String(code).trim()),
     // 名稱與型號完全相同（不分大小寫、不計空白）的既有元件：自動匯入時用來避免重複新增
     findSame(name, model = '') {
@@ -397,7 +425,9 @@ export function openPartsDb(file = defaultPartsDb()) {
       cats.checkAttrs(JSON.parse(c.attrs), place.category_id);
       return this.getPart(tx(() => {
         run("UPDATE meta SET value = value + 1 WHERE key = 'code_seq'");
-        return insert('parts', { ...c, ...place, ...kind, model_params: cleanModelParams(v.model_params), code: codeOf(get("SELECT value FROM meta WHERE key = 'code_seq'").value), created_at: t, updated_at: t });
+        const id = insert('parts', { ...c, ...place, ...kind, model_params: cleanModelParams(v.model_params), code: codeOf(get("SELECT value FROM meta WHERE key = 'code_seq'").value), created_at: t, updated_at: t });
+        bump(id);
+        return id;
       }));
     },
     // cover_file_id：封面圖（這個元件的圖片附件）；沒給就不變，null 或空白是拿掉
@@ -410,11 +440,13 @@ export function openPartsDb(file = defaultPartsDb()) {
         if (fid != null) { const f = get('SELECT * FROM files WHERE id = ? AND part_id = ?', fid, p.id); if (!f) bad('封面圖要是這個元件的附件'); if (fileType(f.name) !== 'image') bad('封面圖要是圖片檔'); }
         c.cover_file_id = fid;
       }
-      update('parts', p.id, { ...c, updated_at: now() });
+      tx(() => { update('parts', p.id, { ...c, updated_at: now() }); bump(p.id); });
       return this.getPart(p.id);
     },
     deletePart(id) {
       const p = need('parts', id, '元件'), files = all('SELECT * FROM files WHERE part_id = ?', p.id);
+      const used = bomUse(p.id);
+      if (used.length) bad(`${p.code} 被 ${used.join('、')} 的 BOM 引用，不能刪除（成本表要靠它的版本紀錄）`);
       run('DELETE FROM parts WHERE id = ?', p.id);
       dropBlobs(files.map(f => f.sha256));
       return { deleted: p.id, code: p.code };
@@ -423,6 +455,8 @@ export function openPartsDb(file = defaultPartsDb()) {
     mergeParts(keepId, dropId) {
       const keep = need('parts', keepId, '元件'), drop = need('parts', dropId, '元件');
       if (keep.id === drop.id) bad('不能和自己合併');
+      const used = bomUse(drop.id);
+      if (used.length) bad(`${drop.code} 被 ${used.join('、')} 的 BOM 引用，不能併掉（請改併到它身上）`);
       return tx(() => {
         run('UPDATE prices SET part_id = ? WHERE part_id = ?', keep.id, drop.id);
         run('UPDATE usages SET part_id = ? WHERE part_id = ?', keep.id, drop.id);
@@ -431,6 +465,7 @@ export function openPartsDb(file = defaultPartsDb()) {
         if (keep.category_id == null && drop.category_id != null) Object.assign(fill, { category_id: drop.category_id, ...cats.textOf(drop.category_id) });      // 分類也用併入的補
         update('parts', keep.id, { ...fill, attrs: JSON.stringify({ ...JSON.parse(drop.attrs || '{}'), ...JSON.parse(keep.attrs || '{}') }), updated_at: now() });
         run('DELETE FROM parts WHERE id = ?', drop.id);
+        bump(keep.id);
         return this.getPart(keep.id);
       });
     },
@@ -505,4 +540,6 @@ export function openPartsDb(file = defaultPartsDb()) {
     },
     stats: () => get('SELECT (SELECT count(*) FROM parts) AS parts, (SELECT count(*) FROM prices) AS prices, (SELECT count(*) FROM usages) AS usages, (SELECT count(*) FROM suppliers) AS suppliers'),
   };
+  api.bom = bomOps({ all, get, run, insert, update, tx, now, fail, findPart, versions, actor: () => actor, system: () => api.readSettings() });
+  return api;
 }

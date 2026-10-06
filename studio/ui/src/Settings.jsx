@@ -80,6 +80,27 @@ function ApiKeys() {
   </section>;
 }
 
+// 匯率（管理者）：每 1 單位外幣折合多少新台幣，帶日期；成本表用 BOM 設定的「匯率日期」以前最近的一筆
+function FxRates() {
+  const [rates, setRates] = useState(null), [f, setF] = useState({ currency: 'USD', rate: '', date: new Date().toLocaleDateString('sv'), note: '' }), [msg, setMsg] = useState('');
+  useEffect(() => { api.fx().then(r => setRates(r.rates)).catch(e => setMsg('✗ ' + e.message)); }, []);
+  if (!rates) return null;
+  const act = fn => { setMsg(''); fn().then(r => { setRates(r.rates); setMsg('✓ 已更新'); }).catch(e => setMsg('✗ ' + e.message)); };
+  return <section className="card form"><h3>匯率<span className="chip">{rates.length}</span></h3>
+    <p className="mute hint">成本表把外幣單價換成新台幣：用專案成本表設定的「匯率日期」那天以前最近的一筆。改了匯率不會改變已經存成快照的金額。</p>
+    {rates.length > 0 && <table className="data"><thead><tr><th>幣別</th><th>日期</th><th className="num">匯率（NT$）</th><th>備註</th><th /></tr></thead><tbody>
+      {rates.map(r => <tr key={`${r.currency}${r.date}`}><td>{r.currency}</td><td>{r.date}</td><td className="num">{r.rate}</td><td className="mute">{r.note}</td>
+        <td className="ops"><ConfirmButton onConfirm={() => act(() => api.deleteFx(r.currency, r.date))} /></td></tr>)}</tbody></table>}
+    <div className="row">
+      <label><span>幣別</span><input value={f.currency} maxLength={3} onChange={e => setF(x => ({ ...x, currency: e.target.value.toUpperCase() }))} /></label>
+      <label><span>匯率（1 單位折合 NT$）</span><input type="number" min="0" step="any" value={f.rate} onChange={e => setF(x => ({ ...x, rate: e.target.value }))} /></label>
+      <label><span>日期</span><input type="date" value={f.date} onChange={e => setF(x => ({ ...x, date: e.target.value }))} /></label>
+      <label><span>備註</span><input value={f.note} onChange={e => setF(x => ({ ...x, note: e.target.value }))} placeholder="例如 台銀即期賣出" /></label>
+    </div>
+    <div className="bar"><button className="primary" disabled={!f.rate} onClick={() => act(() => api.setFx(f))}>新增或更新</button>{msg && <span className={msg.startsWith('✗') ? 'bad' : 'ok'}>{msg}</span>}</div>
+  </section>;
+}
+
 // 回收桶（管理者）：刪除的專案留在工作區的 .studio/trash/；可以永久刪除一個、清掉超過幾天的，或設定自動清理的天數
 function Trash() {
   const [d, setD] = useState(null), [keep, setKeep] = useState(null), [days, setDays] = useState('30'), [msg, setMsg] = useState('');
@@ -142,6 +163,7 @@ export function Settings({ info, user }) {
         <div className="bar"><button className="primary" onClick={() => save().catch(e => setMsg('✗ ' + e.message))}>儲存</button><span className={msg.startsWith('✗') ? 'bad' : 'ok'}>{msg}</span></div>
       </section>
       <SystemSettings canEdit={isAdmin} />
+      {isAdmin && <FxRates />}
       {isAdmin && <Trash />}
     </div>
   );

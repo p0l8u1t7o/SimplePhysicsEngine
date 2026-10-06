@@ -25,6 +25,7 @@ export function Stations({ projects, query = '', go }) {
             <div className="s-meta">
               <span className={`chip ${p.running ? 'run' : p.stage === 'done' ? 'ok' : 'warn'}`}>{p.running ? '執行中' : (p.segment === 2 ? '第二段 · ' : '') + (STAGE[p.stage] || p.stage)}</span>
               {p.pending > 0 && <span className="chip warn">{p.pending} 個問題</span>}
+              {p.bomNewer > 0 && <span className="chip warn" title="成本表裡有元件出了新版（金額還是用鎖定的版本）">{p.bomNewer} 個元件有新版</span>}
               {p.dirty?.length > 0 && <span className="chip warn" title={`別的工具改過、還沒提交：\n${p.dirty.slice(0, 10).join('\n')}`}>{p.dirty.length} 個未提交</span>}
               {p.lastCheck && <span className={`chip ${p.lastCheck.ok ? 'ok' : 'bad'}`}>最近檢查{p.lastCheck.ok ? '通過' : '未過'}</span>}
               {p.branch && p.flowActive && <span className="chip" title="進行中的 vs3d 分支"><Icon name="branch" size={12} /> {p.branch}</span>}

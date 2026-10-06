@@ -33,6 +33,7 @@
 //   node studio/vs3d.mjs parts seed [--dry-run]                   從各站 docs/ 的成本表匯入採購品項（可重複執行，已匯入的列會跳過）
 //   node studio/vs3d.mjs parts merge <保留 id> <併入 id>           合併重複的元件
 //   node studio/vs3d.mjs parts link [--dry-run]                   把型號對得上的元件連到 core 共用模型（3D 顯示）；core 新增模型後再跑一次
+//   node studio/vs3d.mjs parts bom-import [--project 站]          把各站 docs/ 的成本表轉成平台的 BOM（@<站>），逐行與摘要和原檔比對（先跑過 parts seed）
 //                                                                 資料庫檔只留本機：studio/data/studio.db（--db 或環境變數 VS3D_DB 可以改位置）
 // 共通選項：--workspace <資料夾>（預設 %USERPROFILE%\Documents\3D-Studio，或環境變數 VS3D_WORKSPACE）
 //   --cli、--model（所有角色）、--role plan=opus,fix=haiku（個別角色；可寫 codex:<模型>）、--effort
@@ -306,7 +307,22 @@ switch (cmd) {
         if (rest.length !== 2) fail('用法：vs3d parts merge <保留 id> <併入 id>');
         const p = db.mergeParts(rest[0], rest[1]);
         console.log(`已合併到 ${p.code} ${p.name}：${p.prices.length} 筆價格、${p.usages.length} 筆使用紀錄`);
-      } else fail('用法：vs3d parts [search <關鍵字…>｜show <id>｜seed｜link｜merge <保留 id> <併入 id>]');
+      } else if (sub === 'bom-import') {
+        // 本庫各站 docs/ 的成本表 → 平台的 BOM（@<站>），轉完逐行與摘要和原檔比對；--project 只轉一站
+        const { importCostTable } = await import('./lib/cost-import.mjs'), { collectCostTables } = await import('./lib/parts-seed.mjs');
+        const tables = collectCostTables(REPO).filter(t => t.rows.some(r => r.sheet === '明細') && (!o.project || t.project === o.project));
+        if (!tables.length) fail(o.project ? `找不到 ${o.project} 的成本表` : '找不到任何成本表');
+        let bad = 0;
+        for (const t of tables) {
+          const r = importCostTable(db, { project: t.project, source: t.source, file: join(REPO, 'project-site', t.project, 'docs', t.source) });
+          if (r.skipped) { console.log(`- ${t.project} ${t.source}：${r.skipped}`); continue; }
+          if (!r.ok) bad++;
+          console.log(`${r.ok ? '✓' : '✗'} @${t.project}（${t.source}）：${r.lines} 行，元件 ${r.parts}、人日 ${r.labor}、客製 ${r.custom}；含預備費 ${r.totals.total?.got?.toLocaleString('en-US')}${r.cached ? '' : '（原檔沒有存結果，用原公式重算比對）'}`);
+          for (const [k, x] of Object.entries(r.totals)) if (!x.ok) console.log(`   ${k}：原檔 ${x.want}，平台 ${x.got}`);
+          for (const m of r.lineMismatches) console.log(`   ${m.line}：原檔 ${m.want}，平台 ${m.got}`);
+        }
+        if (bad) process.exitCode = 1;
+      } else fail('用法：vs3d parts [search <關鍵字…>｜show <id>｜seed｜link｜merge <保留 id> <併入 id>｜bom-import [--project 站]]');
     } catch (e) { if (e instanceof PartsError) fail(e.message); throw e; } finally { db.close(); }
     break;
   }

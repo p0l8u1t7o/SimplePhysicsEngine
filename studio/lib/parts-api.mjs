@@ -11,13 +11,16 @@
 //   GET｜PUT /api/system                               系統設定（PUT 只有管理者，權限在 lib/auth.mjs 的 denied）
 //   GET｜POST /api/categories；GET｜PUT｜DELETE /api/categories/:id；PUT /api/categories/:id/fields   分類樹與欄位範本（改只有管理者）
 //   POST /api/parts/:id/links { related, rel, qty, note }；PUT｜DELETE /api/links/:id   關聯件（組成、配件、替代、相容）
+//   GET /api/parts/:id/versions/<a>..<b>   兩版的差異；POST /api/parts/:id/refresh   模組依子件的新版升一版
+//   GET｜PUT /api/fx；DELETE /api/fx/:幣別/:日期   匯率（改只有管理者）
 import { openPartsDb, defaultPartsDb, PartsError, GRADES, SUPPLIER_KINDS, FILE_TYPES, FILE_KINDS, fileType, mimeOf } from './partsdb.mjs';
 import { SYSTEM_SETTINGS, readSystem, cleanSystem, attachmentRule } from './settings.mjs';
 import { edition, subscriptionAllowed } from './edition.mjs';
 import { FIELD_TYPES } from './categories.mjs';
 import { LINK_RELS, PART_KINDS, PRICE_MODES } from './part-links.mjs';
 
-const INLINE = new Set(['image', 'pdf']);      // 可以直接在瀏覽器開的附件
+const INLINE = new Set(['image', 'pdf']);
+const fail404 = msg => { throw new PartsError(msg, 404); };      // 可以直接在瀏覽器開的附件
 
 // 第一次呼叫才開資料庫；回傳 { handle({ method, seg, query, body, raw, user }) → { code, body } 或 { code, file }, system(), close }
 export function createPartsApi(file = defaultPartsDb()) {
@@ -51,6 +54,18 @@ export function createPartsApi(file = defaultPartsDb()) {
     if (a === 'parts' && !id) {
       if (method === 'GET') return { ...d.listParts(Object.fromEntries(query)), file: d.file, grades: GRADES, supplierKinds: SUPPLIER_KINDS, linkRels: LINK_RELS, partKinds: PART_KINDS, priceModes: PRICE_MODES };
       if (method === 'POST') return d.createPart(v);
+    }
+    // 版本：任兩版的差異；模組的子件出了新版時更新模組
+    if (a === 'parts' && b === 'versions' && c && method === 'GET') {
+      const p = d.getPart(id), [x, y] = c.split('..');
+      return { diff: d.versions.compare(p.id, x, y) || fail404(`找不到版本 ${c}`) };
+    }
+    if (a === 'parts' && b === 'refresh' && method === 'POST') return d.refreshModule(id);
+    // 匯率（改只有管理者）：GET 全部；PUT { currency, rate, date, note }；DELETE /api/fx/:幣別/:日期
+    if (a === 'fx') {
+      if (method === 'PUT') return { rates: d.bom.setFx(v) };
+      if (method === 'DELETE' && id && b) return { rates: d.bom.deleteFx(id, b) };
+      return { rates: d.bom.fxRates() };
     }
     if (a === 'parts' && id && !b) {
       if (method === 'GET') return d.getPart(id);
@@ -93,7 +108,7 @@ export function createPartsApi(file = defaultPartsDb()) {
       try {
         const upload = seg[0] === 'parts' && seg[2] === 'files';      // 上傳的本體是檔案內容，不是 JSON
         const v = !upload && (method === 'POST' || method === 'PUT') ? await body() : {};
-        const r = await route(method, seg, query, v, raw, user);
+        const r = await open().withActor(user?.name, () => route(method, seg, query, v, raw, user));     // 版本紀錄記下是誰改的
         return r?.__file ? { code: 200, file: r.__file } : { code: 200, body: r };
       } catch (e) {
         if (e instanceof PartsError) return { code: e.status, body: { error: e.message } };

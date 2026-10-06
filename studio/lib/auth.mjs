@@ -41,6 +41,7 @@ export function denied(role, method, [a]) {
   if (role === 'viewer') return '唯讀帳號不能修改';
   if ((a === 'settings' || a === 'system') && role !== 'admin') return '只有管理者可以改設定';
   if (a === 'categories' && role !== 'admin') return '只有管理者可以改分類與欄位範本';
+  if (a === 'fx' && role !== 'admin') return '只有管理者可以改匯率';
   return null;
 }
 

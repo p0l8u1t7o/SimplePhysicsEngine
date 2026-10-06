@@ -8,6 +8,7 @@ import { Icon } from './icons.jsx';
 import { Select, ConfirmButton } from './fields.jsx';
 import { CategoryTree, CategoryEditor, CategorySelect, TemplateFields, flatten, pathText } from './PartsCategories.jsx';
 import { PartLinks } from './PartLinks.jsx';
+import { PartVersions } from './PartVersions.jsx';
 
 const CURRENCIES = ['TWD', 'USD', 'JPY', 'EUR', 'CNY'];
 const UNCATEGORIZED = '（未分類）';
@@ -144,7 +145,7 @@ function PartEditor({ id, facets, suppliers, models, system, readOnly, projectNa
       <div className="panel" role="dialog" aria-label="元件">
         <div className="head">
           {part?.cover_file_id && <img className="p-cover" src={partFileUrl(part.id, part.cover_file_id, true)} alt="封面圖" />}
-          <div className="grow"><h2>{part ? part.name : '新增元件'}</h2>{part && <div className="meta"><code className="p-code">{part.code}</code>
+          <div className="grow"><h2>{part ? part.name : '新增元件'}</h2>{part && <div className="meta"><code className="p-code">{part.code}</code><span className="chip" title="目前的版本">v{part.version}</span>
             {part.kind === 'module' && <span className="chip">模組</span>}{part.status && <span className="chip warn">{part.status}</span>}
             {part.category_path.length > 0 && <span className="mute">{pathText(part.category_path)}</span>}
             {part.missing?.length > 0 && <span className="chip warn" title={`必填但沒填：${part.missing.join('、')}`}>缺 {part.missing.length} 個欄位</span>}
@@ -210,6 +211,7 @@ function PartEditor({ id, facets, suppliers, models, system, readOnly, projectNa
           {part.kind !== form.kind && <p className="notice warn">種類改了還沒儲存：先儲存，才會出現模組的組成。</p>}
           <PartLinks part={part} rels={facets.linkRels} onChanged={reload} onOpen={onOpen} />
           <Attachments part={part} system={system} onChanged={reload} />
+          <PartVersions part={part} onChanged={reload} />
           <section className="card"><h3>價格紀錄<span className="chip">{part.prices.length}</span></h3>
             <p className="mute hint">清單上的參考單價取報價日最新的一筆{part.kind === 'module' && part.price_mode === 'sum' ? '（這個模組用子件加總，價格紀錄只供參考）' : ''}。等級沿用成本表的 A／B／C（幅度 ±10%／±20%／±30%）。</p>
             <RecordTable columns={priceColumns} rows={part.prices} blank={{ quoted_on: today(), unit_price: '', currency: 'TWD', grade: '', supplier_id: '', source: '', valid_until: '', note: '' }}

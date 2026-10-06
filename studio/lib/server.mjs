@@ -336,7 +336,8 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
             return json(200, { started: true, ...q });
           }
           const members = (await store())?.allMembers() || {};
-          return json(200, { projects: (d => projectIds().map(id => ({ ...summary(id, d), canEdit: canEditProject(user, members[id]) })))(repoDirty()).sort((x, y) => y.updated - x.updated), running: runner.current, queue: runner.queue });
+          const newer = (await store())?.bom.newerByProject() || {};      // BOM 裡有新版元件的行數
+          return json(200, { projects: (d => projectIds().map(id => ({ ...summary(id, d), canEdit: canEditProject(user, members[id]), bomNewer: newer[id] || 0 })))(repoDirty()).sort((x, y) => y.updated - x.updated), running: runner.current, queue: runner.queue });
         }
         if (a === 'projects' && id) {
           if (!projectIds().includes(id)) return json(404, { error: `找不到專案：${id}` });
@@ -355,6 +356,40 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
           }
           // 其他會改東西的請求：要是專案成員（沒有成員的專案所有一般帳號都可以）
           if (req.method !== 'GET' && !canEditProject(user, members)) return json(403, { error: '你不是這個專案的成員，只能看、不能執行或修改' });
+          // BOM 與成本表（lib/bom.mjs）：GET /bom；/bom/items[/:行]；/bom/settings；/bom/new-versions；/bom/upgrade；/bom/snapshots[/:id]；/bom/compare/:快照
+          if (b === 'bom') {
+            const st = await store(); if (!st) return json(500, { error: '元件資料庫開不了（需要 Node.js 22.13 以上）' });
+            const B = st.bom, [, , , , c, d] = seg, m = req.method;
+            const ok = v => json(200, v), err = e => { if (e.status) return json(e.status, { error: e.message }); throw e; };
+            try {
+              return await st.withActor(user?.name, async () => {
+                if (!c && m === 'GET') return ok(B.get(id) || { bom: null });
+                if (c === 'items' && !d && m === 'POST') return ok(B.addItem(id, await jbody()));
+                if (c === 'items' && d) {
+                  if (B.itemProject(d) !== id) return json(404, { error: '這個專案的 BOM 沒有這一行' });
+                  if (m === 'PUT') return ok(B.updateItem(d, await jbody()));
+                  if (m === 'DELETE') return ok(B.deleteItem(d));
+                }
+                if (c === 'settings' && m === 'PUT') return ok(B.updateSettings(id, await jbody()));
+                if (c === 'new-versions' && m === 'GET') return ok({ items: B.newVersions(id) });
+                if (c === 'upgrade' && m === 'POST') { const v = await jbody(); return ok(B.upgrade(id, Array.isArray(v.ids) ? v.ids : 'all')); }
+                if (c === 'snapshots' && !d && m === 'POST') return ok(B.snapshot(id, await jbody()));
+                if (c === 'snapshots' && d && m === 'GET') { const s = B.getSnapshot(d); return s.bom.project === id ? ok(s) : json(404, { error: '找不到快照' }); }
+                if (c === 'compare' && d && m === 'GET') return ok(B.compare(id, d));
+                // xlsx：目前的成本表（/bom/xlsx）或快照（/bom/snapshots/:id/xlsx）
+                if (m === 'GET' && (c === 'xlsx' || (c === 'snapshots' && d && seg[6] === 'xlsx'))) {
+                  const data = c === 'xlsx' ? B.get(id) : B.getSnapshot(d);
+                  if (!data || data.bom.project !== id) return json(404, { error: '找不到成本表' });
+                  const { costWorkbook } = await import('./cost-xlsx.mjs'), title = summary(id).title;
+                  const buf = costWorkbook(data, { title, subtitle: data.bom.status === 'snapshot' ? `快照「${data.bom.name}」（${data.bom.created_at.slice(0, 10)}）；新台幣、未稅為主；外幣依 ${data.settings.fxDate} 的匯率換算。` : '' });
+                  const name = `成本表-${loc(id).name}${data.bom.status === 'snapshot' ? `-${data.bom.name}` : ''}-${new Date().toLocaleDateString('sv')}.xlsx`;
+                  res.writeHead(200, { 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(name)}`, 'Cache-Control': 'no-store' });
+                  res.end(buf); return;
+                }
+                return json(404, { error: '未知的 API' });
+              });
+            } catch (e) { return err(e); }
+          }
           if (!b && req.method === 'DELETE') {
             const v = await jbody(), l = loc(id);
             if (l.repo) return json(400, { error: '本庫的站在版控裡，不能從這裡刪除（要移除請用 git）' });
@@ -385,7 +420,7 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
             try { return json(200, { started: true, ...start(cmd, id, args, user?.name || '') }); } catch (e) { return json(400, { error: e.message }); }
           }
         }
-        if (['parts', 'prices', 'usages', 'suppliers', 'files', 'system', 'categories', 'links'].includes(a)) {
+        if (['parts', 'prices', 'usages', 'suppliers', 'files', 'system', 'categories', 'links', 'fx'].includes(a)) {
           let api; try { api = await parts(); } catch (e) { return json(500, { error: e.code === 'ERR_UNKNOWN_BUILTIN_MODULE' ? '元件資料庫需要 Node.js 22.13 以上（內建 node:sqlite）' : String(e.message || e) }); }
           const r = await api.handle({ method: req.method, seg: seg.slice(1), query: url.searchParams, body: jbody, raw: body, user });
           if (r.file) {      // 附件：下載，或圖片與 PDF 直接顯示（inline）

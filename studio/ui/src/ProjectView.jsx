@@ -3,8 +3,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, fileUrl, sameHost, STAGE, ROLE } from './api.js';
 import { QuestionCard } from './QuestionCard.jsx';
 import { Select, ConfirmButton, RENDER_FOCUS } from './fields.jsx';
+import { CostSheet } from './CostSheet.jsx';
 
-const TABS = [['progress', '進度'], ['questions', '問題'], ['proposal', '提案'], ['review', '審查'], ['preview', '預覽'], ['shots', '截圖'], ['compare', '補強對照'], ['rules', '規則'], ['members', '成員']];
+const TABS = [['progress', '進度'], ['questions', '問題'], ['proposal', '提案'], ['review', '審查'], ['preview', '預覽'], ['shots', '截圖'], ['compare', '補強對照'], ['cost', '成本表'], ['rules', '規則'], ['members', '成員']];
 const min = s => `${(s / 60).toFixed(1)} 分`;
 const RENDER_RESULT = { accepted: '已接受', reverted: '已整批還原', 'accepted-with-failures': '已接受（守門未全過）' };
 
@@ -207,6 +208,7 @@ export function ProjectView({ id, tick, running, queue = [], onChange, onDeleted
       {tab === 'rules' && <><div className="card pre">{p.agents}</div><div className="card"><h3>上傳的資料（docs/）</h3><ul>{p.docs.map(f => <li key={f}><a href={fileUrl(id, `docs/${f}`)} target="_blank" rel="noreferrer">{f}</a></li>)}</ul></div></>}
 
       {tab === 'members' && <Members id={id} onChange={load} />}
+      {tab === 'cost' && <CostSheet id={id} canEdit={canEdit} />}
 
       {zoom && <div className="zoom" onClick={() => setZoom(null)}><img src={zoom} /></div>}
     </div>

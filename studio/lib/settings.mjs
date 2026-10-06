@@ -2,6 +2,7 @@
 // 讀取時沒有存過的鍵用預設值；寫入時只收認得的鍵，型別與範圍不對就拒絕。
 import { FILE_TYPES } from './partsdb.mjs';
 import { isDeploy, subscriptionAllowed } from './edition.mjs';
+import { COST_DEFAULTS } from './bom.mjs';
 
 // 代理 CLI 的認證方式：開發機可以選訂閱帳號或 API 金鑰；部署版只有 API 金鑰（lib/edition.mjs）
 const authCheck = (v, label) => {
@@ -24,12 +25,12 @@ export const SYSTEM_SETTINGS = {
     label: '允許上傳的檔案類型', value: Object.keys(FILE_TYPES),
     check: (v, label) => { if (!Array.isArray(v) || v.some(t => !FILE_TYPES[t])) throw new Error(`${label}只能從 ${Object.keys(FILE_TYPES).join('、')} 選`); return [...new Set(v)]; },
   },
-  'cost.engRate': { label: '工程人日費率（TWD）', value: 8000, check: num(0, 1e6) },
-  'cost.techRate': { label: '技術人日費率（TWD）', value: 5500, check: num(0, 1e6) },
-  'cost.contingency': { label: '預備金比例', value: 0.15, check: ratio },
-  'cost.tax': { label: '稅率', value: 0.05, check: ratio },
+  'cost.engRate': { label: '工程人日費率（TWD）', value: COST_DEFAULTS.engRate, check: num(0, 1e6) },
+  'cost.techRate': { label: '技術人日費率（TWD）', value: COST_DEFAULTS.techRate, check: num(0, 1e6) },
+  'cost.contingency': { label: '預備金比例', value: COST_DEFAULTS.contingency, check: ratio },
+  'cost.tax': { label: '稅率', value: COST_DEFAULTS.tax, check: ratio },
   'cost.gradeRange': {
-    label: '估價等級的上下幅度', value: { A: 0.1, B: 0.2, C: 0.3 },
+    label: '估價等級的上下幅度', value: COST_DEFAULTS.gradeRange,
     check: (v, label) => { if (!v || typeof v !== 'object') throw new Error(`${label}格式不對`); return Object.fromEntries(['A', 'B', 'C'].map(g => [g, ratio(v[g], `${label} ${g}`)])); },
   },
   'trash.keepDays': { label: '回收桶自動清理（天）', value: 0, check: num(0, 3650), hint: '刪除的專案留幾天後自動永久刪除；0 是不自動清' },

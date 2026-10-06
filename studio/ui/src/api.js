@@ -55,6 +55,24 @@ export const api = {
   addLink: (partId, v) => call('POST', `/api/parts/${partId}/links`, v),
   updateLink: (id, v) => call('PUT', `/api/links/${id}`, v),
   deleteLink: id => call('DELETE', `/api/links/${id}`),
+  // 元件版本：兩版的差異；模組依子件的新版升一版
+  partVersions: (id, a, b) => call('GET', `/api/parts/${id}/versions/${a}..${b}`),
+  refreshModule: id => call('POST', `/api/parts/${id}/refresh`),
+  // 專案的 BOM 與成本表
+  bom: id => call('GET', `/api/projects/${encodeURIComponent(id)}/bom`),
+  addBomItem: (id, v) => call('POST', `/api/projects/${encodeURIComponent(id)}/bom/items`, v),
+  updateBomItem: (id, item, v) => call('PUT', `/api/projects/${encodeURIComponent(id)}/bom/items/${item}`, v),
+  deleteBomItem: (id, item) => call('DELETE', `/api/projects/${encodeURIComponent(id)}/bom/items/${item}`),
+  bomSettings: (id, v) => call('PUT', `/api/projects/${encodeURIComponent(id)}/bom/settings`, v),
+  bomNewVersions: id => call('GET', `/api/projects/${encodeURIComponent(id)}/bom/new-versions`),
+  bomUpgrade: (id, ids) => call('POST', `/api/projects/${encodeURIComponent(id)}/bom/upgrade`, { ids }),
+  bomSnapshot: (id, v) => call('POST', `/api/projects/${encodeURIComponent(id)}/bom/snapshots`, v),
+  bomGetSnapshot: (id, sid) => call('GET', `/api/projects/${encodeURIComponent(id)}/bom/snapshots/${sid}`),
+  bomCompare: (id, sid) => call('GET', `/api/projects/${encodeURIComponent(id)}/bom/compare/${sid}`),
+  // 匯率（改只有管理者）
+  fx: () => call('GET', '/api/fx'),
+  setFx: v => call('PUT', '/api/fx', v),
+  deleteFx: (currency, date) => call('DELETE', `/api/fx/${currency}/${date}`),
   // core 共用模型（元件的 3D 顯示）與元件的附件（CAD 檔等）
   models: () => call('GET', '/api/models'),
   async uploadPartFile(partId, file) {
