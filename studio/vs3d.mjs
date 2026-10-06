@@ -33,6 +33,7 @@
 //   node studio/vs3d.mjs parts seed [--dry-run]                   從各站 docs/ 的成本表匯入採購品項（可重複執行，已匯入的列會跳過）
 //   node studio/vs3d.mjs parts merge <保留 id> <併入 id>           合併重複的元件
 //   node studio/vs3d.mjs parts link [--dry-run]                   把型號對得上的元件連到 core 共用模型（3D 顯示）；core 新增模型後再跑一次
+//   node studio/vs3d.mjs parts bom <專案> [--json]                專案的成本表（平台即時計算；本庫的站寫 @<站>）
 //   node studio/vs3d.mjs parts bom-import [--project 站]          把各站 docs/ 的成本表轉成平台的 BOM（@<站>），逐行與摘要和原檔比對（先跑過 parts seed）
 //                                                                 資料庫檔只留本機：studio/data/studio.db（--db 或環境變數 VS3D_DB 可以改位置）
 // 共通選項：--workspace <資料夾>（預設 %USERPROFILE%\Documents\3D-Studio，或環境變數 VS3D_WORKSPACE）
@@ -307,6 +308,18 @@ switch (cmd) {
         if (rest.length !== 2) fail('用法：vs3d parts merge <保留 id> <併入 id>');
         const p = db.mergeParts(rest[0], rest[1]);
         console.log(`已合併到 ${p.code} ${p.name}：${p.prices.length} 筆價格、${p.usages.length} 筆使用紀錄`);
+      } else if (sub === 'bom') {
+        // 專案的成本表（平台即時計算）：本庫的站寫 @<站>；--json 給其他工具讀（例如回收物分揀的視覺品項表取單價）
+        if (!rest[0]) fail('用法：vs3d parts bom <專案，本庫的站寫 @站名> [--json]');
+        const g = db.bom.get(rest[0]);
+        if (!g) fail(`專案 ${rest[0]} 還沒有 BOM`);
+        if (o.json) console.log(JSON.stringify({ project: rest[0], name: g.bom.name, settings: g.settings, summary: g.summary,
+          lines: g.lines.map(l => ({ line: l.line, section: l.section, grp: l.grp, nature: l.nature, code: l.code, part_version: l.part_version, name: l.name, spec: l.spec, model: l.model,
+            qty: l.qty, unit: l.unit, unit_twd: l.unit_twd, subtotal: l.subtotal, grade: l.grade, flags: l.flags })) }, null, 2));
+        else {
+          for (const l of g.lines) console.log(`${l.line.padEnd(6)} ${l.name}｜${l.qty} ${l.unit}｜NT$ ${(l.unit_twd ?? 0).toLocaleString('en-US')}｜小計 ${l.subtotal.toLocaleString('en-US')}${l.code ? `｜${l.code} v${l.part_version}${l.newer ? `（有新版 v${l.latest_version}）` : ''}` : ''}`);
+          const s = g.summary; console.log(`小計 ${s.subtotal.toLocaleString('en-US')}｜含預備費 ${s.total.toLocaleString('en-US')}｜含稅 ${s.taxed.toLocaleString('en-US')}`);
+        }
       } else if (sub === 'bom-import') {
         // 本庫各站 docs/ 的成本表 → 平台的 BOM（@<站>），轉完逐行與摘要和原檔比對；--project 只轉一站
         const { importCostTable } = await import('./lib/cost-import.mjs'), { collectCostTables } = await import('./lib/parts-seed.mjs');

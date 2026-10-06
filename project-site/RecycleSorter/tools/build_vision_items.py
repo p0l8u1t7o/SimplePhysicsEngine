@@ -4,11 +4,15 @@
 
     python tools/build_vision_items.py
 
-和 docs/integration-cost.xlsx 重複的品項，單價直接取自 build_integration_cost.py 的 ITEMS（「對應成本表」欄），兩份不會對不上。
+和成本表重複的品項，單價取自 3D工作室平台上本站的成本表（BOM @RecycleSorter，「對應成本表」欄是它的編號），兩份不會對不上。
+成本表本身改在平台上維護與匯出（2026-10-06 起；原本的 build_integration_cost.py 已退役），所以要先有平台的元件資料庫：
+    node studio/vs3d.mjs parts bom @RecycleSorter        # 看平台上的成本表
 只列硬體與授權，不含工程人日。藍字是可以改的數量與單價；金額是內部預算估計，不是供應商報價。
 """
 from __future__ import annotations
 
+import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -16,10 +20,21 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
-from build_integration_cost import ITEMS as COST_ITEMS, TAX
-
 OUT = Path(__file__).resolve().parents[1] / "docs" / "vision-items.xlsx"
-COST = {it[0]: it[9] for it in COST_ITEMS}             # 成本表編號 → 單價
+REPO = Path(__file__).resolve().parents[3]
+
+
+def platform_bom(project: str = "@RecycleSorter") -> dict:
+    """平台上本站的成本表（vs3d parts bom --json）：每行的編號、折合新台幣的單價、稅率。"""
+    r = subprocess.run(["node", str(REPO / "studio" / "vs3d.mjs"), "parts", "bom", project, "--json"], cwd=REPO, capture_output=True, text=True, encoding="utf-8")
+    if r.returncode != 0:
+        sys.exit(f"讀不到平台的成本表（{project}）：{(r.stderr or r.stdout).strip()}\n先在本庫執行 node studio/vs3d.mjs parts bom-import --project RecycleSorter")
+    return json.loads(r.stdout)
+
+
+BOM = platform_bom()
+COST = {l["line"]: l["unit_twd"] for l in BOM["lines"]}   # 成本表編號 → 單價（新台幣）
+TAX = BOM["settings"]["tax"]
 
 BASE, SPARE, EXT = "基本", "備品", "延伸"
 # (編號, 類別, 品項, 規格, 建議選型, 前段數量, 後段數量, 共用數量, 單位, 單價或成本表編號, 範圍, 備註)

@@ -59,8 +59,8 @@
 - `docs/補充說明.txt`
 - `docs/開案報告-投影片文字.txt`
 - `docs/20261002-現場拍攝照片影片/`（2026-10-05 加入：現場既有 ABB 分選站的照片與影片）
-- `docs/integration-evaluation.md`、`docs/integration-cost.xlsx`（2026-10-05 產出：ABB 追蹤整合與視覺／錄影／遠端訓練架構的評估與成本表；成本表由 `tools/build_integration_cost.py` 產生）
-- `docs/vision-items.xlsx`（2026-10-05 產出：只負責機器視覺時的採購品項表，由 `tools/build_vision_items.py` 產生）
+- `docs/integration-evaluation.md`、`docs/integration-cost.xlsx`（2026-10-05 產出：ABB 追蹤整合與視覺／錄影／遠端訓練架構的評估與成本表；成本表原本由 `tools/build_integration_cost.py` 產生；2026-10-06 起改在 3D工作室平台的「成本表」維護與匯出（BOM `@RecycleSorter`），原檔留作歷史紀錄）
+- `docs/vision-items.xlsx`（2026-10-05 產出：只負責機器視覺時的採購品項表，由 `tools/build_vision_items.py` 產生；與成本表重複的品項單價取自平台的成本表）
 
 ### 2026-10-05 補上前段（既有 ABB 分選站）
 

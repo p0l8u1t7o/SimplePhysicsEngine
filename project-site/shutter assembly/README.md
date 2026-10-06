@@ -116,7 +116,8 @@ GitHub 首頁與五專案發布設定：[static.yml](../../tools/github-pages/st
 | `web/css/style.css` | 版面與面板樣式。≤900 px、觸控平板與橫向手機由 core 的精簡版面（`createViewerWorkspace`）接手，本檔只留 900～1100 px 桌面窄視窗的規則；精簡版面中產品近看／組裝特寫的說明貼齊畫布頂端（`--viewer-top`），不壓在產品上 |
 | `web/js/vision-results.js` | 相機標記（孔位、疊片、銷位、成品） |
 | `tools/verify.mjs`、`verify-physics.mjs`、`verify-product-detail.mjs` | 專案自有驗證（流程、物理、產品細節） |
-| `tools/build_cost_estimate.py` | 產生成本試算表 |
+
+成本表 2026-10-06 起在 3D工作室平台上維護：本站頁面的「成本表」分頁可以看、改、存快照、匯出 xlsx（命令列 `node studio/vs3d.mjs parts bom "@shutter assembly"`）；本機 `docs/cost-estimate.xlsx` 是轉換前的原檔，原本的產生器 `tools/build_cost_estimate.py` 已退役。
 
 ## 驗證
 

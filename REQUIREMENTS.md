@@ -21,11 +21,10 @@ three.js 已放在 `core/vendor/`，不需要網路或套件管理器。
 
 | 項目 | 需要的工具 | 安裝 |
 |---|---|---|
-| Python 3.12＋`requirements.txt` | 錄影稽核與驗證（`tools/movie-export`）、影片驗證（`project-site/MilitaryGradePC/tools/verify_video.py`）、電路圖（`tools/circuit-drawings`）、成本估算表、`core/tools/compare-review.py` | `setup.ps1 -Python`（建立 `.venv` 並安裝） |
+| Python 3.12＋`requirements.txt` | 錄影稽核與驗證（`tools/movie-export`）、影片驗證（`project-site/MilitaryGradePC/tools/verify_video.py`）、電路圖（`tools/circuit-drawings`）、回收物分揀的視覺品項表、`core/tools/compare-review.py` | `setup.ps1 -Python`（建立 `.venv` 並安裝） |
 | ffmpeg／ffprobe（支援 NVENC 的 Windows 版） | MP4 錄影輸出（`core/tools/export-mp4.mjs`、`project-site/MilitaryGradePC/tools/render_server.py`、影片驗證） | `setup.ps1 -Ffmpeg` 下載到共用的 `tools/bin/`（不進版控）；也可用 `-FfmpegZip <本機 zip>` |
 | 中文 TrueType 字型 | 電路圖 PDF（reportlab） | 預設 `C:/Windows/Fonts/msjh.ttc`（微軟正黑體）；其他字型設 `CIRCUIT_FONT` |
 | poppler `pdftoppm` | 電路圖驗證時把 PDF 轉成 PNG（`tools/circuit-drawings/verify.py --render`） | 安裝 poppler 後設 `PDFTOPPM` 指向 `pdftoppm.exe` |
-| `@oai/artifact-tool`（Node 套件） | `project-site/WorkpieceMeasurement/tools/update_cost_estimate.mjs` 更新既有 XLSX | 非公開套件，沒有就不能用這支更新器；成本表本身在本機 `docs/`，不進版控 |
 
 ## 環境變數
 

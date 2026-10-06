@@ -188,7 +188,6 @@ node ../../core/tools/check.mjs WorkpieceMeasurement     # 在本資料夾；在
 | `web/css/style.css` | 桌面版面、側欄卡片、量測表與托盤圖；≤900 px／觸控的精簡版面由 `core/ui/viewer-workspace.css` 處理 |
 | `web/js/main.js` | 舞台設定（`core/ui/stage.js` 的 `createStage`：`look: 'studio'` 給配色與燈光強度，本站另給霧、相機、控制範圍、主光位置與陰影、補光位置）、播放列（`core/ui/player.js`）、視角、介面、紀錄匯出、`?movie` 錄影掛勾（場景與時間狀態取自 `project.js`） |
 | `tools/verify.mjs` | 流程／幾何／運動驗證 |
-| `tools/update_cost_estimate.mjs` | 更新成本試算表並核對公式 |
 | `web/js/control-plan.js` | 3D 電盤／圖面共用元件與 I/O 清單 |
 | `tools/export_control_plan.mjs` | 匯出電路圖資料 |
 
@@ -207,7 +206,7 @@ CL-3000、CL-S015 ×2、CL-S015N ×2、CL-CV5 ×2、OP-88864 ×1 按同一報價
 
 點選「電盤剖視」「電盤透視」「整線配置」檢視。資訊可由工具列的 ◨ 收合，手機預設收合。材料與器件尺寸、線徑、彎曲半徑、熱負載和原廠接腳須待選型確認，電路圖為工程規劃用途。
 
-重建圖面：先 `node WorkpieceMeasurement/tools/export_control_plan.mjs`，再 `python tools/circuit-drawings/render.py WorkpieceMeasurement`（需 reportlab 與中文字型）。成本更新需 Node 的 `@oai/artifact-tool` 及既有 XLSX，可執行 `node WorkpieceMeasurement/tools/update_cost_estimate.mjs`。
+重建圖面：先 `node WorkpieceMeasurement/tools/export_control_plan.mjs`，再 `python tools/circuit-drawings/render.py WorkpieceMeasurement`（需 reportlab 與中文字型）。成本表 2026-10-06 起在 3D工作室平台上維護：本站頁面的「成本表」分頁可以看、改、存快照、匯出 xlsx（命令列 `node studio/vs3d.mjs parts bom @WorkpieceMeasurement`）；本機 `docs/cost-estimate.xlsx` 是轉換前的原檔。
 
 細節檢查：`node core/tools/run.mjs WorkpieceMeasurement tools/verify-details.mjs`。檢查盤內元件包絡、穿線孔射線、線材有限座標／櫃內轉彎、升降導軌及共焦光纖對C型架間隙；627個狀態通過。其餘線材與全機物件配對、彎曲半徑與原廠端子尚不在認證範圍。
 
