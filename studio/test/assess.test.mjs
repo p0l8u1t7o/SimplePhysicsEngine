@@ -155,3 +155,24 @@ test('光學代理（假代理）：提 2 個方案 → 一個沒通過被退回
   const rounds = readFileSync(J.rounds, 'utf8').trim().split('\n').map(l => JSON.parse(l)).filter(x => x.role);
   assert.deepEqual(rounds.map(x => x.role), ['optics', 'optics']);
 });
+
+test('評估＋3D（假代理）：第一段完成後把排程節拍回填到可行性分析（新的一版）', async () => {
+  process.env.FAKE_ASSESS_OK = '1';
+  try {
+    const J = await createProject(ws, { id: 'Both', title: '評估加動畫', prompt: '輸送帶＋龍門取放' });
+    writeJson(J.studioJson, { ...readJson(J.studioJson, {}), components: ['assess', '3d'] });
+    const logs = [], opts = { override: { cli: 'fake', roles: {}, autoApprove: true }, full: false, shots: false, review: false, render: false, stage2: false, log: s => logs.push(s) };
+    let r = await runProject(ws, 'Both', opts);
+    recordAnswer(J, loadQuestions(J).list[0], { choices: [0] });
+    r = await runProject(ws, 'Both', opts);
+    assert.equal(r.status, 'done', logs.join('\n'));
+    assert.ok(logs.some(l => /可行性分析回填排程節拍：每件 [\d.]+ s/.test(l)), logs.filter(l => /節拍|回填/.test(l)).join('\n'));
+    const db = openPartsDb(dbFile);
+    try {
+      const fe = db.assess.latest('Both', 'feasibility');
+      assert.equal(fe.version, 2); assert.equal(fe.note, '3D 完成：排程節拍回填');
+      assert.ok(Number.isFinite(fe.data.cycle.schedule) && fe.data.cycle.schedule > 0);
+      assert.match(fe.content, /3D 排程回填/);
+    } finally { db.close(); }
+  } finally { delete process.env.FAKE_ASSESS_OK; }
+});

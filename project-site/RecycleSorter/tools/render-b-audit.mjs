@@ -8,7 +8,7 @@ import { compareFingerprints } from '@core/verify/fingerprint-compare.mjs';
 import { verifyScene } from '@core/verify/scene.mjs';
 import { createProject } from '../web/js/project.js';
 import { ELECTRICAL_SPEC } from '../web/js/electrical-spec.js';
-const scene = new THREE.Scene(), p = createProject({ scene });
+const scene = new THREE.Scene(), p = await createProject({ scene });
 const data = { fingerprint: fingerprint(p, scene), layout: p.layoutChecks(), spec: ELECTRICAL_SPEC,
   cameras: p.visionCameras.map(c => ({ position: c.root.position.toArray(), rotation: c.root.rotation.toArray(), params: c.params })), triangles: 0, calls: 0 };
 for (let i = 0; i <= 96; i++) {

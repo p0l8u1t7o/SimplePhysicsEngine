@@ -1,0 +1,22 @@
+{
+  "variant": "預設",
+  "params": {},
+  "ok": true,
+  "applicable": true,
+  "bakes": 1,
+  "bodies": 12,
+  "rest": 6.475,
+  "ms": 238,
+  "rows": [
+    {
+      "name": "分流帶尾端與收料箱",
+      "bodies": 12,
+      "steps": 13943,
+      "rest": 6.475,
+      "peak": 6.475,
+      "ms": 238,
+      "hash": "05fd48c3"
+    }
+  ],
+  "failures": []
+}

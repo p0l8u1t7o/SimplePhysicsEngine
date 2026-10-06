@@ -14,7 +14,7 @@ import { resolveRole, loadRoleContext } from './roles.mjs';
 import { paths, projectPaths, acquireLock, addClientNames, readClientNames, redactNames, addProjectNames } from './workspace.mjs';
 import { snapshot, verifyAndRestore } from './isolation.mjs';
 import { loadQuestions, pendingQuestions, askInteractive, writeAppQuestion, readAnswer, printQuestion } from './questions.mjs';
-import { runChecks, takeShots, failureSummary, runFingerprint, compareRenderFingerprint, runPerf, comparePerf } from './checks.mjs';
+import { runChecks, takeShots, failureSummary, runFingerprint, runCycle, compareRenderFingerprint, runPerf, comparePerf } from './checks.mjs';
 import { header, rolePrompt, answersPrompt, fixAgainPrompt, invalidQuestionsPrompt, mustFixPrompt, renderGuardPrompt, renderRevisePrompt } from './prompts.mjs';
 import { writeComparePage } from './compare.mjs';
 import { componentsOf, checkPlanFiles, importAssessment, writePlanFiles, writeBomSummary } from './assess.mjs';
@@ -56,7 +56,7 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
     log(`■ ${msg}`); return { status: 'stopped', message: msg };
   }
   // 元件資料庫的清單寫一份到專案裡給代理查（資料庫不存在、是空的、或 Node 版本太舊沒有 node:sqlite 就略過）
-  try { const { writeCatalog } = await import('./parts-catalog.mjs'); const names = readClientNames(ws); writeCatalog(J, { redact: s => redactNames(s, names) }); } catch { /* 沒有清單不影響流程 */ }
+  try { const { writeCatalog, writePartsModels } = await import('./parts-catalog.mjs'); const names = readClientNames(ws), redact = s => redactNames(s, names); writeCatalog(J, { redact }); writePartsModels(J, { redact }); } catch { /* 沒有清單不影響流程 */ }
   // 提案確認後：把規劃角色寫的元件表匯入元件資料庫（沿用的加使用紀錄，新的標「待確認」）；沒有元件表或讀不了資料庫都不影響流程
   async function importParts() {
     try {
@@ -486,6 +486,19 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
                 { label: '先不要', description: '停在第一段；之後可以用 vs3d stage2 或介面的「開始第二段」按鈕' }], recommended: 0 });
             state.waiting = { askedBy: 'app', ids: [qid] };
             break;
+          }
+          // 評估＋3D：第一段完成後，把排程的節拍與瓶頸回填到可行性分析（存成新的一版；評估平台 Q9）
+          if (seg() === 1 && has('assess') && has('3d') && state.buildStarted && !state.cycleBackfilled) {
+            state.cycleBackfilled = true;
+            const cy = await runCycle(ws, id).catch(e => ({ ok: false, error: e.message }));
+            if (cy.ok) await withDb(db => {
+              const fe = db.assess.latest(pkey, 'feasibility'); if (!fe) return;
+              const top = cy.stations.slice(0, 3).map(s => `${s.station}（佔用 ${s.busy} s、${Math.round(s.util * 100)}%）`).join('、');
+              const md = `${fe.content.trimEnd()}\n\n> 3D 排程回填（${now().slice(0, 10)}）：動畫總長 ${cy.total} s、每件節拍 ${cy.cycle} s；瓶頸 ${cy.bottleneck}；佔用最多的站：${top}。\n`;
+              db.assess.save(pkey, 'feasibility', { content: md, data: { ...fe.data, cycle: { ...(fe.data.cycle || {}), schedule: cy.cycle, bottleneck: cy.bottleneck } }, source: 'agent', note: '3D 完成：排程節拍回填', by: 'vs3d' });
+              log(`  可行性分析回填排程節拍：每件 ${cy.cycle} s、瓶頸 ${cy.bottleneck}${fe.data.cycle?.estimate != null ? `（原本估算 ${fe.data.cycle.estimate} s）` : ''}`);
+            }).catch(e => log(`  ! 節拍沒有回填：${e.message}`));
+            else log(`  ! 節拍分析失敗，沒有回填：${String(cy.error || '').split('\n')[0]}`);
           }
           if (!has('3d')) { log(`\n✔ 評估完成：提案、可行性分析與成本表在資料庫（介面的「可行性」「成本表」分頁可以修改與匯出），共 ${state.round} 輪。`); save(); return { status: 'done', rounds: state.round }; }
           log(`\n✔ ${seg() === 2 ? '第二段' : '第一段'}完成：${state.lastCheck?.ok ? '檢查全部通過' : '依你的選擇結束（檢查未全過）'}，共 ${state.round} 輪。`);

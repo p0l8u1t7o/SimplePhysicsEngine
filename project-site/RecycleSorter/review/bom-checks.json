@@ -1,0 +1,179 @@
+{
+  "variant": "預設",
+  "params": {},
+  "ok": true,
+  "applicable": true,
+  "source": "studio（@RecycleSorter）",
+  "sceneModels": 28,
+  "bomLines": 45,
+  "matched": 5,
+  "sceneOnly": [
+    {
+      "model": "belt-conveyor",
+      "partRef": null,
+      "count": 5,
+      "paths": [
+        "mainBelt/belt-conveyor",
+        "divA/belt-conveyor",
+        "divB/belt-conveyor"
+      ]
+    },
+    {
+      "model": "vacuum-ejector",
+      "partRef": null,
+      "count": 1,
+      "paths": [
+        "robot/HSR065/flange/suction tool/vacuum-ejector"
+      ]
+    },
+    {
+      "model": "solenoid-valve",
+      "partRef": null,
+      "count": 1,
+      "paths": [
+        "robot/HSR065/flange/suction tool/solenoid-valve"
+      ]
+    },
+    {
+      "model": "float-rod",
+      "partRef": null,
+      "count": 1,
+      "paths": [
+        "robot/HSR065/flange/suction tool/float-rod"
+      ]
+    },
+    {
+      "model": "suction-cup",
+      "partRef": null,
+      "count": 1,
+      "paths": [
+        "robot/HSR065/flange/suction tool/suction-cup"
+      ]
+    },
+    {
+      "model": "frl-unit",
+      "partRef": null,
+      "count": 1,
+      "paths": [
+        "robot/frl-unit"
+      ]
+    },
+    {
+      "model": "signal-tower",
+      "partRef": null,
+      "count": 1,
+      "paths": [
+        "frame/tower"
+      ]
+    },
+    {
+      "model": "light-curtain",
+      "partRef": null,
+      "count": 1,
+      "paths": [
+        "frame/light-curtain"
+      ]
+    },
+    {
+      "model": "hmi",
+      "partRef": null,
+      "count": 1,
+      "paths": [
+        "hmi/hmi"
+      ]
+    },
+    {
+      "model": "estop",
+      "partRef": null,
+      "count": 2,
+      "paths": [
+        "hmi/estop",
+        "hmi/reset-button"
+      ]
+    },
+    {
+      "model": "abb-irb360",
+      "partRef": null,
+      "count": 1,
+      "paths": [
+        "abbRobot/delta"
+      ]
+    },
+    {
+      "model": "cabinet-fan",
+      "partRef": null,
+      "count": 3,
+      "paths": [
+        "siteCabinet/cabinet-fan",
+        "siteCabinet/cabinet-fan",
+        "siteCabinet/cabinet-fan"
+      ]
+    },
+    {
+      "model": "teach-pendant",
+      "partRef": null,
+      "count": 1,
+      "paths": [
+        "siteCabinet/teach-pendant"
+      ]
+    },
+    {
+      "model": "air-compressor",
+      "partRef": null,
+      "count": 1,
+      "paths": [
+        "siteCabinet/air-compressor"
+      ]
+    },
+    {
+      "model": "air-tank",
+      "partRef": null,
+      "count": 1,
+      "paths": [
+        "siteCabinet/air-tank"
+      ]
+    },
+    {
+      "model": "air-manifold",
+      "partRef": null,
+      "count": 1,
+      "paths": [
+        "siteCabinet/air-manifold-unit"
+      ]
+    }
+  ],
+  "bomOnly": [
+    {
+      "line": "2-01",
+      "code": "P-00132",
+      "model": "camera",
+      "name": "工業相機"
+    },
+    {
+      "line": "7-03",
+      "code": "P-00150",
+      "model": "camera",
+      "name": "高速相機方案"
+    }
+  ],
+  "warnings": [
+    "場景有 belt-conveyor ×5（mainBelt/belt-conveyor），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+    "場景有 vacuum-ejector ×1（robot/HSR065/flange/suction tool/vacuum-ejector），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+    "場景有 solenoid-valve ×1（robot/HSR065/flange/suction tool/solenoid-valve），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+    "場景有 float-rod ×1（robot/HSR065/flange/suction tool/float-rod），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+    "場景有 suction-cup ×1（robot/HSR065/flange/suction tool/suction-cup），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+    "場景有 frl-unit ×1（robot/frl-unit），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+    "場景有 signal-tower ×1（frame/tower），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+    "場景有 light-curtain ×1（frame/light-curtain），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+    "場景有 hmi ×1（hmi/hmi），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+    "場景有 estop ×2（hmi/estop），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+    "場景有 abb-irb360 ×1（abbRobot/delta），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+    "場景有 cabinet-fan ×3（siteCabinet/cabinet-fan），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+    "場景有 teach-pendant ×1（siteCabinet/teach-pendant），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+    "場景有 air-compressor ×1（siteCabinet/air-compressor），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+    "場景有 air-tank ×1（siteCabinet/air-tank），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+    "場景有 air-manifold ×1（siteCabinet/air-manifold-unit），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+    "成本表 2-01 P-00132 工業相機（模型 camera）場景裡沒有：沒畫出來；不畫的在 BOM 標 noScene",
+    "成本表 7-03 P-00150 高速相機方案（模型 camera）場景裡沒有：沒畫出來；不畫的在 BOM 標 noScene"
+  ]
+}

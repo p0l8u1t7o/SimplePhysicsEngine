@@ -30,7 +30,7 @@ const stage = createStage({
   controls: { minDistance: 300, maxDistance: 18000 },
 });
 const { renderer, scene, camera, controls } = stage;
-const project = createProject({ scene });
+const project = await createProject({ scene });
 const { stationStart, metrics, jobs, throughput, abbJobs, passed } = project;
 
 // ---------------------------------------------------------------- 共用版面：精簡版面（☰ 製程與視角、⚙ 播放設定）、焦點追隨（◎）

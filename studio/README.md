@@ -239,6 +239,13 @@ node studio/vs3d.mjs users remove amy
 - **儀表板**：「評估案」數字卡（可行／有條件可行／不可行）。
 - 驗證：`studio/test/assess.test.mjs`（格式檢查、BOM 匯入、只做評估的完整流程與修改評估，用假代理）；介面測試 `node studio/test/assess-e2e.mjs`（佇列、格式退回、可行性分頁、介面修改、三種報告、請代理修改、加上 3D）。
 
+### 場景、成本表與節拍的一致性（評估平台 Q9）
+
+- **元件 ↔ 3D 模型**：每輪代理執行前，app 把元件庫裡有 3D 模型的元件寫到專案的 `web/js/parts-models.js`（編號 → 模型與參數，內容沒變就不寫；本庫的站不寫）。開發角色用 core 的 `fromPart('P-xxxxx')` 建立設備（模型根帶 `partRef`），自己畫的用 `tagPart` 標編號，現場既有、不採購的設備標 `userData.noBom`。
+- **bom 檢查**（core 內建，只警告）：跑檢查前 app 把專案的 BOM 寫到 `.studio/bom.json`（環境變數 `VS3D_BOM_JSON`），檢查列出「場景有但沒列進成本」與「成本表有模型但場景沒畫」（不畫的在 BOM 標 noScene）。本庫的站直接讀本機資料庫；CI 沒有資料庫就略過。
+- **節拍回填**：有「評估＋成本」的 3D 專案，第一段完成時 app 跑 core 的節拍分析（`anim/cycle.js`：各站佔用、稼動率、瓶頸），把每件節拍與瓶頸回填到可行性分析（存成新的一版，全文附上一段「3D 排程回填」）；之後平台的 feasibility 檢查用它和估算節拍對照。
+- 驗證：`studio/test/consistency.test.mjs`（手臂可達、節拍分析、場景 ↔ BOM、fromPart、元件模型清單）、`assess.test.mjs` 的「評估＋3D」流程（節拍回填）。
+
 ## 元件資料庫（2026-10-05）
 
 各站做設計、選型與成本表時共用的參考：元件的規格、歷次價格、供應商，以及哪些專案用過。用 Node 內建的 `node:sqlite`（Node.js 22.13 以上，沒有 npm 套件）。

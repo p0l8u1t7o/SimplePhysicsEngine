@@ -6,16 +6,17 @@
 
 | 路徑 | 內容 |
 |---|---|
-| `vendor/` | three.js r160（`three.module.js`）與 addons，全站只有這一份 |
+| `vendor/` | three.js r160（`three.module.js`）與 addons，全站只有這一份；`rapier/`：Rapier 決定性版 0.21（剛體動力學，WebAssembly 內嵌，只由 `physics/` 引用） |
 | `geom/` | `shapes.js`（統一形狀：block／blockBetween／cylinder／rod／tube／pipe／profile／rounded／bevelBox／screw／decal／plate／floorText）、`materials.js`（共用材質表 MAT）、`hardware.js`（倒角外殼、螺栓、腳座、馬達、感測器…）、`finish.js`、`surfaces.js`、`perforated.js` |
-| `robot/` | `kinematics.js`：6 軸阻尼最小平方 IK（參數可調） |
-| `models/` | 共用模型庫：每個模型有 `meta`（名稱、分類、可調參數、可動狀態、用法）與 `create(params) → { root, set(state) }`，在 `models/index.js` 登記；目錄頁 `/core/catalog/` 可預覽、調參與搜尋。共 80 個，清單見下方「共用模型」 |
+| `robot/` | `kinematics.js`：6 軸阻尼最小平方 IK（參數可調）；`reach.js`：手臂可達檢查（IK 或工作空間包絡，回傳 layoutChecks 的列） |
+| `models/` | 共用模型庫：每個模型有 `meta`（名稱、分類、可調參數、可動狀態、用法）與 `create(params) → { root, set(state) }`，在 `models/index.js` 登記；`models/parts.js`：`fromPart(元件編號)` 用元件庫的模型與參數建立並標 `partRef`、`tagPart`；目錄頁 `/core/catalog/` 可預覽、調參與搜尋。共 80 個，清單見下方「共用模型」 |
 | `migrations/` | 各版共用模型的換用對照（各站把自己畫的零件換成共用模型時照著改）：`1.10.0-vision.md`、`1.10.0-motion.md`、`1.10.0-equipment.md`、`1.10.0-transport.md`；1.9.0 的對照表在 `MIGRATION.md` |
 | `catalog/` | 模型目錄頁（發布在 Pages） |
-| `anim/` | `track.js`：時間軌與時間軸（`createTimeline`、`Track`、`smooth`），狀態只由時間決定；`sequence.js`：單一手臂的步驟序列；`arrival.js`：手臂到位閘門（播放時等手臂到位、逾時故障） |
+| `anim/` | `cycle.js`：節拍分析（各站佔用、稼動率、瓶頸）；`track.js`：時間軌與時間軸（`createTimeline`、`Track`、`smooth`），狀態只由時間決定；`sequence.js`：單一手臂的步驟序列；`arrival.js`：手臂到位閘門（播放時等手臂到位、逾時故障） |
 | `electrical/` | 線材、拖鏈、電盤、電控元件（`component()` 元件表）與檢視器 |
-| `examples/` | `segment2/`：第二段（電控、電盤、配線、相機子畫面、視覺疊圖）的完整範例與說明，跟著 core 一起檢查；新專案照 `examples/segment2/README.md` 做 |
+| `examples/` | `segment2/`：第二段（電控、電盤、配線、相機子畫面、視覺疊圖）的完整範例與說明，跟著 core 一起檢查；新專案照 `examples/segment2/README.md` 做。`physics/`：剛體動力學四種用途（物料流、掉落與滑槽、料箱堆積、夾取穩定）的範例頁與檢查 |
 | `optics/` | 機器視覺的光學計算（純函式：L1 視野、倍率、每像素、最小缺陷、景深、運動模糊、行頻、像圈、接口、頻寬、打光；L2 `lighting.js` 明暗場、缺陷對比、遮擋、近似模擬影像）與 3D 配置檢視頁 `optics/view.html`；studio 的光學工作台、`vs3d optics eval`、相機模型共用，說明在 `optics/README.md` |
+| `physics/` | 剛體動力學（Rapier 決定性版）：`physics.js` 預先烘焙軌跡（輸送帶、投料、移除區、治具、吸附、力控制兩指夾爪），`apply(t)` 只取樣、可以倒著拖；`analysis.js` 物料流、靜止時間、落點、料箱堆積與可抓取件、夾取滑移。範例 `/core/examples/physics/`，說明在 `physics/README.md` |
 | `movie/` | 錄影程式（4K 取樣 1080p、絕對時間取樣、追焦運鏡），各專案以 `?movie` 呼叫 |
 | `ui/` | `stage.js`（renderer／場景／相機／燈光／3D 標籤／視角轉場／畫面迴圈／`exposeSim`）、`player.js`（標準播放列）、`viewer-workspace`（相機視窗與焦點追隨，所有專案共用）、`vision-overlay` |
 | `verify/` | 統一檢查：`scene.mjs`（全場干涉＋重合面閃爍）、`electrical.mjs`（電控配置）、`cables.mjs`（配線動態取樣）、`feedthroughs.mjs`（穿板孔）、`clearance.mjs`（有向包圍盒間距）、`determinism.mjs`（倒序一致）、`fingerprint.mjs`／`fingerprint-compare.mjs`（排程指紋，渲染補強前後比對）、`run.mjs`（執行入口）、`dom-stub.mjs` |
@@ -195,12 +196,15 @@ node core/tools/check.mjs --only scene     # 只跑某項
 |---|---|---|
 | `models`（core） | ✓ | 每個共用模型以預設參數建立，狀態走完全範圍，做干涉與重合面檢查（`core/review/models.json`） |
 | `examples`（core） | ✓ | 第二段範例（`examples/segment2`）的電控與配線檢查 |
+| `bom` | ✓ | 場景的共用模型（`userData.coreModel`，優先用 `partRef` 編號）對照平台的 BOM：場景有但沒列進成本、成本表有模型但場景沒畫（標 `noScene` 的除外）；標 `noBom` 的現場既有設備不算。只警告；本機沒有平台資料庫（例如 CI）或站沒有成本表就略過。結果寫入 `review/bom-checks.json` |
+| `physics`（core） | ✓ | 剛體動力學範例（`examples/physics`）四個情境在 Node 烘焙兩次相同、無頭 Chrome 的雜湊和 Node 相同、分析數字合理 |
 | `structure` | ✓ | 開發架構（不管專案是哪個工具做的）：`project.json` 合法且有 `title`、`summary`、`coreVersion`（語意化版本、不超過 `core/VERSION`）；`AGENTS.md`、`CLAUDE.md`（引用 `@AGENTS.md`）；本庫的站有 `.claude/settings.json` 寫檔關卡；`docs/` 被 git 忽略；`web/` 每個 HTML 連 `../core/favicon.svg`、importmap 的 `@core/` 指到 `../core/`。跑全部專案時另查 `project-site/` 底下沒有 `web/index.html` 的資料夾（`core · structure`）。pre-commit 也會檢查這次提交到的站 |
 | `names` | ✓ | 專案資料夾（不含 `docs/`、`TEMP/`）不得出現用戶名稱；名單只放本機 `.private/client-names.txt`（studio 工作區是 `.studio/client-names.txt`），沒有名單就略過。pre-commit 也會掃要提交的內容 |
 | `imports` | ✓ | 從 index.html 走遍 import 圖，找不到的檔案（部署後才會壞的路徑） |
 | `determinism` | ✓ | 40 個時間點順序與倒序取樣，所有可見物件的世界矩陣必須相同 |
 | `layout` | ✓ | `layoutChecks()` 全數通過 |
 | `scene` | ✓ | 動態干涉、靜態架設相撞、重合面閃爍；結果寫入 `review/scene-verification.json/.txt` |
+| `physics` | ✓ | 用 `core/physics` 的站（`project.physics`）：再烘焙一次雜湊相同、靜止接觸穿透 ≤ 8 mm、烘焙時間 ≤ 10 s（`verify.physics` 可改）；結果寫入 `review/physics-checks.json`；沒有用物理就略過 |
 | `electrical` | ✓ | 場景有電控元件或電盤時：元件在櫃內、編號不重複、機身不重疊、櫃內連線不穿元件、穿板孔與接頭；`verify.cables` 有宣告時另做配線動態取樣（線路與拖鏈對障礙物）。結果寫入 `review/electrical-checks.json`；沒有電控就略過 |
 | `ui` |  | 標準互動測試（`core/tools/ui-check.mjs`）：桌面、手機直向、手機橫向、觸控平板四種尺寸，檢查載入與主控台錯誤、版面不溢出、畫布面積、播放／暫停、上一步／下一步／步驟選單、視角按鈕與選單收合、側欄、標籤在畫布內且（精簡版面）不重疊、點按目標 ≥ 30 px、`?movie`；結果寫入 `review/ui-check.json`，`--shots 資料夾` 另存截圖；`project.json` 的 `ui.skip`／`ui.params` 可設定 |
 | 專案自有 | 依 `checks` | `project.json` 的 `checks.quick`／`checks.full` |
@@ -216,6 +220,19 @@ node core/tools/scene-dump.mjs --diff TEMP/<名>-before.json TEMP/<名>-after.js
 傾印用網頁同一份 `project.js` 建場景（所有情境、預設 9 個時間點，`--times N` 可改），記下每個零件的幾何、頂點雜湊、世界矩陣（1e-6）、材質屬性、陰影旗標、可見性、名稱與 `routingHardware`，以及燈光與虛擬相機；同一時間點內排序，所以多一層群組或建立順序不同不算差異，同一份場景重跑的檔案逐位元組相同。比對列出每個情境、時間點缺少／多出／不同的零件與差在哪個欄位，走線五金另外統計；完全相同離開碼 0、有差異 1。`--ignore-names` 不比一般零件的名稱。它不比群組階層、`userData`、貼圖內容與時間點之間的動作，檢查與截圖仍然要跑。
 
 另有兩個不在 check.mjs 裡、給 studio 渲染補強守門用的工具：`node core/tools/run.mjs <專案> ../core/verify/run.mjs fingerprint`（印出一行排程指紋 JSON）、`node core/tools/perf-check.mjs <專案> [--out 檔案]`（各視角三角面、draw call 與手機幀率）。
+
+## 運動、碰撞與物理（評估平台 Q8、Q9）
+
+做評估時，動作與空間要能回答「做不做得到、要多久」。core 提供四類工具，都只讀場景與排程、不改站的行為：
+
+| 問題 | 工具 | 用法 |
+|---|---|---|
+| 手臂到不到得了 | `robot/reach.js` | `reachByIK(arm, tcp, points)`：6 軸手臂用 IK（多組初值）求解每個工作點，誤差 ≤ 1 mm 才算到得了；`reachByEnvelope({ base, rMin, rMax, yMin, yMax }, points)`：SCARA、並聯手臂用工作空間包絡。回傳的列直接放進 `layoutChecks` |
+| 會不會撞 | `verify/scene.mjs`（`scene` 檢查） | 沿動畫取樣的動態干涉、固定件架設相撞、重合面閃爍（見「檢查」） |
+| 節拍與瓶頸 | `anim/cycle.js` | `cycleReport(project)`：從排程事件算各站佔用時間、稼動率、瓶頸；`project.cycleTime`（秒／件）沒給就用動畫總長。`node core/tools/run.mjs <站> ../core/verify/run.mjs cycle` 印一行 JSON；studio 在評估案的 3D 完成後把它回填到可行性分析 |
+| 物料怎麼流、會不會掉 | `physics/` | 剛體動力學（Rapier 決定性版）：輸送物料流、掉落與滑槽、料箱堆積與可抓取件、夾取穩定；預先烘焙、`apply(t)` 只取樣（說明在 `physics/README.md`，範例 `/core/examples/physics/`） |
+
+場景和成本表要一致：用元件庫的設備時以 `models/parts.js` 的 `fromPart('P-xxxxx')` 建立（模型根帶 `partRef`），自己畫的用 `tagPart` 標編號，現場既有、不採購的設備在根群組標 `userData.noBom = '原因'`。`bom` 檢查會列出場景有但成本表沒有、成本表有但場景沒畫的項目（只警告）。
 
 ## 回歸比對（改共用模組或渲染時）
 

@@ -437,7 +437,7 @@ switch (cmd) {
         if (!g) fail(`專案 ${rest[0]} 還沒有 BOM`);
         if (o.json) console.log(JSON.stringify({ project: rest[0], name: g.bom.name, settings: g.settings, summary: g.summary,
           lines: g.lines.map(l => ({ line: l.line, section: l.section, grp: l.grp, nature: l.nature, code: l.code, part_version: l.part_version, name: l.name, spec: l.spec, model: l.model,
-            qty: l.qty, unit: l.unit, unit_twd: l.unit_twd, subtotal: l.subtotal, grade: l.grade, flags: l.flags })) }, null, 2));
+            qty: l.qty, unit: l.unit, unit_twd: l.unit_twd, subtotal: l.subtotal, grade: l.grade, flags: l.flags, model_id: l.model_id, no_scene: l.no_scene, labor: l.labor })) }, null, 2));
         else {
           for (const l of g.lines) console.log(`${l.line.padEnd(6)} ${l.name}｜${l.qty} ${l.unit}｜NT$ ${(l.unit_twd ?? 0).toLocaleString('en-US')}｜小計 ${l.subtotal.toLocaleString('en-US')}${l.code ? `｜${l.code} v${l.part_version}${l.newer ? `（有新版 v${l.latest_version}）` : ''}` : ''}`);
           const s = g.summary; console.log(`小計 ${s.subtotal.toLocaleString('en-US')}｜含預備費 ${s.total.toLocaleString('en-US')}｜含稅 ${s.taxed.toLocaleString('en-US')}`);

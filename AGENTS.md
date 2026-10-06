@@ -26,7 +26,7 @@
 
 | 位置 | 內容 |
 |---|---|
-| `core/` | 共用框架（以 importmap `@core/` 引用）：geom（形狀、材質、五金、地面）、models（80 個參數化模型＋目錄頁：市購品一律放這裡——手臂、輸送與搬運、相機與視覺、氣動與運動、夾爪、指示與感測小件、實驗室與製程設備；各站換用的對照在 `core/migrations/`）、anim 的 sampling（取樣時間）、examples（第二段範例：電控、配線、相機）、anim（時間軸、步驟序列、到位閘門）、ui（stage、player、viewer-workspace）、electrical、movie、verify、template、tools；版本號在 `core/VERSION`，core 需求登記在 `core/REQUESTS.md` |
+| `core/` | 共用框架（以 importmap `@core/` 引用）：geom（形狀、材質、五金、地面）、models（80 個參數化模型＋目錄頁：市購品一律放這裡——手臂、輸送與搬運、相機與視覺、氣動與運動、夾爪、指示與感測小件、實驗室與製程設備；各站換用的對照在 `core/migrations/`）、anim 的 sampling（取樣時間）、examples（第二段範例：電控、配線、相機；剛體動力學四種用途）、optics（光學計算 L1、打光與模擬影像 L2）、physics（剛體動力學，Rapier 決定性版）、robot（IK、手臂可達檢查）、anim（時間軸、步驟序列、到位閘門）、ui（stage、player、viewer-workspace）、electrical、movie、verify、template、tools；版本號在 `core/VERSION`，core 需求登記在 `core/REQUESTS.md` |
 | `project-site/<專案>/` | 所有展示專案（之後新增的也放這裡）。`web/`（網站；`web/js/project.js` 是網頁與檢查共用的場景）、`project.json`（首頁說明、`coreVersion`、`checks.quick`／`checks.full`、`variants`、`ui`）、`tools/`（專案自有檢查）、`review/`（檢查結果，進版控）、`docs/`（只留本機）、`AGENTS.md`／`CLAUDE.md`（該站規則）、`.claude/settings.json`（寫檔關卡） |
 | `tools/` | 跨專案工具：干涉回歸、跨站視覺檢查（`verify-vision.mjs`）、電路圖、錄影輸出（配線與電盤檢查已移到 core 的 `electrical`）；`bin/` 是各站共用的 ffmpeg／ffprobe（`setup.ps1 -Ffmpeg` 下載，不進版控） |
 | `scripts/` | 腳本：`setup.ps1`（環境設定）、`start`／`stop`（`.ps1`＋可點兩下的 `.cmd`，網頁啟動與停止，PID 與輸出在 `logs/`）、`migrate/`（搬庫腳本） |
@@ -94,6 +94,7 @@ node --import ./core/tools/register.mjs tools/verify-interference.mjs   # 四站
   - 精簡版面的操作：☰ 開製程與視角、⚙ 開播放設定、工具列開側欄。抽屜開啟時，`uncover` 會讓出畫面。
   - 專案 CSS 不要再寫隱藏或縮小這些區塊的窄螢幕規則。
 - `window.sim` 用 `exposeSim(...)`；錄影在 `?movie` 時呼叫 `installMovie`。每頁都要連 `../core/favicon.svg`。
+- **場景與成本表一致**（2026-10-06 拍板，評估平台 Q9）：市購品在成本表一律引用元件編號；3D 一律優先用 core 模型，元件庫有的用 `fromPart('P-xxxxx')`（`core/models/parts.js`）建立並帶 `partRef`，自己畫的用 `tagPart` 標編號，現場既有、不採購的設備標 `userData.noBom`；`bom` 檢查列出落差（只警告）。core 沒有的模型照現行流程先在站裡暫代並登記 `core/REQUESTS.md`。
 - **共用功能優先放 core**：專案內發現可共用的寫法，先在專案暫代，再搬進 core，然後各站改用。
 - **共用的東西不放在某一站的資料夾**（2026-10-05 拍板）：多站會用到的執行檔（ffmpeg／ffprobe 在 `tools/bin/`）、跨站的檢查與工具放根目錄 `tools/`；站的 `tools/` 只放該站自己的檢查與產生器。
 

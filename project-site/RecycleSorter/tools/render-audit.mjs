@@ -6,7 +6,7 @@ import { writeFileSync, readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { verifyScene } from '../../../core/verify/scene.mjs';
 
-const scene = new THREE.Scene(), project = createProject({ scene });
+const scene = new THREE.Scene(), project = await createProject({ scene });
 const hash = createHash('sha256');
 let triangles = 0, calls = 0;
 const clean = value => JSON.stringify(value, (key, val) => {

@@ -121,7 +121,8 @@ ${components.includes('assess') ? ASSESS_TASK : PARTS_JSON}
 
 依配置提案（\`.studio/plan/proposal.md\`）與 \`AGENTS.md\`「已拍板事項」，完成第一段：
 
-- 場景：設備與工件寫在 \`web/js/project.js\`，能用 \`core/models\` 的模型就用
+- 場景：設備與工件寫在 \`web/js/project.js\`，能用 \`core/models\` 的模型就用；元件庫有的設備用 \`fromPart('P-xxxxx')\`（\`core/models/parts.js\`，清單在 \`web/js/parts-models.js\`）建立，模型根會帶 \`partRef\`，平台的 bom 檢查靠它對成本表；自己畫的設備用 \`tagPart(group, 'P-xxxxx')\` 標編號，現場既有、不採購的設備在根群組標 \`userData.noBom = '原因'\`
+- 有物料流、掉落、料箱堆積或夾取穩定要表現時，用 \`core/physics\`（預先烘焙，\`createProject\` 可以是 async；說明在 core 的 \`physics/README.md\`）；工作點用 \`core/robot/reach.js\` 的可達檢查放進 \`layoutChecks\`
 - 排程：製程時間軸（\`createStepSequence\` 或 \`createTimeline\`），節拍符合提案
 - 介面：站別按鈕、視角、3D 標籤、側欄說明（\`web/js/main.js\`；\`index.html\` 的版面骨架保留）
 - 播放列與手機、平板精簡版面、\`?movie\` 錄影掛鉤（範本已接好，不要拿掉；錄影的追焦對象改成本專案的工件）

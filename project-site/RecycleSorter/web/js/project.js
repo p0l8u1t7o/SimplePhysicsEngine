@@ -27,6 +27,7 @@ import { createCameras, createElectrical } from './electrical.js';
 import { SURFACE, beltTexture, detailBatch, addDetails, createLightPatch } from './appearance.js';
 import { createFrontLine, RUST, SITE_FRAME } from './frontline.js';
 import { deltaIK } from './delta.js';
+import { bake, sampler } from '@core/physics/physics.js';
 
 const L = LAYOUT, G = 9810;                          // 重力 mm/s²
 const BELT_MAT = std(0x304b3b, .93, .01);
@@ -45,7 +46,7 @@ const EASE = (() => {
 })();
 const sumDur = (ds, k) => ds.slice(0, k).reduce((s, d) => s + d, 0);
 
-export function createProject({ scene }) {
+export async function createProject({ scene }) {
   const timing = createTiming();
 
   floor(scene, { size: [9000, 5600], center: [-2300, -300], cell: 200 });        // 含上游的既有分選線
@@ -487,6 +488,28 @@ export function createProject({ scene }) {
     return { q: solve(s.item.off + BELT_V * tt, y, s.item.z, s.yaw, s.turn) || HOME, seg: s };
   }
 
+  // ================================================================ 分流帶尾端 → 收料箱（core/physics，2026-10-06 評估平台 Q8）
+  // 工件到帶尾前 PHYS_LEAD 秒交給物理：分流帶（皮帶速度）把工件帶到尾端翻落、掉進收料箱堆積。原本是拋物線＋固定格位。
+  // 工件用外框方塊近似（L × H × W），空瓶約 60 kg/m³；烘焙在載入時做一次（幾百 ms），apply(τ) 只取樣。
+  const PHYS_LEAD = .5, physJobs = jobs.filter(j => j.exitTau - PHYS_LEAD > j.landTau);
+  const binStatics = ['A', 'B'].flatMap(key => {
+    const bn = key === 'A' ? L.binA : L.binB, [bx, by, bd] = L.bin;
+    return [{ id: `bin${key} 底`, size: [bx, 20, bd], pos: [bn.x, 30, bn.z] },
+      ...[-1, 1].map(s => ({ id: `bin${key} 長邊 ${s}`, size: [bx, by, 20], pos: [bn.x, by / 2 + 42, bn.z + s * (bd / 2 - 10)] })),
+      ...[-1, 1].map(s => ({ id: `bin${key} 短邊 ${s}`, size: [20, by, bd - 64], pos: [bn.x + s * (bx / 2 - 10), by / 2 + 42, bn.z] }))];
+  });
+  const physics = await bake({
+    name: '分流帶尾端與收料箱', duration: timing.tauTotal + .5, seed: 1, statics: [{ id: '地面', size: [6000, 20, 4000], pos: [0, -10, 0] }, ...binStatics],
+    conveyors: ['A', 'B'].map(k => { const d = divOf(k); return { id: `div${k}`, size: [d.x[1] - d.x[0], 20, d.width], pos: [(d.x[0] + d.x[1]) / 2, d.top - 10, d.z], speed: L.divV, dir: [d.dir, 0, 0] }; }),
+    drops: physJobs.map(j => {
+      const d = divOf(j.dest), it = j.item, x = j.exitX - d.dir * L.divV * PHYS_LEAD;
+      j.physTau = j.exitTau - PHYS_LEAD;
+      return { id: it.id, t: j.physTau, pos: [x, d.top + it.H / 2 + 1, d.z], rot: [0, it.theta * 180 / Math.PI, 0], velocity: [d.dir * L.divV, 0, 0],
+        item: { name: it.kind, shape: 'box', size: [it.L, it.H, it.W], density: 60, friction: .5, restitution: .05 } };
+    }),
+  });
+  const physAt = sampler(physics), halfUp = new THREE.Vector3(), physQ = new THREE.Quaternion();
+
   // ================================================================ 套用時間 t
   let last = null;
   function apply(t) {
@@ -505,7 +528,7 @@ export function createProject({ scene }) {
     plunger.position.y = -qq.fl;
     const tcp = tcpOf(qq);
 
-    const counts = { A: 0, B: 0, other: 0, missed: 0, abb: 0, handoff: 0 };
+    const counts = { A: 0, B: 0, other: 0, missed: 0, abb: 0, handoff: 0 }, physNow = new Map(physAt(τ).map(o => [o.id, o]));
     for (const it of items) {
       const job = it.job, grp = it.grp;
       let x = it.off + s, y = b.top + 2, z = it.zAt(x), rot = it.theta, show = true;
@@ -534,8 +557,14 @@ export function createProject({ scene }) {
         } else if (τ < job.landTau) {                                              // 破真空後自由落下
           const dt = τ - job.releaseTau;
           x = d.place; z = d.z; y = L.release - 1.5 - it.H - G * dt * dt / 2;
-        } else if (τ < job.exitTau) {                                              // 在分流帶上
+        } else if (τ < (job.physTau ?? job.exitTau)) {                             // 在分流帶上
           x = d.place + d.dir * L.divV * (τ - job.landTau); z = d.z; y = d.top + 2;
+        } else if (job.physTau != null) {                                          // 交給物理：帶尾翻落、掉進收料箱堆積
+          const o = physNow.get(String(it.id));
+          physQ.set(...o.quat); halfUp.set(0, it.H / 2, 0).applyQuaternion(physQ);
+          grp.visible = true; grp.position.set(o.pos[0] - halfUp.x, o.pos[1] - halfUp.y, o.pos[2] - halfUp.z); grp.quaternion.copy(physQ);
+          if (τ >= job.landTau) counts[job.dest]++;
+          continue;
         } else if (τ < job.binTau) {                                               // 落進收料箱
           const u = (τ - job.exitTau) / (job.binTau - job.exitTau);
           x = job.exitX + (job.slot.x - job.exitX) * u; z = d.z + (job.slot.z - d.z) * u;
@@ -549,7 +578,7 @@ export function createProject({ scene }) {
         if (it.cls === 'other') counts.other++; else counts.missed++;
       } else if (x - leadOf(it) < L.site.x0 + L.site.roller) show = false;         // 還沒整件上到帶面（在上游入料罩裡）
       grp.visible = show;
-      if (show) { grp.position.set(x, y, z); grp.rotation.y = rot; }
+      if (show) { grp.position.set(x, y, z); grp.rotation.set(0, rot, 0); }      // 整組姿態都設（物理段會設 x、z 的轉角，倒著拖回來要清掉）
     }
 
     fovMark.visible = ch.id === 'vision' || ch.id === 'ai';
@@ -706,7 +735,7 @@ export function createProject({ scene }) {
 
   return {
     electrical: elec, visionCamera: cameras[0], visionCameras: cameras, marks, lightPatch,
-    total: TOTAL, apply, layoutChecks, timing, jobs, missed, items, itemById, arm, segs, metrics, ctGaps, bad, throughput,
+    total: TOTAL, apply, layoutChecks, timing, jobs, missed, items, itemById, arm, segs, metrics, ctGaps, bad, throughput, physics,
     front, frontCameras: front.cameras, abbJobs, passed, abbSegs, abbAt, abbMetrics,
     stationStart: STATIONS.map((_, k) => (CHAPTERS.find(c => c.station === k) ?? CHAPTERS[0]).t[0]),
     get state() { return last; },

@@ -69,7 +69,9 @@ export function verifyScene(project, scene, {
   // 門檻可依模組調整（例如精密產品用 0.01 mm）：verify.thresholds = { 模組名: { tol, dist, area } }；兩零件取較嚴者
   const TH = cfg.thresholds || {};
   const th = m => TH[info.get(m)?.module] || {};
-  const pair = (a, b) => { const A = th(a), B = th(b); return { tol: Math.min(A.tol ?? TOL, B.tol ?? TOL), dist: Math.min(A.dist ?? ZF.dist, B.dist ?? ZF.dist), area: Math.min(A.area ?? ZF.area, B.area ?? ZF.area) }; };
+  // core/physics 烘焙的物體（祖先有 userData.physics）：接觸本來就有幾 mm 的穿透，和任何零件的穿插門檻放寬到 verify.physics.restTol（預設 8 mm）
+  const phys = m => { for (let p = m; p; p = p.parent) if (p.userData.physics) return true; return false; }, PHYS = cfg.physics?.restTol ?? 8;
+  const pair = (a, b) => { const A = th(a), B = th(b), tol = Math.min(A.tol ?? TOL, B.tol ?? TOL); return { tol: phys(a) || phys(b) ? Math.max(tol, PHYS) : tol, dist: Math.min(A.dist ?? ZF.dist, B.dist ?? ZF.dist), area: Math.min(A.area ?? ZF.area, B.area ?? ZF.area) }; };
 
   // ---------------------------------------------------------------- 允許的接觸（逐條說明原因）
   // 線材群組（cable-routing 的 userData.cable）：端點 30 mm 內落在對方外框裡就是接入

@@ -1,0 +1,121 @@
+{
+  "variant": "預設",
+  "params": {},
+  "ok": true,
+  "applicable": true,
+  "source": "studio（@MilitaryGradePC）",
+  "sceneModels": 30,
+  "bomLines": 81,
+  "matched": 16,
+  "sceneOnly": [
+    {
+      "model": "stopper",
+      "partRef": null,
+      "count": 5,
+      "paths": [
+        "cell/stopper",
+        "cell/stopper",
+        "cell/stopper"
+      ]
+    },
+    {
+      "model": "sensor-led",
+      "partRef": null,
+      "count": 5,
+      "paths": [
+        "cell/sensor-led",
+        "cell/sensor-led",
+        "cell/sensor-led"
+      ]
+    },
+    {
+      "model": "air-cylinder",
+      "partRef": null,
+      "count": 2,
+      "paths": [
+        "cell/air-cylinder",
+        "cell/air-cylinder"
+      ]
+    },
+    {
+      "model": "vision-camera",
+      "partRef": null,
+      "count": 2,
+      "paths": [
+        "cell/vision-camera",
+        "robotRail/VM-60B1/vision-camera"
+      ]
+    }
+  ],
+  "bomOnly": [
+    {
+      "line": "1-01",
+      "code": "P-00027",
+      "model": "denso-vm60b1",
+      "name": "六軸手臂＋控制器＋教導器"
+    },
+    {
+      "line": "2-01",
+      "code": "P-00035",
+      "model": "camera",
+      "name": "S1 頂視相機"
+    },
+    {
+      "line": "2-04",
+      "code": "P-00038",
+      "model": "bar-light",
+      "name": "S1 低角度條光"
+    },
+    {
+      "line": "2-06",
+      "code": "P-00040",
+      "model": "camera",
+      "name": "手臂相機"
+    },
+    {
+      "line": "5-04",
+      "code": "P-00064",
+      "model": "parallel-gripper",
+      "name": "翻轉夾爪"
+    },
+    {
+      "line": "6-04",
+      "code": "P-00068",
+      "model": "motor",
+      "name": "伺服 1 kW（滑軌）"
+    },
+    {
+      "line": "6-05",
+      "code": "P-00069",
+      "model": "motor",
+      "name": "伺服 400 W 附煞車"
+    },
+    {
+      "line": "7-07",
+      "code": "P-00082",
+      "model": "door-switch",
+      "name": "安全門鎖開關"
+    },
+    {
+      "line": "8-03",
+      "code": "P-00087",
+      "model": "operator-pc",
+      "name": "操作員螢幕與工作台"
+    }
+  ],
+  "warnings": [
+    "場景有 stopper ×5（cell/stopper），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+    "場景有 sensor-led ×5（cell/sensor-led），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+    "場景有 air-cylinder ×2（cell/air-cylinder），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+    "場景有 vision-camera ×2（cell/vision-camera），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+    "成本表 1-01 P-00027 六軸手臂＋控制器＋教導器（模型 denso-vm60b1）場景裡沒有：沒畫出來；不畫的在 BOM 標 noScene",
+    "成本表 2-01 P-00035 S1 頂視相機（模型 camera）場景裡沒有：沒畫出來；不畫的在 BOM 標 noScene",
+    "成本表 2-04 P-00038 S1 低角度條光（模型 bar-light）場景裡沒有：沒畫出來；不畫的在 BOM 標 noScene",
+    "成本表 2-06 P-00040 手臂相機（模型 camera）場景裡沒有：沒畫出來；不畫的在 BOM 標 noScene",
+    "成本表 5-04 P-00064 翻轉夾爪（模型 parallel-gripper）場景裡沒有：沒畫出來；不畫的在 BOM 標 noScene",
+    "成本表 6-04 P-00068 伺服 1 kW（滑軌）（模型 motor）場景裡沒有：沒畫出來；不畫的在 BOM 標 noScene",
+    "成本表 6-05 P-00069 伺服 400 W 附煞車（模型 motor）場景裡沒有：沒畫出來；不畫的在 BOM 標 noScene",
+    "成本表 7-07 P-00082 安全門鎖開關（模型 door-switch）場景裡沒有：沒畫出來；不畫的在 BOM 標 noScene",
+    "成本表 8-03 P-00087 操作員螢幕與工作台（模型 operator-pc）場景裡沒有：沒畫出來；不畫的在 BOM 標 noScene"
+  ]
+}

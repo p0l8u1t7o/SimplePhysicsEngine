@@ -1,0 +1,239 @@
+{
+  "ok": true,
+  "variants": [
+    {
+      "variant": "預設",
+      "params": {},
+      "ok": true,
+      "applicable": true,
+      "source": "studio（@PCB-CopperAssembly）",
+      "sceneModels": 49,
+      "bomLines": 45,
+      "matched": 14,
+      "sceneOnly": [
+        {
+          "model": "air-cylinder",
+          "partRef": null,
+          "count": 12,
+          "paths": [
+            "machine/air-cylinder",
+            "machine/air-cylinder",
+            "machine/air-cylinder"
+          ]
+        },
+        {
+          "model": "stopper",
+          "partRef": null,
+          "count": 3,
+          "paths": [
+            "machine/stopper",
+            "machine/stopper",
+            "machine/stopper"
+          ]
+        },
+        {
+          "model": "suction-cup",
+          "partRef": null,
+          "count": 2,
+          "paths": [
+            "machine/suction-cup",
+            "machine/suction-cup"
+          ]
+        },
+        {
+          "model": "vision-camera",
+          "partRef": null,
+          "count": 8,
+          "paths": [
+            "machine/vision-camera",
+            "machine/vision-camera",
+            "machine/vision-camera"
+          ]
+        },
+        {
+          "model": "z-theta-spindle",
+          "partRef": null,
+          "count": 8,
+          "paths": [
+            "machine/z-theta-spindle",
+            "machine/z-theta-spindle",
+            "machine/z-theta-spindle"
+          ]
+        },
+        {
+          "model": "signal-tower",
+          "partRef": null,
+          "count": 1,
+          "paths": [
+            "machine/signal-tower"
+          ]
+        },
+        {
+          "model": "hmi",
+          "partRef": null,
+          "count": 1,
+          "paths": [
+            "machine/hmi"
+          ]
+        }
+      ],
+      "bomOnly": [
+        {
+          "line": "3-01",
+          "code": "P-00101",
+          "model": "camera",
+          "name": "S1／S3 20MP 相機"
+        },
+        {
+          "line": "3-02",
+          "code": "P-00102",
+          "model": "camera",
+          "name": "仰視全域快門相機"
+        },
+        {
+          "line": "3-03",
+          "code": "P-00103",
+          "model": "camera",
+          "name": "供料及下視相機"
+        },
+        {
+          "line": "8-03",
+          "code": "P-00122",
+          "model": "operator-pc",
+          "name": "操作螢幕與介面"
+        }
+      ],
+      "warnings": [
+        "場景有 air-cylinder ×12（machine/air-cylinder），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+        "場景有 stopper ×3（machine/stopper），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+        "場景有 suction-cup ×2（machine/suction-cup），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+        "場景有 vision-camera ×8（machine/vision-camera），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+        "場景有 z-theta-spindle ×8（machine/z-theta-spindle），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+        "場景有 signal-tower ×1（machine/signal-tower），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+        "場景有 hmi ×1（machine/hmi），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+        "成本表 3-01 P-00101 S1／S3 20MP 相機（模型 camera）場景裡沒有：沒畫出來；不畫的在 BOM 標 noScene",
+        "成本表 3-02 P-00102 仰視全域快門相機（模型 camera）場景裡沒有：沒畫出來；不畫的在 BOM 標 noScene",
+        "成本表 3-03 P-00103 供料及下視相機（模型 camera）場景裡沒有：沒畫出來；不畫的在 BOM 標 noScene",
+        "成本表 8-03 P-00122 操作螢幕與介面（模型 operator-pc）場景裡沒有：沒畫出來；不畫的在 BOM 標 noScene"
+      ]
+    },
+    {
+      "variant": "round-72",
+      "params": {
+        "recipe": "round-72"
+      },
+      "ok": true,
+      "applicable": true,
+      "source": "studio（@PCB-CopperAssembly）",
+      "sceneModels": 49,
+      "bomLines": 45,
+      "matched": 14,
+      "sceneOnly": [
+        {
+          "model": "air-cylinder",
+          "partRef": null,
+          "count": 12,
+          "paths": [
+            "machine/air-cylinder",
+            "machine/air-cylinder",
+            "machine/air-cylinder"
+          ]
+        },
+        {
+          "model": "stopper",
+          "partRef": null,
+          "count": 3,
+          "paths": [
+            "machine/stopper",
+            "machine/stopper",
+            "machine/stopper"
+          ]
+        },
+        {
+          "model": "suction-cup",
+          "partRef": null,
+          "count": 2,
+          "paths": [
+            "machine/suction-cup",
+            "machine/suction-cup"
+          ]
+        },
+        {
+          "model": "vision-camera",
+          "partRef": null,
+          "count": 8,
+          "paths": [
+            "machine/vision-camera",
+            "machine/vision-camera",
+            "machine/vision-camera"
+          ]
+        },
+        {
+          "model": "z-theta-spindle",
+          "partRef": null,
+          "count": 8,
+          "paths": [
+            "machine/z-theta-spindle",
+            "machine/z-theta-spindle",
+            "machine/z-theta-spindle"
+          ]
+        },
+        {
+          "model": "signal-tower",
+          "partRef": null,
+          "count": 1,
+          "paths": [
+            "machine/signal-tower"
+          ]
+        },
+        {
+          "model": "hmi",
+          "partRef": null,
+          "count": 1,
+          "paths": [
+            "machine/hmi"
+          ]
+        }
+      ],
+      "bomOnly": [
+        {
+          "line": "3-01",
+          "code": "P-00101",
+          "model": "camera",
+          "name": "S1／S3 20MP 相機"
+        },
+        {
+          "line": "3-02",
+          "code": "P-00102",
+          "model": "camera",
+          "name": "仰視全域快門相機"
+        },
+        {
+          "line": "3-03",
+          "code": "P-00103",
+          "model": "camera",
+          "name": "供料及下視相機"
+        },
+        {
+          "line": "8-03",
+          "code": "P-00122",
+          "model": "operator-pc",
+          "name": "操作螢幕與介面"
+        }
+      ],
+      "warnings": [
+        "場景有 air-cylinder ×12（machine/air-cylinder），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+        "場景有 stopper ×3（machine/stopper），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+        "場景有 suction-cup ×2（machine/suction-cup），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+        "場景有 vision-camera ×8（machine/vision-camera），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+        "場景有 z-theta-spindle ×8（machine/z-theta-spindle），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+        "場景有 signal-tower ×1（machine/signal-tower），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+        "場景有 hmi ×1（machine/hmi），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+        "成本表 3-01 P-00101 S1／S3 20MP 相機（模型 camera）場景裡沒有：沒畫出來；不畫的在 BOM 標 noScene",
+        "成本表 3-02 P-00102 仰視全域快門相機（模型 camera）場景裡沒有：沒畫出來；不畫的在 BOM 標 noScene",
+        "成本表 3-03 P-00103 供料及下視相機（模型 camera）場景裡沒有：沒畫出來；不畫的在 BOM 標 noScene",
+        "成本表 8-03 P-00122 操作螢幕與介面（模型 operator-pc）場景裡沒有：沒畫出來；不畫的在 BOM 標 noScene"
+      ]
+    }
+  ]
+}

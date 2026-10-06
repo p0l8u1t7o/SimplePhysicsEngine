@@ -8,7 +8,7 @@ import { LAYOUT } from '../web/js/layout.js';
 import { CT, BELT_V, TOTAL, CHAPTERS, MIX, mixedCT, perHour, ABB_CT, ABB_PHASES, PRE_ROLL, laneAt, leadOf } from '../web/js/schedule.js';
 import { deltaIK } from '../web/js/delta.js';
 
-const L = LAYOUT, scene = new THREE.Scene(), project = createProject({ scene });
+const L = LAYOUT, scene = new THREE.Scene(), project = await createProject({ scene });
 const { jobs, missed, items, timing } = project;
 const failures = [], notes = [];
 const F = (ok, msg) => { if (!ok) failures.push(msg); };
@@ -67,10 +67,12 @@ for (const job of jobs) {
 }
 
 // ---------------------------------------------------------------- 5. 收料箱定位：每件最後都在對應的收料箱內
+// 2026-10-06 起帶尾到收料箱是物理模擬（core/physics）：工件在落料點下方自然堆起來，不再是固定格位，
+// 所以高度改成「整件在箱牆頂（箱底 42 mm＋牆高）以下」，不是原本固定格位的 300 mm
 for (const job of jobs) {
   at(TOTAL - .01);
-  const p = world(job.ref), bn = job.dest === 'A' ? L.binA : L.binB, [bx, , bd] = L.bin;
-  F(Math.abs(p.x - bn.x) <= bx / 2 && Math.abs(p.z - bn.z) <= bd / 2 && p.y < 300,
+  const p = world(job.ref), bn = job.dest === 'A' ? L.binA : L.binB, [bx, by, bd] = L.bin;
+  F(Math.abs(p.x - bn.x) <= bx / 2 && Math.abs(p.z - bn.z) <= bd / 2 && p.y > 30 && p.y + job.ref.H <= by + 42 + 5,
     `工件 ${job.ref.id} 結束時不在 ${job.dest} 收料箱內（${p.x.toFixed(0)}, ${p.y.toFixed(0)}, ${p.z.toFixed(0)}）`);
 }
 

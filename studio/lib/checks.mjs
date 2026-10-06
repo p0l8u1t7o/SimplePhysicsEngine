@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { paths, projectPaths } from './workspace.mjs';
 import { compareFingerprints } from '../../core/verify/fingerprint-compare.mjs';
-import { run, readJson, freePort } from './util.mjs';
+import { run, readJson, writeJson, freePort } from './util.mjs';
 
 // check.mjs 的輸出：「✗ <專案> · <項目>  <說明>  (1.2 s)」後面接 5 格縮排的細節
 const ROW = /^([✓✗]) (.+?) · (.+?)  (.*?)\s*\(([\d.]+) s\)$/;
@@ -22,7 +22,13 @@ export async function runChecks(ws, id, { quick = true } = {}) {
   const P = paths(ws), J = projectPaths(ws, id), port = await freePort();
   const args = [join(P.core, 'tools', 'check.mjs'), id, ...(quick ? ['--quick'] : [])];
   const t0 = Date.now();
-  const r = await run(process.execPath, args, { cwd: ws, env: { UI_PORT: String(port) } });
+  // bom 檢查要比對的成本表：資料庫的 BOM 寫到 .studio/bom.json（本庫的站專案代號是 @<名稱>；沒有 BOM 就不寫，檢查自己略過）
+  const env = { UI_PORT: String(port) };
+  try {
+    const { openPartsDb, defaultPartsDb } = await import('./partsdb.mjs'), db = openPartsDb(defaultPartsDb());
+    try { const b = db.bom.get(J.repo ? '@' + id : id); if (b) { writeJson(join(J.studio, 'bom.json'), { project: id, lines: b.lines }); env.VS3D_BOM_JSON = join(J.studio, 'bom.json'); } } finally { db.close(); }
+  } catch { /* 資料庫開不了就不比對 BOM */ }
+  const r = await run(process.execPath, args, { cwd: ws, env });
   const rows = parseCheckOutput(r.out);
   const saved = readJson(join(J.temp, quick ? 'check-quick.json' : 'check-full.json'), null);
   // 輸出解析不到任何項目（例如 project.js 語法錯誤讓 check.mjs 直接崩潰）也算失敗
@@ -38,6 +44,14 @@ export function failureSummary(c) {
 }
 
 // 排程指紋（含 layoutChecks 結果）：core/verify/run.mjs fingerprint 印出的一行 JSON；多情境時取全部情境
+// 節拍分析（core/anim/cycle.js）：{ ok, total, cycle, bottleneck, stations }；工作區複製的 core 比較舊、沒有 cycle 時回傳 ok: false
+export async function runCycle(ws, id) {
+  const P = paths(ws), J = projectPaths(ws, id);
+  const r = await run(process.execPath, ['--no-warnings', '--import', pathToFileURL(join(P.core, 'tools', 'register.mjs')).href, join(P.core, 'verify', 'run.mjs'), 'cycle'], { cwd: J.dir });
+  const line = r.out.split(/\r?\n/).find(l => l.startsWith('CYCLE '));
+  return line ? { ok: true, ...JSON.parse(line.slice(6)) } : { ok: false, error: r.out.trim().split('\n').slice(-5).join('\n') };
+}
+
 export async function runFingerprint(ws, id) {
   const P = paths(ws), J = projectPaths(ws, id);
   const r = await run(process.execPath, ['--no-warnings', '--import', pathToFileURL(join(P.core, 'tools', 'register.mjs')).href, join(P.core, 'verify', 'run.mjs'), 'fingerprint'], { cwd: J.dir });

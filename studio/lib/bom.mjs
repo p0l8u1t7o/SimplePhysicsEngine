@@ -79,7 +79,7 @@ export function bomOps({ all, get, run, insert, update, tx, now, fail, findPart,
   // 一行的計算：單價來源（鎖定版本的參考單價／自己填的單價／人日費率）、折合新台幣、小計、上下限、提醒
   function line(it, s, todayStr = today()) {
     const ver = it.part_id ? versions.get(it.part_id, it.part_version) : null, snap = ver?.snapshot;
-    const part = it.part_id ? get('SELECT id, code, version, status FROM parts WHERE id = ?', it.part_id) : null;
+    const part = it.part_id ? get('SELECT id, code, version, status, model_id FROM parts WHERE id = ?', it.part_id) : null;
     let price = null, currency = 'TWD', source = 'custom', grade = it.grade, flags = [];
     if (it.unit_price != null) { price = it.unit_price; currency = it.currency || 'TWD'; source = it.labor ? 'labor-override' : it.part_id ? 'override' : 'custom'; }
     else if (it.labor) { price = it.labor === 'tech' ? s.techRate : s.engRate; source = 'labor'; }
@@ -99,7 +99,7 @@ export function bomOps({ all, get, run, insert, update, tx, now, fail, findPart,
     const range = s.gradeRange[grade] ?? 0.3, subtotal = unitTwd == null ? 0 : r2(unitTwd * it.qty);
     return {
       id: it.id, sort: it.sort, line: it.line, section: it.section, grp: it.grp, nature: it.nature, labor: it.labor, part_id: it.part_id, part_version: it.part_version,
-      code: part?.code || '', latest_version: part?.version ?? null, newer: !!(part && it.part_version != null && part.version > it.part_version),
+      code: part?.code || '', model_id: part?.model_id || '', latest_version: part?.version ?? null, newer: !!(part && it.part_version != null && part.version > it.part_version),
       name: it.name || snap?.name || '', spec: it.spec || snap?.spec || '', model: it.model || [snap?.brand, snap?.model].filter(Boolean).join(' '), reason: it.reason,
       qty: it.qty, unit: it.unit || snap?.unit || (it.labor ? '人日' : ''), price, currency, fx, unit_twd: unitTwd, source, grade,
       subtotal, low: r2(subtotal * (1 - range)), high: r2(subtotal * (1 + range)), no_scene: !!it.no_scene, note: it.note, flags,

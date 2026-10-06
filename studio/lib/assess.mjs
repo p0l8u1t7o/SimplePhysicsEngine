@@ -212,7 +212,7 @@ function checkAssess(db, project, { scheduleTotal }) {
   const out = [];
   const fe = db.assess.latest(project, 'feasibility');
   if (!fe) out.push({ check: 'feasibility', ok: false, level: 'fail', note: '還沒有可行性分析', detail: [] });
-  else { const r = checkFeasibility(fe.content, fe.data, { scheduleTotal });
+  else { const r = checkFeasibility(fe.content, fe.data, { scheduleTotal: scheduleTotal ?? fe.data?.cycle?.schedule ?? null });
     out.push({ check: 'feasibility', ok: r.ok, level: r.ok ? (r.warnings.length ? 'warn' : 'ok') : 'fail', note: r.ok ? `第 ${fe.version} 版，結論「${fe.verdict}」` : `${r.errors.length} 個問題`, detail: [...r.errors, ...r.warnings] }); }
   const b = db.bom.get(project);
   if (!b) { out.push({ check: 'bom', ok: false, level: 'fail', note: '還沒有 BOM', detail: [] }); return out; }

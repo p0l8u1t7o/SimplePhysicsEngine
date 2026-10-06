@@ -9,7 +9,7 @@ import { createProject } from '../web/js/project.js';
 import { withVisionFrame, renderVisionFrame } from '../web/js/vision.js';
 import { projectRegion } from '@core/ui/vision-overlay.js';
 
-const scene=new THREE.Scene(), p=createProject({scene});
+const scene=new THREE.Scene(), p=await createProject({scene});
 // app 的守門條件包含空間檢核值，不能只比較排程與動件。
 // 基準由 app 管理；獨立部署沒有 .studio 時仍執行下方相機與電控檢查。
 const baselinePath = '.studio/segment2/base-fingerprint.json';

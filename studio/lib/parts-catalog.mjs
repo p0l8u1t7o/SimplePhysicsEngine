@@ -1,7 +1,7 @@
 // 給代理用的元件清單：把元件資料庫整理成 Markdown，寫進專案的 .studio/parts-catalog.md。
 // 代理在工作區或沙箱裡不一定讀得到 studio/data/studio.db，所以每次開始執行時由 app 寫一份最新的清單到專案裡；
 // 規劃與選型時先查這份清單，沿用過去專案用過的元件與參考單價（提示詞見 prompts.mjs）。
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { openPartsDb, defaultPartsDb } from './partsdb.mjs';
 import { writeText } from './util.mjs';
@@ -41,5 +41,20 @@ export function writeCatalog(J, { file = defaultPartsDb(), redact } = {}) {
     const n = db.stats().parts;
     if (n) writeText(join(J.studio, 'parts-catalog.md'), catalogMarkdown(db, { redact }));
     return n;
+  } finally { db.close(); }
+}
+
+// 有 3D 模型的元件 → 專案的 web/js/parts-models.js（core/models/parts.js 的 fromPart 用；評估平台 Q9）。
+// 內容沒變就不寫（避免每輪都多一個 commit）；本庫的站不寫（站自己決定要不要用）。回傳元件數
+export function writePartsModels(J, { file = defaultPartsDb(), redact = s => s } = {}) {
+  if (J.repo || !existsSync(file) || !existsSync(join(J.dir, 'web', 'js'))) return 0;
+  const db = openPartsDb(file);
+  try {
+    const rows = db.listParts({ limit: 5000 }).parts.filter(p => p.model_id).sort((a, b) => a.code.localeCompare(b.code));
+    const map = Object.fromEntries(rows.map(p => [p.code, { model: p.model_id, params: JSON.parse(p.model_params || '{}'), name: redact(p.name) }]));
+    const text = `// 由 3D工作室 寫出（每輪代理執行前更新，不要手改）：元件編號 → 共用模型與參數。用法見 core/models/parts.js 的 fromPart。\nexport default ${JSON.stringify(map, null, 1)};\n`;
+    const target = join(J.dir, 'web', 'js', 'parts-models.js');
+    if (!existsSync(target) || readFileSync(target, 'utf8') !== text) writeText(target, text);
+    return rows.length;
   } finally { db.close(); }
 }

@@ -1,0 +1,107 @@
+{
+  "ok": true,
+  "variants": [
+    {
+      "variant": "預設",
+      "params": {},
+      "ok": true,
+      "applicable": true,
+      "source": "studio（@WorkpieceMeasurement）",
+      "sceneModels": 2,
+      "bomLines": 41,
+      "matched": 1,
+      "sceneOnly": [
+        {
+          "model": "signal-tower",
+          "partRef": null,
+          "count": 1,
+          "paths": [
+            "machine/signal-tower"
+          ]
+        }
+      ],
+      "bomOnly": [
+        {
+          "line": "4-02",
+          "code": "P-00191",
+          "model": "linear-axis",
+          "name": "Z 軸電動滑台"
+        }
+      ],
+      "warnings": [
+        "場景有 signal-tower ×1（machine/signal-tower），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+        "成本表 4-02 P-00191 Z 軸電動滑台（模型 linear-axis）場景裡沒有：沒畫出來；不畫的在 BOM 標 noScene"
+      ]
+    },
+    {
+      "variant": "A/NG-A",
+      "params": {
+        "spec": "A",
+        "scenario": "NG-A"
+      },
+      "ok": true,
+      "applicable": true,
+      "source": "studio（@WorkpieceMeasurement）",
+      "sceneModels": 2,
+      "bomLines": 41,
+      "matched": 1,
+      "sceneOnly": [
+        {
+          "model": "signal-tower",
+          "partRef": null,
+          "count": 1,
+          "paths": [
+            "machine/signal-tower"
+          ]
+        }
+      ],
+      "bomOnly": [
+        {
+          "line": "4-02",
+          "code": "P-00191",
+          "model": "linear-axis",
+          "name": "Z 軸電動滑台"
+        }
+      ],
+      "warnings": [
+        "場景有 signal-tower ×1（machine/signal-tower），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+        "成本表 4-02 P-00191 Z 軸電動滑台（模型 linear-axis）場景裡沒有：沒畫出來；不畫的在 BOM 標 noScene"
+      ]
+    },
+    {
+      "variant": "C/ERR",
+      "params": {
+        "spec": "C",
+        "scenario": "ERR"
+      },
+      "ok": true,
+      "applicable": true,
+      "source": "studio（@WorkpieceMeasurement）",
+      "sceneModels": 2,
+      "bomLines": 41,
+      "matched": 1,
+      "sceneOnly": [
+        {
+          "model": "signal-tower",
+          "partRef": null,
+          "count": 1,
+          "paths": [
+            "machine/signal-tower"
+          ]
+        }
+      ],
+      "bomOnly": [
+        {
+          "line": "4-02",
+          "code": "P-00191",
+          "model": "linear-axis",
+          "name": "Z 軸電動滑台"
+        }
+      ],
+      "warnings": [
+        "場景有 signal-tower ×1（machine/signal-tower），成本表沒有：沒列進成本，或建立模型時沒帶 partRef",
+        "成本表 4-02 P-00191 Z 軸電動滑台（模型 linear-axis）場景裡沒有：沒畫出來；不畫的在 BOM 標 noScene"
+      ]
+    }
+  ]
+}
