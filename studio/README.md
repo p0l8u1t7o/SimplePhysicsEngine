@@ -168,8 +168,21 @@ node studio/vs3d.mjs users passwd boss --password <新密碼>
 node studio/vs3d.mjs users remove amy
 ```
 
-- **給其他電腦連**：伺服器預設只聽本機（127.0.0.1）。要讓區網的同事連進來，啟動時加 `--host 0.0.0.0`（`node studio/vs3d.mjs ui --host 0.0.0.0`），3D 預覽與模型目錄也會一起開放；**先建立帳號再開放**。連線是沒有加密的 HTTP，而且這個介面能在這台電腦上啟動代理與執行指令，只適合在信任的區網內使用，不要對外網開放。
-- 會改東西的請求如果帶了別的網站的 `Origin` 會被拒絕。還沒做：登入失敗次數限制、HTTPS、依專案分權限。
+- **唯讀帳號**：介面上會改東西的按鈕與輸入框先停用（新建專案、執行流程、回答問題、元件的新增與編輯），伺服器也會拒絕。
+- **登入失敗次數限制**（2026-10-06）：同一個帳號或同一個來源 IP 在 15 分鐘內錯 5 次，鎖 15 分鐘（回 429；記在記憶體，重開伺服器就清掉）。
+- **依專案分權限**（2026-10-06）：專案頁的「成員」分頁。從介面建立或匯入專案的人自動成為擁有者；有成員的專案只有成員與管理者能執行流程、回答問題、修改、刪除與停止，其他人只能看。擁有者與管理者可以改名單（至少一個擁有者；清空名單就回到「所有一般帳號都能動」）。還沒有成員的專案（之前建立的、本庫的站）所有一般帳號都能動。成員存在元件資料庫的 `project_members` 表。
+- **給其他電腦連（中央主機）**（2026-10-06 改成強制條件）：伺服器預設只聽本機（127.0.0.1）。要讓區網的同事連進來，啟動時加 `--host 0.0.0.0`，而且：
+  - **必須先有帳號**：沒有任何帳號時拒絕啟動（用 `vs3d users add <帳號> --level admin --password <密碼>` 建第一個管理者）。
+  - **必須用 HTTPS**：`--pfx <憑證.pfx>`（密碼放環境變數 `VS3D_PFX_PASS`）或 `--cert <憑證.pem> --key <私鑰.pem>`；登入的 cookie 會加上 `Secure`。只在測試時用 `--insecure-http` 跳過。
+  - 公司沒有內部憑證時可以自己做一張（PowerShell，以主機名稱 `studio-host` 為例；同事的瀏覽器第一次連要信任它）：
+    ```powershell
+    $c = New-SelfSignedCertificate -DnsName studio-host, localhost -CertStoreLocation Cert:\CurrentUser\My -NotAfter (Get-Date).AddYears(3)
+    Export-PfxCertificate -Cert $c -FilePath studio\data\studio.pfx -Password (Read-Host -AsSecureString '憑證密碼')
+    $env:VS3D_PFX_PASS = '<憑證密碼>'; node studio/vs3d.mjs ui --host 0.0.0.0 --pfx studio\data\studio.pfx
+    ```
+  - **3D 預覽與模型目錄**：core 的 `serve.mjs` 只聽本機，對外由主伺服器另開的 port 轉送（有帳號時要登入；HTTPS 時一起加密，主畫面的 iframe 才不會被當成混合內容擋掉）。
+  - 這個介面能在這台電腦上啟動代理與執行指令，只適合在信任的區網內使用，不要對外網開放。
+- 會改東西的請求如果帶了別的網站的 `Origin` 會被拒絕。
 
 ## 元件資料庫（2026-10-05）
 

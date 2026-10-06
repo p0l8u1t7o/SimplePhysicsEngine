@@ -289,6 +289,8 @@ table.files .f-cell { display: flex; gap: 10px; align-items: center; }
 table.files .f-thumb { width: 52px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); display: block; }
 table.files .f-open { margin-left: 8px; font-size: 12px; }
 table.files select { min-width: 120px; }
+/* 唯讀帳號、不是專案成員時用 fieldset 一次停用裡面的按鈕與輸入框；外觀不變 */
+fieldset.plain { border: 0; padding: 0; margin: 0; min-width: 0; }
 /* 系統設定 */
 .types { display: flex; flex-wrap: wrap; gap: 6px 18px; }
 /* 登入頁與右上角的帳號選單 */

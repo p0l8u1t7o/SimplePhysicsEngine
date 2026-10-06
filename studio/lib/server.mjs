@@ -19,7 +19,10 @@
 //   GET｜POST｜PUT｜DELETE /api/parts、/api/prices、/api/usages、/api/suppliers、/api/files   元件資料庫（lib/parts-api.mjs）
 //   GET｜PUT /api/system            系統設定（附件上限、成本費率…；改只有管理者）
 //   GET  /files/:id/<路徑>           專案內的 TEMP/、docs/、.studio/plan|reviews|render/ 檔案（截圖、對照頁）
-import { createServer } from 'node:http';
+//   GET｜PUT /api/projects/:id/members   專案成員（依專案分權限；改成員要擁有者或管理者）
+// 3D 預覽與模型目錄：core 的 serve.mjs 只聽本機，對外由 previewProxy 轉送（另一個 port；有帳號時要登入，HTTPS 時一起加密）。
+import { createServer, request as httpRequest } from 'node:http';
+import { createServer as createHttpsServer } from 'node:https';
 import { createReadStream, existsSync, mkdirSync, readdirSync, statSync, writeFileSync, readFileSync } from 'node:fs';
 import { join, extname, normalize, basename } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
@@ -35,7 +38,7 @@ import { OFFICE, OLD_OFFICE } from './office.mjs';
 import { importHandoff } from './handoff.mjs';
 import { stationChanges } from './repo.mjs';
 import { readRounds, agentStats, checkStats } from './dashboard.mjs';
-import { createAuth, denied, AuthError, ROLE_LABEL } from './auth.mjs';
+import { createAuth, denied, AuthError, ROLE_LABEL, MEMBER_LABEL, canEditProject, canManageProject } from './auth.mjs';
 import { coreModels, withThumbs, renderThumbs, thumbFile } from './thumbs.mjs';
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
@@ -44,9 +47,28 @@ const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; cha
 const VIDEO = /\.(mp4|mov|avi|mkv|m4v|webm)$/i;
 const FILE_AREAS = /^(TEMP|docs|\.studio\/(plan|reviews|render))(\/|$)/;
 
+const LOCAL = new Set(['127.0.0.1', 'localhost', '::1']);
+const listen = (server, port, host) => new Promise((ok, fail) => server.listen(port, host, ok).on('error', fail));
+
+// 預覽的代理：把請求原封不動轉給只聽本機的 serve.mjs；有帳號時先看登入的 cookie（cookie 不分 port，所以主畫面登入後這裡也認得）
+function previewProxy(target, { tls, auth }) {
+  const handler = (req, res) => {
+    if (auth.enabled() && !auth.fromRequest(req)) { res.writeHead(401, { 'Content-Type': MIME['.html'] }); res.end('<meta charset="utf-8"><p>請先登入 3D工作室。</p>'); return; }
+    const up = httpRequest({ host: '127.0.0.1', port: target, method: req.method, path: req.url, headers: { ...req.headers, host: `127.0.0.1:${target}` } },
+      r => { res.writeHead(r.statusCode, r.headers); r.pipe(res); });
+    up.on('error', () => { if (!res.headersSent) res.writeHead(502); res.end(); });
+    req.pipe(up);
+  };
+  return tls ? createHttpsServer(tls, handler) : createServer(handler);
+}
+
 // repo：本庫根目錄（本庫模式，計畫書 4.10）；給了就同時列出 project-site/ 的各站，專案代號用 @<名稱>
-// host：預設只聽本機；要讓區網的其他電腦連就給 0.0.0.0（先建立帳號，連線沒有加密，只在信任的區網用）
-export async function startUi(ws, { port = 8780, log = console.log, repo = null, partsDb, host = '127.0.0.1', authFile } = {}) {
+// host：預設只聽本機；要讓區網的其他電腦連就給 0.0.0.0：必須先有帳號，而且要 HTTPS（tls：{ cert, key } 或 { pfx, passphrase }），
+//       只在測試時用 insecureHttp 跳過 HTTPS 的要求
+export async function startUi(ws, { port = 8780, log = console.log, repo = null, partsDb, host = '127.0.0.1', authFile, tls = null, insecureHttp = false } = {}) {
+  const auth = createAuth({ ...(authFile ? { file: authFile } : {}), secure: !!tls });
+  if (!LOCAL.has(host) && !auth.enabled()) throw new Error('要開放給其他電腦連線，先建立管理者帳號：node studio/vs3d.mjs users add <帳號> --level admin --password <密碼>');
+  if (!LOCAL.has(host) && !tls && !insecureHttp) throw new Error('開放給其他電腦連線時要用 HTTPS：加 --pfx <憑證.pfx>（密碼放環境變數 VS3D_PFX_PASS）或 --cert <憑證.pem> --key <私鑰.pem>；只在測試時用 --insecure-http 跳過');
   if (!existsSync(paths(ws).marker)) initWorkspace(ws, { log });
   const P = paths(ws), ffmpeg = findFfmpeg(), dist = join(STUDIO, 'ui', 'dist');
   const clients = new Set();
@@ -57,12 +79,17 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
   });
 
   // 3D 預覽：工作區 core 的 serve.mjs（工作區模式會從 projects/ 找專案）
-  const previewPort = await freePort();
-  const preview = spawn(process.execPath, [join(P.core, 'tools', 'serve.mjs'), '--port', String(previewPort), '--host', host, '--no-open'], { cwd: ws, windowsHide: true, stdio: 'ignore' });
+  // serve.mjs 只聽本機（previewInner），對外的是代理（previewPort）
+  const previewInner = await freePort();
+  const preview = spawn(process.execPath, [join(P.core, 'tools', 'serve.mjs'), '--port', String(previewInner), '--host', '127.0.0.1', '--no-open'], { cwd: ws, windowsHide: true, stdio: 'ignore' });
+  const previewServer = previewProxy(previewInner, { tls, auth }), previewPort = await freePort();
+  await listen(previewServer, previewPort, host);
 
   // 本庫的站另開一個預覽伺服器（本庫 core 的 serve.mjs 從 project-site/ 找專案）
-  const repoPort = repo ? await freePort() : 0;
-  const repoPreview = repo ? spawn(process.execPath, [join(repo, 'core', 'tools', 'serve.mjs'), '--port', String(repoPort), '--host', host, '--no-open'], { cwd: repo, windowsHide: true, stdio: 'ignore' }) : null;
+  const repoInner = repo ? await freePort() : 0;
+  const repoPreview = repo ? spawn(process.execPath, [join(repo, 'core', 'tools', 'serve.mjs'), '--port', String(repoInner), '--host', '127.0.0.1', '--no-open'], { cwd: repo, windowsHide: true, stdio: 'ignore' }) : null;
+  const repoServer = repo ? previewProxy(repoInner, { tls, auth }) : null, repoPort = repo ? await freePort() : 0;
+  if (repoServer) await listen(repoServer, repoPort, host);
   const loc = raw => raw.startsWith('@') ? { root: repo, name: raw.slice(1), repo: true } : { root: ws, name: raw, repo: false };
   const Jof = raw => { const l = loc(raw); return projectPaths(l.root, l.name); };
   const start = (cmd, raw, args = []) => { const l = loc(raw); return runner.start(cmd, raw, args, { name: l.name, root: l.root }); };
@@ -105,9 +132,11 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
   // 元件資料庫：第一次用到才載入（node:sqlite 需要 Node.js 22.13 以上，舊版本其他功能照常）
   let partsApi = null;
   const parts = async () => partsApi ||= (await import('./parts-api.mjs')).createPartsApi(partsDb);
-  const auth = createAuth(authFile ? { file: authFile } : {});
+  // 專案成員（依專案分權限）：存在元件資料庫；資料庫開不了（Node 太舊）時當成沒有成員，所有一般帳號都能動
+  const store = async () => { try { return (await parts()).store(); } catch { return null; } };
+  const membersOf = async id => (await store())?.members(id) || [];
   // core 共用模型（元件庫的 3D 顯示）：本庫模式用本庫的 core，否則用工作區的；縮圖過期就在背景重拍，一次只跑一批
-  const modelCore = repo ? join(repo, 'core') : P.core, catalogUrl = `http://127.0.0.1:${repo ? repoPort : previewPort}/core/catalog/`;
+  const modelCore = repo ? join(repo, 'core') : P.core, catalogUrl = `http://127.0.0.1:${repo ? repoInner : previewInner}/core/catalog/`;      // 拍縮圖直接連本機的 serve.mjs
   let thumbJob = null, thumbError = '';
   const models = () => {
     const list = withThumbs(coreModels(modelCore)), stale = list.filter(m => m.stale);
@@ -129,7 +158,7 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
   };
   const resumeIfReady = id => { const J = Jof(id); if (!runner.current && !loadQuestions(J).list.some(q => !q.answered)) start('resume', id); };
 
-  const server = createServer(async (req, res) => {
+  const handler = async (req, res) => {
     const url = new URL(req.url, 'http://x'), seg = url.pathname.split('/').filter(Boolean).map(decodeURIComponent);
     const user = auth.fromRequest(req);
     const json = (code, v, headers = {}) => {
@@ -153,7 +182,7 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
         const act = seg[2], post = req.method === 'POST', set = token => ({ 'Set-Cookie': auth.cookie(token) });
         try {
           if (act === 'me') return json(200, { required: auth.enabled(), user, roles: ROLE_LABEL });
-          if (act === 'login' && post) { const v = await jbody(), r = auth.login(v.name, v.password); auth.audit({ user: r.user.name, action: '登入' }); return json(200, { user: r.user }, set(r.token)); }
+          if (act === 'login' && post) { const v = await jbody(), r = auth.login(v.name, v.password, { ip: req.socket.remoteAddress }); auth.audit({ user: r.user.name, action: '登入' }); return json(200, { user: r.user }, set(r.token)); }
           if (act === 'logout' && post) return json(200, { ok: true }, set(''));
           if (act === 'setup' && post) {      // 建立第一個管理者：只有還沒有任何帳號時可以
             if (auth.enabled()) return json(400, { error: '已經有帳號了，請登入' });
@@ -202,7 +231,10 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
           return json(200, { settings: readJson(P.settings, {}), resolved: Object.fromEntries(Object.keys(ROLES).map(r => [r, resolveRole(r, ctx)])) });
         }
         if (a === 'dashboard') return json(200, await dashboard());
-        if (a === 'stop' && req.method === 'POST') return json(200, { stopped: runner.stop() });
+        if (a === 'stop' && req.method === 'POST') {
+          if (runner.current && !canEditProject(user, await membersOf(runner.current.id))) return json(403, { error: '你不是執行中專案的成員，不能停止它' });
+          return json(200, { stopped: runner.stop() });
+        }
         if (a === 'uploads' && req.method === 'POST') {
           const token = (url.searchParams.get('token') || '').replace(/[^\w-]/g, '') || randomUUID(), name = basename(url.searchParams.get('name') || 'file');
           const dir = join(P.ws, '.studio', 'uploads', token); mkdirSync(dir, { recursive: true });
@@ -223,7 +255,11 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
           const v = await jbody(), dir = join(P.ws, '.studio', 'uploads', String(v.token || '').replace(/[^\w-]/g, ''));
           const zip = existsSync(dir) ? readdirSync(dir).find(f => /\.zip$/i.test(f)) : null;
           if (!zip) return json(400, { error: '請先上傳交接包（.zip）' });
-          try { const r = await importHandoff(ws, join(dir, zip), { id: (v.name || '').trim() || undefined, log: () => {} }); return json(200, { id: r.id, stage: r.stage, rounds: r.rounds }); }
+          try {
+            const r = await importHandoff(ws, join(dir, zip), { id: (v.name || '').trim() || undefined, log: () => {} });
+            (await store())?.claimProject(r.id, user?.name);          // 匯入的人成為擁有者
+            return json(200, { id: r.id, stage: r.stage, rounds: r.rounds });
+          }
           catch (e) { return json(400, { error: e.message }); }
         }
         if (a === 'projects' && !id) {
@@ -243,20 +279,36 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
             if (v.autoApprove) args.push('--auto-approve');
             if (v.pick) args.push('--pick');
             runner.start('new', v.id, args);
+            (await store())?.claimProject(v.id, user?.name);         // 建立的人成為擁有者
             return json(200, { started: true });
           }
-          return json(200, { projects: (d => projectIds().map(id => summary(id, d)))(repoDirty()).sort((x, y) => y.updated - x.updated), running: runner.current });
+          const members = (await store())?.allMembers() || {};
+          return json(200, { projects: (d => projectIds().map(id => ({ ...summary(id, d), canEdit: canEditProject(user, members[id]) })))(repoDirty()).sort((x, y) => y.updated - x.updated), running: runner.current });
         }
         if (a === 'projects' && id) {
           if (!projectIds().includes(id)) return json(404, { error: `找不到專案：${id}` });
+          const members = await membersOf(id);
+          if (!b && req.method === 'GET') return json(200, { ...detail(id), members, canEdit: canEditProject(user, members), canManage: canManageProject(user, members) });
+          // 專案成員：看誰是成員、可以加哪些帳號；改成員要擁有者或管理者
+          if (b === 'members') {
+            if (req.method === 'PUT') {
+              if (!canManageProject(user, members)) return json(403, { error: '只有專案的擁有者或管理者可以改成員' });
+              const v = await jbody(), known = new Set(auth.names().map(u => u.name.toLowerCase()));
+              const unknown = (v.members || []).filter(m => !known.has(String(m.user || '').toLowerCase()));
+              if (unknown.length) return json(400, { error: `沒有這個帳號：${unknown.map(m => m.user).join('、')}` });
+              try { return json(200, { members: (await store()).setMembers(id, v.members, user?.name) }); } catch (e) { return json(400, { error: e.message }); }
+            }
+            return json(200, { members, users: auth.names(), roles: MEMBER_LABEL, canManage: canManageProject(user, members) });
+          }
+          // 其他會改東西的請求：要是專案成員（沒有成員的專案所有一般帳號都可以）
+          if (req.method !== 'GET' && !canEditProject(user, members)) return json(403, { error: '你不是這個專案的成員，只能看、不能執行或修改' });
           if (!b && req.method === 'DELETE') {
             const v = await jbody(), l = loc(id);
             if (l.repo) return json(400, { error: '本庫的站在版控裡，不能從這裡刪除（要移除請用 git）' });
             if (runner.current?.id === id) return json(400, { error: '這個專案正在執行，先停止再刪除' });
             if (String(v.confirm || '') !== l.name) return json(400, { error: '請輸入專案名稱確認刪除' });
-            try { return json(200, { deleted: id, movedTo: deleteProject(ws, l.name) }); } catch (e) { return json(400, { error: e.message }); }
+            try { const movedTo = deleteProject(ws, l.name); (await store())?.dropMembers(id); return json(200, { deleted: id, movedTo }); } catch (e) { return json(400, { error: e.message }); }
           }
-          if (!b) return json(200, detail(id));
           if (b === 'cancel' && req.method === 'POST') {
             if (runner.current?.id === id) return json(400, { error: '這個專案正在執行，先按「停止」再取消流程' });
             const l = loc(id);
@@ -307,10 +359,11 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
       res.writeHead(200, { 'Content-Type': MIME[extname(file).toLowerCase()] || 'application/octet-stream', 'Cache-Control': file.endsWith('index.html') ? 'no-store' : 'max-age=3600' });
       createReadStream(file).pipe(res);
     } catch (e) { json(500, { error: String(e.message || e) }); }
-  });
-  await new Promise((ok, fail) => server.listen(port, host, ok).on('error', fail));
-  if (host !== '127.0.0.1' && !auth.enabled()) log('⚠ 介面開放給其他電腦連線，但還沒有任何帳號：任何連得到的人都能操作。請先在「帳號」頁建立管理者。');
-  log(`vs3d 介面：http://${host === '0.0.0.0' ? '127.0.0.1' : host}:${port}/（${auth.enabled() ? '需要登入；' : ''}工作區 ${ws}${repo ? `；本庫 ${repo}（預覽 port ${repoPort}）` : ''}；預覽 port ${previewPort}；ffmpeg ${ffmpeg ? '可用' : '找不到，影片不會擷取影格'}）`);
-  const close = () => { preview.kill(); repoPreview?.kill(); runner.stop(); partsApi?.close(); for (const c of clients) c.end(); server.close(); };
+  };
+  const server = tls ? createHttpsServer(tls, handler) : createServer(handler);
+  await listen(server, port, host);
+  if (!LOCAL.has(host) && !tls) log('⚠ 介面用沒有加密的 HTTP 開放給其他電腦（--insecure-http），只適合測試。');
+  log(`vs3d 介面：${tls ? 'https' : 'http'}://${host === '0.0.0.0' ? '127.0.0.1' : host}:${port}/（${auth.enabled() ? '需要登入；' : ''}工作區 ${ws}${repo ? `；本庫 ${repo}（預覽 port ${repoPort}）` : ''}；預覽 port ${previewPort}；ffmpeg ${ffmpeg ? '可用' : '找不到，影片不會擷取影格'}）`);
+  const close = () => { preview.kill(); repoPreview?.kill(); runner.stop(); partsApi?.close(); for (const c of clients) c.end(); server.close(); previewServer.close(); repoServer?.close(); };
   return { server, port, previewPort, close, runner };
 }

@@ -128,6 +128,7 @@ ALTER TABLE files ADD COLUMN uploaded_by TEXT NOT NULL DEFAULT '';
 ALTER TABLE files ADD COLUMN price_id INTEGER REFERENCES prices(id) ON DELETE SET NULL;
 ALTER TABLE parts ADD COLUMN cover_file_id INTEGER REFERENCES files(id) ON DELETE SET NULL;
 CREATE INDEX files_sha ON files(sha256);
+CREATE TABLE project_members (project TEXT NOT NULL, user TEXT NOT NULL COLLATE NOCASE, role TEXT NOT NULL DEFAULT 'member', added_by TEXT NOT NULL DEFAULT '', added_at TEXT NOT NULL, PRIMARY KEY (project, user));
 `;
 
 export class PartsError extends Error { constructor(message, status = 400) { super(message); this.status = status; } }
@@ -434,6 +435,25 @@ export function openPartsDb(file = defaultPartsDb()) {
         quality: { total: q.total, uncategorized: q.uncategorized || 0, unpriced: q.unpriced || 0, noSupplier: q.noSupplier || 0, pending: get('SELECT count(*) AS n FROM parts WHERE status = ?', PENDING).n },
       };
     },
+    // 專案成員（依專案分權限）：project 是介面用的專案代號（本庫的站是 @<名稱>）；role 是 owner 或 member
+    members: project => all('SELECT user, role, added_by, added_at FROM project_members WHERE project = ? ORDER BY role DESC, user', String(project)),
+    allMembers() {
+      const map = {};
+      for (const r of all('SELECT project, user, role FROM project_members ORDER BY project, role DESC, user')) (map[r.project] ||= []).push({ user: r.user, role: r.role });
+      return map;
+    },
+    // 整份換掉；至少要有一個擁有者（清空成員就回到「所有一般帳號都能動」）
+    setMembers(project, list, by = '') {
+      const rows = (list || []).map(m => ({ user: text(m.user), role: m.role === 'owner' ? 'owner' : 'member' })).filter(m => m.user);
+      if (rows.length && !rows.some(m => m.role === 'owner')) bad('至少要有一個擁有者');
+      if (new Set(rows.map(m => m.user.toLowerCase())).size !== rows.length) bad('成員重複了');
+      tx(() => { run('DELETE FROM project_members WHERE project = ?', String(project)); for (const m of rows) insert('project_members', { project: String(project), ...m, added_by: text(by), added_at: now() }); });
+      return this.members(project);
+    },
+    // 建立專案的人成為擁有者（已經有成員時不動）
+    claimProject(project, user) { if (user && !get('SELECT 1 AS x FROM project_members WHERE project = ?', String(project))) insert('project_members', { project: String(project), user, role: 'owner', added_by: user, added_at: now() }); },
+    dropMembers: project => { run('DELETE FROM project_members WHERE project = ?', String(project)); },
+
     // 系統設定：值以 JSON 存；預設值與驗證在 lib/settings.mjs
     readSettings: () => Object.fromEntries(all('SELECT key, value FROM settings').map(r => [r.key, JSON.parse(r.value)])),
     writeSettings(values, by = '') {

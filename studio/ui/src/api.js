@@ -32,6 +32,9 @@ export const api = {
   run: (id, v) => call('POST', `/api/projects/${encodeURIComponent(id)}/run`, v),
   stop: () => call('POST', '/api/stop'),
   cancel: id => call('POST', `/api/projects/${encodeURIComponent(id)}/cancel`),
+  // 專案成員（依專案分權限）：members 是 [{ user, role: owner｜member }]
+  members: id => call('GET', `/api/projects/${encodeURIComponent(id)}/members`),
+  saveMembers: (id, members) => call('PUT', `/api/projects/${encodeURIComponent(id)}/members`, { members }),
   deleteProject: (id, confirm) => call('DELETE', `/api/projects/${encodeURIComponent(id)}`, { confirm }),
   importHandoff: v => call('POST', '/api/import', v),
   // 元件資料庫；kind 是 prices（價格紀錄）或 usages（使用紀錄），id 空白是新增
@@ -60,8 +63,8 @@ export const api = {
     const j = await r.json(); if (!r.ok) throw new Error(j.error || r.statusText); return j;
   },
 };
-// 預覽與模型目錄在另一個 port：伺服器給的是 127.0.0.1，從別台電腦連進來時換成目前的主機名稱
-export const sameHost = u => String(u || '').replace('//127.0.0.1:', `//${location.hostname}:`);
+// 預覽與模型目錄在另一個 port（伺服器的代理）：伺服器給的是 http://127.0.0.1，換成目前的協定（HTTPS 時一起）與主機名稱
+export const sameHost = u => String(u || '').replace(/^https?:\/\/127\.0\.0\.1:/,`${location.protocol}//${location.hostname}:`);
 // 元件附件的網址：inline 是在瀏覽器直接開（圖片、PDF），否則下載
 export const partFileUrl = (partId, fileId, inline) => `/api/parts/${partId}/files/${fileId}${inline ? '?inline=1' : ''}`;
 // 依副檔名找附件的類型（系統設定 fileTypes），找不到回傳空字串

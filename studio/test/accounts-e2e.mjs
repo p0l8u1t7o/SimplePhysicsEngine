@@ -62,6 +62,39 @@ try {
   check((await call('POST', '/api/parts', { cookie: editor, body: { name: 'x' } })).body.code === 'P-00002', '編號往上編');
   check((await fetch(base + '/api/parts', { method: 'POST', headers: { Cookie: editor, Origin: 'http://evil.example', 'Content-Type': 'application/json' }, body: '{"name":"y"}' })).status === 403, '別的網站送來的修改請求被拒絕');
   check((await call('PUT', '/api/users/boss', { cookie: admin, body: { role: 'viewer' } })).status === 400 && (await call('DELETE', '/api/users/boss', { cookie: admin })).status === 400, '不能讓系統沒有管理者、不能刪自己');
+
+  // 依專案分權限（評估平台 Q1）：放一個假的工作區專案；沒有成員時一般帳號都能動，有成員後只有成員與管理者能動
+  mkdirSync(join(ws, 'projects', 'Demo'), { recursive: true });
+  writeFileSync(join(ws, 'projects', 'Demo', 'studio.json'), '{}\n'); writeFileSync(join(ws, 'projects', 'Demo', 'project.json'), '{ "title": "示範專案" }\n');
+  let d = await call('GET', '/api/projects/Demo', { cookie: editor });
+  check(d.status === 200 && d.body.canEdit === true && d.body.members.length === 0, '沒有成員的專案：一般帳號可以動');
+  check((await call('GET', '/api/projects/Demo', { cookie: viewer })).body.canEdit === false, '唯讀帳號對專案只能看');
+  check((await call('PUT', '/api/projects/Demo/members', { cookie: admin, body: { members: [{ user: 'boss', role: 'member' }] } })).status === 400, '成員至少要有一個擁有者');
+  check((await call('PUT', '/api/projects/Demo/members', { cookie: admin, body: { members: [{ user: 'nobody', role: 'owner' }] } })).status === 400, '不能加不存在的帳號');
+  check((await call('PUT', '/api/projects/Demo/members', { cookie: admin, body: { members: [{ user: 'boss', role: 'owner' }] } })).status === 200, '管理者設定擁有者');
+  check((await call('GET', '/api/projects/Demo', { cookie: editor })).body.canEdit === false && (await call('POST', '/api/projects/Demo/cancel', { cookie: editor })).status === 403
+    && (await call('PUT', '/api/projects/Demo/members', { cookie: editor, body: { members: [] } })).status === 403, '不是成員：不能執行、不能改成員');
+  check((await call('GET', '/api/projects', { cookie: editor })).body.projects.find(p => p.id === 'Demo').canEdit === false, '專案清單標出能不能動');
+  await call('PUT', '/api/projects/Demo/members', { cookie: admin, body: { members: [{ user: 'boss', role: 'owner' }, { user: 'maker', role: 'member' }] } });
+  check((await call('POST', '/api/projects/Demo/cancel', { cookie: editor })).status !== 403, '加入成員後可以執行');
+  check((await call('GET', '/api/projects/Demo/members', { cookie: viewer })).body.members.length === 2, '成員名單大家都看得到');
+  // 介面：成員分頁
+  await browser.evaluate(`location.hash = 'p/Demo'; true`);
+  await waitFor(() => page(`!!document.querySelector('.tabs')`), '專案頁');
+  await click('成員');
+  await waitFor(() => page(`document.body.innerText.includes('專案成員') && document.body.innerText.includes('maker') && document.body.innerText.includes('擁有者')`), '成員分頁列出擁有者與成員');
+  await shot('members');
+  log('✓ 成員分頁');
+
+  // 預覽與模型目錄的代理：沒登入的請求被擋，登入後轉給本機的 serve.mjs
+  const pv = (await call('GET', '/api/info', { cookie: admin })).body.previewPort, catalog = `http://127.0.0.1:${pv}/core/catalog/`;
+  check((await fetch(catalog)).status === 401 && (await fetch(catalog, { headers: { Cookie: admin } })).status === 200, '3D 預覽要登入才能看');
+
+  // 登入失敗次數限制：同一個帳號錯 5 次就鎖住，正確的密碼也要等
+  await call('POST', '/api/users', { cookie: admin, body: { name: 'locked', role: 'editor', password: 'password-123' } });
+  for (let i = 0; i < 5; i++) await call('POST', '/api/auth/login', { body: { name: 'locked', password: 'wrong-password' } });
+  const lockedOut = await call('POST', '/api/auth/login', { body: { name: 'locked', password: 'password-123' } });
+  check(lockedOut.status === 429 && /分鐘後再試/.test(lockedOut.body.error), '登入錯 5 次後鎖住');
   await call('PUT', '/api/users/maker', { cookie: admin, body: { disabled: true } });
   check((await call('GET', '/api/parts', { cookie: editor })).status === 401, '停用後舊的登入失效');
   const audit = (await call('GET', '/api/users', { cookie: admin })).body.audit;

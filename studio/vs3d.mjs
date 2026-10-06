@@ -22,7 +22,9 @@
 //   開工時該站不能有未提交的改動，每次指令開一個本機分支 <範圍>/vs3d-…，只提交該站的路徑，不會 checkout／reset／stash。
 //   node studio/vs3d.mjs probe <名稱> [--cli …] [--other <專案>] [--simulate]   寫入隔離自我測試（--simulate：app 另外模擬越界寫入）
 //   node studio/vs3d.mjs models                                   各 CLI 可用的模型與各角色目前的指派
-//   node studio/vs3d.mjs ui [--port 8780] [--no-open] [--host 0.0.0.0]   開啟網頁介面（http://127.0.0.1:8780/）；--host 0.0.0.0 讓區網的其他電腦也能連（先建立帳號）
+//   node studio/vs3d.mjs ui [--port 8780] [--no-open] [--host 0.0.0.0] [--pfx 憑證.pfx｜--cert 憑證.pem --key 私鑰.pem] [--insecure-http]
+//                                                                 開啟網頁介面（http://127.0.0.1:8780/）；--host 0.0.0.0 讓區網的其他電腦也能連：要先建立帳號並用 HTTPS
+//                                                                 （PFX 的密碼放環境變數 VS3D_PFX_PASS；--insecure-http 只在測試時跳過 HTTPS）
 //   node studio/vs3d.mjs users [add <帳號> --level admin|editor|viewer --password <密碼>｜passwd <帳號> --password <密碼>｜remove <帳號>]   介面的登入帳號（忘記密碼時從這裡重設）
 //   node studio/vs3d.mjs parts [search <關鍵字…>] [--category 類別] [--project 專案] [--json]   查元件資料庫（選型、單價、哪些專案用過）
 //   node studio/vs3d.mjs parts show <id> [--json]                 單一元件的規格、價格紀錄、使用紀錄
@@ -35,7 +37,7 @@
 //   --no-wait（有問題時寫出後結束，不在終端機詢問）、--auto-approve（配置提案不必確認）、--max-rounds 40、--timeout 90（分鐘／輪）
 //   new 另有 --create-only（只建立專案，之後用 resume 開始）
 //   每段完成後預設自動審查與補強；--no-review、--no-render 關掉，--no-perf 不量效能，--pick 讓你先挑補強項目；--no-stage2 第一段完成後不問第二段
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
@@ -51,7 +53,7 @@ import { exportHandoff, importHandoff } from './lib/handoff.mjs';
 import * as repoGit from './lib/repo.mjs';
 import { REPO, git, findFfmpeg } from './lib/util.mjs';
 
-const VALUE = new Set(['--text', '--text-file', '--workspace', '--private', '--prompt', '--prompt-file', '--title', '--summary', '--cli', '--model', '--role', '--effort', '--note', '--max-rounds', '--timeout', '--other', '--focus', '--port', '--out', '--name', '--category', '--project', '--db', '--host', '--password', '--level']);
+const VALUE = new Set(['--text', '--text-file', '--workspace', '--private', '--prompt', '--prompt-file', '--title', '--summary', '--cli', '--model', '--role', '--effort', '--note', '--max-rounds', '--timeout', '--other', '--focus', '--port', '--out', '--name', '--category', '--project', '--db', '--host', '--password', '--level', '--pfx', '--cert', '--key']);
 
 // 測試用：VS3D_EXTRA_ADAPTERS 指向一個匯出 { adapters: { 名稱: adapter } } 的模組（例如假代理），讓介面的端對端測試走真正的命令列
 if (process.env.VS3D_EXTRA_ADAPTERS) Object.assign(ADAPTERS, (await import(pathToFileURL(resolve(process.env.VS3D_EXTRA_ADAPTERS)).href)).adapters);
@@ -298,8 +300,13 @@ switch (cmd) {
     const { startUi } = await import('./lib/server.mjs');
     // 從本庫執行時同時列出 project-site/ 的各站（本庫模式）；--no-repo 只看工作區
     const repoRoot = o['no-repo'] ? null : isRepo(REPO) ? REPO : null;
-    const ui = await startUi(o.repo ? defaultWorkspace() : ws, { port: +(o.port || 8780), repo: repoRoot, partsDb: o.db ? resolve(o.db) : undefined, host: o.host || '127.0.0.1' });
-    if (!o['no-open'] && process.platform === 'win32') spawn('cmd', ['/c', 'start', '', `http://127.0.0.1:${ui.port}/`], { windowsHide: true, detached: true, stdio: 'ignore' }).unref();
+    // HTTPS：PFX（Windows 匯出的憑證，密碼放環境變數 VS3D_PFX_PASS）或 PEM 的憑證＋私鑰
+    const tls = o.pfx ? { pfx: readFileSync(resolve(o.pfx)), passphrase: process.env.VS3D_PFX_PASS || '' }
+      : o.cert || o.key ? (o.cert && o.key ? { cert: readFileSync(resolve(o.cert)), key: readFileSync(resolve(o.key)) } : fail('--cert 與 --key 要一起給')) : null;
+    let ui;
+    try { ui = await startUi(o.repo ? defaultWorkspace() : ws, { port: +(o.port || 8780), repo: repoRoot, partsDb: o.db ? resolve(o.db) : undefined, host: o.host || '127.0.0.1', tls, insecureHttp: !!o['insecure-http'] }); }
+    catch (e) { fail(e.message); }
+    if (!o['no-open'] && process.platform === 'win32') spawn('cmd', ['/c', 'start', '', `${tls ? 'https' : 'http'}://127.0.0.1:${ui.port}/`], { windowsHide: true, detached: true, stdio: 'ignore' }).unref();
     process.on('SIGINT', () => { ui.close(); process.exit(0); });
     break;
   }

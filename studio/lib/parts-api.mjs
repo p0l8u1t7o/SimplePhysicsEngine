@@ -84,6 +84,7 @@ export function createPartsApi(file = defaultPartsDb()) {
     },
     overview: () => open().overview(),      // 儀表板首頁用
     system: () => readSystem(open()),
+    store: () => open(),                    // 資料庫本身（專案成員等伺服器直接用的資料）
     close() { db?.close(); db = null; },
   };
 }

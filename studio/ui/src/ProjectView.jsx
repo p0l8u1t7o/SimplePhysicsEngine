@@ -4,9 +4,38 @@ import { api, fileUrl, sameHost, STAGE, ROLE } from './api.js';
 import { QuestionCard } from './QuestionCard.jsx';
 import { Select, ConfirmButton, RENDER_FOCUS } from './fields.jsx';
 
-const TABS = [['progress', '進度'], ['questions', '問題'], ['proposal', '提案'], ['review', '審查'], ['preview', '預覽'], ['shots', '截圖'], ['compare', '補強對照'], ['rules', '規則']];
+const TABS = [['progress', '進度'], ['questions', '問題'], ['proposal', '提案'], ['review', '審查'], ['preview', '預覽'], ['shots', '截圖'], ['compare', '補強對照'], ['rules', '規則'], ['members', '成員']];
 const min = s => `${(s / 60).toFixed(1)} 分`;
 const RENDER_RESULT = { accepted: '已接受', reverted: '已整批還原', 'accepted-with-failures': '已接受（守門未全過）' };
+
+// 專案成員（依專案分權限）：有成員時只有成員與管理者能執行與修改；沒有成員的專案所有一般帳號都能動。擁有者與管理者可以改名單
+function Members({ id, onChange }) {
+  const [d, setD] = useState(null), [list, setList] = useState([]), [add, setAdd] = useState(''), [msg, setMsg] = useState('');
+  const load = useCallback(() => api.members(id).then(x => { setD(x); setList(x.members.map(m => ({ user: m.user, role: m.role }))); }).catch(e => setMsg('✗ ' + e.message)), [id]);
+  useEffect(() => { load(); }, [load]);
+  if (!d) return <p className="mute">{msg || '載入中…'}</p>;
+  const name = u => d.users.find(x => x.name.toLowerCase() === u.toLowerCase())?.display || u;
+  const dirty = JSON.stringify(list) !== JSON.stringify(d.members.map(m => ({ user: m.user, role: m.role })));
+  const others = d.users.filter(u => u.role !== 'viewer' && !list.some(m => m.user.toLowerCase() === u.name.toLowerCase()));
+  const save = () => api.saveMembers(id, list).then(() => { setMsg('✓ 已儲存'); load(); onChange?.(); }).catch(e => setMsg('✗ ' + e.message));
+  return <section className="card">
+    <h3>專案成員</h3>
+    <p className="mute hint">{list.length ? '只有下面的成員與管理者能執行流程、回答問題、修改與刪除；其他人只能看。' : '目前沒有成員：所有一般帳號都能執行與修改（舊專案與本庫的站預設如此）。加入第一個成員時要指定擁有者。'}
+      {!d.canManage && ' 只有擁有者或管理者可以改名單。'}</p>
+    {list.length > 0 && <table className="data"><tbody>{list.map((m, i) => <tr key={m.user}>
+      <td><b>{name(m.user)}</b> <span className="mute">{m.user}</span></td>
+      <td><Select value={m.role} disabled={!d.canManage} onChange={v => { setMsg(''); setList(l => l.map((x, n) => n === i ? { ...x, role: v } : x)); }} options={Object.entries(d.roles)} /></td>
+      <td className="ops">{d.canManage && <button type="button" onClick={() => { setMsg(''); setList(l => l.filter((_, n) => n !== i)); }}>移除</button>}</td></tr>)}</tbody></table>}
+    {d.canManage && <div className="bar">
+      <Select value={add} onChange={setAdd} options={[['', others.length ? '選擇帳號…' : '（沒有其他可以加的帳號）'], ...others.map(u => [u.name, `${u.display}（${u.name}）`])]} />
+      <button type="button" disabled={!add} onClick={() => { setList(l => [...l, { user: add, role: l.length ? 'member' : 'owner' }]); setAdd(''); setMsg(''); }}>＋ 加入</button>
+      <span className="grow" />
+      {dirty && <button type="button" onClick={() => { setList(d.members.map(m => ({ user: m.user, role: m.role }))); setMsg(''); }}>復原</button>}
+      <button type="button" className="primary" disabled={!dirty} onClick={save}>儲存</button>
+    </div>}
+    {msg && <div className={msg.startsWith('✗') ? 'bad' : 'ok'}>{msg}</div>}
+  </section>;
+}
 
 export function ProjectView({ id, tick, running, onChange, onDeleted }) {
   const [p, setP] = useState(null);
@@ -32,6 +61,7 @@ export function ProjectView({ id, tick, running, onChange, onDeleted }) {
   const s = p.state, rv = s.reviewData;
   const agentRounds = p.rounds.filter(r => r.role);
 
+  const canEdit = p.canEdit !== false;      // 不是專案成員或唯讀帳號：只能看
   const done = p.stage === 'done', blocked = busy || pending.length > 0;
   // 本庫的站有未提交的改動（多半是別的工具改的）：vs3d 開工會拒絕，開分支的指令先停用
   const dirty = p.repo ? p.dirty || [] : [], flowBlocked = blocked || dirty.length > 0;
@@ -53,10 +83,11 @@ export function ProjectView({ id, tick, running, onChange, onDeleted }) {
         </div>
         <div className="bar" style={{ margin: 0 }}>
           <a className="btn" href={sameHost(p.previewUrl)} target="_blank" rel="noreferrer">↗ 在新分頁開啟預覽</a>
-          {!p.repo && <button className="danger" disabled={isRunning} title={isRunning ? '執行中不能刪除，先停止' : '刪除這個專案'} onClick={() => setDel(del == null ? '' : null)}>刪除專案</button>}
+          {!p.repo && <button className="danger" disabled={isRunning || !canEdit} title={isRunning ? '執行中不能刪除，先停止' : '刪除這個專案'} onClick={() => setDel(del == null ? '' : null)}>刪除專案</button>}
         </div>
       </div>
 
+      {!canEdit && <div className="notice warn">你不是這個專案的成員（或用的是唯讀帳號）：可以看所有內容，不能執行流程、回答問題或修改。成員名單在「成員」分頁。</div>}
       {dirty.length > 0 && !isRunning && <div className="notice warn">
         <b>本站有 {dirty.length} 個未提交的改動</b>（可能是 Claude Code、Codex 桌面版或其他工具改的）。vs3d 只在乾淨的站上開工，避免把別人的改動當成代理的成果提交；先提交或處理這些檔案，審查、補強、第二段與修改指令才能用。檢查與匯出不受影響。
         <ul className="files-list">{dirty.slice(0, 12).map(f => <li key={f}><code>{f}</code></li>)}{dirty.length > 12 && <li className="mute">…另外 {dirty.length - 12} 個</li>}</ul>
@@ -73,6 +104,7 @@ export function ProjectView({ id, tick, running, onChange, onDeleted }) {
       </section>}
       {notice && <div className="notice ok">{notice}</div>}
 
+      <fieldset className="plain" disabled={!canEdit}>
       <div className="acts">
         <section className="group">
           <h4>流程</h4>
@@ -127,6 +159,7 @@ export function ProjectView({ id, tick, running, onChange, onDeleted }) {
           <button className="primary" disabled={flowBlocked || !change.trim() || !done} onClick={() => act(() => api.run(id, { cmd: 'change', text: change, keepTiming }))}>送出修改指令</button>
         </div>
       </section>}
+      </fieldset>
       {error && <div className="notice bad">{error}</div>}
       <div className="tabs">{TABS.map(([k, label]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{label}{k === 'questions' && pending.length ? `（${pending.length}）` : ''}</button>)}</div>
 
@@ -146,13 +179,13 @@ export function ProjectView({ id, tick, running, onChange, onDeleted }) {
         </div>
       </>}
 
-      {tab === 'questions' && <>
+      {tab === 'questions' && <fieldset className="plain" disabled={!canEdit}>
         {pending.map(q => <QuestionCard key={q.id} projectId={id} q={q} suggest={rv?.suggest || []} onDone={() => { onChange?.(); load(); }} />)}
         {pending.some(q => q.id.startsWith('vs3d-render-accept')) && p.compare && <iframe className="frame" title="補強對照" src={fileUrl(id, p.compare)} />}
         {!pending.length && <p className="mute">沒有等待回答的問題。</p>}
         {p.questions.filter(q => q.answered).length > 0 && <details className="card"><summary>已回答（{p.questions.filter(q => q.answered).length}）</summary>
           <ul>{p.questions.filter(q => q.answered).map(q => <li key={q.id}><span className="chip">{q.header || q.id}</span> {q.question}</li>)}</ul></details>}
-      </>}
+      </fieldset>}
 
       {tab === 'proposal' && <>{p.segment2 && <div className="card pre"><b>第二段提案（電控、電盤、配線、相機）</b>{'\n\n' + p.segment2}</div>}<div className="card pre">{p.proposal || <span className="mute">還沒有配置提案。</span>}</div></>}
 
@@ -169,6 +202,8 @@ export function ProjectView({ id, tick, running, onChange, onDeleted }) {
       {tab === 'compare' && (p.compare ? <iframe className="frame" title="補強對照" src={fileUrl(id, p.compare)} /> : <p className="mute">還沒有補強。</p>)}
 
       {tab === 'rules' && <><div className="card pre">{p.agents}</div><div className="card"><h3>上傳的資料（docs/）</h3><ul>{p.docs.map(f => <li key={f}><a href={fileUrl(id, `docs/${f}`)} target="_blank" rel="noreferrer">{f}</a></li>)}</ul></div></>}
+
+      {tab === 'members' && <Members id={id} onChange={load} />}
 
       {zoom && <div className="zoom" onClick={() => setZoom(null)}><img src={zoom} /></div>}
     </div>

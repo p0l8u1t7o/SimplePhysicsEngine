@@ -3,6 +3,8 @@
 // - 命令列不經過這裡：能在這台電腦開終端機的人本來就能動檔案。
 // - 角色：admin 管理者（全部，含帳號與設定）、editor 一般（執行流程、改元件、建立與刪除專案）、viewer 唯讀（只能看）。
 // - 登入狀態是簽章過的 cookie（帳號、到期時間、帳號的版本號）；改密碼、改角色、停用、刪除帳號都會讓舊的 cookie 失效。
+// - 登入失敗次數限制（2026-10-06）：同一個帳號或同一個來源 IP 在 15 分鐘內錯 5 次，鎖 15 分鐘（記在記憶體，重開伺服器就清掉）。
+// - 依專案分權限（2026-10-06）：專案有成員（擁有者、成員）時，只有成員與管理者能執行與修改；還沒有成員的專案（舊的、本庫的站）所有一般帳號都能動。
 import { existsSync, readFileSync, appendFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { randomBytes, scryptSync, createHmac, timingSafeEqual } from 'node:crypto';
@@ -19,6 +21,16 @@ const same = (a, b) => { const x = Buffer.from(a), y = Buffer.from(b); return x.
 const b64 = s => Buffer.from(s, 'utf8').toString('base64url');
 const pub = u => ({ name: u.name, display: u.display || u.name, role: u.role, disabled: !!u.disabled, createdAt: u.createdAt });
 
+export const MEMBER_LABEL = { owner: '擁有者', member: '成員' };
+// 專案權限：user 是登入的人（沒有帳號的單機模式是 null），members 是 [{ user, role }]
+export function canEditProject(user, members = []) {
+  if (!user || user.role === 'admin') return true;
+  if (user.role === 'viewer') return false;
+  return !members.length || members.some(m => m.user.toLowerCase() === user.name.toLowerCase());
+}
+export const canManageProject = (user, members = []) => !user || user.role === 'admin'
+  || (user.role !== 'viewer' && members.some(m => m.role === 'owner' && m.user.toLowerCase() === user.name.toLowerCase()));
+
 // 這個角色能不能做這個請求；回傳 null（可以）或拒絕的原因。path 是 /api/ 後面的片段陣列
 export function denied(role, method, [a]) {
   if (a === 'auth') return null;                                  // 登入、登出、改自己的密碼
@@ -30,7 +42,16 @@ export function denied(role, method, [a]) {
 }
 
 // 帳號檔的位置可以用環境變數 VS3D_USERS 改（測試用暫存檔）
-export function createAuth({ file = process.env.VS3D_USERS || join(STUDIO, 'data', 'users.json'), auditFile = join(dirname(file), 'audit.jsonl') } = {}) {
+export const LOGIN_LIMIT = { max: 5, windowMs: 15 * 60e3, lockMs: 15 * 60e3 };
+export function createAuth({ file = process.env.VS3D_USERS || join(STUDIO, 'data', 'users.json'), auditFile = join(dirname(file), 'audit.jsonl'), clock = Date.now, secure = false } = {}) {
+  const failures = new Map();       // 'u:帳號'／'ip:位址' → { n, first, until }
+  const locked = key => { const f = failures.get(key); return f && f.until > clock() ? Math.ceil((f.until - clock()) / 60e3) : 0; };
+  const fail = key => {
+    const t = clock(), f = failures.get(key);
+    const cur = f && t - f.first < LOGIN_LIMIT.windowMs ? f : { n: 0, first: t, until: 0 };
+    cur.n++; if (cur.n >= LOGIN_LIMIT.max) cur.until = t + LOGIN_LIMIT.lockMs;
+    failures.set(key, cur);
+  };
   let data = readJson(file, null) || { secret: randomBytes(32).toString('hex'), users: [] };
   const save = () => writeJson(file, data);
   const find = name => data.users.find(u => u.name.toLowerCase() === String(name || '').toLowerCase());
@@ -71,12 +92,16 @@ export function createAuth({ file = process.env.VS3D_USERS || join(STUDIO, 'data
       data.users = data.users.filter(x => x !== u); save();
       return { deleted: u.name };
     },
-    // 帳號或密碼錯都回同一句話
-    login(name, password) {
+    // 帳號或密碼錯都回同一句話；ip 給了就連來源一起計算失敗次數，鎖住時回 429
+    login(name, password, { ip = '' } = {}) {
+      const keys = [`u:${String(name || '').toLowerCase()}`, ...(ip ? [`ip:${ip}`] : [])];
+      const wait = Math.max(...keys.map(locked));
+      if (wait) bad(`登入失敗次數太多，請 ${wait} 分鐘後再試`, 429);
       const u = find(name);
       const ok = u && !u.disabled && same(hash(password, u.salt), u.hash);
       if (!u) hash(password, 'x');                                   // 帳號不存在時也算一次雜湊，回應時間差不多
-      if (!ok) bad('帳號或密碼不對', 401);
+      if (!ok) { keys.forEach(fail); bad('帳號或密碼不對', 401); }
+      keys.forEach(k => failures.delete(k));
       const body = `${b64(u.name)}.${Date.now() + DAYS * 864e5}.${u.ver}`;
       return { user: pub(u), token: `${body}.${sign(body)}` };
     },
@@ -90,7 +115,9 @@ export function createAuth({ file = process.env.VS3D_USERS || join(STUDIO, 'data
       const m = String(req.headers.cookie || '').match(new RegExp(`(?:^|;\\s*)${COOKIE}=([^;]+)`));
       return m ? this.verify(m[1]) : null;
     },
-    cookie: token => `${COOKIE}=${token || ''}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${token ? DAYS * 86400 : 0}`,
+    cookie: token => `${COOKIE}=${token || ''}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${token ? DAYS * 86400 : 0}${secure ? '; Secure' : ''}`,
+    // 給專案成員的選單：可以登入的帳號（不含停用的）
+    names: () => data.users.filter(u => !u.disabled).map(u => ({ name: u.name, display: u.display || u.name, role: u.role })),
     // 操作紀錄：誰、什麼時候、做了什麼（只記會改東西的請求）
     audit(entry) { try { mkdirSync(dirname(auditFile), { recursive: true }); appendFileSync(auditFile, JSON.stringify({ at: now(), ...entry }) + '\n'); } catch { /* 記不了不影響操作 */ } },
     recent(limit = 100) {

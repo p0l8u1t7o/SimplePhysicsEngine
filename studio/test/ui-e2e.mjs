@@ -14,7 +14,8 @@ import { openBrowser } from '../../core/tools/cdp.mjs';
 const argv = process.argv.slice(2), keep = argv.includes('--keep');
 const shotDir = argv.includes('--shots') ? resolve(argv[argv.indexOf('--shots') + 1]) : null;
 const ws = mkdtempSync(join(tmpdir(), 'vs3d-ui-')), port = await freePort();
-const env = { ...process.env, VS3D_EXTRA_ADAPTERS: join(STUDIO, 'test', 'fake-adapters.mjs') };
+// 帳號檔與資料庫都用暫存的：這台電腦有帳號時也不必登入，也不會動到本機真正的元件資料庫
+const env = { ...process.env, VS3D_EXTRA_ADAPTERS: join(STUDIO, 'test', 'fake-adapters.mjs'), VS3D_USERS: join(ws, 'users.json'), VS3D_DB: join(ws, 'studio.db') };
 const server = spawn(process.execPath, [join(STUDIO, 'vs3d.mjs'), 'ui', '--port', String(port), '--no-open', '--workspace', ws], { env, stdio: ['ignore', 'pipe', 'pipe'] });
 let out = ''; server.stdout.on('data', d => { out += d; }); server.stderr.on('data', d => { out += d; });
 const base = `http://127.0.0.1:${port}`;

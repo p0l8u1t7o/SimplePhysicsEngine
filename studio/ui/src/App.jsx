@@ -26,6 +26,7 @@ export function App() {
 
 function Shell({ me, onAuthChange }) {
   const user = me.user, [menu, setMenu] = useState(false);
+  const readOnly = user?.role === 'viewer';      // 唯讀帳號：會改東西的按鈕先停用（伺服器也會拒絕）
   const [route, setRoute] = useState(readHash());
   const [info, setInfo] = useState(null);
   const [projects, setProjects] = useState([]);
@@ -78,7 +79,7 @@ function Shell({ me, onAuthChange }) {
           {mine.length > 0 && !shown.length && <p className="mute" style={{ padding: 10 }}>沒有符合「{query}」的專案。</p>}
         </div>
         <div className="side-foot">
-          <button onClick={() => go({ view: 'new' })}><Icon name="plus" size={16} />新建專案</button>
+          <button disabled={readOnly} title={readOnly ? '唯讀帳號不能建立專案' : undefined} onClick={() => go({ view: 'new' })}><Icon name="plus" size={16} />新建專案</button>
           <div className="ws" title="工作區">{info?.ws}</div>
         </div>
       </aside>
@@ -107,10 +108,10 @@ function Shell({ me, onAuthChange }) {
         {user?.role === 'viewer' && <div className="notice warn" style={{ margin: '0 26px 10px' }}>你用的是唯讀帳號：可以看所有內容，不能執行流程或修改資料。</div>}
         {route.view === 'home' && <Dashboard go={go} tick={tick} />}
         {route.view === 'stations' && <Stations projects={projects} query={query} go={go} />}
-        {route.view === 'new' && <NewProject info={info} running={running} onCreated={id => { refresh(); go({ view: 'project', id }); }} />}
+        {route.view === 'new' && <fieldset className="plain" disabled={readOnly}><NewProject info={info} running={running} onCreated={id => { refresh(); go({ view: 'project', id }); }} /></fieldset>}
         {route.view === 'settings' && <Settings info={info} user={user} />}
         {route.view === 'accounts' && (!user || user.role === 'admin' ? <Accounts me={user} onAuthChange={onAuthChange} /> : <div className="page narrow"><h2>我的帳號</h2><p className="sub">{user.display}（{user.name}）· {me.roles[user.role]}</p><ChangePassword /></div>)}
-        {route.view === 'parts' && <Parts projectNames={stations.map(p => p.name)} />}
+        {route.view === 'parts' && <Parts projectNames={stations.map(p => p.name)} readOnly={readOnly} />}
         {route.view === 'project' && <ProjectView key={route.id} id={route.id} tick={tick} running={running} onChange={refresh} onDeleted={() => { refresh(); go({ view: 'home' }); }} />}
       </main>
     </div>

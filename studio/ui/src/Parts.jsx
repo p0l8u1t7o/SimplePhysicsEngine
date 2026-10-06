@@ -80,7 +80,7 @@ function Attachments({ part, system, onChanged }) {
 }
 
 // 單一元件：基本資料、自由規格欄位、價格紀錄、使用紀錄
-function PartEditor({ id, facets, suppliers, models, system, projectNames, onClose, onChanged }) {
+function PartEditor({ id, facets, suppliers, models, system, readOnly, projectNames, onClose, onChanged }) {
   const [part, setPart] = useState(null);       // 伺服器上的內容（新增時是 null）
   const [form, setForm] = useState(BLANK_PART);
   const [attrs, setAttrs] = useState([]);       // [[名稱, 值], …]
@@ -129,10 +129,11 @@ function PartEditor({ id, facets, suppliers, models, system, projectNames, onClo
           {part?.cover_file_id && <img className="p-cover" src={partFileUrl(part.id, part.cover_file_id, true)} alt="封面圖" />}
           <div className="grow"><h2>{part ? part.name : '新增元件'}</h2>{part && <div className="meta"><code className="p-code">{part.code}</code>{part.status && <span className="chip warn">{part.status}</span>}<span className="mute">更新於 {part.updated_at.slice(0, 10)}</span></div>}</div>
           <div className="bar" style={{ margin: 0 }}>
-            {part?.status === PENDING && <button type="button" className="primary" title="代理提案帶進來的新元件：看過沒問題就按這裡" onClick={() => api.savePart(part.id, { ...part, status: '' }).then(p => { fill(p); setMsg('✓ 已確認'); onChanged(p.id); }).catch(e => setMsg('✗ ' + e.message))}>✓ 確認這個元件</button>}
+            {part?.status === PENDING && !readOnly && <button type="button" className="primary" title="代理提案帶進來的新元件：看過沒問題就按這裡" onClick={() => api.savePart(part.id, { ...part, status: '' }).then(p => { fill(p); setMsg('✓ 已確認'); onChanged(p.id); }).catch(e => setMsg('✗ ' + e.message))}>✓ 確認這個元件</button>}
             <button type="button" onClick={onClose}>✕ 關閉</button>
           </div>
         </div>
+        <fieldset className="plain" disabled={readOnly}>
         <form onSubmit={save}>
           <section className="card form"><h3>基本資料</h3>
             <div className="row">
@@ -191,6 +192,7 @@ function PartEditor({ id, facets, suppliers, models, system, projectNames, onClo
               addLabel="新增使用紀錄" empty="還沒有專案用過" {...record('usages')} />
           </section>
         </> : <p className="mute">先新增元件，接著就能加價格紀錄與專案使用紀錄。</p>}
+        </fieldset>
         <datalist id="parts-categories">{facets.categories.filter(c => c.name).map(c => <option key={c.name} value={c.name} />)}</datalist>
         <datalist id="parts-groups">{facets.groups.map(g => <option key={g} value={g} />)}</datalist>
         <datalist id="parts-brands">{facets.brands.map(b => <option key={b} value={b} />)}</datalist>
@@ -201,7 +203,7 @@ function PartEditor({ id, facets, suppliers, models, system, projectNames, onClo
   );
 }
 
-function Suppliers({ suppliers, kinds, reload }) {
+function Suppliers({ suppliers, kinds, reload, readOnly }) {
   const columns = [
     { key: 'name', label: '名稱 *' }, { key: 'kind', label: '類型', type: 'select', options: [['', '—'], ...kinds.map(k => [k, k])] },
     { key: 'contact', label: '聯絡窗口' }, { key: 'phone', label: '電話' }, { key: 'email', label: 'Email' },
@@ -209,12 +211,12 @@ function Suppliers({ suppliers, kinds, reload }) {
     { key: 'lead_time', label: '交期', placeholder: '例如 4～6 週' }, { key: 'payment_terms', label: '付款條件', placeholder: '例如 月結 60 天' }, { key: 'note', label: '備註' },
     { key: 'part_count', label: '元件數', cls: 'num', type: 'hidden' },
   ];
-  return <section className="card">
+  return <fieldset className="plain" disabled={readOnly}><section className="card">
     <p className="mute hint">價格紀錄可以連到這裡的供應商。刪除供應商不會刪掉價格紀錄，只是那些紀錄不再連到供應商。</p>
     <RecordTable columns={columns} rows={suppliers} blank={{ name: '', kind: '', contact: '', phone: '', email: '', website: '', lead_time: '', payment_terms: '', note: '' }}
       addLabel="新增供應商" empty="還沒有供應商" deleteTitle={r => r.price_count ? `有 ${r.price_count} 筆價格紀錄連到這個供應商` : undefined}
       onSave={async row => { await api.saveSupplier(row.id, row); await reload(); }} onDelete={async id => { await api.deleteSupplier(id); await reload(); }} />
-  </section>;
+  </section></fieldset>;
 }
 
 // 樹狀選單：群組 → 類別，各有元件數；點群組或類別就篩選右邊的清單，箭頭收合
@@ -274,7 +276,7 @@ function PartList({ parts, thumbs, onOpen, empty }) {
   );
 }
 
-export function Parts({ projectNames = [] }) {
+export function Parts({ projectNames = [], readOnly = false }) {
   const [tab, setTab] = useState('parts');
   const [q, setQ] = useState('');
   const [sel, setSel] = useState({ group: '', category: '' });       // 樹狀選單選到的群組／類別
@@ -305,7 +307,7 @@ export function Parts({ projectNames = [] }) {
       <div className="head">
         <div><h2>元件資料庫</h2>
           <div className="sub" style={{ marginBottom: 0 }}>設計、選型與成本表的共用參考：元件、歷次價格、哪些專案用過、供應商。{data && <>資料只留本機：<code>{data.file}</code></>}</div></div>
-        <button className="primary" onClick={() => { setTab('parts'); setOpen('new'); }}>＋ 新增元件</button>
+        <button className="primary" disabled={readOnly} title={readOnly ? '唯讀帳號不能新增' : undefined} onClick={() => { setTab('parts'); setOpen('new'); }}>＋ 新增元件</button>
       </div>
       <div className="tabs">
         <button className={tab === 'parts' ? 'on' : ''} onClick={() => setTab('parts')}>元件{data ? ` ${count}` : ''}</button>
@@ -330,8 +332,8 @@ export function Parts({ projectNames = [] }) {
           <PartList parts={data.parts} thumbs={thumbs} onOpen={setOpen} empty={narrowed ? '沒有符合條件的元件' : '資料庫還是空的：按「＋ 新增元件」，或執行 node studio/vs3d.mjs parts seed 從各站的成本表匯入。'} />
         </div>
       </div>)}
-      {tab === 'suppliers' && <Suppliers suppliers={sup.suppliers} kinds={sup.kinds} reload={() => Promise.all([loadSuppliers(), load()])} />}
-      {open != null && data && <PartEditor id={open} facets={data} suppliers={sup.suppliers} models={models} system={system} projectNames={projectNames} onClose={close}
+      {tab === 'suppliers' && <Suppliers suppliers={sup.suppliers} kinds={sup.kinds} reload={() => Promise.all([loadSuppliers(), load()])} readOnly={readOnly} />}
+      {open != null && data && <PartEditor id={open} facets={data} suppliers={sup.suppliers} models={models} system={system} readOnly={readOnly} projectNames={projectNames} onClose={close}
         onChanged={id => { load(); if (id != null && open === 'new') setOpen(id); }} />}
     </div>
   );
