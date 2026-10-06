@@ -9,9 +9,13 @@
 //   PUT｜DELETE /api/files/:附件 id                     改用途、對應的價格紀錄、備註；刪除
 //   GET｜POST /api/suppliers；PUT｜DELETE /api/suppliers/:id   供應商
 //   GET｜PUT /api/system                               系統設定（PUT 只有管理者，權限在 lib/auth.mjs 的 denied）
+//   GET｜POST /api/categories；GET｜PUT｜DELETE /api/categories/:id；PUT /api/categories/:id/fields   分類樹與欄位範本（改只有管理者）
+//   POST /api/parts/:id/links { related, rel, qty, note }；PUT｜DELETE /api/links/:id   關聯件（組成、配件、替代、相容）
 import { openPartsDb, defaultPartsDb, PartsError, GRADES, SUPPLIER_KINDS, FILE_TYPES, FILE_KINDS, fileType, mimeOf } from './partsdb.mjs';
 import { SYSTEM_SETTINGS, readSystem, cleanSystem, attachmentRule } from './settings.mjs';
 import { edition, subscriptionAllowed } from './edition.mjs';
+import { FIELD_TYPES } from './categories.mjs';
+import { LINK_RELS, PART_KINDS, PRICE_MODES } from './part-links.mjs';
 
 const INLINE = new Set(['image', 'pdf']);      // 可以直接在瀏覽器開的附件
 
@@ -30,8 +34,22 @@ export function createPartsApi(file = defaultPartsDb()) {
       return { values: readSystem(d), defs: Object.fromEntries(Object.entries(SYSTEM_SETTINGS).map(([k, x]) => [k, { label: x.label, hint: x.hint || '', default: x.value }])),
         fileTypes: FILE_TYPES, fileKinds: FILE_KINDS, edition: edition(), subscription: subscriptionAllowed() };
     }
+    // 分類樹與欄位範本（改只有管理者，權限在 lib/auth.mjs 的 denied）
+    if (a === 'categories') {
+      const C = d.categories;
+      if (!id && method === 'GET') return { ...C.tree(), fieldTypes: FIELD_TYPES };
+      if (!id && method === 'POST') return C.createCategory(v);
+      if (id && b === 'fields' && method === 'PUT') return C.setFields(id, v.fields);
+      if (id && !b && method === 'GET') return C.getCategory(id);
+      if (id && !b && method === 'PUT') return C.updateCategory(id, v);
+      if (id && !b && method === 'DELETE') return C.deleteCategory(id);
+    }
+    // 關聯件與模組的子件
+    if (a === 'parts' && b === 'links' && method === 'POST') return d.links.addLink(id, v);
+    if (a === 'links' && id && method === 'PUT') return d.links.updateLink(id, v);
+    if (a === 'links' && id && method === 'DELETE') return d.links.deleteLink(id);
     if (a === 'parts' && !id) {
-      if (method === 'GET') return { ...d.listParts(Object.fromEntries(query)), file: d.file, grades: GRADES, supplierKinds: SUPPLIER_KINDS };
+      if (method === 'GET') return { ...d.listParts(Object.fromEntries(query)), file: d.file, grades: GRADES, supplierKinds: SUPPLIER_KINDS, linkRels: LINK_RELS, partKinds: PART_KINDS, priceModes: PRICE_MODES };
       if (method === 'POST') return d.createPart(v);
     }
     if (a === 'parts' && id && !b) {

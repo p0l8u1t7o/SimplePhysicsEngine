@@ -115,7 +115,7 @@ function Shell({ me, onAuthChange }) {
         {route.view === 'new' && <fieldset className="plain" disabled={readOnly}><NewProject info={info} running={running} onCreated={id => { refresh(); go({ view: 'project', id }); }} /></fieldset>}
         {route.view === 'settings' && <Settings info={info} user={user} />}
         {route.view === 'accounts' && (!user || user.role === 'admin' ? <Accounts me={user} onAuthChange={onAuthChange} /> : <div className="page narrow"><h2>我的帳號</h2><p className="sub">{user.display}（{user.name}）· {me.roles[user.role]}</p><ChangePassword /></div>)}
-        {route.view === 'parts' && <Parts projectNames={stations.map(p => p.name)} readOnly={readOnly} />}
+        {route.view === 'parts' && <Parts projectNames={stations.map(p => p.name)} readOnly={readOnly} isAdmin={!user || user.role === 'admin'} />}
         {route.view === 'project' && <ProjectView key={route.id} id={route.id} tick={tick} running={running} queue={queue} onChange={refresh} onDeleted={() => { refresh(); go({ view: 'home' }); }} />}
       </main>
     </div>

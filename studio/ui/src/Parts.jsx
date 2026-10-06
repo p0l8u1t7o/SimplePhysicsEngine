@@ -1,18 +1,21 @@
-// 元件資料庫：左邊樹狀選單（群組 → 類別），右邊清單；查詢、新增、編輯、刪除元件；每個元件底下有多筆價格紀錄與專案使用紀錄；另一個分頁管理供應商。
+// 元件資料庫：左邊是分類樹（使用者自訂，管理者可以改；PartsCategories.jsx），右邊清單；查詢、新增、編輯、刪除元件；
+// 每個元件有依分類的規格欄位、附件、模組組成與關聯件（PartLinks.jsx）、價格紀錄與專案使用紀錄；另一個分頁管理供應商。
 // 資料在本機的 SQLite 檔（studio/data/studio.db，不進版控），各站做設計、選型與成本表時由這裡查。
 // 附件（報價單、圖片、型錄、CAD）的類型與大小上限來自系統設定（/api/system）。
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api, sameHost, partFileUrl, fileTypeOf } from './api.js';
 import { Icon } from './icons.jsx';
 import { Select, ConfirmButton } from './fields.jsx';
+import { CategoryTree, CategoryEditor, CategorySelect, TemplateFields, flatten, pathText } from './PartsCategories.jsx';
+import { PartLinks } from './PartLinks.jsx';
 
 const CURRENCIES = ['TWD', 'USD', 'JPY', 'EUR', 'CNY'];
-const UNCATEGORIZED = '（未分類）', UNGROUPED = '（未分組）';
+const UNCATEGORIZED = '（未分類）';
 const today = () => new Date().toLocaleDateString('sv');
 export const money = (v, currency = 'TWD') => v == null ? '' : `${currency === 'TWD' ? 'NT$' : currency} ${Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
 const PENDING = '待確認';
 const size = n => n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`;
-const BLANK_PART = { status: '', model_id: '', grp: '', category: '', name: '', brand: '', model: '', spec: '', unit: '', selection_note: '', alternatives: '', tags: '', url: '', note: '' };
+const BLANK_PART = { status: '', model_id: '', category_id: '', kind: 'part', price_mode: 'own', name: '', brand: '', model: '', spec: '', unit: '', selection_note: '', alternatives: '', tags: '', url: '', note: '' };
 
 // 可以逐列編輯的表格（價格紀錄、使用紀錄、供應商共用）。
 // columns：{ key, label, type: text｜number｜date｜select, options, list（datalist 的 id）, show(row)（顯示用）, cls }
@@ -79,29 +82,42 @@ function Attachments({ part, system, onChanged }) {
   </section>;
 }
 
-// 單一元件：基本資料、自由規格欄位、價格紀錄、使用紀錄
-function PartEditor({ id, facets, suppliers, models, system, readOnly, projectNames, onClose, onChanged }) {
+// 單一元件：基本資料（分類、種類）、依分類的規格欄位、其他規格欄位、附件、模組組成與關聯件、價格紀錄、使用紀錄
+// attrs 拆成兩塊：分類欄位範本有的（tvals）與其他自由欄位（attrs）；儲存時合起來
+const sortedJson = o => JSON.stringify(Object.entries(o).filter(([, v]) => v !== '').sort(([a], [b]) => a.localeCompare(b)));
+function PartEditor({ id, facets, suppliers, models, system, readOnly, projectNames, tree, onClose, onChanged, onOpen }) {
   const [part, setPart] = useState(null);       // 伺服器上的內容（新增時是 null）
   const [form, setForm] = useState(BLANK_PART);
-  const [attrs, setAttrs] = useState([]);       // [[名稱, 值], …]
+  const [fields, setFields] = useState([]);     // 目前分類的有效欄位範本（含上層繼承）
+  const [tvals, setTvals] = useState({});       // 範本欄位的值
+  const [attrs, setAttrs] = useState([]);       // 其他自由欄位 [[名稱, 值], …]
   const [msg, setMsg] = useState('');
-  const fill = p => { setPart(p); setForm(Object.fromEntries(Object.keys(BLANK_PART).map(k => [k, p[k] ?? '']))); setAttrs(Object.entries(p.attrs || {})); };
+  const split = (all, fs) => { const keys = new Set(fs.map(f => f.key)); setTvals(Object.fromEntries(Object.entries(all).filter(([k]) => keys.has(k)))); setAttrs(Object.entries(all).filter(([k]) => !keys.has(k))); };
+  const fill = p => { setPart(p); setForm(Object.fromEntries(Object.keys(BLANK_PART).map(k => [k, p[k] ?? '']))); setFields(p.fields || []); split(p.attrs || {}, p.fields || []); };
   const load = useCallback(() => api.part(id).then(fill).catch(e => setMsg('✗ ' + e.message)), [id]);
-  useEffect(() => { if (id === 'new') { setPart(null); setForm(BLANK_PART); setAttrs([]); } else load(); }, [id, load]);
+  useEffect(() => { if (id === 'new') { setPart(null); setForm(BLANK_PART); setFields([]); setTvals({}); setAttrs([]); } else load(); }, [id, load]);
   const set = (k, v) => { setMsg(''); setForm(f => ({ ...f, [k]: v })); };
   const setAttr = (i, j, v) => { setMsg(''); setAttrs(a => a.map((x, n) => n === i ? (j ? [x[0], v] : [v, x[1]]) : x)); };
-  const dirty = useMemo(() => !part ? JSON.stringify(form) !== JSON.stringify(BLANK_PART) || attrs.length > 0
-    : Object.keys(BLANK_PART).some(k => (part[k] ?? '') !== form[k]) || JSON.stringify(Object.entries(part.attrs || {})) !== JSON.stringify(attrs), [part, form, attrs]);
+  const merged = () => ({ ...Object.fromEntries(attrs.filter(([k]) => k.trim())), ...Object.fromEntries(Object.entries(tvals).filter(([, v]) => v !== '')) });
+  // 換分類：拿新分類的欄位範本，已經填的值依名稱重新分到範本欄位或自由欄位
+  async function changeCategory(v) {
+    set('category_id', v ?? '');
+    const fs = v == null ? [] : await api.category(v).then(c => [...c.inherited, ...c.fields]).catch(() => []);
+    const all = merged(); setFields(fs); split(all, fs);
+  }
+  const dirty = useMemo(() => !part ? JSON.stringify(form) !== JSON.stringify(BLANK_PART) || Object.keys(merged()).length > 0
+    : Object.keys(BLANK_PART).some(k => String(part[k] ?? '') !== String(form[k])) || sortedJson(part.attrs || {}) !== sortedJson(merged()), [part, form, attrs, tvals]);   // eslint-disable-line
   useEffect(() => { const f = e => { if (e.key === 'Escape' && !dirty) onClose(); }; addEventListener('keydown', f); return () => removeEventListener('keydown', f); }, [dirty, onClose]);
 
   async function save(e) {
     e?.preventDefault();
-    try { const p = await api.savePart(part?.id, { ...form, attrs: Object.fromEntries(attrs) }); fill(p); setMsg('✓ 已儲存'); onChanged(p.id); }
+    try { const p = await api.savePart(part?.id, { ...form, category_id: form.category_id === '' ? null : form.category_id, attrs: merged() }); fill(p); setMsg('✓ 已儲存'); onChanged(p.id); }
     catch (err) { setMsg('✗ ' + err.message); }
   }
+  const reload = async () => { await load(); onChanged(part.id); };
   const record = kind => ({
-    onSave: async row => { await api.saveRecord(kind, part.id, row.id, row); await load(); onChanged(part.id); },
-    onDelete: async rid => { await api.deleteRecord(kind, rid); await load(); onChanged(part.id); },
+    onSave: async row => { await api.saveRecord(kind, part.id, row.id, row); await reload(); },
+    onDelete: async rid => { await api.deleteRecord(kind, rid); await reload(); },
   });
   const supplierOptions = [['', '（未指定）'], ...suppliers.map(s => [String(s.id), s.name])];
   const expired = d => d && d < today();
@@ -121,13 +137,18 @@ function PartEditor({ id, facets, suppliers, models, system, readOnly, projectNa
     { key: 'project', label: '專案', list: 'parts-projects' }, { key: 'source', label: '來源檔', placeholder: 'cost-estimate.xlsx' }, { key: 'item_code', label: '編號', placeholder: '1-01' },
     { key: 'subsystem', label: '子系統' }, { key: 'qty', label: '數量', type: 'number', cls: 'num' }, { key: 'reason', label: '選型理由' }, { key: 'note', label: '備註' },
   ];
+  const isModule = form.kind === 'module';
 
   return (
     <div className="modal" onMouseDown={e => { if (e.target === e.currentTarget && !dirty) onClose(); }}>
       <div className="panel" role="dialog" aria-label="元件">
         <div className="head">
           {part?.cover_file_id && <img className="p-cover" src={partFileUrl(part.id, part.cover_file_id, true)} alt="封面圖" />}
-          <div className="grow"><h2>{part ? part.name : '新增元件'}</h2>{part && <div className="meta"><code className="p-code">{part.code}</code>{part.status && <span className="chip warn">{part.status}</span>}<span className="mute">更新於 {part.updated_at.slice(0, 10)}</span></div>}</div>
+          <div className="grow"><h2>{part ? part.name : '新增元件'}</h2>{part && <div className="meta"><code className="p-code">{part.code}</code>
+            {part.kind === 'module' && <span className="chip">模組</span>}{part.status && <span className="chip warn">{part.status}</span>}
+            {part.category_path.length > 0 && <span className="mute">{pathText(part.category_path)}</span>}
+            {part.missing?.length > 0 && <span className="chip warn" title={`必填但沒填：${part.missing.join('、')}`}>缺 {part.missing.length} 個欄位</span>}
+            <span className="mute">更新於 {part.updated_at.slice(0, 10)}</span></div>}</div>
           <div className="bar" style={{ margin: 0 }}>
             {part?.status === PENDING && !readOnly && <button type="button" className="primary" title="代理提案帶進來的新元件：看過沒問題就按這裡" onClick={() => api.savePart(part.id, { ...part, status: '' }).then(p => { fill(p); setMsg('✓ 已確認'); onChanged(p.id); }).catch(e => setMsg('✗ ' + e.message))}>✓ 確認這個元件</button>}
             <button type="button" onClick={onClose}>✕ 關閉</button>
@@ -137,9 +158,10 @@ function PartEditor({ id, facets, suppliers, models, system, readOnly, projectNa
         <form onSubmit={save}>
           <section className="card form"><h3>基本資料</h3>
             <div className="row">
-              <label><span>名稱 *</span><input value={form.name} onChange={e => set('name', e.target.value)} placeholder="例如 工業相機" autoFocus={id === 'new'} /></label>
-              <label><span>類別</span><input value={form.category} onChange={e => set('category', e.target.value)} list="parts-categories" placeholder="例如 相機與讀碼" /></label>
-              <label><span>群組</span><input value={form.grp} onChange={e => set('grp', e.target.value)} list="parts-groups" placeholder="留白就依類別帶入" /></label>
+              <label style={{ flex: 2 }}><span>名稱 *</span><input value={form.name} onChange={e => set('name', e.target.value)} placeholder="例如 工業相機" autoFocus={id === 'new'} /></label>
+              <label style={{ flex: 2 }}><span>分類</span><CategorySelect tree={tree} value={form.category_id === '' ? null : form.category_id} onChange={changeCategory} ariaLabel="分類" /></label>
+              <label style={{ flex: '0 1 120px', minWidth: 100 }}><span>種類</span><Select value={form.kind || 'part'} onChange={v => set('kind', v)} options={Object.entries(facets.partKinds)} /></label>
+              {isModule && <label style={{ flex: '0 1 170px', minWidth: 150 }}><span>模組單價</span><Select value={form.price_mode || 'own'} onChange={v => set('price_mode', v)} options={Object.entries(facets.priceModes)} /></label>}
             </div>
             <div className="row">
               <label><span>廠牌</span><input value={form.brand} onChange={e => set('brand', e.target.value)} list="parts-brands" /></label>
@@ -147,11 +169,15 @@ function PartEditor({ id, facets, suppliers, models, system, readOnly, projectNa
               <label style={{ flex: '0 1 110px', minWidth: 90 }}><span>單位</span><input value={form.unit} onChange={e => set('unit', e.target.value)} list="parts-units" placeholder="台、組、式" /></label>
             </div>
             <label><span>3D 模型（core 共用模型）</span>
-              <Select value={form.model_id} onChange={v => set('model_id', v)} options={[['', '（沒有）'], ...models.models.map(m => [m.id, `${m.category}｜${m.name}`]), ...(form.model_id && !models.models.some(m => m.id === form.model_id) ? [[form.model_id, `${form.model_id}（找不到這個模型）`]] : [])]} />
+              <Select value={form.model_id} onChange={v => set('model_id', v)} options={[['', isModule ? '（沒有：用第一個有模型的子件）' : '（沒有）'], ...models.models.map(m => [m.id, `${m.category}｜${m.name}`]), ...(form.model_id && !models.models.some(m => m.id === form.model_id) ? [[form.model_id, `${form.model_id}（找不到這個模型）`]] : [])]} />
               <small className="mute">選了之後下面會顯示這個模型的 3D 畫面。它和各專案用的是同一份模型程式，模型一改這裡就是新的。</small></label>
             <label><span>規格</span><textarea rows={2} value={form.spec} onChange={e => set('spec', e.target.value)} placeholder="主要規格與需求" /></label>
+            {fields.length > 0 && <div>
+              <div className="lbl">規格欄位<small className="mute">來自分類的欄位範本；數字欄位只填數字（單位在欄位名稱旁）</small></div>
+              <TemplateFields fields={fields} values={tvals} missing={part?.missing || []} onChange={(k, v) => { setMsg(''); setTvals(t => ({ ...t, [k]: v })); }} />
+            </div>}
             <div>
-              <div className="lbl">自由規格欄位<small className="mute">依元件種類自訂，例如 解析度、行程、負載、介面</small></div>
+              <div className="lbl">{fields.length ? '其他規格欄位' : '自由規格欄位'}<small className="mute">範本以外的欄位，例如 解析度、行程、負載、介面</small></div>
               {attrs.map(([k, v], i) => <div className="attr" key={i}>
                 <input value={k} onChange={e => setAttr(i, 0, e.target.value)} placeholder="欄位名稱" aria-label="規格欄位名稱" />
                 <input value={v} onChange={e => setAttr(i, 1, e.target.value)} placeholder="值" aria-label="規格欄位值" />
@@ -161,7 +187,7 @@ function PartEditor({ id, facets, suppliers, models, system, readOnly, projectNa
             </div>
             <div className="row">
               <label><span>選型備註</span><textarea rows={2} value={form.selection_note} onChange={e => set('selection_note', e.target.value)} placeholder="什麼情況選它、要注意什麼" /></label>
-              <label><span>替代方案</span><textarea rows={2} value={form.alternatives} onChange={e => set('alternatives', e.target.value)} /></label>
+              <label><span>替代方案（文字）</span><textarea rows={2} value={form.alternatives} onChange={e => set('alternatives', e.target.value)} placeholder="資料庫裡有的替代件，建議用下面的「關聯件」連起來" /></label>
             </div>
             <div className="row">
               <label><span>標籤</span><input value={form.tags} onChange={e => set('tags', e.target.value)} placeholder="用逗號分隔，例如 自製, 長交期" /></label>
@@ -172,7 +198,7 @@ function PartEditor({ id, facets, suppliers, models, system, readOnly, projectNa
               <button className="primary" disabled={!dirty}>{part ? '儲存' : '新增'}</button>
               <span className={msg.startsWith('✗') ? 'bad' : 'ok'}>{msg}</span>
               <span className="grow" />
-              {part && <ConfirmButton label="刪除元件" title="連同價格紀錄與使用紀錄一起刪除" onConfirm={() => api.deletePart(part.id).then(() => { onChanged(null); onClose(); }).catch(e => setMsg('✗ ' + e.message))} />}
+              {part && <ConfirmButton label="刪除元件" title="連同價格紀錄、使用紀錄、附件與關聯一起刪除" onConfirm={() => api.deletePart(part.id).then(() => { onChanged(null); onClose(); }).catch(e => setMsg('✗ ' + e.message))} />}
             </div>
           </section>
         </form>
@@ -181,9 +207,11 @@ function PartEditor({ id, facets, suppliers, models, system, readOnly, projectNa
           <p className="mute hint" style={{ margin: '8px 0 0' }}>可以拖曳旋轉、調參數、按「來回動作」看動畫。這是模型目錄頁，左邊的清單可以看其他共用模型。</p>
         </section>}
         {part ? <>
-          <Attachments part={part} system={system} onChanged={async () => { await load(); onChanged(part.id); }} />
+          {part.kind !== form.kind && <p className="notice warn">種類改了還沒儲存：先儲存，才會出現模組的組成。</p>}
+          <PartLinks part={part} rels={facets.linkRels} onChanged={reload} onOpen={onOpen} />
+          <Attachments part={part} system={system} onChanged={reload} />
           <section className="card"><h3>價格紀錄<span className="chip">{part.prices.length}</span></h3>
-            <p className="mute hint">清單上的參考單價取報價日最新的一筆。等級沿用成本表的 A／B／C（幅度 ±10%／±20%／±30%）。</p>
+            <p className="mute hint">清單上的參考單價取報價日最新的一筆{part.kind === 'module' && part.price_mode === 'sum' ? '（這個模組用子件加總，價格紀錄只供參考）' : ''}。等級沿用成本表的 A／B／C（幅度 ±10%／±20%／±30%）。</p>
             <RecordTable columns={priceColumns} rows={part.prices} blank={{ quoted_on: today(), unit_price: '', currency: 'TWD', grade: '', supplier_id: '', source: '', valid_until: '', note: '' }}
               addLabel="新增價格" empty="還沒有價格紀錄" {...record('prices')} />
           </section>
@@ -191,10 +219,8 @@ function PartEditor({ id, facets, suppliers, models, system, readOnly, projectNa
             <RecordTable columns={usageColumns} rows={part.usages} blank={{ project: '', source: '', item_code: '', subsystem: '', qty: '', reason: '', note: '' }}
               addLabel="新增使用紀錄" empty="還沒有專案用過" {...record('usages')} />
           </section>
-        </> : <p className="mute">先新增元件，接著就能加價格紀錄與專案使用紀錄。</p>}
+        </> : <p className="mute">先新增元件，接著就能加價格紀錄、附件、關聯件與專案使用紀錄。</p>}
         </fieldset>
-        <datalist id="parts-categories">{facets.categories.filter(c => c.name).map(c => <option key={c.name} value={c.name} />)}</datalist>
-        <datalist id="parts-groups">{facets.groups.map(g => <option key={g} value={g} />)}</datalist>
         <datalist id="parts-brands">{facets.brands.map(b => <option key={b} value={b} />)}</datalist>
         <datalist id="parts-units">{facets.units.map(u => <option key={u} value={u} />)}</datalist>
         <datalist id="parts-projects">{[...new Set([...projectNames, ...facets.projects.map(p => p.name)])].sort().map(p => <option key={p} value={p} />)}</datalist>
@@ -219,51 +245,36 @@ function Suppliers({ suppliers, kinds, reload, readOnly }) {
   </section></fieldset>;
 }
 
-// 樹狀選單：群組 → 類別，各有元件數；點群組或類別就篩選右邊的清單，箭頭收合
-function Tree({ tree, sel, onSel }) {
-  const [closed, setClosed] = useState(() => new Set());
-  const total = tree.reduce((n, g) => n + g.count, 0);
-  const toggle = name => setClosed(s => { const n = new Set(s); if (n.has(name)) n.delete(name); else n.add(name); return n; });
-  return (
-    <aside className="card tree" aria-label="元件分類">
-      <h3>分類</h3>
-      <button type="button" className={!sel.group && !sel.category ? 'on' : ''} onClick={() => onSel({ group: '', category: '' })}><span className="t-name">全部元件</span><span className="n">{total}</span></button>
-      {tree.map(g => {
-        const gn = g.name || UNGROUPED, open = !closed.has(g.name);
-        return <div className="t-group" key={g.name}>
-          <div className="t-row">
-            <button type="button" className={`caret ${open ? 'open' : ''}`} aria-expanded={open} aria-label={`${open ? '收合' : '展開'} ${gn}`} onClick={() => toggle(g.name)}>›</button>
-            <button type="button" className={sel.group === gn && !sel.category ? 'on' : ''} onClick={() => { onSel({ group: gn, category: '' }); setClosed(s => { const n = new Set(s); n.delete(g.name); return n; }); }}><span className="t-name">{gn}</span><span className="n">{g.count}</span></button>
-          </div>
-          {open && <div className="t-kids">{g.categories.map(c => { const cn = c.name || UNCATEGORIZED; return (
-            <button type="button" key={c.name} className={sel.group === gn && sel.category === cn ? 'on' : ''} onClick={() => onSel({ group: gn, category: cn })}><span className="t-name">{cn}</span><span className="n">{c.count}</span></button>); })}</div>}
-        </div>;
-      })}
-    </aside>
-  );
-}
-
-// 清單：依類別分段（每段一條綠色的類別標題），同一段內隔列上淺色
+// 清單：依分類分段（每段一條綠色的分類標題，顯示完整路徑），同一段內隔列上淺色
 function PartList({ parts, thumbs, onOpen, empty }) {
   const rows = [];
   let key = null, n = 0;
   for (const p of parts) {
-    const k = `${p.grp}\n${p.category}`;
-    if (k !== key) { key = k; n = 0; rows.push(<tr className="cat" key={`c:${k}`}><td colSpan={6}>{p.grp && <span className="g">{p.grp} ›</span>}{p.category || UNCATEGORIZED}<span className="n">{parts.filter(x => x.grp === p.grp && x.category === p.category).length} 個</span></td></tr>); }
+    const k = pathText(p.category_path);
+    if (k !== key) {
+      key = k; n = 0;
+      const path = p.category_path;
+      rows.push(<tr className="cat" key={`c:${k}`}><td colSpan={6}>{path.length > 1 && <span className="g">{pathText(path.slice(0, -1))} ›</span>}{path.at(-1) || UNCATEGORIZED}
+        <span className="n">{parts.filter(x => pathText(x.category_path) === k).length} 個</span></td></tr>);
+    }
     // 型號開頭已經寫了廠牌就不重複顯示
     const model = p.brand && p.model.toLowerCase().startsWith(p.brand.toLowerCase()) ? p.model.slice(p.brand.length).trim() : p.model;
+    const thumb = p.thumb_model_id || p.model_id;
     rows.push(
       <tr key={p.id} className={`part ${n++ % 2 ? 'alt' : ''}`} tabIndex={0} onClick={() => onOpen(p.id)} onKeyDown={e => { if (e.key === 'Enter') onOpen(p.id); }}>
-        <td><div className="p-cell">{thumbs.has(p.model_id) ? <img className="p-thumb" src={`/api/models/${p.model_id}/thumb?h=${thumbs.get(p.model_id)}`} alt="" loading="lazy" />
+        <td><div className="p-cell">{thumbs.has(thumb) ? <img className="p-thumb" src={`/api/models/${thumb}/thumb?h=${thumbs.get(thumb)}`} alt="" loading="lazy" />
           : p.cover_file_id ? <img className="p-thumb" src={partFileUrl(p.id, p.cover_file_id, true)} alt="" loading="lazy" /> : null}<div>
-          <div className="p-name">{p.name}{p.status && <span className="chip warn">{p.status}</span>}</div>{(p.brand || model) && <div className="p-model">{p.brand && <b>{p.brand}</b>}{p.brand && model ? '　' : ''}{model}</div>}
-          <div className="p-sub"><code className="p-code">{p.code}</code>{p.model_id && <span title="有 3D 模型">　<Icon name="parts" size={12} /> 3D</span>}{p.file_count > 0 && <span title="附件">　<Icon name="file" size={12} /> {p.file_count}</span>}</div>
+          <div className="p-name">{p.name}{p.kind === 'module' && <span className="chip" title={`${p.component_count} 個子件`}>模組 {p.component_count}</span>}{p.status && <span className="chip warn">{p.status}</span>}</div>
+          {(p.brand || model) && <div className="p-model">{p.brand && <b>{p.brand}</b>}{p.brand && model ? '　' : ''}{model}</div>}
+          <div className="p-sub"><code className="p-code">{p.code}</code>{thumb && <span title="有 3D 模型">　<Icon name="parts" size={12} /> 3D</span>}{p.file_count > 0 && <span title="附件">　<Icon name="file" size={12} /> {p.file_count}</span>}</div>
         </div></div></td>
         <td><div className="p-spec" title={p.spec}>{p.spec}</div></td>
         <td>{p.unit}</td>
         <td className="num">{p.unit_price == null ? <span className="mute">—</span> : <>
           <div className="p-price">{money(p.unit_price, p.currency)}</div>
-          <div className="p-sub">{p.grade && <span className="grade" title="估價等級">{p.grade}</span>}{p.quoted_on}{p.price_count > 1 ? ` · ${p.price_count} 筆` : ''}</div></>}</td>
+          <div className="p-sub">{p.price_source === '子件加總' ? <span title={[p.sum_missing?.length && `沒有單價：${p.sum_missing.join('、')}`, p.sum_foreign?.length && `外幣沒加：${p.sum_foreign.join('、')}`].filter(Boolean).join('；') || undefined}>
+            子件加總{p.sum_missing?.length || p.sum_foreign?.length ? '（不完整）' : ''}</span>
+            : <>{p.grade && <span className="grade" title="估價等級">{p.grade}</span>}{p.quoted_on}{p.price_count > 1 ? ` · ${p.price_count} 筆` : ''}</>}</div></>}</td>
         <td>{p.supplier}</td>
         <td>{p.projects.map(x => <span key={x} className="chip proj">{x}</span>)}</td>
       </tr>);
@@ -276,31 +287,34 @@ function PartList({ parts, thumbs, onOpen, empty }) {
   );
 }
 
-export function Parts({ projectNames = [], readOnly = false }) {
+export function Parts({ projectNames = [], readOnly = false, isAdmin = false }) {
   const [tab, setTab] = useState('parts');
   const [q, setQ] = useState('');
-  const [sel, setSel] = useState({ group: '', category: '' });       // 樹狀選單選到的群組／類別
-  const [filter, setFilter] = useState({ project: '', supplier: '', status: '' });
+  const [cat, setCat] = useState('');       // 樹狀選單選到的分類（id；'none' 是未分類；空字串是全部）
+  const [filter, setFilter] = useState({ project: '', supplier: '', status: '', kind: '' });
   const [models, setModels] = useState({ models: [], catalogPort: 0, rendering: false });
   const [system, setSystem] = useState(null);       // 系統設定：附件的類型與上限
   useEffect(() => { api.system().then(setSystem).catch(() => {}); }, []);
   const [data, setData] = useState(null);
   const [sup, setSup] = useState({ suppliers: [], kinds: [] });
   const [open, setOpen] = useState(null);       // null｜'new'｜元件 id
+  const [catEdit, setCatEdit] = useState(null); // 分類設定：{ id } 或 { parent_id }
+  const [fieldTypes, setFieldTypes] = useState({});
   const [error, setError] = useState('');
-  const load = useCallback(() => api.parts({ q, ...sel, ...filter }).then(d => { setData(d); setError(''); }).catch(e => setError(e.message)), [q, sel, filter]);
+  const load = useCallback(() => api.parts({ q, cat, ...filter }).then(d => { setData(d); setError(''); }).catch(e => setError(e.message)), [q, cat, filter]);
   const loadSuppliers = useCallback(() => api.suppliers().then(setSup).catch(e => setError(e.message)), []);
   useEffect(() => { const t = setTimeout(load, 200); return () => clearTimeout(t); }, [load]);     // 打字時稍等再查
-  useEffect(() => { loadSuppliers(); }, [loadSuppliers]);
+  useEffect(() => { loadSuppliers(); api.categories().then(c => setFieldTypes(c.fieldTypes)).catch(() => {}); }, [loadSuppliers]);
   // core 共用模型與渲染圖：縮圖過期時伺服器會在背景重拍，拍的時候每 4 秒再問一次
   const loadModels = useCallback(() => api.models().then(setModels).catch(() => {}), []);
   useEffect(() => { loadModels(); }, [loadModels]);
   useEffect(() => { if (!models.rendering) return; const t = setTimeout(loadModels, 4000); return () => clearTimeout(t); }, [models, loadModels]);
   const thumbs = new Map(models.models.filter(m => m.thumb).map(m => [m.id, m.hash]));
   const setF = (k, v) => setFilter(f => ({ ...f, [k]: v }));
-  const filtered = q || filter.project || filter.supplier || filter.status, narrowed = filtered || sel.group;
+  const filtered = q || filter.project || filter.supplier || filter.status || filter.kind, narrowed = filtered || cat;
   const close = useCallback(() => setOpen(null), []);
-  const count = data ? data.tree.reduce((n, g) => n + g.count, 0) : 0;
+  const count = data ? flatten(data.tree.nodes).filter(n => n.depth === 1).reduce((s, n) => s + n.count, 0) + data.tree.uncategorized : 0;
+  const selNode = data && cat && cat !== 'none' ? flatten(data.tree.nodes).find(n => String(n.id) === String(cat)) : null;
 
   return (
     <div className="page wide">
@@ -316,25 +330,27 @@ export function Parts({ projectNames = [], readOnly = false }) {
       {error && <div className="notice bad">{error}</div>}
 
       {tab === 'parts' && (!data ? <p className="mute">載入中…</p> : <div className="parts-layout">
-        <Tree tree={data.tree} sel={sel} onSel={setSel} />
+        <CategoryTree tree={data.tree} sel={cat} onSel={setCat} isAdmin={isAdmin && !readOnly} onEdit={setCatEdit} />
         <div>
           <div className="bar filters">
             <input className="grow" type="search" value={q} onChange={e => setQ(e.target.value)} placeholder="搜尋名稱、廠牌、型號、規格、專案、供應商…（空白分隔多個關鍵字）" aria-label="搜尋元件" />
             <Select value={filter.project} onChange={v => setF('project', v)} options={[['', '全部專案'], ...data.projects.map(p => [p.name, `${p.name}（${p.count}）`])]} />
             <Select value={filter.supplier} onChange={v => setF('supplier', v)} options={[['', '全部供應商'], ...sup.suppliers.map(s => [String(s.id), s.name])]} />
+            <Select value={filter.kind} onChange={v => setF('kind', v)} options={[['', '全部種類'], ...Object.entries(data.partKinds)]} />
             {(data.pending > 0 || filter.status) && <button className={filter.status ? 'primary' : ''} title="代理提案帶進來、還沒審核的新元件" onClick={() => setF('status', filter.status ? '' : PENDING)}>待確認 {data.pending}</button>}
-            {narrowed && <button onClick={() => { setQ(''); setFilter({ project: '', supplier: '', status: '' }); setSel({ group: '', category: '' }); }}>清除條件</button>}
+            {narrowed && <button onClick={() => { setQ(''); setFilter({ project: '', supplier: '', status: '', kind: '' }); setCat(''); }}>清除條件</button>}
           </div>
           <div className="crumb">
-            <b>{sel.category || sel.group || '全部元件'}</b>{sel.category && <span>{sel.group}</span>}
+            <b>{cat === 'none' ? '（未分類）' : selNode ? selNode.name : '全部元件'}</b>{selNode && selNode.path.length > 1 && <span>{pathText(selNode.path.slice(0, -1))}</span>}
             <span>{narrowed ? `符合 ${data.total} 個` : `共 ${data.total} 個`}{data.total > data.parts.length ? `，只列出前 ${data.parts.length} 個，請加上條件縮小範圍` : ''}</span>
           </div>
           <PartList parts={data.parts} thumbs={thumbs} onOpen={setOpen} empty={narrowed ? '沒有符合條件的元件' : '資料庫還是空的：按「＋ 新增元件」，或執行 node studio/vs3d.mjs parts seed 從各站的成本表匯入。'} />
         </div>
       </div>)}
       {tab === 'suppliers' && <Suppliers suppliers={sup.suppliers} kinds={sup.kinds} reload={() => Promise.all([loadSuppliers(), load()])} readOnly={readOnly} />}
-      {open != null && data && <PartEditor id={open} facets={data} suppliers={sup.suppliers} models={models} system={system} readOnly={readOnly} projectNames={projectNames} onClose={close}
-        onChanged={id => { load(); if (id != null && open === 'new') setOpen(id); }} />}
+      {open != null && data && <PartEditor key={open} id={open} facets={data} tree={data.tree} suppliers={sup.suppliers} models={models} system={system} readOnly={readOnly} projectNames={projectNames} onClose={close}
+        onOpen={setOpen} onChanged={id => { load(); if (id != null && open === 'new') setOpen(id); }} />}
+      {catEdit && data && <CategoryEditor target={catEdit} tree={data.tree} fieldTypes={fieldTypes} onClose={() => { setCatEdit(null); load(); }} onChanged={load} />}
     </div>
   );
 }

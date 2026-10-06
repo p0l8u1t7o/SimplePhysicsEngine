@@ -14,6 +14,8 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, rmdirSync, writeFileSync } from 'node:fs';
 import { basename, dirname, extname, join } from 'node:path';
 import { STUDIO, now } from './util.mjs';
+import { categoryOps, V5_CATEGORIES } from './categories.mjs';
+import { linkOps, V5_LINKS } from './part-links.mjs';
 
 export const defaultPartsDb = () => process.env.VS3D_DB || process.env.VS3D_PARTS_DB || join(STUDIO, 'data', 'studio.db');
 
@@ -45,10 +47,8 @@ export const GROUPS = {
   '資訊與服務': ['電腦與網路', '軟體與授權', '服務'],
 };
 export const groupOf = category => Object.keys(GROUPS).find(g => GROUPS[g].includes(category)) || '';
-// 排序：照 GROUPS 的順序，自訂的群組排後面，沒有群組的最後
-const GROUP_ORDER = `CASE pl.grp ${Object.keys(GROUPS).map((g, i) => `WHEN '${g}' THEN ${i}`).join(' ')} WHEN '' THEN 999 ELSE 500 END`;
 
-const SCHEMA_VERSION = 4;      // 2：parts.grp（群組）；3：唯一編號 code、狀態 status、core 模型 model_id、附件 files；4：系統設定、附件的類型／雜湊／上傳者／價格紀錄、元件封面圖
+const SCHEMA_VERSION = 5;      // 2：parts.grp（群組）；3：唯一編號 code、狀態 status、core 模型 model_id、附件 files；4：系統設定、附件的類型／雜湊／上傳者／價格紀錄、元件封面圖；5：分類樹與欄位範本、關聯件與模組
 export const PENDING = '待確認';
 export const codeOf = n => `P-${String(n).padStart(5, '0')}`;
 const CODE_RE = /^P-\d+$/i;
@@ -159,7 +159,7 @@ function cleanAttrs(v) {
 function cleanPart(v) {
   const p = pickText(v, PART_TEXT);
   if (!p.name) bad('請輸入元件名稱');
-  if (!p.grp) p.grp = groupOf(p.category);
+  delete p.grp; delete p.category;            // 分類由 placement 決定（分類樹，文字欄位跟著同步）
   if (p.status && p.status !== PENDING) bad(`狀態只能留白或「${PENDING}」`);
   return { ...p, attrs: JSON.stringify(cleanAttrs(v.attrs)) };
 }
@@ -212,7 +212,7 @@ export function openPartsDb(file = defaultPartsDb()) {
     if (existsSync(bak)) bak += `-${now().slice(0, 19).replace(/[-:T]/g, '')}`;
     db.exec(`VACUUM INTO '${bak.replace(/'/g, "''")}'`);
   }
-  if (version === 0) tx(() => { db.exec(SCHEMA); db.exec(V3); db.exec(V4); db.exec("CREATE UNIQUE INDEX parts_code ON parts(code); INSERT INTO meta VALUES ('code_seq', 0)"); db.exec(VIEW); db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`); });
+  if (version === 0) tx(() => { db.exec(SCHEMA); db.exec(V3); db.exec(V4); db.exec("CREATE UNIQUE INDEX parts_code ON parts(code); INSERT INTO meta VALUES ('code_seq', 0)"); db.exec(VIEW); db.exec('PRAGMA user_version = 4'); version = 4; });
   // 1 → 2：加上群組欄位，既有元件依類別帶入預設群組；檢視表的 p.* 要重建才看得到新欄位
   if (version === 1) tx(() => {
     version = 2;
@@ -239,7 +239,7 @@ export function openPartsDb(file = defaultPartsDb()) {
       db.prepare('UPDATE files SET sha256 = ?, mime = ?, kind = ? WHERE id = ?').run(sha, mimeOf(f.name), guessKind(f.name), f.id);
     }
     if (oldDir && existsSync(oldDir) && !readdirSync(oldDir).length) rmdirSync(oldDir);
-    db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
+    db.exec('PRAGMA user_version = 4'); version = 4;
   });
 
   // 交易可以巢狀呼叫（匯入時整批包一層，裡面的新增元件不再另開）
@@ -264,6 +264,36 @@ export function openPartsDb(file = defaultPartsDb()) {
   const needSupplier = id => { if (id != null) need('suppliers', id, '供應商'); };
   const unique = fn => { try { return fn(); } catch (e) { if (/UNIQUE/.test(e.message)) bad('已經有同名的供應商'); throw e; } };
   const withAttrs = p => ({ ...p, attrs: JSON.parse(p.attrs || '{}') });
+  const fail = (msg, status = 400) => { throw new PartsError(msg, status); };
+  const findPart = id => CODE_RE.test(String(id)) ? get('SELECT * FROM parts WHERE code = ? COLLATE NOCASE', String(id).trim())
+    : Number.isInteger(Number(id)) ? get('SELECT * FROM parts WHERE id = ?', Number(id)) : null;
+  const cats = categoryOps({ all, get, run, insert, tx, now, fail });
+  const links = linkOps({ all, get, run, insert, now, fail, findPart });
+  // 4 → 5：分類樹（現有的群組與類別放進預設的樹）、欄位範本、關聯件與模組。建表、放資料、改版本號在同一個交易裡
+  if (version === 4) tx(() => {
+    db.exec(V5_CATEGORIES); db.exec(V5_LINKS); db.exec('DROP VIEW part_latest'); db.exec(VIEW);
+    cats.seedDefaults(); cats.placeLegacyParts();
+    db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`); version = 5;
+  });
+  // 元件放進哪個分類：給 category_id 就用它（null 是未分類）；只給文字（成本表匯入、代理提案、命令列）就依名稱找，createCategory 時找不到就建
+  function placement(v, { createCategory = false } = {}) {
+    let id;
+    if (v.category_id !== undefined) id = v.category_id === null || v.category_id === '' ? null : (cats.textOf(v.category_id), Number(v.category_id));
+    else id = cats.resolve(text(v.grp) || groupOf(text(v.category)), text(v.category), { create: createCategory });
+    return { category_id: id, ...cats.textOf(id) };
+  }
+  // 子件加總的模組：清單上的參考單價換成加總（只加新台幣；缺價或外幣的子件標出來）
+  function modulePrice(r) {
+    if (r.kind !== 'module' || r.price_mode !== 'sum') return {};
+    const s = links.sumPrice(r.id);
+    return { unit_price: s.total, currency: 'TWD', grade: '', quoted_on: '', price_source: '子件加總', sum_missing: s.missing, sum_foreign: s.foreign };
+  }
+  function cleanModelParams(v) {
+    if (v == null || v === '') return '{}';
+    let o = v; if (typeof v === 'string') { try { o = JSON.parse(v); } catch { bad('3D 模型參數要是 JSON'); } }
+    if (!o || typeof o !== 'object' || Array.isArray(o)) bad('3D 模型參數要是「參數：值」的組合');
+    return JSON.stringify(o);
+  }
   function cleanFileMeta(partId, { kind, price_id }) {
     if (!FILE_KINDS[kind]) bad(`附件類型只能是：${Object.values(FILE_KINDS).join('、')}`);
     const pid = price_id == null || price_id === '' ? null : Number(price_id);
@@ -277,7 +307,8 @@ export function openPartsDb(file = defaultPartsDb()) {
     tx,
 
     // q：空白分隔的關鍵字，每個都要出現在元件欄位、使用紀錄（專案、編號、理由）或價格紀錄（來源、供應商）裡
-    listParts({ q = '', group = '', category = '', project = '', supplier = '', status = '', limit = 500 } = {}) {
+    // cat：分類節點的 id（含子分類），'none' 是未分類；group／category 是舊的文字篩選（命令列沿用）
+    listParts({ q = '', group = '', category = '', cat = '', project = '', supplier = '', status = '', kind = '', limit = 500 } = {}) {
       const params = [], p = v => { params.push(v); return `?${params.length}`; }, where = [];
       for (const token of text(q).split(/\s+/).filter(Boolean)) {
         const t = p(likeEscape(token)), like = col => `${col} LIKE ${t} ESCAPE '\\'`;
@@ -288,25 +319,25 @@ export function openPartsDb(file = defaultPartsDb()) {
       if (group) where.push(`pl.grp = ${p(group === '（未分組）' ? '' : group)}`);
       if (status) where.push(`pl.status = ${p(status)}`);
       if (category) where.push(`pl.category = ${p(category === '（未分類）' ? '' : category)}`);
+      if (cat === 'none') where.push('pl.category_id IS NULL');
+      else if (cat) where.push(`pl.category_id IN (${cats.descendantIds(cat).map(Number).join(', ')})`);
+      if (kind) where.push(`pl.kind = ${p(kind)}`);
       if (project) where.push(`EXISTS (SELECT 1 FROM usages u WHERE u.part_id = pl.id AND u.project = ${p(project)})`);
       if (supplier) where.push(`EXISTS (SELECT 1 FROM prices x WHERE x.part_id = pl.id AND x.supplier_id = ${p(Number(supplier))})`);
       const cond = where.length ? `WHERE ${where.join(' AND ')}` : '';
       const total = get(`SELECT count(*) AS n FROM part_latest pl ${cond}`, ...params).n;
+      const idx = cats.index();
+      // 模組沒有自己的 3D 模型時，縮圖用第一個有模型的子件
       const parts = all(`SELECT pl.*, (SELECT group_concat(DISTINCT project) FROM usages WHERE part_id = pl.id) AS projects,
-          (SELECT count(*) FROM prices WHERE part_id = pl.id) AS price_count, (SELECT count(*) FROM files WHERE part_id = pl.id) AS file_count
-        FROM part_latest pl ${cond} ORDER BY ${GROUP_ORDER}, pl.grp, pl.category, pl.name, pl.model, pl.id LIMIT ${Math.max(1, Math.min(5000, Number(limit) || 500))}`, ...params)
-        .map(r => ({ ...withAttrs(r), projects: r.projects ? r.projects.split(',').sort() : [] }));
+          (SELECT count(*) FROM prices WHERE part_id = pl.id) AS price_count, (SELECT count(*) FROM files WHERE part_id = pl.id) AS file_count,
+          coalesce(nullif(pl.model_id, ''), (SELECT c.model_id FROM part_links l JOIN parts c ON c.id = l.related_id WHERE l.part_id = pl.id AND l.rel = 'component' AND c.model_id <> '' ORDER BY l.id LIMIT 1), '') AS thumb_model_id,
+          (SELECT count(*) FROM part_links l WHERE l.part_id = pl.id AND l.rel = 'component') AS component_count
+        FROM part_latest pl ${cond} ORDER BY ${cats.orderSql()}, pl.name, pl.model, pl.id LIMIT ${Math.max(1, Math.min(5000, Number(limit) || 500))}`, ...params)
+        .map(r => ({ ...withAttrs(r), projects: r.projects ? r.projects.split(',').sort() : [], category_path: idx.byId.get(r.category_id)?.path || [], ...modulePrice(r) }));
       return { parts, total, ...this.facets() };
     },
-    // 樹狀選單：群組 → 類別，各有元件數
-    tree() {
-      const groups = [];
-      for (const r of all(`SELECT pl.grp, pl.category, count(*) AS count FROM parts pl GROUP BY pl.grp, pl.category ORDER BY ${GROUP_ORDER}, pl.grp, pl.category`)) {
-        const g = groups.at(-1)?.name === r.grp ? groups.at(-1) : groups[groups.push({ name: r.grp, count: 0, categories: [] }) - 1];
-        g.count += r.count; g.categories.push({ name: r.category, count: r.count });
-      }
-      return groups;
-    },
+    // 分類樹（介面的樹狀選單）
+    tree: () => cats.tree(),
     facets() { return {
       pending: get('SELECT count(*) AS n FROM parts WHERE status = ?', PENDING).n,
       tree: this.tree(),
@@ -320,12 +351,19 @@ export function openPartsDb(file = defaultPartsDb()) {
     getPart(id) {
       const part = withAttrs(CODE_RE.test(String(id)) ? this.findByCode(id) || need('parts', -1, `元件 ${id}`) : need('parts', id, '元件'));
       return {
-        ...part,
+        ...part, model_params: JSON.parse(part.model_params || '{}'),
+        category_path: part.category_id != null ? cats.index().byId.get(part.category_id)?.path || [] : [],
+        fields: cats.fieldsOf(part.category_id), missing: cats.missing(part.attrs, part.category_id),
         prices: all('SELECT x.*, s.name AS supplier FROM prices x LEFT JOIN suppliers s ON s.id = x.supplier_id WHERE x.part_id = ? ORDER BY x.quoted_on DESC, x.id DESC', part.id),
         usages: all('SELECT * FROM usages WHERE part_id = ? ORDER BY project, source, item_code, id', part.id),
         files: all('SELECT * FROM files WHERE part_id = ? ORDER BY id', part.id),
+        links: links.linksOf(part.id),
+        ...(part.kind === 'module' ? { sum: links.sumPrice(part.id) } : {}),
       };
     },
+    // 分類樹與欄位範本（lib/categories.mjs）、關聯件與模組（lib/part-links.mjs）
+    categories: cats,
+    links,
     findByCode: code => get('SELECT * FROM parts WHERE code = ? COLLATE NOCASE', String(code).trim()),
     // 名稱與型號完全相同（不分大小寫、不計空白）的既有元件：自動匯入時用來避免重複新增
     findSame(name, model = '') {
@@ -353,16 +391,20 @@ export function openPartsDb(file = defaultPartsDb()) {
     },
     fileOf(id) { const f = need('files', id, '附件'); return { ...f, path: blobPath(f.sha256), type: fileType(f.name) }; },
     deleteFile(id) { const f = need('files', id, '附件'); run('DELETE FROM files WHERE id = ?', f.id); dropBlobs([f.sha256]); touch(f.part_id); return { deleted: f.id }; },
-    createPart(v) {
-      const c = cleanPart(v), t = now();
+    // createCategory：用文字指定分類時，找不到就建立（預設；代理提案帶進來的元件不建，放在群組底下或未分類）
+    createPart(v, { createCategory = true } = {}) {
+      const c = cleanPart(v), t = now(), place = placement(v, { createCategory }), kind = links.cleanKind(v, null);
+      cats.checkAttrs(JSON.parse(c.attrs), place.category_id);
       return this.getPart(tx(() => {
         run("UPDATE meta SET value = value + 1 WHERE key = 'code_seq'");
-        return insert('parts', { ...c, code: codeOf(get("SELECT value FROM meta WHERE key = 'code_seq'").value), created_at: t, updated_at: t });
+        return insert('parts', { ...c, ...place, ...kind, model_params: cleanModelParams(v.model_params), code: codeOf(get("SELECT value FROM meta WHERE key = 'code_seq'").value), created_at: t, updated_at: t });
       }));
     },
     // cover_file_id：封面圖（這個元件的圖片附件）；沒給就不變，null 或空白是拿掉
     updatePart(id, v) {
-      const p = need('parts', id, '元件'), c = cleanPart(v);
+      const p = need('parts', id, '元件'), c = { ...cleanPart(v), ...placement(v), ...links.cleanKind(v, p) };
+      cats.checkAttrs(JSON.parse(c.attrs), c.category_id, JSON.parse(p.attrs || '{}'));
+      if (v.model_params !== undefined) c.model_params = cleanModelParams(v.model_params);
       if (v.cover_file_id !== undefined) {
         const fid = v.cover_file_id === null || v.cover_file_id === '' ? null : Number(v.cover_file_id);
         if (fid != null) { const f = get('SELECT * FROM files WHERE id = ? AND part_id = ?', fid, p.id); if (!f) bad('封面圖要是這個元件的附件'); if (fileType(f.name) !== 'image') bad('封面圖要是圖片檔'); }
@@ -385,7 +427,8 @@ export function openPartsDb(file = defaultPartsDb()) {
         run('UPDATE prices SET part_id = ? WHERE part_id = ?', keep.id, drop.id);
         run('UPDATE usages SET part_id = ? WHERE part_id = ?', keep.id, drop.id);
         run('UPDATE files SET part_id = ? WHERE part_id = ?', keep.id, drop.id);
-        const fill = Object.fromEntries(PART_TEXT.filter(k => !keep[k] && drop[k]).map(k => [k, drop[k]]));
+        const fill = Object.fromEntries(PART_TEXT.filter(k => k !== 'grp' && k !== 'category' && !keep[k] && drop[k]).map(k => [k, drop[k]]));
+        if (keep.category_id == null && drop.category_id != null) Object.assign(fill, { category_id: drop.category_id, ...cats.textOf(drop.category_id) });      // 分類也用併入的補
         update('parts', keep.id, { ...fill, attrs: JSON.stringify({ ...JSON.parse(drop.attrs || '{}'), ...JSON.parse(keep.attrs || '{}') }), updated_at: now() });
         run('DELETE FROM parts WHERE id = ?', drop.id);
         return this.getPart(keep.id);
@@ -427,7 +470,7 @@ export function openPartsDb(file = defaultPartsDb()) {
       const q = get(`SELECT count(*) AS total, sum(category = '') AS uncategorized, sum(unit_price IS NULL) AS unpriced, sum(unit_price IS NOT NULL AND supplier_id IS NULL) AS noSupplier FROM part_latest`);
       return {
         today, ...this.stats(),
-        categories: all('SELECT category AS name, count(*) AS count FROM parts GROUP BY category ORDER BY count DESC, category'),
+        categories: (idx => all('SELECT category_id AS id, count(*) AS count FROM parts GROUP BY category_id ORDER BY count DESC').map(r => ({ name: idx.byId.get(r.id)?.path.join(' › ') || '', count: r.count })))(cats.index()),
         projects: all('SELECT project AS name, count(DISTINCT part_id) AS parts FROM usages GROUP BY project ORDER BY parts DESC, project'),
         sources: all(`SELECT u.project, u.source, count(*) AS items, sum(CASE WHEN pl.currency = 'TWD' THEN coalesce(u.qty, 0) * coalesce(pl.unit_price, 0) ELSE 0 END) AS amount
           FROM usages u JOIN part_latest pl ON pl.id = u.part_id GROUP BY u.project, u.source ORDER BY u.project, u.source`),

@@ -45,6 +45,16 @@ export const api = {
   deletePart: id => call('DELETE', `/api/parts/${id}`),
   saveRecord: (kind, partId, id, v) => id ? call('PUT', `/api/${kind}/${id}`, v) : call('POST', `/api/parts/${partId}/${kind}`, v),
   deleteRecord: (kind, id) => call('DELETE', `/api/${kind}/${id}`),
+  // 分類樹與欄位範本（改只有管理者）；id 空白是新增
+  categories: () => call('GET', '/api/categories'),
+  category: id => call('GET', `/api/categories/${id}`),
+  saveCategory: (id, v) => id ? call('PUT', `/api/categories/${id}`, v) : call('POST', '/api/categories', v),
+  saveCategoryFields: (id, fields) => call('PUT', `/api/categories/${id}/fields`, { fields }),
+  deleteCategory: id => call('DELETE', `/api/categories/${id}`),
+  // 關聯件與模組的子件：rel 是 component｜accessory｜alternative｜compatible
+  addLink: (partId, v) => call('POST', `/api/parts/${partId}/links`, v),
+  updateLink: (id, v) => call('PUT', `/api/links/${id}`, v),
+  deleteLink: id => call('DELETE', `/api/links/${id}`),
   // core 共用模型（元件的 3D 顯示）與元件的附件（CAD 檔等）
   models: () => call('GET', '/api/models'),
   async uploadPartFile(partId, file) {

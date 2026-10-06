@@ -146,7 +146,7 @@ export function seedFromCostTables(db, tables, { names = [], dryRun = false } = 
           partId = db.createPart({
             category: guessCategory(r.name, `${r.model} ${r.spec}`), name: r.name, brand: brands[0] || '', model: blankModel(r.model) ? '' : r.model, spec: r.spec, unit: r.unit,
             alternatives: /^同規格替代品/.test(r.alt) ? '' : r.alt, tags: [/^自製/.test(r.model) ? '自製' : '', ...brands.slice(1)].filter(Boolean).join(', '),
-          }).id;
+          }, { createCategory: true }).id;      // 猜出來的類別在分類樹裡還沒有就建立
           report.parts++;
         }
         byKey.set(key, partId); byCode.set(`${t.project}|${r.code}`, partId);

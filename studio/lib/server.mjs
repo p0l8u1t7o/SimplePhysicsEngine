@@ -385,7 +385,7 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
             try { return json(200, { started: true, ...start(cmd, id, args, user?.name || '') }); } catch (e) { return json(400, { error: e.message }); }
           }
         }
-        if (['parts', 'prices', 'usages', 'suppliers', 'files', 'system'].includes(a)) {
+        if (['parts', 'prices', 'usages', 'suppliers', 'files', 'system', 'categories', 'links'].includes(a)) {
           let api; try { api = await parts(); } catch (e) { return json(500, { error: e.code === 'ERR_UNKNOWN_BUILTIN_MODULE' ? '元件資料庫需要 Node.js 22.13 以上（內建 node:sqlite）' : String(e.message || e) }); }
           const r = await api.handle({ method: req.method, seg: seg.slice(1), query: url.searchParams, body: jbody, raw: body, user });
           if (r.file) {      // 附件：下載，或圖片與 PDF 直接顯示（inline）

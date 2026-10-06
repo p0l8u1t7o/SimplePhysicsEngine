@@ -248,7 +248,16 @@ ul.plain { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; fon
 .tree .t-row { display: flex; align-items: center; }
 .tree .t-row .caret { width: 24px; min-height: 28px; padding: 0; justify-content: center; flex: none; color: var(--mute); transition: transform .12s; }
 .tree .t-row .caret.open { transform: rotate(90deg); }
-.tree .t-group > button, .tree .t-row > button:last-child { font-weight: 600; }
+.tree .t-group > button, .tree .t-row > button:not(.caret) { font-weight: 600; }
+.tree .t-row > button:not(.caret) { flex: 1; min-width: 0; }
+.tree .caret-sp { width: 24px; flex: none; }
+.tree .t-fields { font-size: 11px; color: var(--mute); }
+.tree button.on .t-fields { color: inherit; }
+.tree .t-ops { display: flex; flex: none; }
+.tree .t-ops button { width: 28px; padding: 0; justify-content: center; font-weight: normal; color: var(--ink); }
+.tree .t-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.tree .t-head button { width: auto; min-height: 28px; font-size: 12px; border: 1px solid var(--line); }
+.tree .t-head button.primary, .tree .t-head button.primary:hover:not(:disabled) { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
 .tree .t-kids { margin: 0 0 4px 12px; padding-left: 12px; border-left: 1px solid var(--line); }
 .tree .t-kids button { font-weight: normal; }
 .tree .t-kids button.on { font-weight: 600; }
@@ -289,6 +298,23 @@ table.files .f-cell { display: flex; gap: 10px; align-items: center; }
 table.files .f-thumb { width: 52px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); display: block; }
 table.files .f-open { margin-left: 8px; font-size: 12px; }
 table.files select { min-width: 120px; }
+/* 元件的規格欄位（分類的欄位範本）、分類設定、關聯件與挑元件 */
+.tfields { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px 12px; margin-bottom: 4px; }
+.tfields label { display: grid; gap: 4px; }
+.tfields label > span { font-size: 12.5px; font-weight: 600; }
+.tfields label > span small { display: inline; margin-left: 2px; font-weight: normal; }
+.tfields label.missing input, .tfields label.missing select { border-color: var(--warn, #c77d00); }
+.tfields .req { color: var(--warn, #c77d00); margin-left: 2px; }
+.panel.narrow-panel { width: min(860px, 100%); }
+table.fields input:not([type=checkbox]), table.fields select { width: 100%; min-width: 70px; }
+.picker { position: relative; flex: 1; min-width: 240px; max-width: 460px; }
+.picker input { width: 100%; }
+.picker-list { position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 4px); margin: 0; padding: 4px; list-style: none; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 26px rgba(10, 40, 24, .16); }
+.picker-list button { width: 100%; justify-content: flex-start; border: none; background: none; gap: 6px; text-align: left; white-space: nowrap; overflow: hidden; }
+.picker-list button:hover { background: var(--panel2); }
+button.linklike { border: none; background: none; padding: 0; min-height: 0; cursor: pointer; }
+button.linklike:hover code { text-decoration: underline; }
+.sum { margin: 10px 0 0; }
 /* 唯讀帳號、不是專案成員時用 fieldset 一次停用裡面的按鈕與輸入框；外觀不變 */
 fieldset.plain { border: 0; padding: 0; margin: 0; min-width: 0; }
 /* 系統設定 */

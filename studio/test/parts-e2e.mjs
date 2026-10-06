@@ -77,7 +77,10 @@ try {
   await waitFor(`!!document.querySelector('.modal')`, '編輯面板開啟');
   await run(`
     const m = document.querySelector('.modal');
-    t.type(t.field('名稱', m), '工業相機'); t.type(t.field('類別', m), '相機與讀碼'); t.type(t.field('廠牌', m), 'Basler');
+    t.type(t.field('名稱', m), '工業相機'); t.type(t.field('廠牌', m), 'Basler');
+    const cat = t.field('分類', m); t.type(cat, [...cat.options].find(o => o.textContent.trim() === '相機與讀碼').value);
+    for (let i = 0; i < 50 && !t.field('像素尺寸', m); i++) await new Promise(r => setTimeout(r, 100));     // 換分類後出現欄位範本
+    t.type(t.field('像素尺寸', m), '3.45');
     t.type(t.field('型號', m), 'ace 2 a2A2448-23gcPRO'); t.type(t.field('單位', m), '台'); t.type(t.field('規格', m), '500 萬畫素、全域快門、GigE PoE');
     t.button('＋ 規格欄位', m).click(); await new Promise(r => setTimeout(r, 100));
     t.type(t.field('規格欄位名稱', m), '解析度'); t.type(t.field('規格欄位值', m), '2448 × 2048');
@@ -86,6 +89,7 @@ try {
   const id = (await api('/api/parts')).parts[0].id;
   let part = await api(`/api/parts/${id}`);
   check(part.name === '工業相機' && part.brand === 'Basler' && part.attrs['解析度'] === '2448 × 2048' && part.unit === '台', '新增元件（含自由規格欄位）');
+  check(part.category_path.join('/') === '視覺/相機與讀碼' && part.attrs['像素尺寸'] === '3.45', '從分類下拉選單選分類、填欄位範本的欄位');
   await waitFor(`!!t.card('價格紀錄')`, '新增後出現價格紀錄區');
 
   // 價格紀錄兩筆、使用紀錄一筆
@@ -180,8 +184,52 @@ try {
   log('✓ 查詢');
   await run(`t.button('清除條件').click(); return true;`);
 
-  // 刪除價格（按兩次確認）、刪除元件
+  // 分類管理（評估平台 Q2）：在「相機與讀碼」加一個必填欄位、新增最上層分類
+  await run(`t.button('管理分類').click(); return true;`);
+  await waitFor(`[...document.querySelectorAll('.tree .t-row')].some(r => r.innerText.includes('相機與讀碼') && r.querySelector('.t-ops'))`, '管理模式出現分類的操作按鈕');
+  await run(`[...document.querySelectorAll('.tree .t-row')].find(r => r.innerText.includes('相機與讀碼')).querySelector('.t-ops button[title^="分類設定"]').click(); return true;`);
+  await waitFor(`!!document.querySelector('[aria-label="分類設定"]') && document.querySelector('[aria-label="分類設定"]').innerText.includes('欄位範本')`, '開啟分類設定');
+  await run(`
+    const d = document.querySelector('[aria-label="分類設定"]'); t.button('＋ 欄位', d).click(); await new Promise(r => setTimeout(r, 150));
+    const row = [...d.querySelectorAll('table.fields tbody tr')].at(-1);
+    t.type(row.querySelector('[aria-label="欄位名稱"]'), '曝光時間下限'); t.type(row.querySelector('select'), 'number'); t.type(row.querySelector('[aria-label="單位"]'), 'µs');
+    row.querySelector('[aria-label="必填"]').click(); await new Promise(r => setTimeout(r, 100)); t.button('儲存', d).click(); return true;`);
+  const camCat = (await api(`/api/parts/${id}`)).category_id;
+  await waitFor(`fetch('/api/categories/${camCat}').then(r => r.json()).then(c => c.fields.some(f => f.key === '曝光時間下限' && f.type === 'number' && f.required))`, '欄位範本寫入');
+  await waitFor(`!document.querySelector('[aria-label="分類設定"]')`, '分類設定關閉');
+  check((await api(`/api/parts/${id}`)).missing.includes('曝光時間下限'), '新的必填欄位讓元件標成資料不完整');
+  await run(`t.button('＋ 最上層分類').click(); return true;`);
+  await waitFor(`!!document.querySelector('[aria-label="分類設定"]')`, '新增分類的視窗');
+  await run(`const d = document.querySelector('[aria-label="分類設定"]'); t.type(t.field('名稱', d), '測試用的群組'); await new Promise(r => setTimeout(r, 100)); t.button('新增', d).click(); return true;`);
+  await waitFor(`fetch('/api/categories').then(r => r.json()).then(c => c.nodes.some(n => n.name === '測試用的群組'))`, '新增最上層分類');
+  await waitFor(`document.querySelector('.tree').innerText.includes('測試用的群組')`, '樹狀選單出現新分類');
+  log('✓ 分類管理：欄位範本、新增分類');
+  await shot('categories');
+  await run(`t.button('完成', document.querySelector('.tree')).click(); return true;`);
+
+  // 模組（評估平台 Q2）：建一個子件加總的模組，在介面上用挑元件的搜尋框加入相機
+  const mod = await (await fetch(base + '/api/parts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: '上視相機組', kind: 'module', price_mode: 'sum' }) })).json();
+  await run(`t.type(t.field('搜尋元件'), '上視相機組'); return true;`);
+  await waitFor(`document.querySelectorAll('table.parts tr.part').length === 1 && document.querySelector('table.parts tr.part').innerText.includes('上視相機組')`, '找到模組');
   await run(`document.querySelector('table.parts tr.part').click(); return true;`);
+  await waitFor(`!!t.card('模組的組成')`, '模組有組成區');
+  await run(`const c = t.card('模組的組成'); t.type(c.querySelector('[aria-label="搜尋要加的元件"]'), '${part.code}'); return true;`);
+  await waitFor(`!!t.card('模組的組成').querySelector('.picker-list button')`, '挑元件的清單');
+  await run(`t.card('模組的組成').querySelector('.picker-list button').click(); return true;`);
+  await waitFor(`fetch('/api/parts/${mod.id}').then(r => r.json()).then(d => d.links.components.length === 1 && d.sum.total === 21500)`, '加入子件、子件加總');
+  await waitFor(`t.card('模組的組成').innerText.includes('NT$ 21,500')`, '組成區顯示子件加總');
+  log('✓ 模組：加入子件、子件加總');
+  await shot('module');
+  await run(`t.button('✕ 關閉').click(); t.type(t.field('搜尋元件'), ''); return true;`);
+  await waitFor(`[...document.querySelectorAll('table.parts tr.part')].some(r => r.innerText.includes('模組 1') && r.innerText.includes('子件加總'))`, '清單標出模組與子件加總');
+  log('✓ 清單標出模組與子件加總');
+  await fetch(base + `/api/parts/${mod.id}`, { method: 'DELETE' });
+  await run(`t.type(t.field('搜尋元件'), 'basler'); return true;`);      // 換個條件讓清單重新載入
+  await waitFor(`document.querySelectorAll('table.parts tr.part').length === 1 && !document.querySelector('table.parts').innerText.includes('上視相機組')`, '刪掉模組');
+  await run(`t.type(t.field('搜尋元件'), ''); return true;`);
+
+  // 刪除價格（按兩次確認）、刪除元件
+  await run(`[...document.querySelectorAll('table.parts tr.part')].find(r => r.innerText.includes('工業相機')).click(); return true;`);
   await waitFor(`!!t.card('價格紀錄')?.querySelector('tbody tr .danger')`, '重新開啟元件');
   await run(`const b = t.card('價格紀錄').querySelector('tbody tr .danger'); b.click(); await new Promise(r => setTimeout(r, 150)); return true;`);
   check((await api(`/api/parts/${id}`)).prices.length === 2, '刪除按第一次只是進入確認');

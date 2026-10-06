@@ -18,14 +18,17 @@ export function catalogMarkdown(db, { redact = s => s, today = new Date().toLoca
     '- 清單裡沒有合用的才另外選型，並標明「新元件」和選型理由，方便之後補進資料庫。',
     '- 參考單價是新台幣未稅的預算價（括號是估價等級：A 型錄或近期採購價 ±10%、B 同級品預算價 ±20%、C 規格未定或自製 ±30%），不是報價。',
     '- 「用過的專案」是本庫其他專案的代號，只當作參考來源，不要寫進網頁或說明文字。', ''];
+  // 依分類樹分段：最上層一節（##），底下的路徑一小節（###）；模組列出組成
+  const top = p => p.category_path[0] || '', sub = p => p.category_path.slice(1).join(' › ');
   let group = null, category = null;
   for (const p of parts) {
-    if (p.grp !== group) { group = p.grp; category = null; out.push(`## ${group || '未分組'}`, ''); }
-    if (p.category !== category) { category = p.category; out.push(`### ${category || '未分類'}`, '', '| 編號 | 名稱 | 廠牌 | 型號／選型 | 規格 | 單位 | 參考單價 | 用過的專案 | 選型備註 |', '|---|---|---|---|---|---|---|---|---|'); }
-    const attrs = Object.entries(p.attrs).map(([k, v]) => `${k}：${v}`).join('；');
-    out.push(`| ${p.code} | ${[p.status ? `${p.name}（${p.status}）` : p.name, p.brand, p.model, [p.spec, attrs].filter(Boolean).join('；'), p.unit, price(p), p.projects.join('、'), [p.selection_note, p.alternatives && `替代：${p.alternatives}`].filter(Boolean).join('；')].map(cell).join(' | ')} |`);
+    if (top(p) !== group) { group = top(p); category = null; out.push(`## ${group || '未分類'}`, ''); }
+    if (sub(p) !== category) { category = sub(p); out.push(`### ${category || group || '未分類'}`, '', '| 編號 | 名稱 | 廠牌 | 型號／選型 | 規格 | 單位 | 參考單價 | 用過的專案 | 選型備註 |', '|---|---|---|---|---|---|---|---|---|'); }
+    const attrs = Object.entries(p.attrs).filter(([, v]) => v !== '').map(([k, v]) => `${k}：${v}`).join('；');
+    const parts_ = p.kind === 'module' ? `模組，組成：${db.links.linksOf(p.id).components.map(c => `${c.code}×${c.qty ?? 1}`).join('、') || '（還沒有子件）'}` : '';
+    out.push(`| ${p.code} | ${[p.status ? `${p.name}（${p.status}）` : p.name, p.brand, p.model, [p.spec, attrs, parts_].filter(Boolean).join('；'), p.unit, price(p), p.projects.join('、'), [p.selection_note, p.alternatives && `替代：${p.alternatives}`].filter(Boolean).join('；')].map(cell).join(' | ')} |`);
     const next = parts[parts.indexOf(p) + 1];
-    if (!next || next.category !== category || next.grp !== group) out.push('');
+    if (!next || sub(next) !== category || top(next) !== group) out.push('');
   }
   return redact(out.join('\n'));
 }

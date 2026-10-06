@@ -62,7 +62,7 @@ test('元件資料庫統計：類別、專案、各成本表金額、到期提�
   db.addUsage(cam.id, { project: 'Y', source: '', item_code: '', qty: 0 });       // 選配：數量 0
   const o = db.overview('2026-10-05');
   assert.deepEqual([o.parts, o.prices, o.usages, o.suppliers], [4, 3, 4, 1]);
-  assert.deepEqual(o.categories, [{ name: '相機與讀碼', count: 2 }, { name: '', count: 1 }, { name: '量測與感測', count: 1 }]);
+  assert.deepEqual(o.categories, [{ name: '視覺 › 相機與讀碼', count: 2 }, { name: '', count: 1 }, { name: '感測與量測 › 量測與感測', count: 1 }], '類別用分類樹的完整路徑');
   assert.deepEqual(o.projects, [{ name: 'X', parts: 3 }, { name: 'Y', parts: 1 }]);
   assert.deepEqual(o.sources, [{ project: 'X', source: 'cost.xlsx', items: 3, amount: 4 * 20000 + 2 * 6500 }, { project: 'Y', source: '', items: 1, amount: 0 }]);
   assert.deepEqual(o.expiring.map(x => [x.name, x.valid_until, x.supplier]), [['相機', '2026-10-01', '甲代理商'], ['鏡頭', '2026-10-20', null]]);

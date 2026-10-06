@@ -19,7 +19,8 @@ export function importPlanParts(db, project, items, { source = 'parts.json', red
       if (db.findUsage(project, source, code)) { out.existing++; return; }
       let part = (str(it.ref) && db.findByCode(str(it.ref))) || db.findSame(it.name, it.model), action = 'reused';
       if (!part) {
-        part = db.createPart({ name: it.name, brand: it.brand, model: it.model, spec: it.spec, category: it.category, unit: it.unit, status: PENDING, selection_note: str(it.reason), note: `由 ${project} 的提案帶入` });
+        part = db.createPart({ name: it.name, brand: it.brand, model: it.model, spec: it.spec, category: it.category, unit: it.unit, status: PENDING, selection_note: str(it.reason), note: `由 ${project} 的提案帶入${str(it.category) ? `；提案的類別：${str(it.category)}` : ''}` },
+          { createCategory: false });      // 代理寫的類別不自動建分類：找得到就放進去，找不到放群組底下或未分類，原文記在備註
         action = 'created';
       }
       const qty = Number.isFinite(Number(it.qty)) && it.qty !== '' && it.qty != null ? Number(it.qty) : null;

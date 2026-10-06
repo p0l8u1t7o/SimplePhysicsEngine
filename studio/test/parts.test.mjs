@@ -68,19 +68,21 @@ test('修改、刪除與驗證', () => {
   db.close();
 });
 
-test('群組：依類別帶入預設群組、可以自訂、樹狀選單與篩選', () => {
+test('分類樹：用文字指定時依類別帶入群組、可以自訂、樹狀選單與篩選', () => {
   const db = openPartsDb(':memory:'), { cam, lens } = sample(db);
   assert.equal(db.getPart(cam.id).grp, '視覺', '沒填群組時依類別帶入');
-  assert.equal(db.getPart(lens.id).grp, '', '沒有類別就沒有群組');
+  assert.deepEqual(db.getPart(cam.id).category_path, ['視覺', '相機與讀碼']);
+  assert.equal(db.getPart(lens.id).grp, '', '沒有類別就是未分類');
   const own = db.createPart({ name: '特殊治具', category: '相機與讀碼', grp: '我的群組' });
   db.createPart({ name: 'PLC', category: '控制器與 I/O' });
-  assert.deepEqual(db.tree(), [
-    { name: '視覺', count: 1, categories: [{ name: '相機與讀碼', count: 1 }] },
-    { name: '電控與配線', count: 1, categories: [{ name: '控制器與 I/O', count: 1 }] },
-    { name: '我的群組', count: 1, categories: [{ name: '相機與讀碼', count: 1 }] },
-    { name: '', count: 1, categories: [{ name: '', count: 1 }] },
-  ]);
-  assert.deepEqual(db.listParts().parts.map(p => p.name), ['工業相機', 'PLC', '特殊治具', '鏡頭 100%_測試'], '清單照群組順序排');
+  const t = db.tree(), byName = n => t.nodes.find(x => x.name === n);
+  assert.deepEqual(t.nodes.slice(0, 6).map(n => n.name), ['機器人與末端', '視覺', '感測與量測', '運動與機構', '電控與配線', '資訊與服務'], '預設的群組在前');
+  assert.deepEqual([byName('視覺').count, byName('視覺').children.find(c => c.name === '相機與讀碼').own], [1, 1]);
+  assert.deepEqual(byName('我的群組').children.map(c => [c.name, c.count]), [['相機與讀碼', 1]], '自訂的群組底下自動建類別');
+  assert.equal(t.uncategorized, 1);
+  assert.deepEqual(db.listParts().parts.map(p => p.name), ['工業相機', 'PLC', '特殊治具', '鏡頭 100%_測試'], '清單照分類樹的順序排，未分類最後');
+  assert.equal(db.listParts({ cat: byName('視覺').id }).total, 1, '篩選含子分類');
+  assert.equal(db.listParts({ cat: 'none' }).parts[0].id, lens.id);
   assert.equal(db.listParts({ group: '視覺' }).total, 1);
   assert.equal(db.listParts({ group: '我的群組', category: '相機與讀碼' }).parts[0].id, own.id);
   assert.equal(db.listParts({ group: '（未分組）' }).parts[0].id, lens.id);
@@ -104,7 +106,7 @@ test('舊版資料庫（沒有群組欄位）開啟時自動升級', () => {
       PRAGMA user_version = 1;`);
     raw.close();
     const db = openPartsDb(file), list = db.listParts().parts;
-    assert.deepEqual(list.map(p => [p.name, p.grp, p.unit_price]), [['條形光源', '視覺', 14000], ['別的', '', null]]);
+    assert.deepEqual(list.map(p => [p.name, p.grp, p.category, p.unit_price]), [['條形光源', '視覺', '光源', 14000], ['別的', '其他', '自訂類別', null]], '沒有群組的類別放在「其他」底下');
     db.close();
     const again = openPartsDb(file); assert.equal(again.stats().parts, 2); again.close();     // 升級只做一次
   } finally { rmSync(dir, { recursive: true, force: true }); }
