@@ -144,6 +144,7 @@ node ../../core/tools/check.mjs "RecycleSorter" --quick  # 部署前快速檢查
 | `web/js/project.js` | 建立場景（地面用 `floor()`、整條既有皮帶與後段機台）、前段 ABB 的排程、後段取放工單與手臂路徑、`apply(t)`、空間檢核、全場檢查設定 |
 | `web/js/main.js` | 舞台（`look`／`extent`）、`createViewerWorkspace`、視角、站別按鈕、3D 標籤、播放列、面板、`exposeSim` |
 | `tools/verify.mjs` | 本專案的製程規則檢查（節拍、類別與目的地、落料位置、導料板開口、漏抓警報、前段 ABB 的抓取與放行） |
+| `tools/physics-flow.mjs` | 後段混合料流的物理版分析（core/physics）：前段放行的工件照排程放上主帶，算皮帶上的密度、相鄰間隙、碰在一起的比例與到抓取窗口時可以吸的比例，和拍板的混合料流節拍對照；結果在 `review/physics-flow.json`（2026-10-06：2.18 件／m、最小間隙 40 mm、13／13 可以吸） |
 | `tools/render-audit.mjs`、`tools/render-b-audit.mjs` | 兩輪渲染補強的守門工具（狀態／動件回歸、配置比對、幾何預算、實例展開干涉檢查）；基準是補上前段之前的版本 |
 | `tools/build_vision_items.py` | 產生本機的 `docs/vision-items.xlsx`（只負責機器視覺時的採購品項表，分前段、後段、兩站共用的數量）；與成本表重複的品項單價取自平台上本站的成本表（`node studio/vs3d.mjs parts bom @RecycleSorter --json`）；需要 Python 與 openpyxl |
 

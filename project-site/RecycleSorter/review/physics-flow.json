@@ -1,0 +1,116 @@
+{
+  "source": "core/physics（Rapier 決定性版）",
+  "baked": {
+    "steps": 17640,
+    "bodies": 32,
+    "maxPenetration": 0,
+    "peakPenetration": 0.622,
+    "ms": 765,
+    "hash": "1c8a987c"
+  },
+  "items": 32,
+  "targets": 13,
+  "density": 2.18,
+  "minGap": 40,
+  "touchingRatio": 0,
+  "graspable": 13,
+  "graspableRatio": 1,
+  "decided": {
+    "mixedCT": 1.574,
+    "spacing": 315,
+    "densityAtSpacing": 3.17
+  },
+  "grasp": [
+    {
+      "id": 9,
+      "kind": "milkJug",
+      "ok": true,
+      "tilt": 0,
+      "gap": 132
+    },
+    {
+      "id": 10,
+      "kind": "shampoo",
+      "ok": true,
+      "tilt": 0,
+      "gap": 132
+    },
+    {
+      "id": 12,
+      "kind": "alcohol",
+      "ok": true,
+      "tilt": 0,
+      "gap": 99
+    },
+    {
+      "id": 14,
+      "kind": "shampoo",
+      "ok": true,
+      "tilt": 0,
+      "gap": 63
+    },
+    {
+      "id": 16,
+      "kind": "yogurt",
+      "ok": true,
+      "tilt": 0,
+      "gap": 113
+    },
+    {
+      "id": 17,
+      "kind": "lactic",
+      "ok": true,
+      "tilt": 0,
+      "gap": 89
+    },
+    {
+      "id": 18,
+      "kind": "milkBottle",
+      "ok": true,
+      "tilt": 0,
+      "gap": 69
+    },
+    {
+      "id": 19,
+      "kind": "milkJug",
+      "ok": true,
+      "tilt": 0,
+      "gap": 69
+    },
+    {
+      "id": 20,
+      "kind": "yogurt",
+      "ok": true,
+      "tilt": 0,
+      "gap": 85
+    },
+    {
+      "id": 21,
+      "kind": "lactic",
+      "ok": true,
+      "tilt": 0,
+      "gap": 117
+    },
+    {
+      "id": 22,
+      "kind": "milkBottle",
+      "ok": true,
+      "tilt": 0,
+      "gap": 91
+    },
+    {
+      "id": 23,
+      "kind": "milkJug",
+      "ok": true,
+      "tilt": 0,
+      "gap": 40
+    },
+    {
+      "id": 24,
+      "kind": "yogurt",
+      "ok": true,
+      "tilt": 0,
+      "gap": 40
+    }
+  ]
+}
