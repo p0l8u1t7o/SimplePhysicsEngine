@@ -18,6 +18,7 @@
 //   node studio/vs3d.mjs push <名稱>                              本庫模式：推送這次的 vs3d 分支（之後在 GitHub 開 PR）
 //   node studio/vs3d.mjs cancel <名稱>                            取消進行中的流程，回到「完成」（已提交的內容不動；第一段還沒完成的專案不能取消）
 //   node studio/vs3d.mjs delete <名稱> --yes                      刪除工作區的專案（移到工作區的 .studio/trash/，可以搬回 projects/ 復原）
+//   node studio/vs3d.mjs trash [--purge <項目>｜--older-than <天>]   回收桶：列出刪除的專案；永久刪除一個或超過幾天的
 // 本庫模式：--repo（或 --workspace 指到本庫根目錄）就能對 project-site/ 的站下 review／render／stage2／change／check／export；
 //   開工時該站不能有未提交的改動，每次指令開一個本機分支 <範圍>/vs3d-…，只提交該站的路徑，不會 checkout／reset／stash。
 //   node studio/vs3d.mjs probe <名稱> [--cli …] [--other <專案>] [--simulate]   寫入隔離自我測試（--simulate：app 另外模擬越界寫入）
@@ -54,7 +55,7 @@ import { exportHandoff, importHandoff } from './lib/handoff.mjs';
 import * as repoGit from './lib/repo.mjs';
 import { REPO, git, findFfmpeg } from './lib/util.mjs';
 
-const VALUE = new Set(['--text', '--text-file', '--workspace', '--private', '--prompt', '--prompt-file', '--title', '--summary', '--cli', '--model', '--role', '--effort', '--note', '--max-rounds', '--timeout', '--other', '--focus', '--port', '--out', '--name', '--category', '--project', '--db', '--host', '--password', '--level', '--pfx', '--cert', '--key']);
+const VALUE = new Set(['--text', '--text-file', '--workspace', '--private', '--prompt', '--prompt-file', '--title', '--summary', '--cli', '--model', '--role', '--effort', '--note', '--max-rounds', '--timeout', '--other', '--focus', '--port', '--out', '--name', '--category', '--project', '--db', '--host', '--password', '--level', '--pfx', '--cert', '--key', '--purge', '--older-than']);
 
 // 測試用：VS3D_EXTRA_ADAPTERS 指向一個匯出 { adapters: { 名稱: adapter } } 的模組（例如假代理），讓介面的端對端測試走真正的命令列
 if (process.env.VS3D_EXTRA_ADAPTERS) Object.assign(ADAPTERS, (await import(pathToFileURL(resolve(process.env.VS3D_EXTRA_ADAPTERS)).href)).adapters);
@@ -194,6 +195,22 @@ switch (cmd) {
     needProject();
     if (!o.yes) fail(`要刪除 ${name} 請加上 --yes（資料夾會移到工作區的 .studio/trash/，不會直接消失）`);
     try { console.log(`已刪除 ${name}，資料夾移到 ${deleteProject(ws, name)}`); } catch (e) { fail(e.message); }
+    break;
+  }
+  // 回收桶：不帶參數列出；--purge <項目> 永久刪除一個；--older-than <天> 刪掉超過幾天的
+  case 'trash': {
+    const { listTrash, purgeTrash } = await import('./lib/workspace.mjs');
+    const mb = b => `${(b / 1048576).toFixed(1)} MB`;
+    try {
+      if (o.purge || o['older-than'] != null) {
+        const r = purgeTrash(ws, o.purge ? { name: o.purge } : { olderThanDays: Number(o['older-than']) });
+        console.log(r.length ? `永久刪除 ${r.length} 個：${r.map(x => x.name).join('、')}` : '沒有符合的項目');
+      } else {
+        const list = listTrash(ws);
+        for (const x of list) console.log(`${x.name}　${x.deletedAt.slice(0, 16).replace('T', ' ')}　${mb(x.bytes)}`);
+        console.log(list.length ? `${list.length} 個，合計 ${mb(list.reduce((s, x) => s + x.bytes, 0))}；永久刪除用 --purge <項目> 或 --older-than <天>` : '回收桶是空的');
+      }
+    } catch (e) { fail(e.message); }
     break;
   }
   case 'stage2': {

@@ -6,7 +6,7 @@
 //     projects/<專案>/         每個專案一個 git 庫；docs/、TEMP/、.studio/ 不進版控
 // 本庫模式（計畫書 4.10）：ws 也可以是本庫根目錄（有 core/ 與 project-site/、沒有工作區標記），專案就是 project-site/<專案>/，
 //   用本庫的 git（只動該專案路徑）、本庫目前的 core 與規則；app 自己的狀態放在 TEMP/studio/（鎖、設定、上傳）與各專案的 .studio/。
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync, chmodSync, copyFileSync, renameSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync, chmodSync, copyFileSync, renameSync, readdirSync, statSync } from 'node:fs';
 import { basename, join, dirname } from 'node:path';
 import { SOURCE_CORE, STUDIO, git, readJson, writeJson, writeText, walk, now, run } from './util.mjs';
 import { DEFAULT_STUDIO_JSON } from './roles.mjs';
@@ -53,6 +53,26 @@ export function deleteProject(ws, id) {
     try { renameSync(J.dir, dest); } catch (e) { throw new Error(`搬不動專案資料夾（${e.code || e.message}）：可能有程式正開著裡面的檔案，關掉後再試`); }
     return dest;
   } finally { release(); }
+}
+
+// 回收桶（刪除的專案，評估平台 Q1）：列出與永久刪除。資料夾名稱 <名稱>-<YYYYMMDDHHMMSS> 的時間是刪除時間（UTC）。
+const TRASH_RE = /^(.+)-(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/;
+const trashDir = ws => join(paths(ws).app, 'trash');
+export function listTrash(ws) {
+  const dir = trashDir(ws);
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir).filter(n => statSync(join(dir, n)).isDirectory()).map(n => {
+    const m = TRASH_RE.exec(n), f = join(dir, n);
+    const deletedAt = m ? `${m[2]}-${m[3]}-${m[4]}T${m[5]}:${m[6]}:${m[7]}Z` : statSync(f).mtime.toISOString();
+    return { name: n, project: m ? m[1] : n, deletedAt, bytes: walk(f).reduce((s, r) => s + statSync(join(f, r)).size, 0) };
+  }).sort((a, b) => b.deletedAt.localeCompare(a.deletedAt));
+}
+// 永久刪除：name 指定一個，或 olderThanDays 刪掉超過幾天的；回傳刪掉的項目。git 物件是唯讀檔，先拿掉唯讀再刪
+export function purgeTrash(ws, { name, olderThanDays, now: t = Date.now() } = {}) {
+  const items = listTrash(ws).filter(x => name != null ? x.name === name : olderThanDays != null && Date.parse(x.deletedAt) < t - olderThanDays * 864e5);
+  if (name != null && !items.length) throw new Error(`回收桶裡沒有：${name}`);
+  for (const x of items) { const f = join(trashDir(ws), x.name); setReadOnly(f, false); rmSync(f, { recursive: true, force: true }); }
+  return items;
 }
 
 export function setReadOnly(dir, readOnly = true) {

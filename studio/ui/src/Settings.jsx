@@ -17,7 +17,7 @@ function SystemSettings({ canEdit }) {
   if (!sys || !form) return <section className="card"><h3>系統設定</h3><p className="mute">{msg || '載入中…'}</p></section>;
   const set = (k, v) => { setMsg(''); setForm(f => ({ ...f, [k]: v })); };
   // 這張卡片只管附件與成本；代理的認證方式在「代理 CLI」卡片另外存
-  const mineOnly = v => Object.fromEntries(Object.entries(v).filter(([k]) => !k.startsWith('agents.')));
+  const mineOnly = v => Object.fromEntries(Object.entries(v).filter(([k]) => !k.startsWith('agents.') && !k.startsWith('trash.')));
   const dirty = JSON.stringify(mineOnly(form)) !== JSON.stringify(mineOnly(sys.values));
   const field = k => <label key={k}><span>{sys.defs[k].label}</span>
     <input type="number" step="any" min="0" disabled={!canEdit} value={PCT.has(k) ? pct(form[k]) : form[k]} onChange={e => set(k, PCT.has(k) ? unpct(e.target.value) : e.target.value)} />
@@ -80,6 +80,31 @@ function ApiKeys() {
   </section>;
 }
 
+// 回收桶（管理者）：刪除的專案留在工作區的 .studio/trash/；可以永久刪除一個、清掉超過幾天的，或設定自動清理的天數
+function Trash() {
+  const [d, setD] = useState(null), [keep, setKeep] = useState(null), [days, setDays] = useState('30'), [msg, setMsg] = useState('');
+  const load = () => Promise.all([api.trash().then(setD), api.system().then(s => setKeep(String(s.values['trash.keepDays'])))]).catch(e => setMsg('✗ ' + e.message));
+  useEffect(() => { load(); }, []);
+  if (!d) return null;
+  const act = fn => { setMsg(''); fn().then(r => { setMsg(r?.purged ? `✓ 永久刪除 ${r.purged.length} 個` : '✓ 已儲存'); load(); }).catch(e => setMsg('✗ ' + e.message)); };
+  const mb = b => `${(b / 1048576).toFixed(1)} MB`;
+  return <section className="card form"><h3>回收桶（刪除的專案）<span className="chip">{d.items.length}</span></h3>
+    <p className="mute hint">刪除的專案整個搬到工作區的 <code>.studio/trash/</code>，想救回來就把資料夾搬回 <code>projects/</code>。這裡的「永久刪除」就救不回來了。</p>
+    {d.items.length > 0 && <div className="scroll"><table className="data"><thead><tr><th>專案</th><th>刪除時間</th><th className="num">大小</th><th /></tr></thead><tbody>
+      {d.items.map(x => <tr key={x.name}><td><b>{x.project}</b> <span className="mute">{x.name}</span></td><td className="mute nowrap">{new Date(x.deletedAt).toLocaleString()}</td><td className="num mute">{mb(x.bytes)}</td>
+        <td className="ops"><ConfirmButton label="永久刪除" confirmLabel="確定永久刪除？" onConfirm={() => act(() => api.purgeTrashItem(x.name))} /></td></tr>)}
+    </tbody></table></div>}
+    <div className="bar">
+      <label className="inline">清掉超過 <input type="number" min="0" style={{ width: 80 }} value={days} onChange={e => setDays(e.target.value)} aria-label="清掉超過幾天" /> 天的</label>
+      <ConfirmButton label="清理" confirmLabel="確定清理？" disabled={!d.items.length || days === ''} onConfirm={() => act(() => api.purgeTrash(Number(days)))} />
+      <span className="grow" />
+      <label className="inline">自動清理：留 <input type="number" min="0" style={{ width: 80 }} value={keep ?? ''} onChange={e => { setMsg(''); setKeep(e.target.value); }} aria-label="自動清理的天數" /> 天（0 是不自動清）</label>
+      <button type="button" onClick={() => act(() => api.saveSystem({ 'trash.keepDays': keep }))}>儲存</button>
+    </div>
+    {msg && <div className={msg.startsWith('✗') ? 'bad' : 'ok'}>{msg}</div>}
+  </section>;
+}
+
 export function Settings({ info, user }) {
   const isAdmin = !user || user.role === 'admin';       // 還沒有帳號的單機模式等同管理者
   const [data, setData] = useState(null);
@@ -117,6 +142,7 @@ export function Settings({ info, user }) {
         <div className="bar"><button className="primary" onClick={() => save().catch(e => setMsg('✗ ' + e.message))}>儲存</button><span className={msg.startsWith('✗') ? 'bad' : 'ok'}>{msg}</span></div>
       </section>
       <SystemSettings canEdit={isAdmin} />
+      {isAdmin && <Trash />}
     </div>
   );
 }

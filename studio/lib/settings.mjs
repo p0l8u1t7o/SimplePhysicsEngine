@@ -32,6 +32,7 @@ export const SYSTEM_SETTINGS = {
     label: '估價等級的上下幅度', value: { A: 0.1, B: 0.2, C: 0.3 },
     check: (v, label) => { if (!v || typeof v !== 'object') throw new Error(`${label}格式不對`); return Object.fromEntries(['A', 'B', 'C'].map(g => [g, ratio(v[g], `${label} ${g}`)])); },
   },
+  'trash.keepDays': { label: '回收桶自動清理（天）', value: 0, check: num(0, 3650), hint: '刪除的專案留幾天後自動永久刪除；0 是不自動清' },
   'agents.auth.claude': { label: 'Claude Code 的認證', value: 'subscription', check: authCheck },
   'agents.auth.codex': { label: 'Codex 的認證', value: 'subscription', check: authCheck },
 };

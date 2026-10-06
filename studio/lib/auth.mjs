@@ -36,6 +36,7 @@ export function denied(role, method, [a]) {
   if (a === 'auth') return null;                                  // 登入、登出、改自己的密碼
   if (a === 'users') return role === 'admin' ? null : '只有管理者可以管理帳號';
   if (a === 'secrets') return role === 'admin' ? null : '只有管理者可以看與改 API 金鑰';
+  if (a === 'trash') return role === 'admin' ? null : '只有管理者可以管理回收桶';
   if (method === 'GET') return null;
   if (role === 'viewer') return '唯讀帳號不能修改';
   if ((a === 'settings' || a === 'system') && role !== 'admin') return '只有管理者可以改設定';

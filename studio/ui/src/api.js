@@ -60,6 +60,10 @@ export const api = {
   secrets: () => call('GET', '/api/secrets'),
   saveSecret: (provider, key) => call('PUT', `/api/secrets/${provider}`, { key }),
   deleteSecret: provider => call('DELETE', `/api/secrets/${provider}`),
+  // 回收桶（管理者）：刪除的專案
+  trash: () => call('GET', '/api/trash'),
+  purgeTrashItem: name => call('DELETE', `/api/trash/${encodeURIComponent(name)}`),
+  purgeTrash: days => call('POST', '/api/trash/purge', { days }),
   suppliers: () => call('GET', '/api/suppliers'),
   saveSupplier: (id, v) => id ? call('PUT', `/api/suppliers/${id}`, v) : call('POST', '/api/suppliers', v),
   deleteSupplier: id => call('DELETE', `/api/suppliers/${id}`),

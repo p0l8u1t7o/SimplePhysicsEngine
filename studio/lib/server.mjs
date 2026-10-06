@@ -19,6 +19,7 @@
 //   GET｜POST｜PUT｜DELETE /api/parts、/api/prices、/api/usages、/api/suppliers、/api/files   元件資料庫（lib/parts-api.mjs）
 //   GET｜PUT /api/system            系統設定（附件上限、成本費率、代理的認證方式…；改只有管理者）
 //   GET；PUT｜DELETE /api/secrets/:anthropic｜openai   API 金鑰（只有管理者；只回末四碼）
+//   GET /api/trash；DELETE /api/trash/:項目；POST /api/trash/purge { days }   回收桶（刪除的專案；只有管理者）
 //   GET  /files/:id/<路徑>           專案內的 TEMP/、docs/、.studio/plan|reviews|render/ 檔案（截圖、對照頁）
 //   GET｜PUT /api/projects/:id/members   專案成員（依專案分權限；改成員要擁有者或管理者）
 // 3D 預覽與模型目錄：core 的 serve.mjs 只聽本機，對外由 previewProxy 轉送（另一個 port；有帳號時要登入，HTTPS 時一起加密）。
@@ -29,7 +30,7 @@ import { join, extname, normalize, basename } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { STUDIO, readJson, writeJson, readText, inside, freePort, findFfmpeg } from './util.mjs';
-import { paths, projectPaths, initWorkspace, deleteProject } from './workspace.mjs';
+import { paths, projectPaths, initWorkspace, deleteProject, listTrash, purgeTrash } from './workspace.mjs';
 import { loadState, cancelFlow } from './loop.mjs';
 import { loadQuestions, recordAnswer, parseChoice } from './questions.mjs';
 import { ADAPTERS } from './adapters/index.mjs';
@@ -249,6 +250,14 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
             return { name: x.name, label: x.label, models: x.listModels(), ...d, ...s, modeLabel: AUTH_MODES[s.mode] };
           })));
         }
+        // 回收桶（刪除的專案；只有管理者）：GET 列出；DELETE /api/trash/<項目> 永久刪除一個；POST /api/trash/purge { days } 刪掉超過幾天的
+        if (a === 'trash') {
+          try {
+            if (id && req.method === 'DELETE') return json(200, { purged: purgeTrash(ws, { name: id }) });
+            if (id === 'purge' && req.method === 'POST') { const d = Number((await jbody()).days); if (!(d >= 0)) return json(400, { error: '天數要是 0 以上的數字' }); return json(200, { purged: purgeTrash(ws, { olderThanDays: d }) }); }
+          } catch (e) { return json(400, { error: e.message }); }
+          return json(200, { items: listTrash(ws) });
+        }
         // API 金鑰（只有管理者，權限在 lib/auth.mjs 的 denied）：只回末四碼；PUT { key } 設定、DELETE 刪除
         if (a === 'secrets') {
           try {
@@ -405,8 +414,16 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
   };
   const server = tls ? createHttpsServer(tls, handler) : createServer(handler);
   await listen(server, port, host);
+  // 回收桶自動清理：系統設定 trash.keepDays 大於 0 時，啟動時與之後每 12 小時清掉超過天數的
+  const autoPurge = async () => {
+    try {
+      const days = (await parts()).system()['trash.keepDays'];
+      if (days > 0) { const r = purgeTrash(ws, { olderThanDays: days }); if (r.length) log(`回收桶自動清理：永久刪除 ${r.map(x => x.name).join('、')}`); }
+    } catch { /* 資料庫開不了就不清 */ }
+  };
+  autoPurge(); const purgeTimer = setInterval(autoPurge, 12 * 3600e3); purgeTimer.unref();
   if (!LOCAL.has(host) && !tls) log('⚠ 介面用沒有加密的 HTTP 開放給其他電腦（--insecure-http），只適合測試。');
   log(`vs3d 介面：${tls ? 'https' : 'http'}://${host === '0.0.0.0' ? '127.0.0.1' : host}:${port}/（${auth.enabled() ? '需要登入；' : ''}工作區 ${ws}${repo ? `；本庫 ${repo}（預覽 port ${repoPort}）` : ''}；預覽 port ${previewPort}；ffmpeg ${ffmpeg ? '可用' : '找不到，影片不會擷取影格'}）`);
-  const close = () => { preview.kill(); repoPreview?.kill(); runner.stop(); partsApi?.close(); for (const c of clients) c.end(); server.close(); previewServer.close(); repoServer?.close(); };
+  const close = () => { clearInterval(purgeTimer); preview.kill(); repoPreview?.kill(); runner.stop(); partsApi?.close(); for (const c of clients) c.end(); server.close(); previewServer.close(); repoServer?.close(); };
   return { server, port, previewPort, close, runner };
 }
