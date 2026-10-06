@@ -108,7 +108,7 @@ function Shell({ me, onAuthChange }) {
         {route.view === 'home' && <Dashboard go={go} tick={tick} />}
         {route.view === 'stations' && <Stations projects={projects} query={query} go={go} />}
         {route.view === 'new' && <NewProject info={info} running={running} onCreated={id => { refresh(); go({ view: 'project', id }); }} />}
-        {route.view === 'settings' && <Settings info={info} />}
+        {route.view === 'settings' && <Settings info={info} user={user} />}
         {route.view === 'accounts' && (!user || user.role === 'admin' ? <Accounts me={user} onAuthChange={onAuthChange} /> : <div className="page narrow"><h2>我的帳號</h2><p className="sub">{user.display}（{user.name}）· {me.roles[user.role]}</p><ChangePassword /></div>)}
         {route.view === 'parts' && <Parts projectNames={stations.map(p => p.name)} />}
         {route.view === 'project' && <ProjectView key={route.id} id={route.id} tick={tick} running={running} onChange={refresh} onDeleted={() => { refresh(); go({ view: 'home' }); }} />}

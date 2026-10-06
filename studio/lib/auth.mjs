@@ -25,7 +25,7 @@ export function denied(role, method, [a]) {
   if (a === 'users') return role === 'admin' ? null : '只有管理者可以管理帳號';
   if (method === 'GET') return null;
   if (role === 'viewer') return '唯讀帳號不能修改';
-  if (a === 'settings' && role !== 'admin') return '只有管理者可以改設定';
+  if ((a === 'settings' || a === 'system') && role !== 'admin') return '只有管理者可以改設定';
   return null;
 }
 

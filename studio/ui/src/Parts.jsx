@@ -1,7 +1,8 @@
 // 元件資料庫：左邊樹狀選單（群組 → 類別），右邊清單；查詢、新增、編輯、刪除元件；每個元件底下有多筆價格紀錄與專案使用紀錄；另一個分頁管理供應商。
-// 資料在本機的 SQLite 檔（studio/data/parts.db，不進版控），各站做設計、選型與成本表時由這裡查。
+// 資料在本機的 SQLite 檔（studio/data/studio.db，不進版控），各站做設計、選型與成本表時由這裡查。
+// 附件（報價單、圖片、型錄、CAD）的類型與大小上限來自系統設定（/api/system）。
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { api, sameHost } from './api.js';
+import { api, sameHost, partFileUrl, fileTypeOf } from './api.js';
 import { Icon } from './icons.jsx';
 import { Select, ConfirmButton } from './fields.jsx';
 
@@ -39,8 +40,47 @@ function RecordTable({ columns, rows, blank, onSave, onDelete, addLabel, empty, 
   </>;
 }
 
+// 附件：報價單、圖片、型錄、CAD 檔。用途與對應的價格紀錄改了就存；圖片可以設成封面（清單的縮圖）；上傳前先依系統設定檢查類型與大小
+function Attachments({ part, system, onChanged }) {
+  const [msg, setMsg] = useState('');
+  const kinds = system?.fileKinds || {}, values = system?.values;
+  const act = async fn => { setMsg(''); try { await fn(); await onChanged(); } catch (e) { setMsg('✗ ' + e.message); } };
+  const priceOptions = [['', '（不對應）'], ...part.prices.map(p => [String(p.id), `${p.quoted_on || '無日期'}　${money(p.unit_price, p.currency)}${p.source ? `　${p.source}` : ''}`])];
+  const check = f => {
+    if (!system) return '';
+    const t = fileTypeOf(system.fileTypes, f.name);
+    if (!t || !values['attachment.types'].includes(t)) return `${f.name}：不接受這種檔案`;
+    const mb = t === 'cad' ? values['attachment.cadMaxMB'] : values['attachment.maxMB'];
+    return f.size > mb * 1048576 ? `${f.name}：超過上限 ${mb} MB` : '';
+  };
+  async function upload(list) {
+    const bad = list.map(check).filter(Boolean);
+    if (bad.length) { setMsg('✗ ' + bad.join('；')); return; }
+    await act(async () => { for (const f of list) { setMsg(`上傳 ${f.name}…`); await api.uploadPartFile(part.id, f); } });
+  }
+  return <section className="card"><h3>附件<span className="chip">{part.files.length}</span></h3>
+    <p className="mute hint">報價單、圖片、型錄、CAD 檔都可以放（同一個檔只存一份）。上限：一般附件 {values?.['attachment.maxMB'] ?? '…'} MB、CAD 檔 {values?.['attachment.cadMaxMB'] ?? '…'} MB，管理者可以在「設定」的系統設定調整。報價單可以對應一筆價格紀錄；圖片可以設成封面，清單上沒有 3D 模型的元件會用它當縮圖。</p>
+    {part.files.length > 0 && <div className="scroll"><table className="data files"><thead><tr><th>檔案</th><th>用途</th><th>對應的價格紀錄</th><th className="num">大小</th><th>加入</th><th /></tr></thead><tbody>{part.files.map(f => {
+      const t = system ? fileTypeOf(system.fileTypes, f.name) : '', inline = t === 'image' || t === 'pdf', cover = part.cover_file_id === f.id;
+      return <tr key={f.id}>
+        <td><div className="f-cell">{t === 'image' && <a href={partFileUrl(part.id, f.id, true)} target="_blank" rel="noreferrer"><img className="f-thumb" src={partFileUrl(part.id, f.id, true)} alt="" loading="lazy" /></a>}
+          <div><a href={partFileUrl(part.id, f.id)} download={f.name}>{f.name}</a>{inline && <a className="mute f-open" href={partFileUrl(part.id, f.id, true)} target="_blank" rel="noreferrer">開啟</a>}
+            {f.note && <div className="mute">{f.note}</div>}</div></div></td>
+        <td><Select value={f.kind || 'other'} onChange={v => act(() => api.updatePartFile(f.id, { kind: v }))} options={Object.entries(kinds)} /></td>
+        <td><Select value={f.price_id ? String(f.price_id) : ''} onChange={v => act(() => api.updatePartFile(f.id, { price_id: v || null }))} options={priceOptions} /></td>
+        <td className="mute num nowrap">{size(f.size)}</td>
+        <td className="mute nowrap">{f.added_at.slice(0, 10)}{f.uploaded_by && <div>{f.uploaded_by}</div>}</td>
+        <td className="ops">{t === 'image' && <button type="button" className={cover ? 'primary' : ''} title={cover ? '按一下取消封面' : '清單上沒有 3D 模型時用這張當縮圖'}
+          onClick={() => act(() => api.savePart(part.id, { ...part, cover_file_id: cover ? null : f.id }))}>{cover ? '✓ 封面' : '設為封面'}</button>}
+          <ConfirmButton onConfirm={() => act(() => api.deletePartFile(f.id))} /></td>
+      </tr>; })}</tbody></table></div>}
+    <div className="bar"><label className="file"><span className="btn">＋ 加入檔案<input type="file" multiple hidden onChange={e => { const list = [...e.target.files]; e.target.value = ''; upload(list); }} /></span></label>
+      <span className={msg.startsWith('✗') ? 'bad' : 'mute'}>{msg}</span></div>
+  </section>;
+}
+
 // 單一元件：基本資料、自由規格欄位、價格紀錄、使用紀錄
-function PartEditor({ id, facets, suppliers, models, projectNames, onClose, onChanged }) {
+function PartEditor({ id, facets, suppliers, models, system, projectNames, onClose, onChanged }) {
   const [part, setPart] = useState(null);       // 伺服器上的內容（新增時是 null）
   const [form, setForm] = useState(BLANK_PART);
   const [attrs, setAttrs] = useState([]);       // [[名稱, 值], …]
@@ -74,6 +114,8 @@ function PartEditor({ id, facets, suppliers, models, projectNames, onClose, onCh
     { key: 'source', label: '來源／報價單號', placeholder: '報價單號、型錄、成本表' },
     { key: 'valid_until', label: '有效期限', type: 'date', show: r => r.valid_until && <span className={expired(r.valid_until) ? 'warn' : ''}>{r.valid_until}{expired(r.valid_until) ? '（已過期）' : ''}</span> },
     { key: 'note', label: '備註' },
+    { key: 'quote', label: '報價單', type: 'hidden', show: r => (part?.files || []).filter(f => f.price_id === r.id).map(f =>
+      <a key={f.id} className="nowrap" href={partFileUrl(part.id, f.id, /\.pdf$/i.test(f.name))} target="_blank" rel="noreferrer" title={f.name}><Icon name="file" size={13} /> {f.name}</a>) },
   ];
   const usageColumns = [
     { key: 'project', label: '專案', list: 'parts-projects' }, { key: 'source', label: '來源檔', placeholder: 'cost-estimate.xlsx' }, { key: 'item_code', label: '編號', placeholder: '1-01' },
@@ -84,7 +126,8 @@ function PartEditor({ id, facets, suppliers, models, projectNames, onClose, onCh
     <div className="modal" onMouseDown={e => { if (e.target === e.currentTarget && !dirty) onClose(); }}>
       <div className="panel" role="dialog" aria-label="元件">
         <div className="head">
-          <div><h2>{part ? part.name : '新增元件'}</h2>{part && <div className="meta"><code className="p-code">{part.code}</code>{part.status && <span className="chip warn">{part.status}</span>}<span className="mute">更新於 {part.updated_at.slice(0, 10)}</span></div>}</div>
+          {part?.cover_file_id && <img className="p-cover" src={partFileUrl(part.id, part.cover_file_id, true)} alt="封面圖" />}
+          <div className="grow"><h2>{part ? part.name : '新增元件'}</h2>{part && <div className="meta"><code className="p-code">{part.code}</code>{part.status && <span className="chip warn">{part.status}</span>}<span className="mute">更新於 {part.updated_at.slice(0, 10)}</span></div>}</div>
           <div className="bar" style={{ margin: 0 }}>
             {part?.status === PENDING && <button type="button" className="primary" title="代理提案帶進來的新元件：看過沒問題就按這裡" onClick={() => api.savePart(part.id, { ...part, status: '' }).then(p => { fill(p); setMsg('✓ 已確認'); onChanged(p.id); }).catch(e => setMsg('✗ ' + e.message))}>✓ 確認這個元件</button>}
             <button type="button" onClick={onClose}>✕ 關閉</button>
@@ -137,16 +180,7 @@ function PartEditor({ id, facets, suppliers, models, projectNames, onClose, onCh
           <p className="mute hint" style={{ margin: '8px 0 0' }}>可以拖曳旋轉、調參數、按「來回動作」看動畫。這是模型目錄頁，左邊的清單可以看其他共用模型。</p>
         </section>}
         {part ? <>
-          <section className="card"><h3>附件（CAD 檔、型錄）<span className="chip">{part.files.length}</span></h3>
-            <p className="mute hint">匯入的 STEP、IGES、DWG、SLDPRT、PDF 等原始檔存在這台電腦（資料庫旁邊的 <code>parts-files/</code>），可以下載；目前不會把 CAD 轉成 3D 畫面。單一檔案上限 300 MB。</p>
-            {part.files.length > 0 && <table className="data"><tbody>{part.files.map(f => <tr key={f.id}>
-              <td><Icon name="file" size={15} /> <a href={`/api/parts/${part.id}/files/${f.id}`} download={f.name}>{f.name}</a></td><td className="mute num">{size(f.size)}</td><td className="mute nowrap">{f.added_at.slice(0, 10)}</td>
-              <td className="ops"><ConfirmButton onConfirm={() => api.deletePartFile(f.id).then(() => { load(); onChanged(part.id); }).catch(e => setMsg('✗ ' + e.message))} /></td></tr>)}</tbody></table>}
-            <div className="bar"><label className="file"><span className="btn">＋ 加入檔案<input type="file" multiple hidden onChange={async e => {
-              const list = [...e.target.files]; e.target.value = '';
-              try { for (const f of list) { setMsg(`上傳 ${f.name}…`); await api.uploadPartFile(part.id, f); } setMsg('✓ 已上傳'); await load(); onChanged(part.id); } catch (err) { setMsg('✗ ' + err.message); }
-            }} /></span></label><span className={msg.startsWith('✗') ? 'bad' : 'mute'}>{/上傳/.test(msg) ? msg : ''}</span></div>
-          </section>
+          <Attachments part={part} system={system} onChanged={async () => { await load(); onChanged(part.id); }} />
           <section className="card"><h3>價格紀錄<span className="chip">{part.prices.length}</span></h3>
             <p className="mute hint">清單上的參考單價取報價日最新的一筆。等級沿用成本表的 A／B／C（幅度 ±10%／±20%／±30%）。</p>
             <RecordTable columns={priceColumns} rows={part.prices} blank={{ quoted_on: today(), unit_price: '', currency: 'TWD', grade: '', supplier_id: '', source: '', valid_until: '', note: '' }}
@@ -218,7 +252,8 @@ function PartList({ parts, thumbs, onOpen, empty }) {
     const model = p.brand && p.model.toLowerCase().startsWith(p.brand.toLowerCase()) ? p.model.slice(p.brand.length).trim() : p.model;
     rows.push(
       <tr key={p.id} className={`part ${n++ % 2 ? 'alt' : ''}`} tabIndex={0} onClick={() => onOpen(p.id)} onKeyDown={e => { if (e.key === 'Enter') onOpen(p.id); }}>
-        <td><div className="p-cell">{thumbs.has(p.model_id) && <img className="p-thumb" src={`/api/models/${p.model_id}/thumb?h=${thumbs.get(p.model_id)}`} alt="" loading="lazy" />}<div>
+        <td><div className="p-cell">{thumbs.has(p.model_id) ? <img className="p-thumb" src={`/api/models/${p.model_id}/thumb?h=${thumbs.get(p.model_id)}`} alt="" loading="lazy" />
+          : p.cover_file_id ? <img className="p-thumb" src={partFileUrl(p.id, p.cover_file_id, true)} alt="" loading="lazy" /> : null}<div>
           <div className="p-name">{p.name}{p.status && <span className="chip warn">{p.status}</span>}</div>{(p.brand || model) && <div className="p-model">{p.brand && <b>{p.brand}</b>}{p.brand && model ? '　' : ''}{model}</div>}
           <div className="p-sub"><code className="p-code">{p.code}</code>{p.model_id && <span title="有 3D 模型">　<Icon name="parts" size={12} /> 3D</span>}{p.file_count > 0 && <span title="附件">　<Icon name="file" size={12} /> {p.file_count}</span>}</div>
         </div></div></td>
@@ -245,6 +280,8 @@ export function Parts({ projectNames = [] }) {
   const [sel, setSel] = useState({ group: '', category: '' });       // 樹狀選單選到的群組／類別
   const [filter, setFilter] = useState({ project: '', supplier: '', status: '' });
   const [models, setModels] = useState({ models: [], catalogPort: 0, rendering: false });
+  const [system, setSystem] = useState(null);       // 系統設定：附件的類型與上限
+  useEffect(() => { api.system().then(setSystem).catch(() => {}); }, []);
   const [data, setData] = useState(null);
   const [sup, setSup] = useState({ suppliers: [], kinds: [] });
   const [open, setOpen] = useState(null);       // null｜'new'｜元件 id
@@ -294,7 +331,7 @@ export function Parts({ projectNames = [] }) {
         </div>
       </div>)}
       {tab === 'suppliers' && <Suppliers suppliers={sup.suppliers} kinds={sup.kinds} reload={() => Promise.all([loadSuppliers(), load()])} />}
-      {open != null && data && <PartEditor id={open} facets={data} suppliers={sup.suppliers} models={models} projectNames={projectNames} onClose={close}
+      {open != null && data && <PartEditor id={open} facets={data} suppliers={sup.suppliers} models={models} system={system} projectNames={projectNames} onClose={close}
         onChanged={id => { load(); if (id != null && open === 'new') setOpen(id); }} />}
     </div>
   );

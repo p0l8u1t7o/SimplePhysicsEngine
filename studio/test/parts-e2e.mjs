@@ -13,7 +13,8 @@ import { openBrowser } from '../../core/tools/cdp.mjs';
 
 const argv = process.argv.slice(2), shotDir = argv.includes('--shots') ? resolve(argv[argv.indexOf('--shots') + 1]) : null;
 const ws = mkdtempSync(join(tmpdir(), 'vs3d-parts-ui-')), port = await freePort(), dbFile = join(ws, 'parts.db');
-const server = spawn(process.execPath, [join(STUDIO, 'vs3d.mjs'), 'ui', '--port', String(port), '--no-open', '--no-repo', '--workspace', ws, '--db', dbFile], { stdio: ['ignore', 'pipe', 'pipe'] });
+const server = spawn(process.execPath, [join(STUDIO, 'vs3d.mjs'), 'ui', '--port', String(port), '--no-open', '--no-repo', '--workspace', ws, '--db', dbFile],
+  { env: { ...process.env, VS3D_USERS: join(ws, 'users.json') }, stdio: ['ignore', 'pipe', 'pipe'] });      // 暫存帳號檔：這台電腦有帳號時也不必登入
 let out = ''; server.stdout.on('data', d => { out += d; }); server.stderr.on('data', d => { out += d; });
 const base = `http://127.0.0.1:${port}`, t0 = Date.now();
 const api = async path => (await fetch(base + path)).json();
@@ -102,6 +103,58 @@ try {
   check(part.usages[0].project === 'RecycleSorter' && part.usages[0].qty === 4, '使用紀錄');
   await waitFor(`t.card('價格紀錄').innerText.includes('已過期')`, '過期的報價有標示');
   await shot('editor');
+
+  // 附件（評估平台 Q1）：上傳圖片與 PDF（從頁面送 API，檔案選擇框無法自動操作），在附件表上改用途、對應報價、設封面
+  await run(`
+    const png = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='), c => c.charCodeAt(0));
+    for (const [name, body] of [['外觀.png', png], ['報價單-Q0901.pdf', new TextEncoder().encode('%PDF-1.4 test')]])
+      await fetch('/api/parts/${id}/files?name=' + encodeURIComponent(name), { method: 'POST', body });
+    return true;`);
+  // 重新開啟面板，讓附件表載入
+  await run(`t.button('✕ 關閉').click(); return true;`);
+  await waitFor(`!document.querySelector('.modal')`, '面板關閉');
+  await run(`document.querySelector('table.parts tr.part').click(); return true;`);
+  await waitFor(`t.card('附件')?.querySelectorAll('table.files tbody tr').length === 2`, '附件表列出兩個檔案');
+  check(await browser.evaluate(`!!t.card('附件').querySelector('img.f-thumb')`), '圖片附件有縮圖');
+  part = await api(`/api/parts/${id}`);
+  const pdf = part.files.find(f => f.name.endsWith('.pdf')), q0901 = part.prices.find(p => p.source === 'Q-0901');
+  check(pdf.kind === 'datasheet', 'PDF 沒指定用途時當成型錄');
+  await run(`
+    const row = [...t.card('附件').querySelectorAll('table.files tbody tr')].find(r => r.innerText.includes('報價單-Q0901')), sel = row.querySelectorAll('select');
+    t.type(sel[0], 'quote'); await new Promise(r => setTimeout(r, 300)); t.type(row.querySelectorAll('select')[1], '${q0901.id}'); return true;`);
+  await waitFor(`fetch('/api/parts/${id}').then(r => r.json()).then(d => d.files.some(f => f.kind === 'quote' && f.price_id === ${q0901.id}))`, '報價單對應到價格紀錄');
+  await waitFor(`t.card('價格紀錄').innerText.includes('報價單-Q0901.pdf')`, '價格紀錄列出對應的報價單');
+  log('✓ 附件改用途、對應價格紀錄');
+  await run(`t.button('設為封面', t.card('附件')).click(); return true;`);
+  await waitFor(`fetch('/api/parts/${id}').then(r => r.json()).then(d => d.cover_file_id === d.files.find(f => f.name === '外觀.png').id)`, '設為封面');
+  await waitFor(`!!document.querySelector('.modal .head img.p-cover')`, '面板標題顯示封面圖');
+  log('✓ 設為封面');
+  await run(`t.card('附件').scrollIntoView({ block: 'start' }); return true;`); await shot('attachments');
+  // 超過上限：伺服器依系統設定擋下（PDF 是一般附件）
+  const big = await browser.evaluate(`fetch('/api/system', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ 'attachment.maxMB': 1 }) })
+    .then(() => fetch('/api/parts/${id}/files?name=big.pdf', { method: 'POST', body: new Uint8Array(1048577) })).then(r => r.status, () => 'network')`);
+  check(big === 413 || big === 'network', `超過一般附件上限被擋下（${big}）`);
+  check((await api(`/api/parts/${id}`)).files.length === 2, '被擋下的檔案沒有寫入');
+  await run(`t.button('✕ 關閉').click(); return true;`);
+  await waitFor(`!document.querySelector('.modal')`, '面板關閉');
+  await waitFor(`!!document.querySelector('table.parts tr.part img.p-thumb')`, '清單用封面圖當縮圖');
+  log('✓ 清單用封面圖當縮圖');
+
+  // 系統設定：設定頁讀到 1 MB，改成 25 MB 並取消 CAD 檔
+  await browser.goto(base + '/#settings', '!!document.querySelector(".page h2")');
+  await browser.evaluate(HELPERS);
+  await waitFor(`t.card('系統設定')?.querySelector('input[type=number]')?.value === '1'`, '設定頁顯示系統設定');
+  await run(`
+    const c = t.card('系統設定'); t.type(t.field('一般附件上限', c), '25');
+    const cad = [...c.querySelectorAll('label.check')].find(l => l.textContent.includes('CAD')).querySelector('input'); cad.click();
+    await new Promise(r => setTimeout(r, 100)); t.button('儲存', c).click(); return true;`);
+  await waitFor(`fetch('/api/system').then(r => r.json()).then(d => d.values['attachment.maxMB'] === 25 && !d.values['attachment.types'].includes('cad'))`, '系統設定寫入');
+  log('✓ 系統設定寫入');
+  await run(`t.card('系統設定').scrollIntoView({ block: 'start' }); return true;`); await shot('system-settings');
+  await browser.goto(base + '/#parts', '!!document.querySelector("table.parts tr.part")');
+  await browser.evaluate(HELPERS);
+  await run(`document.querySelector('table.parts tr.part').click(); return true;`);
+  await waitFor(`!!t.card('價格紀錄')`, '重新開啟元件');
 
   // 編輯：改型號後儲存，關閉面板
   await run(`const m = document.querySelector('.modal'); t.type(t.field('選型備註', m), '回收場粉塵多，要加防塵罩'); await new Promise(r => setTimeout(r, 100)); t.button('儲存', m.querySelector('form')).click(); return true;`);

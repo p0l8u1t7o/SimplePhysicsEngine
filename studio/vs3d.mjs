@@ -29,7 +29,7 @@
 //   node studio/vs3d.mjs parts seed [--dry-run]                   從各站 docs/ 的成本表匯入採購品項（可重複執行，已匯入的列會跳過）
 //   node studio/vs3d.mjs parts merge <保留 id> <併入 id>           合併重複的元件
 //   node studio/vs3d.mjs parts link [--dry-run]                   把型號對得上的元件連到 core 共用模型（3D 顯示）；core 新增模型後再跑一次
-//                                                                 資料庫檔只留本機：studio/data/parts.db（--db 或環境變數 VS3D_PARTS_DB 可以改位置）
+//                                                                 資料庫檔只留本機：studio/data/studio.db（--db 或環境變數 VS3D_DB 可以改位置）
 // 共通選項：--workspace <資料夾>（預設 %USERPROFILE%\Documents\3D-Studio，或環境變數 VS3D_WORKSPACE）
 //   --cli、--model（所有角色）、--role plan=opus,fix=haiku（個別角色；可寫 codex:<模型>）、--effort
 //   --no-wait（有問題時寫出後結束，不在終端機詢問）、--auto-approve（配置提案不必確認）、--max-rounds 40、--timeout 90（分鐘／輪）

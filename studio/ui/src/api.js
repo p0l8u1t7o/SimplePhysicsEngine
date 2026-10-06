@@ -47,7 +47,11 @@ export const api = {
     const r = await fetch(`/api/parts/${partId}/files?name=${encodeURIComponent(file.name)}`, { method: 'POST', body: file });
     const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || r.statusText); return j;
   },
+  updatePartFile: (id, v) => call('PUT', `/api/files/${id}`, v),
   deletePartFile: id => call('DELETE', `/api/files/${id}`),
+  // 系統設定（附件上限、允許的檔案類型、成本費率；改只有管理者）
+  system: () => call('GET', '/api/system'),
+  saveSystem: v => call('PUT', '/api/system', v),
   suppliers: () => call('GET', '/api/suppliers'),
   saveSupplier: (id, v) => id ? call('PUT', `/api/suppliers/${id}`, v) : call('POST', '/api/suppliers', v),
   deleteSupplier: id => call('DELETE', `/api/suppliers/${id}`),
@@ -58,6 +62,10 @@ export const api = {
 };
 // 預覽與模型目錄在另一個 port：伺服器給的是 127.0.0.1，從別台電腦連進來時換成目前的主機名稱
 export const sameHost = u => String(u || '').replace('//127.0.0.1:', `//${location.hostname}:`);
+// 元件附件的網址：inline 是在瀏覽器直接開（圖片、PDF），否則下載
+export const partFileUrl = (partId, fileId, inline) => `/api/parts/${partId}/files/${fileId}${inline ? '?inline=1' : ''}`;
+// 依副檔名找附件的類型（系統設定 fileTypes），找不到回傳空字串
+export const fileTypeOf = (fileTypes, name) => { const e = (String(name).match(/\.([^.]+)$/)?.[1] || '').toLowerCase(); return Object.keys(fileTypes || {}).find(t => fileTypes[t].ext.includes(e)) || ''; };
 export const fileUrl = (id, path) => `/files/${encodeURIComponent(id)}/${path.split('/').map(encodeURIComponent).join('/')}`;
 
 // SSE：line（輸出一行）、exit（執行結束）

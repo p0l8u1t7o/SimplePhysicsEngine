@@ -3,16 +3,35 @@
 //   parts      元件主表（唯一編號 code：P-00001 起的流水號，給了就不變也不重用；群組 grp、類別、狀態 status（「待確認」是代理提案帶進來、還沒審核的）、
 //              core 共用模型 model_id（3D 顯示用）、名稱、廠牌、型號、規格、自由規格欄位 attrs、選型備註、替代方案、標籤、資料連結）
 //   prices     價格紀錄：一個元件多筆（日期、單價、幣別、等級 A/B/C、供應商、來源或報價單號、有效期限）
-//   files      元件的附件（匯入的 CAD 檔、型錄等）：檔案放在資料庫旁邊的 parts-files/，這裡記檔名與大小
+//   files      元件的附件（報價單、圖片、型錄、CAD 檔）：檔案放在資料庫旁邊的 files/<SHA-256>（同一個檔只存一份），這裡記檔名、類型、大小、上傳者、對應的價格紀錄
 //   usages     專案使用紀錄：哪個專案的哪一列成本表用過（專案、來源檔、編號、子系統、數量、選型理由）
+//   settings   系統設定（附件上限、成本費率…；鍵值與驗證在 lib/settings.mjs）
 //   part_latest 檢視表：元件＋最新一筆價格＋供應商。各站的成本表產生器可以直接讀（Python 用內建的 sqlite3）
-// 資料庫檔只留本機，不進版控（2026-10-05 拍板）：預設 studio/data/parts.db，環境變數 VS3D_PARTS_DB 可以改位置；換電腦時複製這個檔案。
+// 資料庫檔只留本機，不進版控（2026-10-05 拍板）：預設 studio/data/studio.db（第 4 版以前叫 parts.db，開啟時自動改名），
+// 環境變數 VS3D_DB（舊的 VS3D_PARTS_DB 也可以）改位置；換電腦時複製資料庫檔與旁邊的 files/。結構升級前會自動備份成 <檔名>.bak-v<舊版>。
 import { DatabaseSync } from 'node:sqlite';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, rmdirSync, writeFileSync } from 'node:fs';
+import { basename, dirname, extname, join } from 'node:path';
 import { STUDIO, now } from './util.mjs';
 
-export const defaultPartsDb = () => process.env.VS3D_PARTS_DB || join(STUDIO, 'data', 'parts.db');
+export const defaultPartsDb = () => process.env.VS3D_DB || process.env.VS3D_PARTS_DB || join(STUDIO, 'data', 'studio.db');
+
+// 附件：依副檔名分成幾類（系統設定決定哪幾類可以上傳；CAD 另有自己的大小上限），使用者另外標用途 kind
+export const FILE_TYPES = {
+  image: { label: '圖片', ext: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'] },
+  pdf: { label: 'PDF', ext: ['pdf'] },
+  office: { label: 'Office 文件', ext: ['doc', 'docx', 'xls', 'xlsx', 'xlsm', 'ppt', 'pptx', 'csv', 'odt', 'ods'] },
+  cad: { label: 'CAD 檔', ext: ['step', 'stp', 'iges', 'igs', 'sldprt', 'sldasm', 'slddrw', 'dwg', 'dxf', 'stl', 'x_t', 'x_b', '3mf', 'obj', 'ipt', 'iam', 'prt', 'catpart', 'catproduct', 'jt', '3dxml', 'glb', 'gltf'] },
+  archive: { label: '壓縮檔', ext: ['zip', '7z', 'rar'] },
+  text: { label: '文字檔', ext: ['txt', 'md', 'json', 'xml'] },
+};
+export const fileType = name => { const e = extname(String(name || '')).slice(1).toLowerCase(); return Object.keys(FILE_TYPES).find(t => FILE_TYPES[t].ext.includes(e)) || ''; };
+export const FILE_KINDS = { quote: '報價單', image: '圖片', datasheet: '型錄／規格書', cad: 'CAD', other: '其他' };
+const MIMES = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', bmp: 'image/bmp', pdf: 'application/pdf', txt: 'text/plain', md: 'text/markdown', json: 'application/json', csv: 'text/csv', xml: 'application/xml', zip: 'application/zip' };
+export const mimeOf = name => MIMES[extname(String(name || '')).slice(1).toLowerCase()] || 'application/octet-stream';
+const guessKind = name => ({ image: 'image', cad: 'cad', pdf: 'datasheet' })[fileType(name)] || 'other';
+const sha256 = data => createHash('sha256').update(data).digest('hex');
 export const GRADES = ['A', 'B', 'C'];
 export const SUPPLIER_KINDS = ['原廠', '代理商', '經銷商', '加工廠', '網購', '其他'];
 
@@ -29,7 +48,7 @@ export const groupOf = category => Object.keys(GROUPS).find(g => GROUPS[g].inclu
 // 排序：照 GROUPS 的順序，自訂的群組排後面，沒有群組的最後
 const GROUP_ORDER = `CASE pl.grp ${Object.keys(GROUPS).map((g, i) => `WHEN '${g}' THEN ${i}`).join(' ')} WHEN '' THEN 999 ELSE 500 END`;
 
-const SCHEMA_VERSION = 3;      // 2：parts.grp（群組）；3：唯一編號 code、狀態 status、core 模型 model_id、附件 files
+const SCHEMA_VERSION = 4;      // 2：parts.grp（群組）；3：唯一編號 code、狀態 status、core 模型 model_id、附件 files；4：系統設定、附件的類型／雜湊／上傳者／價格紀錄、元件封面圖
 export const PENDING = '待確認';
 export const codeOf = n => `P-${String(n).padStart(5, '0')}`;
 const CODE_RE = /^P-\d+$/i;
@@ -99,6 +118,17 @@ CREATE TABLE files (
 );
 CREATE INDEX files_part ON files(part_id);
 `;
+// 第 4 版：系統設定；附件記類型（用途）、MIME、SHA-256（檔名）、上傳者、對應的價格紀錄；元件的封面圖
+const V4 = `
+CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_by TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL);
+ALTER TABLE files ADD COLUMN kind TEXT NOT NULL DEFAULT '';
+ALTER TABLE files ADD COLUMN mime TEXT NOT NULL DEFAULT '';
+ALTER TABLE files ADD COLUMN sha256 TEXT NOT NULL DEFAULT '';
+ALTER TABLE files ADD COLUMN uploaded_by TEXT NOT NULL DEFAULT '';
+ALTER TABLE files ADD COLUMN price_id INTEGER REFERENCES prices(id) ON DELETE SET NULL;
+ALTER TABLE parts ADD COLUMN cover_file_id INTEGER REFERENCES files(id) ON DELETE SET NULL;
+CREATE INDEX files_sha ON files(sha256);
+`;
 
 export class PartsError extends Error { constructor(message, status = 400) { super(message); this.status = status; } }
 const bad = msg => { throw new PartsError(msg); };
@@ -155,14 +185,33 @@ function cleanSupplier(v) {
 }
 const likeEscape = s => `%${s.replace(/[\\%_]/g, c => '\\' + c)}%`;
 
+// 第 4 版以前的預設檔名是 parts.db：新檔名還不存在而舊檔在同一個資料夾時，連同 WAL 檔一起改名
+function renameLegacy(file) {
+  if (basename(file) !== 'studio.db' || existsSync(file)) return;
+  const old = join(dirname(file), 'parts.db');
+  if (!existsSync(old)) return;
+  try { for (const s of ['', '-wal', '-shm']) if (existsSync(old + s)) renameSync(old + s, file + s); }
+  catch (e) { throw new PartsError(`資料庫要從 parts.db 改名成 studio.db，但檔案正在被別的程式使用（多半是還在執行的舊版 vs3d ui），請先停止再重新開啟：${e.message}`, 500); }
+}
+
 export function openPartsDb(file = defaultPartsDb()) {
-  if (file !== ':memory:') mkdirSync(dirname(file), { recursive: true });
+  if (file !== ':memory:') { mkdirSync(dirname(file), { recursive: true }); renameLegacy(file); }
   const db = new DatabaseSync(file);
   db.exec('PRAGMA foreign_keys = ON');
   let depth = 0;      // 交易的巢狀深度（tx 用）
+  // 附件的內容：資料庫旁邊的 files/<SHA-256>，同一個檔只存一份
+  const filesDir = file === ':memory:' ? null : join(dirname(file), 'files');
+  const blobPath = sha => join(filesDir, sha);
+  function storeBlob(sha, data) { mkdirSync(filesDir, { recursive: true }); if (!existsSync(blobPath(sha))) writeFileSync(blobPath(sha), data); }
   let version = db.prepare('PRAGMA user_version').get().user_version;
   if (version > SCHEMA_VERSION) { db.close(); throw new PartsError(`元件資料庫的版本（${version}）比這個程式新（${SCHEMA_VERSION}），請更新程式：${file}`, 500); }
-  if (version === 0) tx(() => { db.exec(SCHEMA); db.exec(V3); db.exec("CREATE UNIQUE INDEX parts_code ON parts(code); INSERT INTO meta VALUES ('code_seq', 0)"); db.exec(VIEW); db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`); });
+  // 升級前先備份（VACUUM INTO 會寫出一份完整的副本；同名的備份已經存在就加上時間）
+  if (version > 0 && version < SCHEMA_VERSION && file !== ':memory:') {
+    let bak = `${file}.bak-v${version}`;
+    if (existsSync(bak)) bak += `-${now().slice(0, 19).replace(/[-:T]/g, '')}`;
+    db.exec(`VACUUM INTO '${bak.replace(/'/g, "''")}'`);
+  }
+  if (version === 0) tx(() => { db.exec(SCHEMA); db.exec(V3); db.exec(V4); db.exec("CREATE UNIQUE INDEX parts_code ON parts(code); INSERT INTO meta VALUES ('code_seq', 0)"); db.exec(VIEW); db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`); });
   // 1 → 2：加上群組欄位，既有元件依類別帶入預設群組；檢視表的 p.* 要重建才看得到新欄位
   if (version === 1) tx(() => {
     version = 2;
@@ -175,7 +224,21 @@ export function openPartsDb(file = defaultPartsDb()) {
     for (const c of ["code TEXT NOT NULL DEFAULT ''", "status TEXT NOT NULL DEFAULT ''", "model_id TEXT NOT NULL DEFAULT ''"]) db.exec(`ALTER TABLE parts ADD COLUMN ${c}`);
     db.exec("UPDATE parts SET code = 'P-' || printf('%05d', id)"); db.exec(V3);
     db.exec("CREATE UNIQUE INDEX parts_code ON parts(code); INSERT INTO meta SELECT 'code_seq', coalesce(max(id), 0) FROM parts");
-    db.exec('DROP VIEW part_latest'); db.exec(VIEW); db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
+    db.exec('DROP VIEW part_latest'); db.exec(VIEW); db.exec('PRAGMA user_version = 3');
+    version = 3;
+  });
+  // 3 → 4：系統設定、附件欄位、封面圖；舊的附件（parts-files/<id>-<檔名>）搬成 files/<SHA-256>
+  if (version === 3) tx(() => {
+    db.exec(V4); db.exec('DROP VIEW part_latest'); db.exec(VIEW);
+    const oldDir = file === ':memory:' ? null : join(dirname(file), 'parts-files');
+    for (const f of db.prepare('SELECT * FROM files').all()) {
+      const src = oldDir && join(oldDir, `${f.id}-${f.name}`);
+      let sha = '';
+      if (src && existsSync(src)) { const data = readFileSync(src); sha = sha256(data); storeBlob(sha, data); rmSync(src); }
+      db.prepare('UPDATE files SET sha256 = ?, mime = ?, kind = ? WHERE id = ?').run(sha, mimeOf(f.name), guessKind(f.name), f.id);
+    }
+    if (oldDir && existsSync(oldDir) && !readdirSync(oldDir).length) rmdirSync(oldDir);
+    db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
   });
 
   // 交易可以巢狀呼叫（匯入時整批包一層，裡面的新增元件不再另開）
@@ -184,9 +247,9 @@ export function openPartsDb(file = defaultPartsDb()) {
     db.exec('BEGIN'); depth++;
     try { const r = fn(); db.exec('COMMIT'); return r; } catch (e) { db.exec('ROLLBACK'); throw e; } finally { depth--; }
   }
-  const filesDir = file === ':memory:' ? null : join(dirname(file), 'parts-files');
-  const filePath = f => join(filesDir, `${f.id}-${f.name}`);
-  const all = (sql, ...a) => db.prepare(sql).all(...a).map(r => ({ ...r }));
+  // 沒有其他附件用到同一個內容時，才刪掉檔案
+  const dropBlobs = shas => { for (const sha of new Set(shas)) if (sha && filesDir && !get('SELECT 1 AS x FROM files WHERE sha256 = ?', sha)) rmSync(blobPath(sha), { force: true }); };
+  const all =(sql, ...a) => db.prepare(sql).all(...a).map(r => ({ ...r }));
   const get = (sql, ...a) => { const r = db.prepare(sql).get(...a); return r ? { ...r } : null; };
   const run = (sql, ...a) => db.prepare(sql).run(...a);
   const insert = (table, v) => { const k = Object.keys(v); return Number(run(`INSERT INTO ${table} (${k.join(', ')}) VALUES (${k.map(() => '?').join(', ')})`, ...k.map(x => v[x])).lastInsertRowid); };
@@ -200,6 +263,12 @@ export function openPartsDb(file = defaultPartsDb()) {
   const needSupplier = id => { if (id != null) need('suppliers', id, '供應商'); };
   const unique = fn => { try { return fn(); } catch (e) { if (/UNIQUE/.test(e.message)) bad('已經有同名的供應商'); throw e; } };
   const withAttrs = p => ({ ...p, attrs: JSON.parse(p.attrs || '{}') });
+  function cleanFileMeta(partId, { kind, price_id }) {
+    if (!FILE_KINDS[kind]) bad(`附件類型只能是：${Object.values(FILE_KINDS).join('、')}`);
+    const pid = price_id == null || price_id === '' ? null : Number(price_id);
+    if (pid != null && !get('SELECT 1 AS x FROM prices WHERE id = ? AND part_id = ?', pid, partId)) bad('對應的價格紀錄要是這個元件的');
+    return { kind, price_id: pid };
+  }
 
   return {
     file,
@@ -263,17 +332,26 @@ export function openPartsDb(file = defaultPartsDb()) {
       return all('SELECT * FROM parts WHERE lower(name) = lower(?) ORDER BY id', String(name).trim()).find(p => n(p.model) === n(model))
         || all('SELECT * FROM parts ORDER BY id').find(p => n(p.name) === n(name) && n(p.model) === n(model)) || null;
     },
-    // 附件：檔案內容寫到資料庫旁邊的 parts-files/<附件 id>-<檔名>
-    addFile(partId, { name, data, note = '' }) {
+    // 附件：內容寫到 files/<SHA-256>；kind 是用途（報價單、圖片…，沒給就依副檔名猜），price_id 是這份報價單對應的價格紀錄
+    addFile(partId, { name, data, note = '', kind = '', by = '', priceId = null }) {
       const p = need('parts', partId, '元件'), safe = String(name || '').replace(/[\\/:*?"<>|\x00-\x1f]/g, '_').trim().slice(0, 120);
       if (!safe || /^\.+$/.test(safe)) bad('請提供檔名');
       if (!filesDir) bad('記憶體資料庫不能存附件');
-      const f = { id: insert('files', { part_id: p.id, name: safe, size: data.length, note: text(note), added_at: now() }), name: safe };
-      mkdirSync(filesDir, { recursive: true }); writeFileSync(filePath(f), data); touch(p.id);
+      const meta = cleanFileMeta(p.id, { kind: kind || guessKind(safe), price_id: priceId });
+      const sha = sha256(data);
+      storeBlob(sha, data);
+      const id = insert('files', { part_id: p.id, name: safe, size: data.length, note: text(note), added_at: now(), mime: mimeOf(safe), sha256: sha, uploaded_by: text(by), ...meta });
+      touch(p.id);
+      return get('SELECT * FROM files WHERE id = ?', id);
+    },
+    updateFile(id, v) {
+      const f = need('files', id, '附件');
+      update('files', f.id, { ...cleanFileMeta(f.part_id, { kind: v.kind ?? f.kind, price_id: v.price_id === undefined ? f.price_id : v.price_id }), note: text(v.note ?? f.note) });
+      touch(f.part_id);
       return get('SELECT * FROM files WHERE id = ?', f.id);
     },
-    fileOf(id) { const f = need('files', id, '附件'); return { ...f, path: filePath(f) }; },
-    deleteFile(id) { const f = need('files', id, '附件'); run('DELETE FROM files WHERE id = ?', f.id); rmSync(filePath(f), { force: true }); touch(f.part_id); return { deleted: f.id }; },
+    fileOf(id) { const f = need('files', id, '附件'); return { ...f, path: blobPath(f.sha256), type: fileType(f.name) }; },
+    deleteFile(id) { const f = need('files', id, '附件'); run('DELETE FROM files WHERE id = ?', f.id); dropBlobs([f.sha256]); touch(f.part_id); return { deleted: f.id }; },
     createPart(v) {
       const c = cleanPart(v), t = now();
       return this.getPart(tx(() => {
@@ -281,11 +359,21 @@ export function openPartsDb(file = defaultPartsDb()) {
         return insert('parts', { ...c, code: codeOf(get("SELECT value FROM meta WHERE key = 'code_seq'").value), created_at: t, updated_at: t });
       }));
     },
-    updatePart(id, v) { const p = need('parts', id, '元件'); update('parts', p.id, { ...cleanPart(v), updated_at: now() }); return this.getPart(p.id); },
+    // cover_file_id：封面圖（這個元件的圖片附件）；沒給就不變，null 或空白是拿掉
+    updatePart(id, v) {
+      const p = need('parts', id, '元件'), c = cleanPart(v);
+      if (v.cover_file_id !== undefined) {
+        const fid = v.cover_file_id === null || v.cover_file_id === '' ? null : Number(v.cover_file_id);
+        if (fid != null) { const f = get('SELECT * FROM files WHERE id = ? AND part_id = ?', fid, p.id); if (!f) bad('封面圖要是這個元件的附件'); if (fileType(f.name) !== 'image') bad('封面圖要是圖片檔'); }
+        c.cover_file_id = fid;
+      }
+      update('parts', p.id, { ...c, updated_at: now() });
+      return this.getPart(p.id);
+    },
     deletePart(id) {
       const p = need('parts', id, '元件'), files = all('SELECT * FROM files WHERE part_id = ?', p.id);
       run('DELETE FROM parts WHERE id = ?', p.id);
-      for (const f of files) rmSync(filePath(f), { force: true });
+      dropBlobs(files.map(f => f.sha256));
       return { deleted: p.id, code: p.code };
     },
     // 合併重複的元件：drop 的價格與使用紀錄移到 keep，keep 空白的欄位用 drop 補上，再刪掉 drop
@@ -345,6 +433,12 @@ export function openPartsDb(file = defaultPartsDb()) {
         expiring: all(`SELECT id, name, brand, model, unit_price, currency, valid_until, supplier FROM part_latest WHERE valid_until <> '' AND valid_until <= ? ORDER BY valid_until, id LIMIT 20`, soon),
         quality: { total: q.total, uncategorized: q.uncategorized || 0, unpriced: q.unpriced || 0, noSupplier: q.noSupplier || 0, pending: get('SELECT count(*) AS n FROM parts WHERE status = ?', PENDING).n },
       };
+    },
+    // 系統設定：值以 JSON 存；預設值與驗證在 lib/settings.mjs
+    readSettings: () => Object.fromEntries(all('SELECT key, value FROM settings').map(r => [r.key, JSON.parse(r.value)])),
+    writeSettings(values, by = '') {
+      tx(() => { for (const [k, v] of Object.entries(values)) run(`INSERT INTO settings (key, value, updated_by, updated_at) VALUES (?, ?, ?, ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_by = excluded.updated_by, updated_at = excluded.updated_at`, k, JSON.stringify(v), text(by), now()); });
     },
     stats: () => get('SELECT (SELECT count(*) FROM parts) AS parts, (SELECT count(*) FROM prices) AS prices, (SELECT count(*) FROM usages) AS usages, (SELECT count(*) FROM suppliers) AS suppliers'),
   };

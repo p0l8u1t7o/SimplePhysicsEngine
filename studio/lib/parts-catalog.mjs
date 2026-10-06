@@ -1,5 +1,5 @@
 // 給代理用的元件清單：把元件資料庫整理成 Markdown，寫進專案的 .studio/parts-catalog.md。
-// 代理在工作區或沙箱裡不一定讀得到 studio/data/parts.db，所以每次開始執行時由 app 寫一份最新的清單到專案裡；
+// 代理在工作區或沙箱裡不一定讀得到 studio/data/studio.db，所以每次開始執行時由 app 寫一份最新的清單到專案裡；
 // 規劃與選型時先查這份清單，沿用過去專案用過的元件與參考單價（提示詞見 prompts.mjs）。
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';

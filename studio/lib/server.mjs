@@ -16,7 +16,8 @@
 //   DELETE /api/projects/:id        刪除工作區的專案（{ confirm: 專案名稱 }；移到工作區的 .studio/trash/）
 //   POST /api/stop                  停止目前的執行
 //   GET  /api/events                SSE：line（輸出一行）、exit（執行結束）
-//   GET｜POST｜PUT｜DELETE /api/parts、/api/prices、/api/usages、/api/suppliers   元件資料庫（lib/parts-api.mjs）
+//   GET｜POST｜PUT｜DELETE /api/parts、/api/prices、/api/usages、/api/suppliers、/api/files   元件資料庫（lib/parts-api.mjs）
+//   GET｜PUT /api/system            系統設定（附件上限、成本費率…；改只有管理者）
 //   GET  /files/:id/<路徑>           專案內的 TEMP/、docs/、.studio/plan|reviews|render/ 檔案（截圖、對照頁）
 import { createServer } from 'node:http';
 import { createReadStream, existsSync, mkdirSync, readdirSync, statSync, writeFileSync, readFileSync } from 'node:fs';
@@ -136,7 +137,14 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
       if (user && req.method !== 'GET' && seg[0] === 'api' && seg[1] !== 'auth') auth.audit({ user: user.name, method: req.method, path: url.pathname, status: code });
       res.writeHead(code, { 'Content-Type': MIME['.json'], 'Cache-Control': 'no-store', ...headers }); res.end(JSON.stringify(v));
     };
-    const body = async () => { const chunks = []; for await (const c of req) chunks.push(c); return Buffer.concat(chunks); };
+    // limit：位元組上限；先看 Content-Length，再邊讀邊數，超過就停（回應後關掉連線，不讀完剩下的內容）
+    const tooLarge = () => { res.setHeader('Connection', 'close'); res.on('finish', () => req.destroy()); return Object.assign(new Error('too large'), { code: 'TOO_LARGE' }); };
+    const body = async (limit = Infinity) => {
+      if (Number(req.headers['content-length']) > limit) throw tooLarge();
+      const chunks = []; let n = 0;
+      for await (const c of req) { n += c.length; if (n > limit) throw tooLarge(); chunks.push(c); }
+      return Buffer.concat(chunks);
+    };
     const jbody = async () => { const b = await body(); return b.length ? JSON.parse(b.toString('utf8')) : {}; };
     try {
       // 會改東西的請求如果是別的網站送來的（Origin 不是自己）就拒絕
@@ -273,11 +281,12 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
             return json(200, { started: true });
           }
         }
-        if (['parts', 'prices', 'usages', 'suppliers', 'files'].includes(a)) {
+        if (['parts', 'prices', 'usages', 'suppliers', 'files', 'system'].includes(a)) {
           let api; try { api = await parts(); } catch (e) { return json(500, { error: e.code === 'ERR_UNKNOWN_BUILTIN_MODULE' ? '元件資料庫需要 Node.js 22.13 以上（內建 node:sqlite）' : String(e.message || e) }); }
-          const r = await api.handle({ method: req.method, seg: seg.slice(1), query: url.searchParams, body: jbody, raw: body });
-          if (r.file) {      // 附件下載
-            res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(r.file.name)}`, 'Cache-Control': 'no-store' });
+          const r = await api.handle({ method: req.method, seg: seg.slice(1), query: url.searchParams, body: jbody, raw: body, user });
+          if (r.file) {      // 附件：下載，或圖片與 PDF 直接顯示（inline）
+            res.writeHead(200, { 'Content-Type': r.file.inline ? r.file.mime : 'application/octet-stream', 'X-Content-Type-Options': 'nosniff',
+              'Content-Disposition': `${r.file.inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(r.file.name)}`, 'Cache-Control': 'no-store' });
             createReadStream(r.file.path).pipe(res); return;
           }
           return json(r.code, r.body);

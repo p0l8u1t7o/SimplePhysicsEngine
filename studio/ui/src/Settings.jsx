@@ -1,9 +1,48 @@
-// 設定：兩種 CLI 的安裝與登入狀態；工作區各角色的 CLI＋模型（寫入 .studio/settings.json）。
+// 設定：兩種 CLI 的安裝與登入狀態；工作區各角色的 CLI＋模型（寫入 .studio/settings.json）；
+// 系統設定（附件上限、允許的檔案類型、成本費率；存在資料庫，只有管理者能改）。
 import { useEffect, useState } from 'react';
 import { api, ROLE } from './api.js';
 import { CliSelect, ModelSelect, EffortSelect } from './fields.jsx';
 
-export function Settings({ info }) {
+// 比例在畫面上用百分比（0.15 ↔ 15）
+const PCT = new Set(['cost.contingency', 'cost.tax']);
+const pct = v => +(v * 100).toFixed(4), unpct = v => v === '' ? '' : Number(v) / 100;
+
+function SystemSettings({ canEdit }) {
+  const [sys, setSys] = useState(null);
+  const [form, setForm] = useState(null);
+  const [msg, setMsg] = useState('');
+  const load = () => api.system().then(d => { setSys(d); setForm(d.values); }).catch(e => setMsg('✗ ' + e.message));
+  useEffect(() => { load(); }, []);
+  if (!sys || !form) return <section className="card"><h3>系統設定</h3><p className="mute">{msg || '載入中…'}</p></section>;
+  const set = (k, v) => { setMsg(''); setForm(f => ({ ...f, [k]: v })); };
+  const dirty = JSON.stringify(form) !== JSON.stringify(sys.values);
+  const field = k => <label key={k}><span>{sys.defs[k].label}</span>
+    <input type="number" step="any" min="0" disabled={!canEdit} value={PCT.has(k) ? pct(form[k]) : form[k]} onChange={e => set(k, PCT.has(k) ? unpct(e.target.value) : e.target.value)} />
+    {(sys.defs[k].hint || PCT.has(k)) && <small className="mute">{PCT.has(k) ? '%' : ''}{sys.defs[k].hint ? `${PCT.has(k) ? '　' : ''}${sys.defs[k].hint}` : ''}</small>}</label>;
+  async function save() {
+    try { const d = await api.saveSystem(form); setSys(d); setForm(d.values); setMsg('✓ 已儲存'); } catch (e) { setMsg('✗ ' + e.message); }
+  }
+  const types = form['attachment.types'], grade = form['cost.gradeRange'];
+  return (
+    <section className="card form"><h3>系統設定</h3>
+      <p className="mute hint">{canEdit ? '存在資料庫，所有人共用。' : '只有管理者可以修改。'}新專案的成本表用這裡的費率（專案可以另外覆寫）。</p>
+      <div className="lbl">附件</div>
+      <div className="row">{['attachment.maxMB', 'attachment.cadMaxMB'].map(field)}</div>
+      <div className="lbl">允許上傳的檔案類型</div>
+      <div className="types">{Object.entries(sys.fileTypes).map(([t, d]) => <label key={t} className="check" title={d.ext.join('、')}>
+        <input type="checkbox" disabled={!canEdit} checked={types.includes(t)} onChange={e => set('attachment.types', e.target.checked ? [...types, t] : types.filter(x => x !== t))} />{d.label}</label>)}</div>
+      <div className="lbl" style={{ marginTop: 12 }}>成本費率</div>
+      <div className="row">{['cost.engRate', 'cost.techRate', 'cost.contingency', 'cost.tax'].map(field)}</div>
+      <div className="row">{['A', 'B', 'C'].map(g => <label key={g}><span>等級 {g} 的上下幅度</span>
+        <input type="number" step="any" min="0" max="100" disabled={!canEdit} value={pct(grade[g])} onChange={e => set('cost.gradeRange', { ...grade, [g]: unpct(e.target.value) })} /><small className="mute">±%</small></label>)}</div>
+      {canEdit && <div className="bar"><button className="primary" disabled={!dirty} onClick={save}>儲存</button>
+        {dirty && <button onClick={() => { setForm(sys.values); setMsg(''); }}>復原</button>}<span className={msg.startsWith('✗') ? 'bad' : 'ok'}>{msg}</span></div>}
+    </section>
+  );
+}
+
+export function Settings({ info, user }) {
   const [doctor, setDoctor] = useState(null);
   const [data, setData] = useState(null);
   const [roles, setRoles] = useState({});
@@ -42,6 +81,7 @@ export function Settings({ info }) {
         </tbody></table></div>
         <div className="bar"><button className="primary" onClick={() => save().catch(e => setMsg('✗ ' + e.message))}>儲存</button><span className={msg.startsWith('✗') ? 'bad' : 'ok'}>{msg}</span></div>
       </section>
+      <SystemSettings canEdit={!user || user.role === 'admin'} />
     </div>
   );
 }
