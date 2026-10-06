@@ -185,6 +185,22 @@ node studio/vs3d.mjs users remove amy
   - 這個介面能在這台電腦上啟動代理與執行指令，只適合在信任的區網內使用，不要對外網開放。
 - 會改東西的請求如果帶了別的網站的 `Origin` 會被拒絕。
 
+## 代理的認證：訂閱帳號與 API 金鑰（2026-10-06）
+
+拍板：**開發機**上每種 CLI 可以在「訂閱帳號登入」與「API 金鑰」之間切換；**打包部署**（給同事用的中央主機）拿掉訂閱帳號功能，只用 API 金鑰，避免違反訂閱方案的條款。
+
+- **版本別**（`lib/edition.mjs`）：環境變數 `VS3D_EDITION`，或打包時寫進 `studio/edition.json` 的 `{ "edition": "deploy" }`；都沒有就是開發機。訂閱帳號的程式只放在 `lib/subscription.mjs`，打包部署時**整個刪掉**這個檔；`node studio/vs3d.mjs edition` 會檢查部署版裡確實沒有它（有就結束代碼 1），安裝檔的建置要跑這一步。
+- **切換**：介面「設定」的「代理 CLI」卡片（管理者），存在系統設定 `agents.auth.claude`／`agents.auth.codex`。部署版沒有這個選項，資料庫裡存了訂閱設定也一律讀成 API 金鑰。
+- **金鑰**：「API 金鑰」卡片（管理者）設定 Anthropic 與 OpenAI 的金鑰，存在 `studio/data/secrets.json`（Windows 用 DPAPI 加密，只有這個 Windows 使用者解得開；介面只顯示末四碼；不進版控與交接包）。
+- **API 金鑰模式怎麼交給 CLI**（`lib/agent-auth.mjs`）：每輪開始才解開金鑰——
+  - Codex：環境變數 `CODEX_API_KEY`（`codex exec` 支援）。
+  - Claude Code：`--settings` 掛 `apiKeyHelper`（`lib/key-helper.mjs` 印出環境變數 `VS3D_AGENT_KEY`）。實測 Claude Code 2.1.266 的 `-p` 模式在新的設定目錄**不採用** `ANTHROPIC_API_KEY`（要互動確認過），所以不用它，而且會從子程序環境拿掉。
+  - 兩者都把 CLI 的設定目錄換成 `studio/data/agent-home/<cli>`（`CLAUDE_CONFIG_DIR`、`CODEX_HOME`），那裡沒有訂閱的登入憑證：金鑰錯了只會失敗（Claude 的 401 重試會顯示成警告），不會悄悄改用訂閱帳號。
+  - 沒有設定金鑰時這一輪直接停下並說明。
+- 工作階段存在各認證方式自己的設定目錄，所以換了認證方式後不續接舊的工作階段（會重新開始）；每輪紀錄記下 `auth`（`subscription`／`apiKey`）。
+- `vs3d doctor` 與介面列出每種 CLI 目前的認證方式與能不能用。
+- 還沒做：依角色選認證方式（目前是依 CLI）；API 金鑰模式實際付費呼叫的驗收（要有公司的金鑰）。
+
 ## 元件資料庫（2026-10-05）
 
 各站做設計、選型與成本表時共用的參考：元件的規格、歷次價格、供應商，以及哪些專案用過。用 Node 內建的 `node:sqlite`（Node.js 22.13 以上，沒有 npm 套件）。

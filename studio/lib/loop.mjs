@@ -9,6 +9,7 @@
 import { existsSync, writeFileSync, mkdirSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
 import { adapterFor, runAgent } from './adapters/index.mjs';
+import { agentEnv, AUTH_MODES } from './agent-auth.mjs';
 import { resolveRole, loadRoleContext } from './roles.mjs';
 import { paths, projectPaths, acquireLock, addClientNames, readClientNames, redactNames, addProjectNames } from './workspace.mjs';
 import { snapshot, verifyAndRestore } from './isolation.mjs';
@@ -74,8 +75,12 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
   async function round(role, prompt, { resume = false, images = [] } = {}) {
     if (state.round >= maxRounds) throw new Error(`已達 ${maxRounds} 輪上限（--max-rounds 可調整）`);
     const rc = resolve(role), adapter = adapterFor(rc.cli);
-    const prev = state.sessions[sk(role)], sessionId = resume && prev?.cli === rc.cli ? prev.sessionId : null;
+    // 認證（訂閱帳號或 API 金鑰）：金鑰沒設好就在這裡停下；工作階段存在各認證方式自己的設定目錄，換了就不能續接
+    const auth = await agentEnv(rc.cli);
+    const prev = state.sessions[sk(role)], sameAuth = (prev?.auth || 'subscription') === (auth.mode || 'subscription');
+    const sessionId = resume && prev?.cli === rc.cli && sameAuth ? prev.sessionId : null;
     if (resume && prev && prev.cli !== rc.cli) log(`  ! ${role} 上次用 ${prev.cli}，這次指派為 ${rc.cli}：無法續接，改開新的工作階段`);
+    else if (resume && prev && !sameAuth) log(`  ! ${role} 上次用${AUTH_MODES[prev.auth || 'subscription']}，這次是${AUTH_MODES[auth.mode]}：無法續接，改開新的工作階段`);
     commitAll(`Changes before round ${state.round + 1}`);
     const startHead = git(J.dir, ['rev-parse', 'HEAD']).trim(), snap = J.repo ? repoGit.snapshotOutside(J) : snapshot(ws, id), scope = roleScope(role, J);
     const n = ++state.round, t0 = now();
@@ -86,6 +91,7 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
       cwd: J.dir, prompt, sessionId, model: rc.model || undefined, effort: rc.effort || undefined,
       readDirs: [P.core], allowWrite: scope.allow, denyWrite: scope.deny, images,
       logFile: join(J.logs, `round-${String(n).padStart(2, '0')}-${role}${seg() === 2 ? '-s2' : ''}.jsonl`), timeoutMs: timeoutMin * 60000, signal: abort.signal,
+      env: auth.env, unsetEnv: auth.unset, settings: auth.settings,
     }, e => printEvent(e, log));
     // 本庫模式：專案外的變動只警告（可能是使用者同時在改；代理已被寫檔關卡與沙箱擋在專案外），不自動還原
     const iso = J.repo ? { violations: [], warnings: repoGit.diffOutside(J, snap) } : verifyAndRestore(ws, id, snap), roleViol = enforceRoleScope(role, J, startHead);
@@ -94,11 +100,12 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
     if (role === 'plan') syncClientNames();
     for (const v of violations) log(`  ⚠ 越界：${v.area} ${v.path}（${v.change}）${v.restored ? '→ 已還原' : '→ 未能自動還原，請檢查'}`);
     const commit = commitAll(`${J.repo ? 'vs3d ' : ''}Round ${n} (${role}): ${short(res.text.split('\n').find(l => l.trim()) || 'no summary', 60)}`);
-    if (res.sessionId) state.sessions[sk(role)] = { cli: rc.cli, model: rc.model, sessionId: res.sessionId };
+    if (res.sessionId) state.sessions[sk(role)] = { cli: rc.cli, model: rc.model, sessionId: res.sessionId, ...(auth.mode ? { auth: auth.mode } : {}) };
     state.violations = violations;
     appendJsonl(J.rounds, { round: n, role, segment: seg(), cli: rc.cli, model: rc.model, effort: rc.effort, sessionId: res.sessionId, resumed: !!sessionId, startedAt: t0, seconds: res.seconds,
       ok: res.ok, aborted: res.aborted, timedOut: res.timedOut, usage: res.usage, costUsd: res.costUsd, turns: res.turns, commit, violations, summary: short(res.text, 400),
-      ...(process.env.VS3D_BY ? { by: process.env.VS3D_BY } : {}) });      // 從介面啟動時記下是誰（代理佇列給的環境變數）
+      ...(process.env.VS3D_BY ? { by: process.env.VS3D_BY } : {}),      // 從介面啟動時記下是誰（代理佇列給的環境變數）
+      ...(auth.mode ? { auth: auth.mode } : {}) });                       // 這一輪用訂閱帳號還是 API 金鑰
     save();
     log(`  ${res.ok ? '✓' : '✗'} 第 ${n} 輪結束（${res.seconds} s${commit ? `，commit ${commit}` : '，沒有變更'}）`);
     if (!res.ok) {

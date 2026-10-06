@@ -25,6 +25,7 @@
 //   node studio/vs3d.mjs ui [--port 8780] [--no-open] [--host 0.0.0.0] [--pfx 憑證.pfx｜--cert 憑證.pem --key 私鑰.pem] [--insecure-http]
 //                                                                 開啟網頁介面（http://127.0.0.1:8780/）；--host 0.0.0.0 讓區網的其他電腦也能連：要先建立帳號並用 HTTPS
 //                                                                 （PFX 的密碼放環境變數 VS3D_PFX_PASS；--insecure-http 只在測試時跳過 HTTPS）
+//   node studio/vs3d.mjs edition                                  版本別（開發機／部署版）；部署版檢查沒有訂閱帳號的程式（lib/subscription.mjs）
 //   node studio/vs3d.mjs users [add <帳號> --level admin|editor|viewer --password <密碼>｜passwd <帳號> --password <密碼>｜remove <帳號>]   介面的登入帳號（忘記密碼時從這裡重設）
 //   node studio/vs3d.mjs parts [search <關鍵字…>] [--category 類別] [--project 專案] [--json]   查元件資料庫（選型、單價、哪些專案用過）
 //   node studio/vs3d.mjs parts show <id> [--json]                 單一元件的規格、價格紀錄、使用紀錄
@@ -87,11 +88,22 @@ function fail(msg) { console.error(msg); process.exit(2); }
 
 switch (cmd) {
   case 'doctor': {
+    const { authStatus, loadSystem, AUTH_MODES } = await import('./lib/agent-auth.mjs'), { edition, EDITIONS } = await import('./lib/edition.mjs');
+    const system = await loadSystem();
     for (const a of Object.values(ADAPTERS)) {
-      const d = a.detect();
-      console.log(`${d.installed && d.loggedIn ? '✓' : '✗'} ${a.label.padEnd(12)} ${d.installed ? d.version : '未安裝'}${d.installed ? (d.loggedIn ? `，已登入（${d.detail}）` : `，未登入：${d.detail}`) : ''}`);
+      const d = a.detect(), s = d.installed ? await authStatus(a.name, system) : null;
+      console.log(`${d.installed && s.loggedIn ? '✓' : '✗'} ${a.label.padEnd(12)} ${d.installed ? d.version : '未安裝'}${s ? `，${AUTH_MODES[s.mode]}：${s.loggedIn ? '可以用' : '不能用'}（${s.detail}）` : ''}`);
     }
-    console.log(`工作區：${ws}${existsSync(paths(ws).marker) ? '' : '（尚未建立）'}`);
+    console.log(`版本別：${EDITIONS[edition()]}；工作區：${ws}${existsSync(paths(ws).marker) ? '' : '（尚未建立）'}`);
+    break;
+  }
+  // 版本別與部署版的自我檢查（部署版不能包含訂閱帳號的程式）；有問題時結束代碼 1
+  case 'edition': {
+    const { edition, EDITIONS, editionProblems, subscriptionAllowed } = await import('./lib/edition.mjs');
+    const problems = editionProblems();
+    console.log(`版本別：${EDITIONS[edition()]}（${edition()}）；訂閱帳號功能：${subscriptionAllowed() ? '可以用' : '沒有'}`);
+    for (const p of problems) console.log(`✗ ${p}`);
+    if (problems.length) process.exitCode = 1;
     break;
   }
   case 'init': initWorkspace(ws, { refreshCore: !!o['refresh-core'] }); console.log(`工作區就緒：${ws}`); break;

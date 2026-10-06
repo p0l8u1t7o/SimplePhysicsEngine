@@ -56,6 +56,10 @@ export const api = {
   // 系統設定（附件上限、允許的檔案類型、成本費率；改只有管理者）
   system: () => call('GET', '/api/system'),
   saveSystem: v => call('PUT', '/api/system', v),
+  // API 金鑰（管理者）：provider 是 anthropic 或 openai；只回末四碼
+  secrets: () => call('GET', '/api/secrets'),
+  saveSecret: (provider, key) => call('PUT', `/api/secrets/${provider}`, { key }),
+  deleteSecret: provider => call('DELETE', `/api/secrets/${provider}`),
   suppliers: () => call('GET', '/api/suppliers'),
   saveSupplier: (id, v) => id ? call('PUT', `/api/suppliers/${id}`, v) : call('POST', '/api/suppliers', v),
   deleteSupplier: id => call('DELETE', `/api/suppliers/${id}`),

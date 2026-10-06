@@ -11,6 +11,7 @@
 //   GET｜PUT /api/system                               系統設定（PUT 只有管理者，權限在 lib/auth.mjs 的 denied）
 import { openPartsDb, defaultPartsDb, PartsError, GRADES, SUPPLIER_KINDS, FILE_TYPES, FILE_KINDS, fileType, mimeOf } from './partsdb.mjs';
 import { SYSTEM_SETTINGS, readSystem, cleanSystem, attachmentRule } from './settings.mjs';
+import { edition, subscriptionAllowed } from './edition.mjs';
 
 const INLINE = new Set(['image', 'pdf']);      // 可以直接在瀏覽器開的附件
 
@@ -27,7 +28,7 @@ export function createPartsApi(file = defaultPartsDb()) {
         d.writeSettings(clean, user?.name);
       }
       return { values: readSystem(d), defs: Object.fromEntries(Object.entries(SYSTEM_SETTINGS).map(([k, x]) => [k, { label: x.label, hint: x.hint || '', default: x.value }])),
-        fileTypes: FILE_TYPES, fileKinds: FILE_KINDS };
+        fileTypes: FILE_TYPES, fileKinds: FILE_KINDS, edition: edition(), subscription: subscriptionAllowed() };
     }
     if (a === 'parts' && !id) {
       if (method === 'GET') return { ...d.listParts(Object.fromEntries(query)), file: d.file, grades: GRADES, supplierKinds: SUPPLIER_KINDS };

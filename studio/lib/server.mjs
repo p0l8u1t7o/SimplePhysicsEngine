@@ -17,7 +17,8 @@
 //   POST /api/stop                  停止目前的執行
 //   GET  /api/events                SSE：line（輸出一行）、exit（執行結束）
 //   GET｜POST｜PUT｜DELETE /api/parts、/api/prices、/api/usages、/api/suppliers、/api/files   元件資料庫（lib/parts-api.mjs）
-//   GET｜PUT /api/system            系統設定（附件上限、成本費率…；改只有管理者）
+//   GET｜PUT /api/system            系統設定（附件上限、成本費率、代理的認證方式…；改只有管理者）
+//   GET；PUT｜DELETE /api/secrets/:anthropic｜openai   API 金鑰（只有管理者；只回末四碼）
 //   GET  /files/:id/<路徑>           專案內的 TEMP/、docs/、.studio/plan|reviews|render/ 檔案（截圖、對照頁）
 //   GET｜PUT /api/projects/:id/members   專案成員（依專案分權限；改成員要擁有者或管理者）
 // 3D 預覽與模型目錄：core 的 serve.mjs 只聽本機，對外由 previewProxy 轉送（另一個 port；有帳號時要登入，HTTPS 時一起加密）。
@@ -40,6 +41,9 @@ import { stationChanges } from './repo.mjs';
 import { readRounds, agentStats, checkStats } from './dashboard.mjs';
 import { createAuth, denied, AuthError, ROLE_LABEL, MEMBER_LABEL, canEditProject, canManageProject } from './auth.mjs';
 import { coreModels, withThumbs, renderThumbs, thumbFile } from './thumbs.mjs';
+import { authStatus, authMode, AUTH_MODES } from './agent-auth.mjs';
+import { setKey, keyInfo, PROVIDERS } from './secrets.mjs';
+import { edition, subscriptionAllowed } from './edition.mjs';
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp',
@@ -237,7 +241,22 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
         }
         // options：介面的下拉選單（各 CLI 可選的模型與推理強度），不必呼叫 CLI
         if (a === 'info') return json(200, { options: Object.fromEntries(Object.values(ADAPTERS).filter(x => x.name !== 'fake').map(x => [x.name, { label: x.label, models: x.listModels(), efforts: x.efforts || [] }])), ws, repo, running: runner.current, queue: runner.queue, ffmpeg: !!ffmpeg, previewPort, roles: ROLES });
-        if (a === 'doctor') return json(200, Object.values(ADAPTERS).filter(x => x.name !== 'fake').map(x => ({ name: x.name, label: x.label, models: x.listModels(), ...x.detect() })));
+        // 兩種 CLI：有沒有安裝＋目前的認證方式能不能用（訂閱帳號的登入，或 API 金鑰有沒有設定）
+        if (a === 'doctor') {
+          let system = {}; try { system = (await parts()).system(); } catch { /* 資料庫開不了就用預設 */ }
+          return json(200, await Promise.all(Object.values(ADAPTERS).filter(x => x.name !== 'fake').map(async x => {
+            const d = x.detect(), s = d.installed ? await authStatus(x.name, system) : { mode: authMode(x.name, system), loggedIn: false, detail: d.detail };
+            return { name: x.name, label: x.label, models: x.listModels(), ...d, ...s, modeLabel: AUTH_MODES[s.mode] };
+          })));
+        }
+        // API 金鑰（只有管理者，權限在 lib/auth.mjs 的 denied）：只回末四碼；PUT { key } 設定、DELETE 刪除
+        if (a === 'secrets') {
+          try {
+            if (id && req.method === 'PUT') setKey(id, (await jbody()).key, user?.name || '');
+            if (id && req.method === 'DELETE') setKey(id, null, user?.name || '');
+          } catch (e) { return json(400, { error: e.message }); }
+          return json(200, { keys: keyInfo(), providers: PROVIDERS, edition: edition(), subscription: subscriptionAllowed() });
+        }
         if (a === 'settings') {
           if (req.method === 'PUT') { const v = await jbody(); writeJson(P.settings, { defaultCli: v.defaultCli || 'claude', roles: v.roles || {} }); }
           const ctx = loadRoleContext(P.settings, '', {});

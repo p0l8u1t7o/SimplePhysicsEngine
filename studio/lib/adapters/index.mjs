@@ -1,8 +1,9 @@
 // 代理轉接層：Claude Code 與 Codex 包成同一個介面。
-//   adapter.detect()           → { installed, loggedIn, version, detail }
+//   adapter.detect()           → { installed, version, detail }（登入或金鑰的狀態看 lib/agent-auth.mjs 的 authStatus）
 //   adapter.listModels()       → 可選的模型名稱（CLI 無法查詢時用設定清單）
 //   runAgent(adapter, opts, onEvent) → Promise<結果>
-// opts：{ cwd, prompt, sessionId?, model?, effort?, readDirs?, allowWrite?, denyWrite?, logFile?, timeoutMs?, signal? }
+// opts：{ cwd, prompt, sessionId?, model?, effort?, readDirs?, allowWrite?, denyWrite?, logFile?, timeoutMs?, signal?, env?, unsetEnv? }
+//   env／unsetEnv：認證要加上與拿掉的環境變數（lib/agent-auth.mjs 的 agentEnv）
 // 統一事件（onEvent）：
 //   { kind: 'session', id }                  工作階段 ID（續接用）
 //   { kind: 'text', text }                   代理的文字訊息
@@ -31,7 +32,9 @@ export function runAgent(adapter, opts, onEvent = () => {}) {
   const t0 = Date.now();
   if (opts.logFile) mkdirSync(dirname(opts.logFile), { recursive: true });
   return new Promise(resolve => {
-    const child = spawn(cmd, args, { cwd: opts.cwd, env: { ...process.env, ...env }, windowsHide: true });
+    const childEnv = { ...process.env, ...env, ...opts.env };
+    for (const k of opts.unsetEnv || []) delete childEnv[k];
+    const child = spawn(cmd, args, { cwd: opts.cwd, env: childEnv, windowsHide: true });
     const state = { sessionId: opts.sessionId || null, text: '', usage: null, costUsd: null, turns: null, ok: null, failed: false };
     let buf = '', stderr = '', aborted = false, timedOut = false;
     const emit = e => {

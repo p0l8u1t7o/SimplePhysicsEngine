@@ -1,6 +1,14 @@
 // 系統設定（介面「設定」頁的「系統」分頁，只有管理者能改）：存在資料庫的 settings 表，這裡定義鍵、預設值與驗證。
 // 讀取時沒有存過的鍵用預設值；寫入時只收認得的鍵，型別與範圍不對就拒絕。
 import { FILE_TYPES } from './partsdb.mjs';
+import { isDeploy, subscriptionAllowed } from './edition.mjs';
+
+// 代理 CLI 的認證方式：開發機可以選訂閱帳號或 API 金鑰；部署版只有 API 金鑰（lib/edition.mjs）
+const authCheck = (v, label) => {
+  if (v !== 'subscription' && v !== 'apiKey') throw new Error(`${label}只能是 subscription 或 apiKey`);
+  if (v === 'subscription' && !subscriptionAllowed()) throw new Error(`${label}：${isDeploy() ? '部署版' : '這個版本'}沒有訂閱帳號功能，只能用 API 金鑰`);
+  return v;
+};
 
 const num = (min, max) => (v, label) => {
   const n = Number(v);
@@ -24,10 +32,14 @@ export const SYSTEM_SETTINGS = {
     label: '估價等級的上下幅度', value: { A: 0.1, B: 0.2, C: 0.3 },
     check: (v, label) => { if (!v || typeof v !== 'object') throw new Error(`${label}格式不對`); return Object.fromEntries(['A', 'B', 'C'].map(g => [g, ratio(v[g], `${label} ${g}`)])); },
   },
+  'agents.auth.claude': { label: 'Claude Code 的認證', value: 'subscription', check: authCheck },
+  'agents.auth.codex': { label: 'Codex 的認證', value: 'subscription', check: authCheck },
 };
 
-export const systemDefaults = () => Object.fromEntries(Object.entries(SYSTEM_SETTINGS).map(([k, d]) => [k, d.value]));
-export const readSystem = db => ({ ...systemDefaults(), ...Object.fromEntries(Object.entries(db.readSettings()).filter(([k]) => SYSTEM_SETTINGS[k])) });
+// 部署版沒有訂閱帳號：不管資料庫裡存了什麼，認證一律讀成 apiKey
+const forceAuth = s => subscriptionAllowed() ? s : { ...s, 'agents.auth.claude': 'apiKey', 'agents.auth.codex': 'apiKey' };
+export const systemDefaults = () => forceAuth(Object.fromEntries(Object.entries(SYSTEM_SETTINGS).map(([k, d]) => [k, d.value])));
+export const readSystem = db => forceAuth({ ...systemDefaults(), ...Object.fromEntries(Object.entries(db.readSettings()).filter(([k]) => SYSTEM_SETTINGS[k])) });
 
 // 驗證要寫入的值；回傳清理過的值（不認得的鍵直接拒絕）
 export function cleanSystem(values) {

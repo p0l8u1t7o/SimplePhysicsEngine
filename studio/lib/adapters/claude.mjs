@@ -31,18 +31,16 @@ export const claude = {
   models: ['opus', 'sonnet', 'haiku'],
   efforts: ['low', 'medium', 'high', 'xhigh', 'max'],   // claude --effort 接受的值
 
+  // 只看有沒有安裝；登入或金鑰的狀態由 lib/agent-auth.mjs 的 authStatus 決定（訂閱帳號的查法在 lib/subscription.mjs）
   detect() {
-    try {
-      const version = execFileSync('claude', ['--version'], { encoding: 'utf8', windowsHide: true }).trim();
-      let loggedIn = false, detail = '';
-      try { const s = JSON.parse(execFileSync('claude', ['auth', 'status'], { encoding: 'utf8', windowsHide: true })); loggedIn = !!s.loggedIn; detail = s.authMethod || ''; } catch (e) { detail = String(e.message).split('\n')[0]; }
-      return { installed: true, loggedIn, version, detail };
-    } catch { return { installed: false, loggedIn: false, version: '', detail: '找不到 claude 指令' }; }
+    try { return { installed: true, version: execFileSync('claude', ['--version'], { encoding: 'utf8', windowsHide: true }).trim(), detail: '' }; }
+    catch { return { installed: false, version: '', detail: '找不到 claude 指令' }; }
   },
   listModels() { return this.models; },
 
-  command({ prompt, sessionId, model, effort, readDirs = [], allowWrite = [], denyWrite = [] }) {
-    const settings = { hooks: { PreToolUse: [{ matcher: 'Write|Edit|MultiEdit|NotebookEdit', hooks: [{ type: 'command', command: `node "${posix(GUARD)}"` }] }] } };
+  // settings：認證要加的設定（API 金鑰模式的 apiKeyHelper，lib/agent-auth.mjs），和寫檔關卡一起用 --settings 傳入
+  command({ prompt, sessionId, model, effort, readDirs = [], allowWrite = [], denyWrite = [], settings: extra = {} }) {
+    const settings = { ...extra, hooks: { PreToolUse: [{ matcher: 'Write|Edit|MultiEdit|NotebookEdit', hooks: [{ type: 'command', command: `node "${posix(GUARD)}"` }] }] } };
     const args = ['-p', '--output-format', 'stream-json', '--verbose', '--permission-mode', 'acceptEdits', '--settings', JSON.stringify(settings)];
     if (model) args.push('--model', model);
     if (effort) args.push('--effort', effort);
@@ -64,6 +62,8 @@ export const claude = {
       out.push({ kind: 'tool_result', ok: !c.is_error, detail: short(text, 160) });
     }
     if (e.type === 'rate_limit_event') out.push({ kind: 'rate', info: e.rate_limit_info || e });
+    // API 重試（例如金鑰錯誤的 401）：顯示出來，不然看起來像卡住
+    if (e.type === 'system' && e.subtype === 'api_retry') out.push({ kind: 'warn', message: `API 重試第 ${e.attempt}/${e.max_retries} 次（${e.error_status || ''} ${e.error || ''}）` });
     if (e.type === 'result') {
       if (e.session_id) out.push({ kind: 'session', id: e.session_id });
       out.push({ kind: 'end', ok: e.subtype === 'success' && !e.is_error, text: e.result || '', usage: e.usage, costUsd: e.total_cost_usd, turns: e.num_turns });

@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { adapterFor, runAgent } from './adapters/index.mjs';
+import { agentEnv } from './agent-auth.mjs';
 import { paths, projectPaths, acquireLock } from './workspace.mjs';
 import { snapshot, verifyAndRestore } from './isolation.mjs';
 import { roleScope } from './loop.mjs';
@@ -33,7 +34,8 @@ async function probe(ws, id, { cli = 'claude', model, other, simulate = false, l
   const snap = snapshot(ws, id), scope = roleScope('build', J);
   log(`▶ 隔離測試（${adapter.label}）：${scripts.length} 個越界寫入`);
   let ran = 0, blocked = 0, lastText = '';
-  const res = await runAgent(adapter, { cwd: J.dir, prompt, model, readDirs: [P.core], allowWrite: scope.allow, denyWrite: scope.deny,
+  const auth = await agentEnv(adapter.name);       // 認證和正式流程一樣（訂閱帳號或 API 金鑰）
+  const res = await runAgent(adapter, { cwd: J.dir, prompt, model, readDirs: [P.core], allowWrite: scope.allow, denyWrite: scope.deny, env: auth.env, unsetEnv: auth.unset, settings: auth.settings,
     logFile: join(J.logs, `probe-${cli}-${now().replace(/[:.]/g, '-')}.jsonl`), timeoutMs: 10 * 60000 }, e => {
     if (e.kind === 'tool') { ran++; log(`  · ${e.name} ${e.detail}`); }
     if (e.kind === 'tool_result') { if (!e.ok) blocked++; log(`    ${e.ok ? '✓' : '✗'} ${e.detail}`); }

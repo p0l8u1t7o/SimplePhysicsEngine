@@ -2,7 +2,7 @@
 // 權限：workspace-write 沙箱，可寫範圍是 cwd（專案資料夾）＋系統暫存；Windows 原生沙箱實測會擋下 cwd 以外的寫入。
 // 續接：codex exec resume <id> 沒有 -s，改用 -c sandbox_mode=…。
 // Codex 只從 git 根目錄（＝專案資料夾）往下找 AGENTS.md，工作區的共通規則要放進提示（loadsParentRules = false）。
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -33,16 +33,10 @@ export const codex = {
   models: ['gpt-6-astra', 'gpt-6'],   // 另外加上 ~/.codex/config.toml 設定的模型；空白＝帳號預設
   efforts: ['low', 'medium', 'high', 'xhigh'],   // model_reasoning_effort
 
+  // 只看有沒有安裝；登入或金鑰的狀態由 lib/agent-auth.mjs 的 authStatus 決定（訂閱帳號的查法在 lib/subscription.mjs）
   detect() {
-    try {
-      const version = exec(['--version']).trim();
-      let loggedIn = false, detail = '';
-      // login status 的結果印在 stderr
-      const { cmd, pre } = resolveCodex(), r = spawnSync(cmd, [...pre, 'login', 'status'], { encoding: 'utf8', windowsHide: true });
-      detail = `${r.stdout || ''}${r.stderr || ''}`.trim().split('\n')[0] || '';
-      loggedIn = r.status === 0 && /logged in/i.test(detail);
-      return { installed: true, loggedIn, version, detail };
-    } catch { return { installed: false, loggedIn: false, version: '', detail: '找不到 codex 指令' }; }
+    try { return { installed: true, version: exec(['--version']).trim(), detail: '' }; }
+    catch { return { installed: false, version: '', detail: '找不到 codex 指令' }; }
   },
   listModels() {
     let configured = null;
