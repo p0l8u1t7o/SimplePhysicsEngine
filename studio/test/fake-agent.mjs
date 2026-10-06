@@ -68,8 +68,19 @@ if (/任務：元件補全/.test(prompt)) {
 } else if (/任務：配置提案/.test(prompt)) {
   w(join(cwd, '.studio/questions/site-1.json'), JSON.stringify({ id: 'site-1', header: '站位', question: '輸送帶放左邊還是右邊？', options: [{ label: '左邊', description: 'a' }, { label: '右邊', description: 'b' }], recommended: 0 }));
   text = '寫了 1 個問題';
+} else if (/任務：修改評估/.test(prompt)) {
+  // 修改評估：照資料庫寫回的版本改（結論改成可行、BOM 加一行工程）
+  const fj = join(cwd, '.studio/plan/feasibility.json'), bj = join(cwd, '.studio/plan/bom.json');
+  const f = JSON.parse(readFileSync(fj, 'utf8')), b = JSON.parse(readFileSync(bj, 'utf8'));
+  w(fj, JSON.stringify({ ...f, verdict: '可行', conditions: [] }));
+  w(bj, JSON.stringify({ items: [...b.items, { line: '6-02', section: '6 工程', labor: 'tech', name: '現場安裝', qty: 5, unit: '人日' }] }));
+  text = '已修改評估';
+} else if (/的可行性分析與 BOM，發現下列問題/.test(prompt)) {
+  writeAssess(cwd, true); text = '已修正格式';
 } else if (/^使用者回答了你的問題/.test(prompt) || /要求修改/.test(prompt)) {
   w(join(cwd, '.studio/plan/proposal.md'), '# 配置提案\n\n輸送帶在' + (/左邊/.test(prompt) ? '左邊' : '右邊') + '\n');
+  // 有「評估＋成本」的專案另外寫可行性分析與 BOM；第一次故意把市購的相機標成客製件（測試退回）
+  if (JSON.parse(readFileSync(join(cwd, 'studio.json'), 'utf8')).components?.includes('assess')) writeAssess(cwd, !!process.env.FAKE_ASSESS_OK);
   text = '提案完成';
 } else if (/任務：第一段開發/.test(prompt)) {
   const v = join(cwd, 'tools/verify.mjs');
@@ -86,3 +97,18 @@ if (/任務：元件補全/.test(prompt)) {
 say({ type: 'assistant', message: { content: [{ type: 'text', text }] } });
 say({ type: 'result', subtype: 'success', is_error: false, result: text, session_id: sid, num_turns: 1, usage: {} });
 if (existsSync(join(cwd, 'NEVER'))) process.exit(1);
+
+// 可行性分析與 BOM（評估＋成本）；ok = false 時把市購的相機標成客製件，平台要退回
+function writeAssess(cwd, ok) {
+  const plan = join(cwd, '.studio/plan');
+  const sections = ['結論', '需求摘要與量化指標', '技術評估', '節拍核算', '風險與對策', 'POC 項目', '需要拍板與現場確認的事', '假設值清單'];
+  w(join(plan, 'feasibility.md'), '# 可行性分析\n\n' + sections.map((s, i) => `## ${i + 1}. ${s}\n\n${s}的內容。\n`).join('\n'));
+  w(join(plan, 'feasibility.json'), JSON.stringify({ verdict: '有條件可行', summary: '輸送帶加龍門取放可以達成節拍，視覺定位要先打樣', conditions: ['視覺定位精度 ±0.1 mm 要打樣確認'],
+    cycle: { target: 10, estimate: 8.5 }, risks: [{ risk: '反光工件', level: '中', mitigation: '同軸光' }], poc: [{ item: '視覺定位', why: '反光' }], decisions: [], assumptions: ['節拍 10 s 是示意'] }));
+  w(join(plan, 'bom.json'), JSON.stringify({ items: [
+    ok ? { line: '3-01', section: '3 視覺', name: '工業相機', brand: '示範', model: 'CAM-5M', spec: '5MP GigE', category: '相機與讀碼', unit: '台', qty: 2, estimate: 20000, reason: '新元件' }
+      : { line: '3-01', section: '3 視覺', custom: true, name: '工業相機', spec: '5MP GigE', qty: 2, estimate: 20000 },
+    { line: '4-01', section: '4 治具', custom: true, name: '定位治具', spec: 'SKD11', qty: 2, unit: '套', estimate: 90000, grade: 'C' },
+    { line: '6-01', section: '6 工程', labor: 'eng', name: '機構設計', qty: 10, unit: '人日' },
+  ] }));
+}

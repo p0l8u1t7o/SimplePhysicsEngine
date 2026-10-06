@@ -77,6 +77,10 @@ export const api = {
   bomCompare: (id, sid) => call('GET', `/api/projects/${encodeURIComponent(id)}/bom/compare/${sid}`),
   // 光學計算與 AOI 方案
   opticsEval: setup => call('POST', '/api/optics/eval', { setup }),
+  // 評估資料（評估平台 Q6）：最新版、某一版、在介面上修改（存一版）、平台檢查、專案組成
+  assessment: (id, q) => call('GET', `/api/projects/${encodeURIComponent(id)}/assessment${q ? '?' + new URLSearchParams(q) : ''}`),
+  saveAssessment: (id, v) => call('PUT', `/api/projects/${encodeURIComponent(id)}/assessment`, v),
+  setComponents: (id, components) => call('PUT', `/api/projects/${encodeURIComponent(id)}/components`, { components }),
   aoiList: id => call('GET', `/api/projects/${encodeURIComponent(id)}/aoi`),
   aoiSave: (id, sid, v) => sid ? call('PUT', `/api/projects/${encodeURIComponent(id)}/aoi/${sid}`, v) : call('POST', `/api/projects/${encodeURIComponent(id)}/aoi`, v),
   aoiDelete: (id, sid) => call('DELETE', `/api/projects/${encodeURIComponent(id)}/aoi/${sid}`),
@@ -132,6 +136,8 @@ export function useEvents(handlers) {
 
 export const STAGE = {
   plan: '規劃', build: '開發', check: '檢查', fix: '修正', review: '審查', 'review-fix': '修正必修', render: '補強',
-  'render-guard': '守門檢查', 'render-revise': '補強調整', paused: '暫停', done: '完成',
+  'render-guard': '守門檢查', 'render-revise': '補強調整', 'assess-revise': '修改評估', change: '修改', paused: '暫停', done: '完成',
 };
 export const ROLE = { plan: '規劃', build: '開發', fix: '修正', review: '審查', render: '補強' };
+// 評估報告的下載網址（html｜pdf｜md）
+export const reportUrl = (id, format) => `/api/projects/${encodeURIComponent(id)}/report?format=${format}`;

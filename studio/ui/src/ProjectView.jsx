@@ -4,8 +4,11 @@ import { api, fileUrl, sameHost, STAGE, ROLE } from './api.js';
 import { QuestionCard } from './QuestionCard.jsx';
 import { Select, ConfirmButton, RENDER_FOCUS } from './fields.jsx';
 import { CostSheet } from './CostSheet.jsx';
+import { Assessment, Components } from './Assessment.jsx';
 
-const TABS = [['progress', '進度'], ['questions', '問題'], ['proposal', '提案'], ['review', '審查'], ['preview', '預覽'], ['shots', '截圖'], ['compare', '補強對照'], ['cost', '成本表'], ['rules', '規則'], ['members', '成員']];
+const TABS = [['progress', '進度'], ['questions', '問題'], ['proposal', '提案'], ['assess', '可行性'], ['review', '審查'], ['preview', '預覽'], ['shots', '截圖'], ['compare', '補強對照'], ['cost', '成本表'], ['rules', '規則'], ['members', '成員']];
+// 依專案組成顯示的分頁（評估平台 Q6）：可行性只在有「評估＋成本」時、3D 的分頁只在有「3D 動畫」時
+const TAB_NEEDS = { assess: 'assess', review: '3d', preview: '3d', shots: '3d', compare: '3d' };
 const min = s => `${(s / 60).toFixed(1)} 分`;
 const RENDER_RESULT = { accepted: '已接受', reverted: '已整批還原', 'accepted-with-failures': '已接受（守門未全過）' };
 
@@ -67,6 +70,7 @@ export function ProjectView({ id, tick, running, queue = [], onChange, onDeleted
   const done = p.stage === 'done', blocked = busy || pending.length > 0;
   // 本庫的站有未提交的改動（多半是別的工具改的）：vs3d 開工會拒絕，開分支的指令先停用
   const dirty = p.repo ? p.dirty || [] : [], flowBlocked = blocked || dirty.length > 0;
+  const has3d = p.repo || (p.components || ['3d']).includes('3d');      // 只做評估的專案不顯示 3D 的動作（評估平台 Q6）
   const exportBtn = (fmt, label, title) => <button disabled={busy} title={title} onClick={() => act(() => api.run(id, { cmd: 'export', formats: [fmt] }))}>{label}</button>;
 
   return (
@@ -84,7 +88,7 @@ export function ProjectView({ id, tick, running, queue = [], onChange, onDeleted
           </div>
         </div>
         <div className="bar" style={{ margin: 0 }}>
-          <a className="btn" href={sameHost(p.previewUrl)} target="_blank" rel="noreferrer">↗ 在新分頁開啟預覽</a>
+          {has3d && <a className="btn" href={sameHost(p.previewUrl)} target="_blank" rel="noreferrer">↗ 在新分頁開啟預覽</a>}
           {!p.repo && <button className="danger" disabled={isRunning || !canEdit} title={isRunning ? '執行中不能刪除，先停止' : '刪除這個專案'} onClick={() => setDel(del == null ? '' : null)}>刪除專案</button>}
         </div>
       </div>
@@ -113,6 +117,7 @@ export function ProjectView({ id, tick, running, queue = [], onChange, onDeleted
           <div className="bar">
             {isRunning ? <button className="danger" onClick={() => act(api.stop)}>■ 停止</button>
               : !done ? <button className="primary" disabled={blocked} onClick={() => act(() => api.run(id, { cmd: 'resume' }))}>▶ 續跑</button>
+              : !has3d ? <span className="ok">✓ 評估完成（要做 3D 在「進度」分頁加上 3D 動畫）</span>
               : p.segment !== 2 ? <button className="primary" disabled={flowBlocked} title="電控、電盤、配線、相機" onClick={() => act(() => api.run(id, { cmd: 'stage2' }))}>開始第二段</button>
               : <span className="ok">✓ 第二段已完成</span>}
           </div>
@@ -126,7 +131,7 @@ export function ProjectView({ id, tick, running, queue = [], onChange, onDeleted
           {!busy && running && <small className="mute">目前在執行 {running.id}；這裡按下的指令會排隊，輪到時自動開始。</small>}
         </section>
 
-        <section className="group">
+        {has3d && <section className="group">
           <h4>審查與補強</h4>
           {done ? <>
             <div className="bar">
@@ -137,22 +142,23 @@ export function ProjectView({ id, tick, running, queue = [], onChange, onDeleted
               <button disabled={flowBlocked} onClick={() => act(() => api.run(id, { cmd: 'render', pick: true, focus }))}>重新補強（挑項目）</button>
             </div>
           </> : <small className="mute">完成後可以重新審查、補強。</small>}
-        </section>
+        </section>}
 
         <section className="group">
           <h4>成品與交付</h4>
           <div className="bar">
-            {exportBtn('zip', '網站壓縮檔', '首頁＋本站＋core，附 open-demo.cmd，解壓後雙擊即可離線開啟')}
-            {exportBtn('html', '單一 HTML', '全部內嵌成一個檔案，雙擊就能開（超過 15 MB 建議改用壓縮檔）')}
-            {exportBtn('mp4', '錄影 MP4', 'Chrome＋ffmpeg 自動錄製 1080p')}
+            {!has3d && <span className="mute">評估報告（HTML／PDF）在「可行性」分頁，成本表 xlsx 在「成本表」分頁。</span>}
+            {has3d && exportBtn('zip', '網站壓縮檔', '首頁＋本站＋core，附 open-demo.cmd，解壓後雙擊即可離線開啟')}
+            {has3d && exportBtn('html', '單一 HTML', '全部內嵌成一個檔案，雙擊就能開（超過 15 MB 建議改用壓縮檔）')}
+            {has3d && exportBtn('mp4', '錄影 MP4', 'Chrome＋ffmpeg 自動錄製 1080p')}
             {!p.repo && <button disabled={busy} title="git 歷史、上傳檔、提問與紀錄、不得顯示的名稱；給接手的同事匯入" onClick={() => act(() => api.run(id, { cmd: 'handoff' }))}>交接包</button>}
-            <button disabled={busy} title="快速檢查（imports、names、determinism、layout、scene、electrical 與本站檢查）" onClick={() => act(() => api.run(id, { cmd: 'check' }))}>檢查</button>
+            {has3d && <button disabled={busy} title="快速檢查（imports、names、determinism、layout、scene、electrical 與本站檢查）" onClick={() => act(() => api.run(id, { cmd: 'check' }))}>檢查</button>}
           </div>
           {p.exports?.length > 0 && <ul className="exports">{p.exports.map(x => <li key={x.path}><a href={fileUrl(id, x.path)} download>⤓ {x.path.split('/').pop()}</a> <span className="mute">{(x.size / 1048576).toFixed(1)} MB · {new Date(x.at).toLocaleString()}</span></li>)}</ul>}
         </section>
       </div>
 
-      {(done || p.repo) && <section className="card">
+      {(done || p.repo) && has3d && <section className="card">
         <h3>修改指令</h3>
         <div className="mute hint">代理照你的描述修改，之後檢查、審查。{p.repo && <>開工時本站不能有未提交的改動；app 會開本機分支 <code>{p.name.toLowerCase().replace(/\s+/g, '-')}/vs3d-…</code>，每輪只提交本站的路徑，不會 checkout／reset／stash 你的工作目錄。</>}</div>
         <textarea rows={3} value={change} onChange={e => setChange(e.target.value)} placeholder="要改什麼，例如「出料台改成兩層，第二層放 NG 品」或「手臂換成 VS-087，夾爪改兩指」" />
@@ -165,9 +171,10 @@ export function ProjectView({ id, tick, running, queue = [], onChange, onDeleted
       </section>}
       </fieldset>
       {error && <div className="notice bad">{error}</div>}
-      <div className="tabs">{TABS.map(([k, label]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{label}{k === 'questions' && pending.length ? `（${pending.length}）` : ''}</button>)}</div>
+      <div className="tabs">{TABS.filter(([k]) => !TAB_NEEDS[k] || p.repo || (p.components || ['3d']).includes(TAB_NEEDS[k])).map(([k, label]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{label}{k === 'questions' && pending.length ? `（${pending.length}）` : ''}</button>)}</div>
 
       {tab === 'progress' && <>
+        {!p.repo && <Components id={id} value={p.components || ['3d']} canEdit={canEdit && !busy} onSaved={load} />}
         <div className="log" ref={logRef}>{p.log.length ? p.log.join('\n') : '（這次開啟介面後還沒有輸出；下面是每輪紀錄）'}</div>
         <div className="card" style={{ marginTop: 12 }}>
           <h3>每輪紀錄</h3>
@@ -209,6 +216,7 @@ export function ProjectView({ id, tick, running, queue = [], onChange, onDeleted
 
       {tab === 'members' && <Members id={id} onChange={load} />}
       {tab === 'cost' && <CostSheet id={id} canEdit={canEdit} />}
+      {tab === 'assess' && <Assessment id={id} canEdit={canEdit} busy={busy} done={done} />}
 
       {zoom && <div className="zoom" onClick={() => setZoom(null)}><img src={zoom} /></div>}
     </div>

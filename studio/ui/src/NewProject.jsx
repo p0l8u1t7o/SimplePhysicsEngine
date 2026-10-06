@@ -30,7 +30,7 @@ function ImportHandoff({ onCreated, disabled }) {
 
 export function NewProject({ info, running, onCreated }) {
   const [token] = useState(newToken);
-  const [form, setForm] = useState({ id: '', title: '', prompt: '', clientNames: '', cli: '', model: '', effort: '', autoApprove: false, pick: false });
+  const [form, setForm] = useState({ id: '', title: '', prompt: '', clientNames: '', cli: '', model: '', effort: '', autoApprove: false, pick: false, components: ['assess', '3d'] });
   const [files, setFiles] = useState([]);             // { name, size, status, extra }
   const [over, setOver] = useState(false);
   const [error, setError] = useState('');
@@ -52,6 +52,7 @@ export function NewProject({ info, running, onCreated }) {
     e.preventDefault(); setError('');
     if (!form.id.trim()) return setError('請輸入專案名稱（英數、空白、- 或 _）');
     if (!form.prompt.trim() && !files.length) return setError('請輸入需求，或上傳至少一個檔案');
+    if (!form.components.length) return setError('專案組成至少要選一項');
     setBusy(true);
     try { await api.create({ ...form, id: form.id.trim(), token }); onCreated(form.id.trim()); }
     catch (err) { setError(err.message); setBusy(false); }
@@ -98,6 +99,9 @@ export function NewProject({ info, running, onCreated }) {
             <label><span>推理強度</span><EffortSelect cli={form.cli} options={opts} value={form.effort} onChange={v => set('effort', v)} defaultLabel={form.cli ? '預設' : '依設定頁'} /></label>
           </div>
           <small className="mute">指定 CLI 後，模型與推理強度會套用到這個專案的所有角色；「依設定頁的分工」會照設定頁（預設 Claude 規劃、開發與審查，Codex 補強）。</small>
+          <div className="lbl">專案組成<small className="mute">至少一項；之後可以在專案頁再加（例如先做評估，報價通過後再做 3D）</small></div>
+          <div className="bar" style={{ marginTop: 0 }}>{[['assess', '評估＋成本', '配置提案、可行性分析、BOM 與成本表'], ['3d', '3D 動畫', '場景、排程、視角；第二段電控與配線'], ['aoi', 'AOI', '光學方案（光學工作台）']].map(([k, label, hint]) =>
+            <label key={k} className="check" title={hint}><input type="checkbox" checked={form.components.includes(k)} onChange={e => set('components', e.target.checked ? ['assess', '3d', 'aoi'].filter(x => x === k || form.components.includes(x)) : form.components.filter(x => x !== k))} /> {label}</label>)}</div>
           <label className="check"><input type="checkbox" checked={form.autoApprove} onChange={e => set('autoApprove', e.target.checked)} /> 配置提案不必確認，直接開始開發</label>
           <label className="check"><input type="checkbox" checked={form.pick} onChange={e => set('pick', e.target.checked)} /> 補強前先讓我挑項目</label>
         </section>

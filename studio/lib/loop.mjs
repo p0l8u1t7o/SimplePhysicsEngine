@@ -15,8 +15,9 @@ import { paths, projectPaths, acquireLock, addClientNames, readClientNames, reda
 import { snapshot, verifyAndRestore } from './isolation.mjs';
 import { loadQuestions, pendingQuestions, askInteractive, writeAppQuestion, readAnswer, printQuestion } from './questions.mjs';
 import { runChecks, takeShots, failureSummary, runFingerprint, compareRenderFingerprint, runPerf, comparePerf } from './checks.mjs';
-import { rolePrompt, answersPrompt, fixAgainPrompt, invalidQuestionsPrompt, mustFixPrompt, renderGuardPrompt, renderRevisePrompt } from './prompts.mjs';
+import { header, rolePrompt, answersPrompt, fixAgainPrompt, invalidQuestionsPrompt, mustFixPrompt, renderGuardPrompt, renderRevisePrompt } from './prompts.mjs';
 import { writeComparePage } from './compare.mjs';
+import { componentsOf, checkPlanFiles, importAssessment, writePlanFiles, writeBomSummary } from './assess.mjs';
 import * as repoGit from './repo.mjs';
 import { readJson, writeJson, appendJsonl, git, now, readText, rel } from './util.mjs';
 import { readdirSync } from 'node:fs';
@@ -65,6 +66,33 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
     } catch (e) { log(`  ! 元件表沒有匯入元件資料庫：${String(e.message || e).split('\n')[0]}`); }
   }
   const roleCtx = () => loadRoleContext(P.settings, J.studioJson, override);
+  // 專案組成（評估平台 Q6）：評估＋成本／3D／AOI；資料庫裡的專案代號（本庫的站是 @<名稱>，和介面相同）
+  const comps = () => componentsOf(readJson(J.studioJson, {})), has = c => comps().includes(c), pkey = J.repo ? '@' + id : id;
+  async function withDb(fn) {
+    const { openPartsDb, defaultPartsDb } = await import('./partsdb.mjs'), db = openPartsDb(defaultPartsDb());
+    try { return await fn(db); } finally { db.close(); }
+  }
+  // 提案確認後（或修改評估後）：提案、可行性各存一版，BOM 匯入成本表（重新匯入前自動留快照）
+  async function importAssess(note = '') {
+    const names = readClientNames(ws);
+    let r;
+    try { r = await withDb(db => importAssessment(db, pkey, J, { by: process.env.VS3D_BY || '', redact: s => redactNames(s, names), note })); }
+    catch (e) { throw new Stop(`評估資料沒有存進資料庫：${String(e.message || e).split('\n')[0]}`); }
+    const b = r.bom;
+    log(`  評估資料存進資料庫：提案 v${r.proposal ?? '—'}、可行性分析 v${r.feasibility ?? '—'}${b ? `；BOM ${b.lines} 行（沿用元件 ${b.reused}、新元件 ${b.created}（待確認）、客製 ${b.custom}、工程 ${b.labor}）${b.snapshot ? `，重新匯入前已留快照「${b.snapshot.name}」` : ''}` : ''}`);
+    for (const w of b?.warnings || []) log(`    ! ${w}`);
+  }
+  // 評估＋成本：規劃角色寫的可行性分析與 BOM 先檢查格式；不對就退回（最多 3 次）。回傳 true 表示已經退回、這一步結束
+  async function assessFormat(what) {
+    const errs = await withDb(db => checkPlanFiles(J, db)).catch(e => [String(e.message || e)]);
+    if (!errs.length) { state.assessTries = 0; return false; }
+    state.assessTries = (state.assessTries || 0) + 1;
+    if (state.assessTries > 3) throw new Stop(`${what}的格式修了 3 次還不對：${errs.slice(0, 5).join('；')}`);
+    log(`  ! ${what}的格式不對（${errs.length} 項），退回規劃角色`);
+    for (const e of errs.slice(0, 8)) log(`    ✗ ${e}`);
+    await round('plan', `app 檢查 \`.studio/plan/\` 的可行性分析與 BOM，發現下列問題，請修正後結束（格式照原本的任務說明）：\n\n${errs.map(e => '- ' + e).join('\n')}`, { resume: true });
+    return true;
+  }
   // 段落：工作階段與角色指派分段（第二段的開發不續接第一段的工作階段）
   const seg = () => state.segment || 1, sk = role => seg() === 2 ? role + '@2' : role, resolve = role => resolveRole(role, roleCtx(), seg());
   const abort = new AbortController();
@@ -129,7 +157,7 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
     const names = readClientNames(ws), text = readText(J.agents);
     if (names.length && text && names.some(n => text.includes(n))) writeFileSync(J.agents, redactNames(text, names));
   }
-  const ctxFor = extra => ({ ws, J, adapter: adapterFor(resolve(extra.role).cli), scope: roleScope(extra.role, J).text, violations: state.violations, segment: seg(), ...extra });
+  const ctxFor = extra => ({ ws, J, adapter: adapterFor(resolve(extra.role).cli), scope: roleScope(extra.role, J).text, violations: state.violations, segment: seg(), components: comps(), ...extra });
 
   // ---------------------------------------------------------------- 回答後續接
   async function handleAnswers(answers) {
@@ -215,14 +243,23 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
             break;
           }
           if (proposal && planSession) {
-            if (state.proposalApproved || override.autoApprove) { await importParts(); state.stage = 'build'; break; }
+            const assess = seg() === 1 && has('assess'), only = assess && !has('3d');
+            if (assess && !state.proposalApproved && await assessFormat('可行性分析或 BOM')) break;
+            if (state.proposalApproved || override.autoApprove) {
+              await importParts();
+              if (assess) await importAssess('提案確認');
+              state.stage = seg() === 2 || has('3d') ? 'build' : 'done';
+              break;
+            }
             // 提案做成提問卡片請使用者確認（計畫書第 5 節第 3 步）
             log(`\n${seg() === 2 ? '第二段提案' : '配置提案'}：${join(J.plan, pfile)}`);
             const qid = `vs3d-proposal-r${state.round}`;
             writeAppQuestion(J, {
-              id: qid, header: '確認提案', question: seg() === 2 ? `請看過第二段提案（.studio/plan/segment2.md），要開始開發電控、電盤、配線與相機嗎？` : `請看過配置提案（.studio/plan/proposal.md），要直接開始第一段開發嗎？`,
+              id: qid, header: '確認提案', question: seg() === 2 ? `請看過第二段提案（.studio/plan/segment2.md），要開始開發電控、電盤、配線與相機嗎？`
+                : only ? '請看過配置提案與可行性分析（介面的「提案」「可行性」分頁），確認後存進資料庫並產生成本表？' : `請看過配置提案（.studio/plan/proposal.md）${assess ? '與可行性分析' : ''}，要直接開始第一段開發嗎？`,
               options: [
-                { label: '確認，開始開發', description: seg() === 2 ? `依提案開發第二段（${(r => r.cli + (r.model ? ' ' + r.model : ''))(resolve('build'))}）；不會改第一段的節拍與動作` : '依目前的提案與已拍板事項開始第一段（場景、排程、視角、播放列、手機版面）' },
+                only ? { label: '確認提案', description: '提案與可行性分析存進資料庫、BOM 變成成本表草稿；之後可以在介面上修改或匯出評估報告' }
+                  : { label: '確認，開始開發', description: seg() === 2 ? `依提案開發第二段（${(r => r.cli + (r.model ? ' ' + r.model : ''))(resolve('build'))}）；不會改第一段的節拍與動作` : `依目前的提案與已拍板事項開始第一段（場景、排程、視角、播放列、手機版面）${assess ? '；可行性分析與 BOM 先存進資料庫' : ''}` },
                 { label: '要修改', description: '在補充說明寫下要改的地方，規劃角色會更新提案後再請你確認' },
               ], recommended: 0,
             });
@@ -234,6 +271,20 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
           const note = state.planNote ? `\n\n使用者補充：${state.planNote}` : ''; state.planNote = '';
           await round('plan', planSession ? `你還沒有寫出 \`.studio/plan/${pfile}\`。請完成提案（需要拍板的事寫問題檔）。` : rolePrompt('plan', ctxFor({ role: 'plan' })) + note, { resume: !!planSession });
           break;
+        }
+        case 'assess-revise': {   // 修改評估（評估平台 Q6）：資料庫的最新版寫回 .studio/plan/ → 規劃角色照要求改 → 檢查格式 → 存回資料庫
+          if (!state.assessRevised) {
+            await withDb(db => writePlanFiles(db, pkey, J));
+            const req = String(state.assessRequest || '').split('\n').map(l => '> ' + l).join('\n');
+            await round('plan', [header({ ...ctxFor({ role: 'plan' }), role: 'plan' }), '', '## 任務：修改評估', '', '使用者要求修改配置提案、可行性分析或 BOM：', '', req, '',
+              '`.studio/plan/` 的 proposal.md、feasibility.md、feasibility.json、bom.json 是資料庫目前的版本（使用者可能在介面上改過，以它為準）。照要求修改這幾個檔，格式和原本的規劃任務相同（bom.json 的市購品用 ref 引用元件、客製件只能是加工件類、不要自己加總成本）。只寫 `.studio/plan/` 與 `.studio/questions/`；要求不清楚就寫問題檔。'].join('\n'),
+              { resume: !!state.sessions[sk('plan')] });
+            state.assessRevised = true; break;
+          }
+          if (await assessFormat('修改後的可行性分析或 BOM')) break;
+          await importAssess(`依要求修改：${short(state.assessRequest, 80)}`);
+          Object.assign(state, { assessRevised: false, assessRequest: null, flow: null });
+          state.stage = 'done'; break;
         }
         case 'change': {   // 修改指令（本庫的站與完成的專案）：開發角色照使用者的要求改，之後檢查 → 審查
           if (state.lockSchedule && !state.segBase) {
@@ -286,6 +337,8 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
         case 'review': {
           const n = (state.reviews || 0) + 1, shotList = pngs(state.shots && join(state.shots, id)), refs = refImages(J);
           state.reviews = n; save();
+          // 評估＋成本：審查時對照資料庫的最新版（可行性分析與 BOM 摘要寫到 .studio/plan/）
+          if (seg() === 1 && has('assess')) await withDb(db => { writePlanFiles(db, pkey, J); writeBomSummary(db, pkey, J); }).catch(e => log(`  ! 評估資料沒有寫出給審查：${e.message}`));
           await round('review', rolePrompt('review', ctxFor({ role: 'review', round: n, request: state.flow === 'change' ? state.changeRequest : '', shots: shotList.map(f => rel(J.dir, f)), refs: refs.map(f => rel(J.dir, f)) })), { images: [...shotList, ...refs] });
           const rv = readJson(join(J.studio, 'reviews', `review-${n}.json`), null);
           if (!rv) { log('  ! 審查角色沒有寫出審查結果，略過審查'); state.reviewData = { must: [], suggest: [] }; state.stage = wantRender ? 'render' : 'done'; break; }
@@ -403,7 +456,7 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
           return { status: 'paused' };
         case 'done':
           if (J.repo && state.flowActive) { state.flowActive = false; log(`\n本庫：成果在本機分支 ${state.branch}（只提交了 ${id} 的路徑）；要推送與開 PR 用 vs3d push "${id}" 或介面的按鈕`); }
-          if (seg() === 1 && wantStage2 && !state.stage2Asked && !J.repo) {
+          if (seg() === 1 && wantStage2 && !state.stage2Asked && !J.repo && has('3d')) {
             state.stage2Asked = true;
             const qid = `vs3d-stage2-r${state.round}`, b = resolve('build');
             writeAppQuestion(J, { id: qid, header: '第二段', question: '第一段完成了，要開始第二段（電控、電盤、配線、相機子畫面、視覺疊圖）嗎？',
@@ -412,6 +465,7 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
             state.waiting = { askedBy: 'app', ids: [qid] };
             break;
           }
+          if (!has('3d')) { log(`\n✔ 評估完成：提案、可行性分析與成本表在資料庫（介面的「可行性」「成本表」分頁可以修改與匯出），共 ${state.round} 輪。`); save(); return { status: 'done', rounds: state.round }; }
           log(`\n✔ ${seg() === 2 ? '第二段' : '第一段'}完成：${state.lastCheck?.ok ? '檢查全部通過' : '依你的選擇結束（檢查未全過）'}，共 ${state.round} 輪。`);
           if (state.reviewData) log(`  審查 ${state.reviews} 次：剩餘必修 ${state.reviewData.must.length} 項`);
           if (state.render) log(`  補強：${{ accepted: '已接受', reverted: '已整批還原', 'accepted-with-failures': '接受（守門檢查未全過）' }[state.render.result] || '未完成'}${state.render.page ? `；對照 ${state.render.page}` : ''}`);

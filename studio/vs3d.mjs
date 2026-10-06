@@ -4,6 +4,10 @@
 //   node studio/vs3d.mjs init [--refresh-core]                    建立工作區（複製 core、寫入共通規則）；--refresh-core 換成本庫目前的 core
 //   node studio/vs3d.mjs new <名稱> --prompt "<需求>" [--files 檔案…] [--title 標題] [--cli claude|codex] [--private "用戶名稱,…"]
 //                                                                 --private：不得顯示的用戶名稱（加進工作區名單，需求原文裡換成「（用戶）」）
+//                                                                 --components assess,3d,aoi：專案組成（評估＋成本／3D 動畫／AOI；沒指定是只有 3D）
+//   node studio/vs3d.mjs components <名稱> [--set assess,3d,aoi]   看或改專案組成（只做評估的專案加上 3D 後用 resume 開始第一段）
+//   node studio/vs3d.mjs assess <名稱> [show｜check] [--json]      評估資料：最新的可行性分析；平台檢查（feasibility、bom、cost）
+//   node studio/vs3d.mjs assess <名稱> --text "要改的內容"          請規劃角色修改提案、可行性分析或 BOM（資料庫的最新版寫回後改，改完存成新的一版）
 //   node studio/vs3d.mjs resume <名稱>                            續跑（回答問題後、中斷後）
 //   node studio/vs3d.mjs answer <名稱> <問題 id> <編號或文字> [--note 補充]
 //   node studio/vs3d.mjs status [<名稱>]                          進度、等待中的問題、最近一次檢查
@@ -51,7 +55,7 @@ import { ADAPTERS, adapterFor } from './lib/adapters/index.mjs';
 import { initWorkspace, createProject, deleteProject, paths, projectPaths, isRepo } from './lib/workspace.mjs';
 import { runProject, loadState, beginSegment2, cancelFlow } from './lib/loop.mjs';
 import { loadQuestions, parseChoice, recordAnswer, printQuestion } from './lib/questions.mjs';
-import { runChecks, failureSummary } from './lib/checks.mjs';
+import { runChecks, failureSummary, runFingerprint } from './lib/checks.mjs';
 import { ROLES, resolveRole, loadRoleContext, parseRoleOverrides } from './lib/roles.mjs';
 import { isolationProbe } from './lib/probe.mjs';
 import { defaultWorkspace, readText, readJson, writeJson } from './lib/util.mjs';
@@ -59,7 +63,7 @@ import { exportHandoff, importHandoff } from './lib/handoff.mjs';
 import * as repoGit from './lib/repo.mjs';
 import { REPO, git, findFfmpeg } from './lib/util.mjs';
 
-const VALUE = new Set(['--text', '--text-file', '--workspace', '--private', '--prompt', '--prompt-file', '--title', '--summary', '--cli', '--model', '--role', '--effort', '--note', '--max-rounds', '--timeout', '--other', '--focus', '--port', '--out', '--name', '--category', '--project', '--db', '--host', '--password', '--level', '--pfx', '--cert', '--key', '--purge', '--older-than', '--job', '--fields', '--keys', '--download', '--status']);
+const VALUE = new Set(['--text', '--text-file', '--workspace', '--private', '--prompt', '--prompt-file', '--title', '--summary', '--cli', '--model', '--role', '--effort', '--note', '--max-rounds', '--timeout', '--other', '--focus', '--port', '--out', '--name', '--category', '--project', '--db', '--host', '--password', '--level', '--pfx', '--cert', '--key', '--purge', '--older-than', '--job', '--fields', '--keys', '--download', '--status', '--components', '--set', '--format']);
 
 // 測試用：VS3D_EXTRA_ADAPTERS 指向一個匯出 { adapters: { 名稱: adapter } } 的模組（例如假代理），讓介面的端對端測試走真正的命令列
 if (process.env.VS3D_EXTRA_ADAPTERS) Object.assign(ADAPTERS, (await import(pathToFileURL(resolve(process.env.VS3D_EXTRA_ADAPTERS)).href)).adapters);
@@ -126,6 +130,8 @@ switch (cmd) {
       const x = { ...(o.cli ? { cli: o.cli } : {}), ...(o.model ? { model: o.model } : {}), ...(override.roles[r] || {}) };
       if (Object.keys(x).length) sj.roles = { ...sj.roles, [r]: x };
     }
+    // 專案組成（評估平台 Q6）：評估＋成本／3D 動畫／AOI，至少一項；沒指定是只有 3D（原本的流程）
+    if (o.components) { const { cleanComponents } = await import('./lib/assess.mjs'); try { sj.components = cleanComponents(o.components); } catch (e) { fail(e.message); } }
     writeJson(J.studioJson, sj);
     console.log(`已建立專案：${J.dir}`);
     for (const n of J.notes || []) console.log(n);
@@ -175,6 +181,51 @@ switch (cmd) {
     beginRepoFlow(J, s, 'change');
     writeJson(J.state, s);
     report(await runProject(ws, name, { ...runOpts(), render: false, stage2: false }));
+    break;
+  }
+  case 'assess': {
+    // 評估資料（評估平台 Q6）：check 平台檢查（feasibility、bom、cost）；show 最新的可行性分析；--text 請規劃角色修改提案、可行性分析或 BOM
+    const J = needProject(), key = J.repo ? '@' + name : name, sub = rest[0] || (o.text || o['text-file'] ? 'revise' : 'show');
+    const A = await import('./lib/assess.mjs'), { openPartsDb, defaultPartsDb } = await import('./lib/partsdb.mjs');
+    if (sub === 'revise') {
+      const s = loadState(J), text = (o['text-file'] ? readText(resolve(o['text-file'])) : o.text || '').trim();
+      if (!text) fail('用法：vs3d assess <名稱> --text "要改的內容"');
+      if (s.stage !== 'done') fail(`專案目前在「${s.stage}」階段，完成後才能修改評估（續跑用 vs3d resume）`);
+      Object.assign(s, { stage: 'assess-revise', flow: 'assess', assessRequest: text, assessRevised: false, assessTries: 0, waiting: null });
+      beginRepoFlow(J, s, 'assess');
+      writeJson(J.state, s);
+      report(await runProject(ws, name, { ...runOpts(), review: false, render: false, stage2: false }));
+      break;
+    }
+    const db = openPartsDb(resolve(o.db || defaultPartsDb()));
+    try {
+      if (sub === 'check') {
+        let scheduleTotal = null;
+        if (A.componentsOf(readJson(J.studioJson, {})).includes('3d') && loadState(J).buildStarted) {
+          const fp = await runFingerprint(ws, name); if (fp.ok && Number.isFinite(fp.variants[0]?.total)) scheduleTotal = fp.variants[0].total;
+        }
+        const res = A.checkProject(db, key, { scheduleTotal });
+        if (o.json) console.log(JSON.stringify(res, null, 2));
+        else for (const c of res) { console.log(`${{ ok: '✓', warn: '!', fail: '✗' }[c.level]} ${c.check}：${c.note}`); for (const d of c.detail) console.log(`    ${d}`); }
+        if (res.some(c => !c.ok)) process.exitCode = 1;
+      } else if (sub === 'show') {
+        const f = db.assess.latest(key, 'feasibility');
+        if (!f) fail(`${name} 還沒有可行性分析`);
+        if (o.json) console.log(JSON.stringify(f, null, 2)); else console.log(`可行性分析 v${f.version}（${f.created_at.slice(0, 16).replace('T', ' ')}${f.created_by ? `，${f.created_by}` : ''}）：${f.verdict}\n\n${f.content}`);
+      } else fail('用法：vs3d assess <名稱> [show｜check] [--json]，或 vs3d assess <名稱> --text "要改的內容"');
+    } finally { db.close(); }
+    break;
+  }
+  case 'components': {
+    // 專案組成：之後可以再加項目（例如先做評估，報價通過後再加 3D）
+    const J = needProject(), { cleanComponents, componentsOf, COMPONENTS } = await import('./lib/assess.mjs'), sj = readJson(J.studioJson, {}), before = componentsOf(sj);
+    if (o.set) {
+      let next; try { next = cleanComponents(o.set); } catch (e) { fail(e.message); }
+      sj.components = next; writeJson(J.studioJson, sj);
+      const s = loadState(J);
+      if (next.includes('3d') && !before.includes('3d') && s.stage === 'done' && !s.buildStarted) { s.stage = 'build'; writeJson(J.state, s); console.log('加了 3D 動畫：用 vs3d resume 開始第一段開發'); }
+    }
+    console.log(`${name} 的專案組成：${componentsOf(readJson(J.studioJson, {})).map(c => COMPONENTS[c]).join('、')}`);
     break;
   }
   case 'push': {

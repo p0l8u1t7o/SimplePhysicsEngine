@@ -34,6 +34,7 @@ node studio/vs3d.mjs ui               # 開啟 http://127.0.0.1:8780/（--port�
 ```powershell
 node studio/vs3d.mjs doctor                                   # Claude Code／Codex 是否已安裝、已登入
 node studio/vs3d.mjs new Conveyor --prompt "輸送帶＋龍門取放，節拍 10 s" --files spec.pdf photo.jpg
+node studio/vs3d.mjs new Quote --prompt "…" --components assess,aoi   # 專案組成：assess（評估＋成本）、3d、aoi；沒指定是只有 3D
 node studio/vs3d.mjs status Conveyor                          # 階段、輪數、等待中的問題
 node studio/vs3d.mjs answer Conveyor layout-1 2 --note "靠牆"  # 不在終端機時回答問題
 node studio/vs3d.mjs resume Conveyor                          # 回答後、中斷後續跑
@@ -224,12 +225,25 @@ node studio/vs3d.mjs users remove amy
 - **狀態**：排隊中 → 查詢中 → 待審核 → 已採用／已放棄；代理失敗、被停止或沒寫出 `result.json` 時是「失敗」，可以再查一次。唯讀帳號只能看。
 - 驗證：`studio/test/enrich.test.mjs`（假代理跑完整流程、採用與下載、命令列、兩種 CLI 的上網參數）；介面測試 `node studio/test/enrich-e2e.mjs`。真代理的正確率在 Q10 驗收量測。
 
+## 評估流程：可行性分析、BOM、評估報告（2026-10-06，評估平台 Q6）
+
+- **專案組成**：建立專案時勾「評估＋成本」「3D 動畫」「AOI」（至少一項，介面預設前兩項；命令列 `--components assess,3d,aoi`，沒指定是只有 3D）。存在 `studio.json` 的 `components`。之後可以再加（專案頁「進度」分頁的專案組成，或 `vs3d components <名稱> --set assess,3d`）；只做評估的專案加上 3D 後按續跑就開始第一段。專案頁只顯示有勾的分頁與動作。
+- **規劃**：有「評估＋成本」時，規劃角色除了提案，另外寫 `.studio/plan/feasibility.md`（8 個章節：結論、需求與量化指標、技術評估、節拍核算、風險與對策、POC、要拍板與現場確認的事、假設值）、`feasibility.json`（`verdict` 可行／有條件可行／不可行、`summary`、`conditions`、`cycle`、`risks`、`poc`…）與 `bom.json`（取代 parts.json）。提案確認前 app 先檢查格式（`lib/assess.mjs`），不對就退回規劃角色（最多 3 次）。
+- **BOM 規則**：市購品用 `ref` 引用元件，沒有的列成新元件（name、category、spec 或廠牌型號＋estimate）；`custom: true` 只能用在加工件、治具、機架、外罩這類（名稱或子系統要對得上白名單，防止把市購品標成客製繞過元件庫）；`labor` 是工程人日（eng／tech，單價用成本費率）。代理不自己加總成本。
+- **入庫**：提案確認後，提案與可行性分析各存一版到 `assessments`；BOM 匯入成本表（沿用的元件鎖定當下的版本，新元件建成「待確認」並把估價記成第一筆 C 級價格，來源「代理估價」；重新匯入前自動留快照）。只做評估的專案到這裡就完成，不進 3D。評估資料只放資料庫，`.studio/plan/` 的檔案只是給代理改的工作檔。
+- **修改**：「可行性」分頁可以直接改（結論、條件、風險、POC、全文；每次存一版，不得顯示的名稱自動換掉），也可以「請代理修改」（`vs3d assess <名稱> --text "…"`）：app 先把資料庫的最新版寫回 `.studio/plan/`，規劃角色照要求改，檢查格式後存成新的一版。
+- **平台檢查**（`vs3d assess <名稱> check`、「可行性」分頁）：`feasibility`（章節、結構、有條件可行要列條件、有 3D 時估算節拍和排程總長相差 5% 以上警告）、`bom`（沒引用元件的行要像加工件類，待確認的元件警告）、`cost`（估價行、過期、缺單價、缺匯率、有新版，只警告）。
+- **審查**：有「評估＋成本」的 3D 專案，審查前把可行性分析與成本表摘要（`.studio/plan/bom-summary.md`）寫給審查角色，必修另外看可行性與 3D 的節拍、配置是否一致、BOM 有沒有漏列場景的設備。
+- **評估報告**：「可行性」分頁匯出 HTML（單一檔，截圖內嵌）、PDF（無頭 Chrome 印出）、Markdown；內容是封面結論與總計、配置提案、可行性分析、成本摘要與明細、AOI 方案（選用的，沒有就全部）、3D 截圖。下載時才產生、不留在主機，不得顯示的名稱換掉，記一筆操作紀錄。成本表 xlsx 在「成本表」分頁。
+- **儀表板**：「評估案」數字卡（可行／有條件可行／不可行）。
+- 驗證：`studio/test/assess.test.mjs`（格式檢查、BOM 匯入、只做評估的完整流程與修改評估，用假代理）；介面測試 `node studio/test/assess-e2e.mjs`（佇列、格式退回、可行性分頁、介面修改、三種報告、請代理修改、加上 3D）。
+
 ## 元件資料庫（2026-10-05）
 
 各站做設計、選型與成本表時共用的參考：元件的規格、歷次價格、供應商，以及哪些專案用過。用 Node 內建的 `node:sqlite`（Node.js 22.13 以上，沒有 npm 套件）。
 
 - **資料庫檔只留本機，不進版控**（2026-10-05 拍板）：`studio/data/studio.db`（2026-10-06 以前叫 `parts.db`，第一次開啟時自動改名），環境變數 `VS3D_DB`（舊的 `VS3D_PARTS_DB` 也可以）或 `--db <檔案>` 可以改位置。換電腦或給別人用時，連同旁邊的附件資料夾 `files/` 一起複製。改名時舊檔不能被別的程式開著：先停掉舊版的 `vs3d ui`。
-- **結構升級**：資料庫結構的版本記在 `PRAGMA user_version`（目前第 8 版），開啟時自動升級，升級前先備份成 `<檔名>.bak-v<舊版>`（`VACUUM INTO`）。
+- **結構升級**：資料庫結構的版本記在 `PRAGMA user_version`（目前第 9 版），開啟時自動升級，升級前先備份成 `<檔名>.bak-v<舊版>`（`VACUUM INTO`）。
 - **介面**：`vs3d ui` 左上的「元件庫」（`#parts`）。「元件」分頁可以搜尋（空白分隔多個關鍵字，比對名稱、廠牌、型號、規格、自由規格欄位、專案、編號、供應商、報價來源）、依類別／專案／供應商篩選、新增、編輯、刪除；點一列開啟編輯面板，裡面逐列管理價格紀錄與專案使用紀錄。「供應商」分頁管理供應商主檔。刪除都要按兩次確認。
 - **命令列**（代理與腳本查詢用，`--json` 輸出完整欄位）：
 
@@ -254,6 +268,7 @@ node studio/vs3d.mjs parts merge <保留 id> <併入 id>                   # 合
 | `part_versions` | 元件的版本：每一版的完整快照（JSON）、改了哪些欄位、誰、什麼時候；`parts.version` 是目前的版本號 |
 | `boms`／`bom_items` | 專案的 BOM（每個專案一份「目前」＋凍結的快照）與每一行（元件＋鎖定的版本、工程人日、客製件） |
 | `aoi_setups` | AOI 方案（光學工作台）：專案、名稱、方案內容與計算結果（JSON）、選用與否 |
+| `assessments` | 評估資料：專案、種類（提案／可行性分析）、版本、全文、結構化資料（JSON）、結論、來源（代理／使用者）、說明、誰、時間 |
 | `enrich_jobs`／`part_sources` | 元件補全的工作（要查的欄位、狀態、驗證過的結果、採用了哪些、代理與費用）；採用的值的來源（欄位、值、網址、原文摘錄、版本、誰採用） |
 | `bom_upgrades`／`fx_rates` | 升級紀錄；匯率（每 1 單位外幣折合新台幣、日期） |
 | `part_latest` | 檢視表：元件＋報價日最新的一筆價格＋供應商（清單的「參考單價」就是它） |
@@ -378,6 +393,7 @@ node --test "studio/test/*.test.mjs"   # 不耗額度：事件解析、角色、
 node studio/test/parts-e2e.mjs          # 元件資料庫的介面測試（無頭 Chrome，約 10 秒；先建置前端）
 node studio/test/optics-e2e.mjs         # 光學工作台（Q4）
 node studio/test/enrich-e2e.mjs         # 元件補全（Q5；假代理走真正的代理佇列）
+node studio/test/assess-e2e.mjs         # 評估流程（Q6）
 ```
 
 `test/fixtures/` 是實際錄下、去掉本機資訊的兩種 CLI 事件；測試用的 Office 檔由 `test/office-fixtures.mjs` 在記憶體裡組出。

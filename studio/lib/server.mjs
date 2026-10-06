@@ -32,7 +32,8 @@ import { join, extname, normalize, basename } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { STUDIO, readJson, writeJson, readText, inside, freePort, findFfmpeg } from './util.mjs';
-import { paths, projectPaths, initWorkspace, deleteProject, listTrash, purgeTrash } from './workspace.mjs';
+import { paths, projectPaths, initWorkspace, deleteProject, listTrash, purgeTrash, readClientNames, redactNames } from './workspace.mjs';
+import { componentsOf } from './assess.mjs';
 import { loadState, cancelFlow } from './loop.mjs';
 import { loadQuestions, recordAnswer, parseChoice } from './questions.mjs';
 import { ADAPTERS } from './adapters/index.mjs';
@@ -89,6 +90,7 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
   const clients = new Set();
   const broadcast = (event, data) => { const msg = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`; for (const c of clients) c.write(msg); };
   const runner = createRunner(ws, {
+    env: partsDb ? { VS3D_DB: partsDb } : {},      // 佇列的子程序（提案確認後的 BOM 匯入、元件補全）和介面用同一個資料庫
     onLine: (id, line) => broadcast('line', { id, line }),
     onExit: (id, status) => {
       broadcast('exit', { id, status });
@@ -123,7 +125,7 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
     const J = Jof(id), s = loadState(J), pj = readJson(join(J.dir, 'project.json'), {}), pending = loadQuestions(J).list.filter(q => !q.answered);
     let updated = 0; try { updated = statSync(J.state).mtimeMs; } catch { updated = statSync(J.dir).mtimeMs; }
     return { id, name: loc(id).name, repo: loc(id).repo, branch: s.branch || null, flowActive: !!s.flowActive, title: pj.title || id, summary: pj.summary || '', stage: s.stage, segment: s.segment || 1, round: s.round, pending: pending.length, lastCheck: s.lastCheck && { ok: s.lastCheck.ok, quick: s.lastCheck.quick },
-      render: s.render?.result || null, reviews: s.reviews || 0, updated, running: runner.current?.id === id,
+      render: s.render?.result || null, reviews: s.reviews || 0, updated, components: componentsOf(readJson(J.studioJson, {})), running: runner.current?.id === id,
       queued: (i => i < 0 ? 0 : i + 1)(runner.queue.findIndex(q => q.id === id)),      // 排隊中的第幾位（0 是沒在排隊）
       dirty: loc(id).repo && runner.current?.id !== id ? ((dirtyMap || repoDirty())[loc(id).name] || []) : [] };
   };
@@ -177,7 +179,9 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
     });
     let partsInfo;
     try { partsInfo = (await parts()).overview(); } catch (e) { partsInfo = { error: e.code === 'ERR_UNKNOWN_BUILTIN_MODULE' ? '元件資料庫需要 Node.js 22.13 以上' : String(e.message || e) }; }
-    return { projects: list, running: runner.current, queue: runner.queue, agents: agentStats(list.map(p => ({ id: p.id, title: p.title, rounds: readRounds(Jof(p.id).rounds) }))), stations, parts: partsInfo };
+    // 評估案（評估平台 Q6）：各專案最新的可行性結論
+    let assessments = []; try { const ids = new Set(list.map(p => p.id)); assessments = ((await store())?.assess.verdicts() || []).filter(v => ids.has(v.project)); } catch { /* 資料庫開不了就不顯示 */ }
+    return { projects: list, running: runner.current, queue: runner.queue, agents: agentStats(list.map(p => ({ id: p.id, title: p.title, rounds: readRounds(Jof(p.id).rounds) }))), stations, parts: partsInfo, assessments };
   };
   // 問題都回答完就排入續跑（已經在佇列裡就不重複排）
   const resumeIfReady = (id, by) => { const J = Jof(id); if (!busyWith(id) && !loadQuestions(J).list.some(q => !q.answered)) start('resume', id, [], by); };
@@ -373,6 +377,7 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
             if (v.effort) args.push('--effort', v.effort);
             if (v.autoApprove) args.push('--auto-approve');
             if (v.pick) args.push('--pick');
+            if (v.components?.length) args.push('--components', v.components.join(','));
             let q; try { q = runner.start('new', v.id, args, { by: user?.name || '' }); } catch (e) { return json(400, { error: e.message }); }
             (await store())?.claimProject(v.id, user?.name);         // 建立的人成為擁有者
             return json(200, { started: true, ...q });
@@ -432,6 +437,52 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
               });
             } catch (e) { return err(e); }
           }
+          // 評估資料（lib/assess.mjs）：GET /assessment[?kind=&version=]；PUT /assessment { kind, content, data, note }（使用者在介面上改，存一版）；GET /assessment/check
+          if (b === 'assessment') {
+            const st = await store(); if (!st) return json(500, { error: '元件資料庫開不了（需要 Node.js 22.13 以上）' });
+            const A = await import('./assess.mjs'), c = seg[4], q = url.searchParams;
+            try {
+              if (c === 'check' && req.method === 'GET') return json(200, { checks: A.checkProject(st, id) });
+              if (!c && req.method === 'GET' && q.get('kind') && q.get('version')) return json(200, st.assess.version(id, q.get('kind'), q.get('version')));
+              if (!c && req.method === 'GET') return json(200, { components: A.componentsOf(readJson(Jof(id).studioJson, {})), kinds: A.KINDS, verdicts: A.VERDICTS, sections: A.FEAS_SECTIONS.map(x => x[0]),
+                proposal: st.assess.latest(id, 'proposal'), feasibility: st.assess.latest(id, 'feasibility'),
+                history: { proposal: st.assess.history(id, 'proposal'), feasibility: st.assess.history(id, 'feasibility') }, checks: A.checkProject(st, id) });
+              if (!c && req.method === 'PUT') {
+                const v = await jbody(), names = readClientNames(ws), red = s => redactNames(String(s ?? ''), names);
+                if (v.kind === 'feasibility') { const r = A.checkFeasibility(v.content, v.data); if (!r.ok) return json(400, { error: `可行性分析的格式不對：${r.errors.join('；')}` }); }
+                return json(200, st.assess.save(id, v.kind, { content: red(v.content), data: JSON.parse(red(JSON.stringify(v.data || {}))), source: 'user', note: v.note || '在介面上修改', by: user?.name || '' }));
+              }
+            } catch (e) { if (e.status) return json(e.status, { error: e.message }); throw e; }
+            return json(404, { error: '未知的 API' });
+          }
+          // 專案組成：PUT /components { components }；加了 3D 而且還沒開發過時，下一次續跑開始第一段
+          if (b === 'components' && req.method === 'PUT') {
+            const A = await import('./assess.mjs'), J = Jof(id), sj = readJson(J.studioJson, {}), before = A.componentsOf(sj);
+            let next; try { next = A.cleanComponents((await jbody()).components); } catch (e) { return json(400, { error: e.message }); }
+            if (loc(id).repo) return json(400, { error: '本庫的站固定是 3D 動畫' });
+            writeJson(J.studioJson, { ...sj, components: next });
+            const s = loadState(J);
+            if (next.includes('3d') && !before.includes('3d') && s.stage === 'done' && !s.buildStarted) writeJson(J.state, { ...s, stage: 'build' });
+            return json(200, { components: next, resume: next.includes('3d') && !before.includes('3d') && !s.buildStarted });
+          }
+          // 評估報告：GET /report?format=html|pdf|md（直接下載，不留在主機；不得顯示的名稱換掉；記一筆操作紀錄）
+          if (b === 'report' && req.method === 'GET') {
+            const st = await store(); if (!st) return json(500, { error: '元件資料庫開不了（需要 Node.js 22.13 以上）' });
+            const R = await import('./report.mjs'), A = await import('./assess.mjs'), fmt = ['html', 'pdf', 'md'].includes(url.searchParams.get('format')) ? url.searchParams.get('format') : 'html';
+            const J = Jof(id), s = loadState(J), shotDir = s.shots && join(s.shots, loc(id).name);
+            const shots = shotDir && existsSync(shotDir) ? readdirSync(shotDir).filter(f => f.endsWith('.png') && !f.endsWith('.diff.png')).sort().map(f => join(shotDir, f)) : [];
+            const d = R.reportData(st, { project: id, title: summary(id).title, components: A.componentsOf(readJson(J.studioJson, {})), shots });
+            const names = readClientNames(ws), red = t => redactNames(t, names);
+            let body, type;
+            try {
+              if (fmt === 'md') { body = red(R.reportMarkdown(d)); type = 'text/markdown; charset=utf-8'; }
+              else { const html = red(R.reportHtml(d)); body = fmt === 'pdf' ? await R.reportPdf(html) : html; type = fmt === 'pdf' ? 'application/pdf' : 'text/html; charset=utf-8'; }
+            } catch (e) { return json(500, { error: `報告產生失敗：${e.message}` }); }
+            auth.audit({ user: user?.name || '', action: `匯出評估報告（${fmt}）`, project: id });
+            const fname = `評估報告-${loc(id).name}-${new Date().toLocaleDateString('sv')}.${fmt}`;
+            res.writeHead(200, { 'Content-Type': type, 'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(fname)}`, 'Cache-Control': 'no-store' });
+            res.end(body); return;
+          }
           // AOI 方案（lib/aoi.mjs）：GET｜POST /aoi；PUT｜DELETE /aoi/:id；POST /aoi/:id/choose（選用，元件加進 BOM）
           if (b === 'aoi') {
             const st = await store(); if (!st) return json(500, { error: '元件資料庫開不了（需要 Node.js 22.13 以上）' });
@@ -468,10 +519,11 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
             return json(200, { ok: true, running: runner.current, queue: runner.queue });
           }
           if (b === 'run' && req.method === 'POST') {
-            const v = await jbody(), cmd = ['resume', 'review', 'render', 'stage2', 'export', 'handoff', 'change', 'check', 'push'].includes(v.cmd) ? v.cmd : 'resume';
-            if (cmd === 'change' && !String(v.text || '').trim()) return json(400, { error: '請輸入要修改的內容' });
+            const v = await jbody(), cmd = ['resume', 'review', 'render', 'stage2', 'export', 'handoff', 'change', 'check', 'push', 'assess'].includes(v.cmd) ? v.cmd : 'resume';
+            if ((cmd === 'change' || cmd === 'assess') && !String(v.text || '').trim()) return json(400, { error: '請輸入要修改的內容' });
             const args = cmd === 'export' ? (v.formats || ['zip', 'html']).filter(f => ['zip', 'html', 'mp4'].includes(f)).map(f => '--' + f)
               : cmd === 'change' ? ['--text', String(v.text).trim(), ...(v.keepTiming ? ['--keep-timing'] : [])]
+              : cmd === 'assess' ? ['--text', String(v.text).trim()]
               : cmd === 'check' ? (v.full ? ['--full'] : [])
               : [...(v.pick ? ['--pick'] : []), ...(v.focus ? ['--focus', v.focus] : [])];
             try { return json(200, { started: true, ...start(cmd, id, args, user?.name || '') }); } catch (e) { return json(400, { error: e.message }); }

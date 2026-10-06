@@ -1,13 +1,13 @@
 // 介面的執行管理（代理佇列）：用子程序跑 vs3d 命令列（和終端機同一套流程），把輸出逐行廣播給介面。
 // 中央主機上多人共用：指令先進佇列，依序一次跑一個（工作區的執行鎖與每輪的雜湊比對都假設同時只有一個代理在改檔）。
 // 同一個專案同時只能有一筆在執行或排隊；代理提問時子程序以代碼 10 結束，介面回答後再自動排入續跑。
-// 子程序的環境變數 VS3D_BY 是啟動的人（每輪紀錄會記下來）。
+// 子程序的環境變數 VS3D_BY 是啟動的人（每輪紀錄會記下來）；env 是另外要給的（例如介面用 --db 指定的資料庫 VS3D_DB）。
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { STUDIO } from './util.mjs';
 
-export function createRunner(ws, { onLine = () => {}, onExit = () => {}, onQueue = () => {} } = {}) {
+export function createRunner(ws, { onLine = () => {}, onExit = () => {}, onQueue = () => {}, env = {} } = {}) {
   let current = null;
   const queue = [];
   const history = new Map();          // 專案 → 最近 400 行輸出（介面重新整理後補回）
@@ -16,7 +16,7 @@ export function createRunner(ws, { onLine = () => {}, onExit = () => {}, onQueue
 
   function launch(item) {
     const child = spawn(process.execPath, [join(STUDIO, 'vs3d.mjs'), item.cmd, item.name, '--no-wait', '--workspace', item.root, ...item.args],
-      { cwd: STUDIO, windowsHide: true, env: { ...process.env, VS3D_BY: item.by || '' } });
+      { cwd: STUDIO, windowsHide: true, env: { ...process.env, ...env, VS3D_BY: item.by || '' } });
     current = { ...item, child, started: Date.now() };
     push(item.id, `$ vs3d ${item.cmd} ${item.name} ${item.args.join(' ')}`.trim());
     let buf = '';

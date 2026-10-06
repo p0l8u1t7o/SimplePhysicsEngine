@@ -400,3 +400,14 @@ tr.on td { background: var(--accent-soft); }
 .enrich-review tr.bad-row td { background: var(--bad-soft); }
 .enrich-review .conf.high { color: var(--ok); } .enrich-review .conf.low { color: var(--warn); }
 .card.enrich details { margin-top: 10px; }
+/* 評估（可行性分析、平台檢查、專案組成） */
+.assess .lead { font-size: 15px; margin: 10px 0; }
+.chip.verdict { font-size: 14px; padding: 3px 12px; }
+ul.checks { list-style: none; padding: 0; margin: 0; }
+ul.checks > li { padding: 6px 0; border-bottom: 1px solid var(--line, #e3ece6); }
+ul.checks > li.fail > b { color: var(--bad); } ul.checks > li.warn > b { color: var(--warn); } ul.checks > li.ok > b { color: var(--ok); }
+ul.checks ul { margin: 4px 0 0 18px; padding: 0; font-size: 12.5px; }
+.doc.md h1 { font-size: 20px; } .doc.md h2 { font-size: 17px; margin-top: 18px; } .doc.md h3 { font-size: 15px; }
+.doc.md table { border-collapse: collapse; margin: 8px 0; } .doc.md th, .doc.md td { border: 1px solid var(--line, #dfe8e2); padding: 4px 8px; }
+textarea.mono { font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
+.bar.components { margin: 0 0 10px; }

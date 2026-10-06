@@ -49,6 +49,7 @@ export function Dashboard({ go, tick }) {
         <StatTile icon="question" label="待回答的問題" value={pending} sub={firstPending ? `${firstPending.title} 等 ${projects.filter(p => p.pending > 0).length} 個專案` : '沒有等待中的問題'} tone={pending ? 'warn' : ''} onClick={firstPending ? () => open(firstPending.id) : undefined} />
         <StatTile icon="branch" label="有未提交改動的站" value={dirty.length} sub={dirty.length ? `共 ${dirty.reduce((n, p) => n + p.dirty.length, 0)} 個檔案` : '本庫的站都是乾淨的'} tone={dirty.length ? 'warn' : ''} onClick={dirty.length ? () => open(dirty[0].id) : undefined} />
         <StatTile icon="alert" label="檢查未過的站" value={failing.length} sub={`${checked.length} 站有檢查結果`} tone={failing.length ? 'bad' : ''} onClick={failing.length ? () => open(failing[0].id) : undefined} />
+        {d.assessments?.length > 0 && (v => <StatTile icon="file" label="評估案" value={d.assessments.length} sub={['可行', '有條件可行', '不可行'].map(k => `${k} ${v(k)}`).join(' · ')} tone={v('不可行') ? 'warn' : ''} onClick={() => open(d.assessments[0].project)} />)(k => d.assessments.filter(a => a.verdict === k).length)}
         <StatTile icon="parts" label="元件" value={partsOk ? num(parts.parts) : '—'} sub={partsOk ? `${num(parts.prices)} 筆價格 · ${parts.suppliers} 家供應商` : parts?.error} onClick={() => go({ view: 'parts' })} />
       </div>
 
