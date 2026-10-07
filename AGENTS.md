@@ -35,7 +35,7 @@
 | `.github/workflows/` | `pages.yml`：PR 跑快速檢查；推送到 `main` 時快速檢查、建置、發布 Pages（只改 `studio/` 時不跑）。`scope.yml`：PR 範圍檢查 |
 | `PENDING.md` | 待辦事項 |
 
-8 個專案（都在 `project-site/`）：AutomaticAcid-BaseTitration（酸鹼滴定）、ChemicalTankWashing（200L 化學桶清洗線）、MilitaryGradePC（軍規筆電 QC 線）、PCB-CopperAssembly（散熱銅片植入）、RobotArmPressSSD（USB 接頭壓合）、shutter assembly（快門葉片組裝，資料夾名稱有空白）、WorkpieceMeasurement（杯體 AOI＋共焦量測）、RecycleSorter（回收物分揀，vs3d 產生後匯入）。
+9 個專案（都在 `project-site/`）：AutomaticAcid-BaseTitration（酸鹼滴定）、ChemicalTankWashing（200L 化學桶清洗線）、MilitaryGradePC（軍規筆電 QC 線）、PCB-CopperAssembly（散熱銅片植入）、RobotArmPressSSD（USB 接頭壓合）、shutter assembly（快門葉片組裝，資料夾名稱有空白）、WorkpieceMeasurement（杯體 AOI＋共焦量測）、RecycleSorter（回收物分揀，vs3d 產生後匯入）、SolarDismantling（太陽能板拆框機器人上下料）。
 
 **新專案一律放在 `project-site/<專案>/`**（`new-project.mjs` 會自動放在這裡）。專案裡的 Node 工具往庫根目錄要寫 `../../core`、`../../tools`；網頁的 importmap 是網址相對路徑（`../core/`），不用改。
 

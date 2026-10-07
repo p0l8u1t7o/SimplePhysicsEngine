@@ -55,3 +55,10 @@
 - 現象：原本是站內普通群組的設備換成模型後，root 變成走線固定面的來源，站要自己標 `root.userData.cableHost = false`（見 `core/migrations/` 四份對照最後一節）。`codeReader` 的機身網格預設名稱是 `camera body`。
 - 期望介面：各模型的 options 加 `cableHost`（預設照現在）；`codeReader` 機身預設名稱改成 `reader body`（改名前先查各站用名稱判斷的規則）
 - 影響：之後換用或新做的站
+
+### 長方形棧板與木棧板
+- 提出：SolarDismantling（2026-10-07）
+- 現象：`pallet`（`transport-handling.js`）只有正方形塑膠棧板（`size` 單一邊長）；太陽能板要 1100×1750 的長方形棧板，叉車從長邊進叉
+- 暫代：`project-site/SolarDismantling/web/js/cell.js` 的 `woodPallet()`（上板＋三支沿 X 的底樑，木色材質）
+- 期望介面：`pallet.create({ size: [寬, 長], runnerAxis: 'x'|'z', material: 'wood'|'plastic' })`，`size` 給單一數值時維持現狀
+- 影響：之後放板材、長件的站

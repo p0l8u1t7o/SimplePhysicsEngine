@@ -1,0 +1,11 @@
+{
+  "ok": true,
+  "total": 107.96,
+  "cycle": 50.56,
+  "notes": {
+    "linWorst": 0.04,
+    "interlockGap": 310,
+    "payloadKg": 50.5
+  },
+  "failures": []
+}

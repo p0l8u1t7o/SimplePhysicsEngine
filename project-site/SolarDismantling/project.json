@@ -1,0 +1,10 @@
+{
+  "title": "太陽能板拆框機器人上下料",
+  "summary": "FANUC 手臂真空吸取整板送入拆框機，拆框後取出無框層壓板疊放",
+  "order": 9,
+  "coreVersion": "1.13.0",
+  "checks": {
+    "quick": ["tools/verify.mjs"],
+    "full": []
+  }
+}
