@@ -1,0 +1,907 @@
+{
+  "ok": true,
+  "variants": [
+    {
+      "variant": "預設",
+      "params": {},
+      "ok": true,
+      "applicable": true,
+      "devices": 27,
+      "connections": 22,
+      "enclosures": 1,
+      "feedthroughs": {
+        "plates": 1,
+        "glands": 6,
+        "holeRays": 36,
+        "wireCrossings": 18,
+        "mountChecks": 4,
+        "failures": []
+      },
+      "failures": [],
+      "components": [
+        {
+          "id": "QS1",
+          "kind": "isolator",
+          "title": "總電源隔離開關",
+          "size": [
+            65,
+            100,
+            85
+          ],
+          "role": "power",
+          "description": "配置示意；容量與型號待選。",
+          "source": null,
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "QF1",
+          "kind": "breaker",
+          "title": "控制電源",
+          "size": [
+            54,
+            90,
+            75
+          ],
+          "role": "power",
+          "description": "配置示意；容量與型號待選。",
+          "source": "QS1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "QF2",
+          "kind": "breaker",
+          "title": "移載機伺服",
+          "size": [
+            54,
+            90,
+            75
+          ],
+          "role": "power",
+          "description": "配置示意；容量與型號待選。",
+          "source": "QS1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "QF3",
+          "kind": "breaker",
+          "title": "鋁框輸送帶",
+          "size": [
+            54,
+            90,
+            75
+          ],
+          "role": "power",
+          "description": "配置示意；容量與型號待選。",
+          "source": "QS1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "QF4",
+          "kind": "breaker",
+          "title": "手臂控制器饋電",
+          "size": [
+            54,
+            90,
+            75
+          ],
+          "role": "power",
+          "description": "配置示意；容量與型號待選。",
+          "source": "QS1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "QF5",
+          "kind": "breaker",
+          "title": "預留支路",
+          "size": [
+            54,
+            90,
+            75
+          ],
+          "role": "power",
+          "description": "配置示意；容量與型號待選。",
+          "source": "QS1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "PS1",
+          "kind": "psu",
+          "title": "24 VDC 電源",
+          "size": [
+            90,
+            120,
+            120
+          ],
+          "role": "power",
+          "description": "配置示意；容量與型號待選。",
+          "source": "QF1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "PLC1",
+          "kind": "plc",
+          "title": "工作站 PLC",
+          "size": [
+            130,
+            100,
+            100
+          ],
+          "role": "control",
+          "description": "A/B 工位、移載機、拆框機交握；透過 SW1 與手臂交換 EtherNet/IP 訊號。",
+          "source": "PS1",
+          "category": "dc",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "SAF1",
+          "kind": "safety",
+          "title": "安全控制器",
+          "size": [
+            100,
+            100,
+            100
+          ],
+          "role": "safety",
+          "description": "四組叉車口光柵＋後側光柵，共五組；急停、移載機在機內禁止拆框的硬體互鎖。示意，非安全認證。",
+          "source": "PS1",
+          "category": "safety",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "SW1",
+          "kind": "switch",
+          "title": "工業乙太網交換器",
+          "size": [
+            60,
+            100,
+            85
+          ],
+          "role": "network",
+          "description": "PLC ↔ 手臂 EtherNet/IP、HMI、遠端 I/O 網路。",
+          "source": "PS1",
+          "category": "dc",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "IO1",
+          "kind": "io",
+          "title": "機台／交接台 I/O 耦合器",
+          "size": [
+            70,
+            100,
+            80
+          ],
+          "role": "io",
+          "description": "配置示意；容量與型號待選。",
+          "source": "SW1",
+          "category": "network",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "IO2",
+          "kind": "io",
+          "title": "入出料工位 I/O 耦合器",
+          "size": [
+            70,
+            100,
+            80
+          ],
+          "role": "io",
+          "description": "配置示意；容量與型號待選。",
+          "source": "SW1",
+          "category": "network",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D1",
+          "kind": "drive",
+          "title": "移載機 Z 軸伺服驅動",
+          "size": [
+            95,
+            160,
+            150
+          ],
+          "role": "motion",
+          "description": "配置示意；容量與型號待選。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D2",
+          "kind": "drive",
+          "title": "移載機升降伺服驅動",
+          "size": [
+            95,
+            160,
+            150
+          ],
+          "role": "motion",
+          "description": "配置示意；容量與型號待選。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "KM1",
+          "kind": "contactor",
+          "title": "南側鋁框輸送帶接觸器",
+          "size": [
+            65,
+            100,
+            90
+          ],
+          "role": "motion",
+          "description": "配置示意；容量與型號待選。",
+          "source": "QF3",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "KM2",
+          "kind": "contactor",
+          "title": "北側鋁框輸送帶接觸器",
+          "size": [
+            65,
+            100,
+            90
+          ],
+          "role": "motion",
+          "description": "配置示意；容量與型號待選。",
+          "source": "QF3",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "KA1",
+          "kind": "io",
+          "title": "待料介面繼電器",
+          "size": [
+            38,
+            70,
+            60
+          ],
+          "role": "io",
+          "description": "配置示意；容量與型號待選。",
+          "source": "IO1",
+          "category": "signal",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "KA2",
+          "kind": "io",
+          "title": "拆框中介面繼電器",
+          "size": [
+            38,
+            70,
+            60
+          ],
+          "role": "io",
+          "description": "配置示意；容量與型號待選。",
+          "source": "IO1",
+          "category": "signal",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "KA3",
+          "kind": "io",
+          "title": "拆框完成介面繼電器",
+          "size": [
+            38,
+            70,
+            60
+          ],
+          "role": "io",
+          "description": "配置示意；容量與型號待選。",
+          "source": "IO1",
+          "category": "signal",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "KA4",
+          "kind": "io",
+          "title": "故障介面繼電器",
+          "size": [
+            38,
+            70,
+            60
+          ],
+          "role": "io",
+          "description": "配置示意；容量與型號待選。",
+          "source": "IO1",
+          "category": "signal",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "KA5",
+          "kind": "io",
+          "title": "拆框啟動介面繼電器",
+          "size": [
+            38,
+            70,
+            60
+          ],
+          "role": "io",
+          "description": "配置示意；容量與型號待選。",
+          "source": "IO1",
+          "category": "signal",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "KA6",
+          "kind": "io",
+          "title": "移載機互鎖介面繼電器",
+          "size": [
+            38,
+            70,
+            60
+          ],
+          "role": "io",
+          "description": "配置示意；容量與型號待選。",
+          "source": "SAF1",
+          "category": "safety",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "JB1",
+          "kind": "io",
+          "title": "拆框機交握改裝箱",
+          "size": [
+            240,
+            240,
+            100
+          ],
+          "role": "io",
+          "description": "KA1–KA6：待料、忙碌、完成、故障、啟動與硬體互鎖；連到現場既有控制箱。",
+          "source": null,
+          "category": "signal",
+          "model": "配置估算，型號待選",
+          "free": true
+        },
+        {
+          "id": "JB2",
+          "kind": "io",
+          "title": "交接台閥組／感測 I/O",
+          "size": [
+            240,
+            240,
+            100
+          ],
+          "role": "io",
+          "description": "置中電磁閥、交接台有板感測與到位。",
+          "source": null,
+          "category": "signal",
+          "model": "配置估算，型號待選",
+          "free": true
+        },
+        {
+          "id": "JB3",
+          "kind": "io",
+          "title": "入料 A/B 現場 I/O",
+          "size": [
+            240,
+            240,
+            100
+          ],
+          "role": "io",
+          "description": "入料 A/B 棧板感測、工位燈、換料請求／就位確認、光柵訊號。",
+          "source": null,
+          "category": "signal",
+          "model": "配置估算，型號待選",
+          "free": true
+        },
+        {
+          "id": "JB4",
+          "kind": "io",
+          "title": "出料 A/B 現場 I/O",
+          "size": [
+            240,
+            240,
+            100
+          ],
+          "role": "io",
+          "description": "出料 A/B 棧板感測、滿疊對照光電、工位燈、換料請求／就位確認、光柵訊號。",
+          "source": null,
+          "category": "signal",
+          "model": "配置估算，型號待選",
+          "free": true
+        },
+        {
+          "id": "YV1",
+          "kind": "valve",
+          "title": "交接台置中閥組",
+          "size": [
+            170,
+            70,
+            65
+          ],
+          "role": "io",
+          "description": "配置示意；容量與型號待選。",
+          "source": "JB2",
+          "category": "signal",
+          "model": "配置估算，型號待選",
+          "free": true
+        }
+      ],
+      "cables": {
+        "report": [
+          {
+            "scenario": "預設",
+            "samples": 636,
+            "routes": 65,
+            "supports": 683,
+            "carriers": 2,
+            "feedthroughs": {
+              "plates": 1,
+              "glands": 6,
+              "holeRays": 36,
+              "wireCrossings": 18,
+              "mountChecks": 4,
+              "failures": []
+            }
+          }
+        ],
+        "failures": []
+      }
+    },
+    {
+      "variant": "拆框機故障",
+      "params": {
+        "fault": true
+      },
+      "ok": true,
+      "applicable": true,
+      "devices": 27,
+      "connections": 22,
+      "enclosures": 1,
+      "feedthroughs": {
+        "plates": 1,
+        "glands": 6,
+        "holeRays": 36,
+        "wireCrossings": 18,
+        "mountChecks": 4,
+        "failures": []
+      },
+      "failures": [],
+      "components": [
+        {
+          "id": "QS1",
+          "kind": "isolator",
+          "title": "總電源隔離開關",
+          "size": [
+            65,
+            100,
+            85
+          ],
+          "role": "power",
+          "description": "配置示意；容量與型號待選。",
+          "source": null,
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "QF1",
+          "kind": "breaker",
+          "title": "控制電源",
+          "size": [
+            54,
+            90,
+            75
+          ],
+          "role": "power",
+          "description": "配置示意；容量與型號待選。",
+          "source": "QS1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "QF2",
+          "kind": "breaker",
+          "title": "移載機伺服",
+          "size": [
+            54,
+            90,
+            75
+          ],
+          "role": "power",
+          "description": "配置示意；容量與型號待選。",
+          "source": "QS1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "QF3",
+          "kind": "breaker",
+          "title": "鋁框輸送帶",
+          "size": [
+            54,
+            90,
+            75
+          ],
+          "role": "power",
+          "description": "配置示意；容量與型號待選。",
+          "source": "QS1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "QF4",
+          "kind": "breaker",
+          "title": "手臂控制器饋電",
+          "size": [
+            54,
+            90,
+            75
+          ],
+          "role": "power",
+          "description": "配置示意；容量與型號待選。",
+          "source": "QS1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "QF5",
+          "kind": "breaker",
+          "title": "預留支路",
+          "size": [
+            54,
+            90,
+            75
+          ],
+          "role": "power",
+          "description": "配置示意；容量與型號待選。",
+          "source": "QS1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "PS1",
+          "kind": "psu",
+          "title": "24 VDC 電源",
+          "size": [
+            90,
+            120,
+            120
+          ],
+          "role": "power",
+          "description": "配置示意；容量與型號待選。",
+          "source": "QF1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "PLC1",
+          "kind": "plc",
+          "title": "工作站 PLC",
+          "size": [
+            130,
+            100,
+            100
+          ],
+          "role": "control",
+          "description": "A/B 工位、移載機、拆框機交握；透過 SW1 與手臂交換 EtherNet/IP 訊號。",
+          "source": "PS1",
+          "category": "dc",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "SAF1",
+          "kind": "safety",
+          "title": "安全控制器",
+          "size": [
+            100,
+            100,
+            100
+          ],
+          "role": "safety",
+          "description": "四組叉車口光柵＋後側光柵，共五組；急停、移載機在機內禁止拆框的硬體互鎖。示意，非安全認證。",
+          "source": "PS1",
+          "category": "safety",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "SW1",
+          "kind": "switch",
+          "title": "工業乙太網交換器",
+          "size": [
+            60,
+            100,
+            85
+          ],
+          "role": "network",
+          "description": "PLC ↔ 手臂 EtherNet/IP、HMI、遠端 I/O 網路。",
+          "source": "PS1",
+          "category": "dc",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "IO1",
+          "kind": "io",
+          "title": "機台／交接台 I/O 耦合器",
+          "size": [
+            70,
+            100,
+            80
+          ],
+          "role": "io",
+          "description": "配置示意；容量與型號待選。",
+          "source": "SW1",
+          "category": "network",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "IO2",
+          "kind": "io",
+          "title": "入出料工位 I/O 耦合器",
+          "size": [
+            70,
+            100,
+            80
+          ],
+          "role": "io",
+          "description": "配置示意；容量與型號待選。",
+          "source": "SW1",
+          "category": "network",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D1",
+          "kind": "drive",
+          "title": "移載機 Z 軸伺服驅動",
+          "size": [
+            95,
+            160,
+            150
+          ],
+          "role": "motion",
+          "description": "配置示意；容量與型號待選。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D2",
+          "kind": "drive",
+          "title": "移載機升降伺服驅動",
+          "size": [
+            95,
+            160,
+            150
+          ],
+          "role": "motion",
+          "description": "配置示意；容量與型號待選。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "KM1",
+          "kind": "contactor",
+          "title": "南側鋁框輸送帶接觸器",
+          "size": [
+            65,
+            100,
+            90
+          ],
+          "role": "motion",
+          "description": "配置示意；容量與型號待選。",
+          "source": "QF3",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "KM2",
+          "kind": "contactor",
+          "title": "北側鋁框輸送帶接觸器",
+          "size": [
+            65,
+            100,
+            90
+          ],
+          "role": "motion",
+          "description": "配置示意；容量與型號待選。",
+          "source": "QF3",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "KA1",
+          "kind": "io",
+          "title": "待料介面繼電器",
+          "size": [
+            38,
+            70,
+            60
+          ],
+          "role": "io",
+          "description": "配置示意；容量與型號待選。",
+          "source": "IO1",
+          "category": "signal",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "KA2",
+          "kind": "io",
+          "title": "拆框中介面繼電器",
+          "size": [
+            38,
+            70,
+            60
+          ],
+          "role": "io",
+          "description": "配置示意；容量與型號待選。",
+          "source": "IO1",
+          "category": "signal",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "KA3",
+          "kind": "io",
+          "title": "拆框完成介面繼電器",
+          "size": [
+            38,
+            70,
+            60
+          ],
+          "role": "io",
+          "description": "配置示意；容量與型號待選。",
+          "source": "IO1",
+          "category": "signal",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "KA4",
+          "kind": "io",
+          "title": "故障介面繼電器",
+          "size": [
+            38,
+            70,
+            60
+          ],
+          "role": "io",
+          "description": "配置示意；容量與型號待選。",
+          "source": "IO1",
+          "category": "signal",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "KA5",
+          "kind": "io",
+          "title": "拆框啟動介面繼電器",
+          "size": [
+            38,
+            70,
+            60
+          ],
+          "role": "io",
+          "description": "配置示意；容量與型號待選。",
+          "source": "IO1",
+          "category": "signal",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "KA6",
+          "kind": "io",
+          "title": "移載機互鎖介面繼電器",
+          "size": [
+            38,
+            70,
+            60
+          ],
+          "role": "io",
+          "description": "配置示意；容量與型號待選。",
+          "source": "SAF1",
+          "category": "safety",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "JB1",
+          "kind": "io",
+          "title": "拆框機交握改裝箱",
+          "size": [
+            240,
+            240,
+            100
+          ],
+          "role": "io",
+          "description": "KA1–KA6：待料、忙碌、完成、故障、啟動與硬體互鎖；連到現場既有控制箱。",
+          "source": null,
+          "category": "signal",
+          "model": "配置估算，型號待選",
+          "free": true
+        },
+        {
+          "id": "JB2",
+          "kind": "io",
+          "title": "交接台閥組／感測 I/O",
+          "size": [
+            240,
+            240,
+            100
+          ],
+          "role": "io",
+          "description": "置中電磁閥、交接台有板感測與到位。",
+          "source": null,
+          "category": "signal",
+          "model": "配置估算，型號待選",
+          "free": true
+        },
+        {
+          "id": "JB3",
+          "kind": "io",
+          "title": "入料 A/B 現場 I/O",
+          "size": [
+            240,
+            240,
+            100
+          ],
+          "role": "io",
+          "description": "入料 A/B 棧板感測、工位燈、換料請求／就位確認、光柵訊號。",
+          "source": null,
+          "category": "signal",
+          "model": "配置估算，型號待選",
+          "free": true
+        },
+        {
+          "id": "JB4",
+          "kind": "io",
+          "title": "出料 A/B 現場 I/O",
+          "size": [
+            240,
+            240,
+            100
+          ],
+          "role": "io",
+          "description": "出料 A/B 棧板感測、滿疊對照光電、工位燈、換料請求／就位確認、光柵訊號。",
+          "source": null,
+          "category": "signal",
+          "model": "配置估算，型號待選",
+          "free": true
+        },
+        {
+          "id": "YV1",
+          "kind": "valve",
+          "title": "交接台置中閥組",
+          "size": [
+            170,
+            70,
+            65
+          ],
+          "role": "io",
+          "description": "配置示意；容量與型號待選。",
+          "source": "JB2",
+          "category": "signal",
+          "model": "配置估算，型號待選",
+          "free": true
+        }
+      ],
+      "cables": {
+        "report": [
+          {
+            "scenario": "拆框機故障",
+            "samples": 679,
+            "routes": 65,
+            "supports": 683,
+            "carriers": 2,
+            "feedthroughs": {
+              "plates": 1,
+              "glands": 6,
+              "holeRays": 36,
+              "wireCrossings": 18,
+              "mountChecks": 4,
+              "failures": []
+            }
+          }
+        ],
+        "failures": []
+      }
+    }
+  ]
+}

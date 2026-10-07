@@ -5,6 +5,9 @@ import * as THREE from 'three';
 import { createStage, exposeSim } from '@core/ui/stage.js';
 import { createPlayer } from '@core/ui/player.js';
 import { createViewerWorkspace } from '@core/ui/viewer-workspace.js';
+import { createElectricalInspector } from '@core/electrical/electrical-inspector.js';
+import { setElectricalCutaway } from '@core/electrical/electrical-cabinet.js';
+import { routingLegend } from '@core/electrical/cable-routing.js';
 import { createProject, STATIONS } from './project.js';
 import { MACHINE, ROBOT, GLASS_Y, CONTROLLER, OPERATOR, FENCE, BAYS, TABLE, LOADER, SCRAP } from './layout.js';
 
@@ -43,6 +46,7 @@ const VIEWS = {
   outlet: [[4900, 2700, 6200], [BAYS.outA.x, 500, 3300]],
   scrap: [[3300, 2400, -3600], [600, 500, -300]],
   top: [[0, 12500, 2100], [0, 0, 2099]],
+  electrical: [[300, 1700, 8350], [-300, 950, 5320]],
   gripper: () => {
     const p = tcpWorld(), x = p.x < -1200 ? 1400 : p.x > 1200 ? -1400 : -1000;
     return [p.clone().add(new THREE.Vector3(x, 750, p.z > 2500 ? 800 : 1350)).toArray(), p.toArray()];
@@ -51,10 +55,14 @@ const VIEWS = {
 function setView(name, instant = false) {
   const v = typeof VIEWS[name] === 'function' ? VIEWS[name]() : VIEWS[name]; if (!v) return;
   workspace.stopFollowing();
+  setElectricalCutaway(scene, name === 'electrical');
   stage.goTo(v[0], v[1], instant);
   document.querySelectorAll('.views [data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === name));
 }
 document.querySelectorAll('.views [data-view]').forEach(b => b.onclick = () => setView(b.dataset.view));
+const electrical = createElectricalInspector({ scene, camera, controls, canvas,
+  onEnter: () => setView('electrical', true), onExit: () => setView('iso', true), title: '拆框上下料電控配置' });
+routingLegend();
 
 // ---------------------------------------------------------------- 3D 標籤
 const label = (html, pos, priority = 0) => stage.addLabel(html, pos, '', { anchor: 'above', priority });
@@ -71,6 +79,7 @@ label('接線盒料箱', new THREE.Vector3(-600, 320, (SCRAP.tote.z[0] + SCRAP.t
 label('液壓站', new THREE.Vector3(MACHINE.x - 950, 2800, MACHINE.z - 500), 0);
 label('手臂控制器', new THREE.Vector3(CONTROLLER.x, 1150, CONTROLLER.z), 0);
 label('操作站', new THREE.Vector3(OPERATOR.x, 1600, OPERATOR.z), 0);
+label('主控制櫃 · CTRL', new THREE.Vector3(-300, 1850, 5400), 3);
 
 // ---------------------------------------------------------------- 站別按鈕
 const stationBar = $('stations');
@@ -119,6 +128,8 @@ const player = createPlayer({
 });
 
 function render() {
+  const { step, state } = seq.sample(player.T);
+  electrical.update({ time: player.T, playing: player.playing, action: step.action, motion: !!(step.robot || step.loader) && !state.fault });
   workspace.renderCamera({ renderer, scene, camera: machineCam, title: '拆框機內部（虛擬監看相機）', result: ui.action.textContent, marks: { time: player.T } });
   workspace.renderOverview(renderer, scene);
 }

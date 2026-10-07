@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { createCell, FULL_BEAM_Y } from './cell.js';
 import { createDismantler, CHUTE } from './machine.js';
 import { createTransfer } from './transfer.js';
+import { createElectrical } from './electrical.js';
 import { createRobot, RATING } from './robot.js';
 import { createPanelParts, placeParts, FRAME_OUT } from './panel.js';
 import { createSequence, linPose, STATIONS, CYCLES, PLAN } from './sequence.js';
@@ -26,6 +27,7 @@ export function createProject({ scene, fault = false }) {
   const robot = createRobot(scene);
   // 會動的兩片板：各零件是場景第一層的群組（模組名稱 p0 laminate、p0 frame x+…）
   const movers = Array.from({ length: CYCLES }, (_, k) => createPanelParts(scene, 'p' + k));
+  const electrical = createElectrical(scene, { transfer });
   const { seq, poses, cycle } = createSequence(robot, { fault });
 
   const _p = new THREE.Vector3(), _q = new THREE.Quaternion(), I = new THREE.Quaternion();
@@ -60,6 +62,7 @@ export function createProject({ scene, fault = false }) {
     robot.setJoints(q);
     machine.set(st);
     transfer.set({ z: st.lz, y: st.ly, center: st.ctr });
+    electrical.set({ z: st.lz, y: st.ly, action: step.action, motion: !!(step.robot || step.loader) && !st.fault });
 
     for (let k = 0; k < CYCLES; k++) {
       const parts = movers[k], [pos, rot] = lamPose(st['lam' + k], k, st);
@@ -178,8 +181,9 @@ export function createProject({ scene, fault = false }) {
 
   return {
     total: seq.total, sequence: seq, timeline: seq, apply, layoutChecks, stationStart: seq.stationStart,
-    cycleTime: cycle, robot, machine, transfer, movers, cell, presentation, selection: evaluate(), fault,
+    cycleTime: cycle, robot, machine, transfer, movers, cell, electrical, presentation, selection: evaluate(), fault,
     verify: {
+      cables: { obstacles: () => electrical.obstacles, interval: .2, minRoutes: 40 },
       allow: [
         { why: '腕部線束第 0 段端口接續前臂固定外皮；僅此端點配對', test: (a, b) => pair(a, b, named(/^forearm dress pack$/), named(/^wrist dress segment 0$/)) },
         { why: '腕部線束最後一段插進手腕叉外側的旋轉接頭座；僅此端點配對', test: (a, b) => pair(a, b, named(/^dress connector$/), named(/^wrist dress segment 11$/)) },
