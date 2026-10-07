@@ -9,7 +9,7 @@
 | `vendor/` | three.js r160（`three.module.js`）與 addons，全站只有這一份；`rapier/`：Rapier 決定性版 0.21（剛體動力學，WebAssembly 內嵌，只由 `physics/` 引用） |
 | `geom/` | `shapes.js`（統一形狀：block／blockBetween／cylinder／rod／tube／pipe／profile／rounded／bevelBox／screw／decal／plate／floorText）、`materials.js`（共用材質表 MAT）、`hardware.js`（倒角外殼、螺栓、腳座、馬達、感測器…）、`finish.js`、`surfaces.js`、`perforated.js` |
 | `robot/` | `kinematics.js`：6 軸阻尼最小平方 IK（參數可調）；`reach.js`：手臂可達檢查（IK 或工作空間包絡，回傳 layoutChecks 的列） |
-| `models/` | 共用模型庫：每個模型有 `meta`（名稱、分類、可調參數、可動狀態、用法）與 `create(params) → { root, set(state) }`，在 `models/index.js` 登記；`models/parts.js`：`fromPart(元件編號)` 用元件庫的模型與參數建立並標 `partRef`、`tagPart`；目錄頁 `/core/catalog/` 可預覽、調參與搜尋。共 80 個，清單見下方「共用模型」 |
+| `models/` | 共用模型庫：每個模型有 `meta`（名稱、分類、可調參數、可動狀態、用法）與 `create(params) → { root, set(state) }`，在 `models/index.js` 登記；`models/parts.js`：`fromPart(元件編號)` 用元件庫的模型與參數建立並標 `partRef`、`tagPart`；目錄頁 `/core/catalog/` 可預覽、調參與搜尋。共 81 個，清單見下方「共用模型」 |
 | `migrations/` | 各版共用模型的換用對照（各站把自己畫的零件換成共用模型時照著改）：`1.10.0-vision.md`、`1.10.0-motion.md`、`1.10.0-equipment.md`、`1.10.0-transport.md`；1.9.0 的對照表在 `MIGRATION.md` |
 | `catalog/` | 模型目錄頁（發布在 Pages） |
 | `anim/` | `cycle.js`：節拍分析（各站佔用、稼動率、瓶頸）；`track.js`：時間軌與時間軸（`createTimeline`、`Track`、`smooth`），狀態只由時間決定；`sequence.js`：單一手臂的步驟序列；`arrival.js`：手臂到位閘門（播放時等手臂到位、逾時故障） |
@@ -119,13 +119,13 @@ export function createProject({ scene, headless }) {
 
 `window.sim` 至少提供：`seekTo(t)`、`setView(name, instant)`、`views`（視角名稱陣列）、`total`、`play()`、`pause()`。
 
-## 共用模型（`core/models/`，80 個）
+## 共用模型（`core/models/`，81 個）
 
 每個模型是 `{ meta, create(參數) → { root, params, 子物件…, set? } }`（較早的手臂、輸送線等是整個模組匯出 `meta`、`create`）。`meta.params` 是目錄頁可調的數值，`meta.options` 是程式才傳的選項，`meta.states` 是 `set()` 的狀態範圍，`meta.usage` 是用法範例。新增模型後在 `models/index.js` 登記，就會出現在目錄頁並納入 `models` 檢查。
 
 | 分類 | 檔案與模型 |
 |---|---|
-| 機械手臂 | `robots/`：`fanuc-r2000ic.js`、`denso-vs068.js`、`denso-vm60b1.js`、`denso-cobotta-pro900.js`、`denso-hsr065.js`（SCARA）、`abb-irb360.js`（並聯手臂；另匯出 `createIRB360`、`deltaIK`） |
+| 機械手臂 | `robots/`：`fanuc-r2000ic.js`、`fanuc-m710ic.js`（M-710iC/45M，另匯出型錄負載能力 `RATING`）、`denso-vs068.js`、`denso-vm60b1.js`、`denso-cobotta-pro900.js`、`denso-hsr065.js`（SCARA）、`abb-irb360.js`（並聯手臂；另匯出 `createIRB360`、`deltaIK`） |
 | 輸送 | `conveyor.js`：滾筒輸送線；`transport.js`：平皮帶輸送機 `beltConveyor`、邊皮帶雙軌輸送段 `edgeBeltConveyor`、V 槽滾輪輸送線 `vRollerConveyor`、止擋 `stopper`、萬向球旋轉台 `ballTurntable` |
 | 供料 | `transport.js`：柔性供料盤 `flexFeeder` |
 | 搬運 | `gantry.js`：兩軸龍門＋平行夾爪；`transport-handling.js`：塑膠棧板 `pallet`（大量靜態棧板用 `pallet.instances()`）、棧板穿梭車 `shuttleCar`、穿梭車密集架 `shuttleRack`、懸臂吊 `jibCrane`、平台台車 `dolly`、AGV 充電櫃 `agvCharger` |

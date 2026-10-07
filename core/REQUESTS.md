@@ -62,3 +62,9 @@
 - 暫代：`project-site/SolarDismantling/web/js/cell.js` 的 `woodPallet()`（上板＋三支沿 X 的底樑，木色材質）
 - 期望介面：`pallet.create({ size: [寬, 長], runnerAxis: 'x'|'z', material: 'wood'|'plastic' })`，`size` 給單一數值時維持現狀
 - 影響：之後放板材、長件的站
+
+### FANUC R-2000iC 模型支援底座旋轉
+- 提出：SolarDismantling（2026-10-07）
+- 現象：`fanuc-m710ic.js`（1.14.0 新增）的逆解初始解在底座座標計算，root 可以繞 Y 旋轉，用來把 J1 的 ±180° 分界轉到不需要經過的方向；`fanuc-r2000ic.js` 仍假設 root 不旋轉
+- 期望：R-2000iC 的 `seeds()` 照 M-710iC 的寫法改成底座座標（化學桶清洗線要用基準截圖與場景傾印確認畫面不變）
+- 影響：之後用 R-2000iC 且需要轉向的站

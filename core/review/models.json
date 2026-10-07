@@ -8,6 +8,14 @@
     "zfight": []
   },
   {
+    "id": "fanuc-m710ic",
+    "name": "FANUC M-710iC/45M 六軸手臂",
+    "ok": true,
+    "meshes": 22,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
     "id": "denso-vs068",
     "name": "DENSO VS-068 六軸手臂",
     "ok": true,

@@ -9,6 +9,7 @@ import * as agvForklift from './agv-forklift.js';
 import * as drum200l from './drum-200l.js';
 import * as densoVs068 from './robots/denso-vs068.js';
 import * as fanucR2000 from './robots/fanuc-r2000ic.js';
+import * as fanucM710 from './robots/fanuc-m710ic.js';
 import * as densoHsr065 from './robots/denso-hsr065.js';
 import * as cobottaPro900 from './robots/denso-cobotta-pro900.js';
 import * as densoVm60b1 from './robots/denso-vm60b1.js';
@@ -28,7 +29,7 @@ import { labeler, upender, weighIndicator, airKnife, sprayLance, hotAirBlower, v
 
 export const MODELS = [
   // 機械手臂
-  fanucR2000, densoVs068, densoVm60b1, cobottaPro900, densoHsr065, abbIrb360,
+  fanucR2000, fanucM710, densoVs068, densoVm60b1, cobottaPro900, densoHsr065, abbIrb360,
   // 輸送、供料
   conveyor, beltConveyor, edgeBeltConveyor, vRollerConveyor, stopper, ballTurntable, flexFeeder,
   // 搬運、物流、工件

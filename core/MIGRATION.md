@@ -217,6 +217,7 @@ Node 端由 `core/tools/loader.mjs` 解析相同的三種名稱，檢查程式�
 
 | 版本 | 日期 | 內容 |
 |---|---|---|
+| 1.14.0 | 2026-10-07 | 新共用模型 FANUC M-710iC/45M（`models/robots/fanuc-m710ic.js`，介面與 R-2000iC 相同，另匯出型錄負載能力 `RATING`；臂長為推估值待型錄核對），共 81 個。其他站畫面與檢查結果不變。來源：SolarDismantling 手臂改選 45 kg 級 |
 | 1.13.0 | 2026-10-06 | 剛體動力學：Rapier 決定性版 0.21 放 `vendor/rapier/`；`physics/physics.js`（烘焙：固定物、輸送帶、投料、移除區、治具、吸附、力控制兩指夾爪；取樣、`createPhysicsView`）、`physics/analysis.js`；範例 `examples/physics/`（四種用途）；新檢查：站的 `physics`（用了才檢查）、core 的 `physics`；全場干涉對 `userData.physics` 的網格把穿插門檻放寬到 8 mm。一致性工具（Q9）：`robot/reach.js`（手臂可達：IK／工作空間包絡）、`anim/cycle.js`（節拍分析，`run.mjs cycle`）、`models/parts.js`（`fromPart`／`tagPart`，模型根帶 `partRef`）、新檢查 `bom`（場景 ↔ 平台 BOM，只警告；`noBom` 排除現場既有設備）。回收物分揀的分流帶尾端到收料箱改用物理（`createProject` 改成 async，出料視角有一張截圖改變，屬刻意）；其他站畫面與檢查結果不變。評估平台 Q8、Q9 |
 | 1.12.0 | 2026-10-06 | 光學 L2 `optics/lighting.js`：幾何打光（明場／暗場、穹頂的相機孔、照度均勻度、遮擋與陰影）、缺陷對比（刮傷、凹痕、髒污、缺件）、近似模擬影像（整個視野＋原解析度特寫，景深與運動模糊、雜訊，決定性）；`evaluate()` 在方案有工件材質時加上 L2 結果（`scene.defectKinds` 列的缺陷才判定符合與否）；`optics/view.html` 貼明暗場分布、標缺陷位置、「模擬影像」面板。各站沒有引用 L2，畫面不變。評估平台 Q7 |
 | 1.11.0 | 2026-10-06 | 光學計算 `core/optics/`（L1：視野、倍率、每像素、最小缺陷、景深、運動模糊、行頻、像圈、接口、頻寬、打光；3D 配置檢視 `optics/view.html`）；`models/camera.js` 的 `lensFov`／`fieldOfView` 改用它（公式不變，畫面不變）。評估平台 Q4 |
