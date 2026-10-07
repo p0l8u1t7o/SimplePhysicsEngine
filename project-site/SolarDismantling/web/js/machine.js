@@ -1,23 +1,33 @@
 // 拆框機（使用者已購入的現場設備，userData.noBom）：依影片目測重建，尺寸見 layout.js 的 MACHINE（假設值）。
 // 動作（set 的狀態，0～1）：
 //   press 中央壓板下壓、clamp 四邊擺動壓指扣住鋁框上緣、pull 夾爪連同鋁框往外拉、open 承板再退開讓鋁框落下、
-//   scrape 剝線盒刮刀由南往北推。
+//   scrape 剝線盒刮刀由南往北推、belt 長框輸送帶行程（mm）。
+// 餘料（2026-10-07 第二版）：夾爪驅動移到鋁框兩端外側（無桿缸），鋁框正下方的落料通道淨空；
+//   長邊鋁框落到兩條輸送帶送往東側長框料車，短邊鋁框落入東西兩個抽屜料箱，接線盒經漏斗＋滑槽滑到北側料箱。
 // 局部座標原點在機台中心地面；板放在機台上時，板原點（玻璃面中心）在 (0, GLASS_Y, 0)，長邊沿 X。
 import * as THREE from 'three';
 import { block, cylinder, tube, pipe, plate } from '@core/geom/shapes.js';
-import { pivotCylinder, linearAxis } from '@core/models/motion.js';
-import { lightCurtain } from '@core/models/sensors.js';
+import { beltConveyor } from '@core/models/transport.js';
+import { lightCurtain, boxSensor } from '@core/models/sensors.js';
 import { MAT } from '@core/geom/materials.js';
 import { bolts } from '@core/geom/hardware.js';
-import { MACHINE as M, PANEL, GLASS_Y } from './layout.js';
+import { MACHINE as M, PANEL, GLASS_Y, SCRAP } from './layout.js';
 
 const cream = new THREE.MeshStandardMaterial({ color: 0xe6dcc3, roughness: .7, metalness: .1 });     // 鋼構（米白烤漆）
 const yellow = new THREE.MeshStandardMaterial({ color: 0xf0b416, roughness: .5, metalness: .15 });   // 夾爪、壓板（黃色）
 const blue = new THREE.MeshStandardMaterial({ color: 0x1f5fb8, roughness: .45, metalness: .2 });     // 液壓站、料箱
 const rubber = new THREE.MeshStandardMaterial({ color: 0x2a2d31, roughness: .9 });
 
-export const TROUGH = { y: 350, h: 150, w: 160 };        // 鋁框收集槽：底面高、深、寬
-export const CRATE = { x: -600, z: -330, size: [400, 300, 300], y: 260 };   // 接線盒料箱（底面高 y）
+// 斜板：從 a 到 b 的板（寬 w 沿 side 方向、厚 t），用來組漏斗、滑槽（全場檢查用有向包圍盒，所以斜放的板也檢查得準）
+export function slab(parent, a, b, w, t, side, material) {
+  const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b), X = B.clone().sub(A), len = X.length(); X.normalize();
+  const Z = new THREE.Vector3(...side).normalize(), Y = new THREE.Vector3().crossVectors(Z, X).normalize(); Z.crossVectors(X, Y);
+  const m = block(parent, [len, t, w], [0, 0, 0], material);
+  m.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(X, Y, Z)); m.position.copy(A).add(B).multiplyScalar(.5);
+  return m;
+}
+// 接線盒滑槽中心線（世界座標）：漏斗出口 → 機台北側外的料箱上方
+export const CHUTE = { from: [SCRAP.funnel.x, 600, -400], to: [SCRAP.funnel.x, 380, -1250], w: 240 };
 const BLADE_Y = GLASS_Y - PANEL.lam - 11;                 // 刮刀中心高度（與接線盒同高）
 const SHELF_IN = { x: PANEL.L / 2 - 30, z: PANEL.W / 2 - 30 };   // 承板內緣（伸入鋁框下方 30 mm）
 
@@ -70,39 +80,19 @@ export function createDismantler(scene) {
     const finger = block(pivot, size(s.len - 300, 20, 120), [0, 0, 0], yellow); finger.name = 'jaw finger';
     finger.position.set(...(alongX ? [0, 0, -sgn * 60] : [-sgn * 60, 0, 0]));         // 由樞軸往內 120 mm
     for (const a of [-s.len / 2 + 60, s.len / 2 - 60]) block(g, size(40, GLASS_Y + PANEL.lip - M.tableY + 10, 40), at(a, (M.tableY + GLASS_Y + PANEL.lip + 10) / 2, s.inner + 120), yellow).name = 'jaw post';
-    // 缸筒固定在承板下方，桿端連到滑座下垂耳板；外拉與退板共用原有 200 mm 行程。
-    const drives = [-1, 1].map(sign => {
-      const a = sign * (alongX ? 375 : 120);
-      const ram = pivotCylinder.create({ barrelR: 24, barrelL: 240, rodR: 12, rodFrom: 240, trunnion: false, segments: 16 });
-      ram.root.position.set(...at(a, 750, s.inner - 163)); root.add(ram.root);
-      ram.barrel.name = `jaw ${i} drive barrel ${sign}`; ram.piston.name = `jaw ${i} drive rod ${sign}`;
-      block(g, size(42, 102, 28), at(a, 789, s.inner + 137), yellow).name = 'jaw drive lug';
-      const outer = alongX ? hz : hx, mountIn = s.inner - 183;
-      block(root, size(70, 30, outer - mountIn + 40), at(a, 709, (outer + mountIn) / 2), cream).name = 'jaw drive mount';
-      block(root, size(70, 70, 50), at(a, 755, outer), cream).name = 'jaw drive bracket';
-      // 兩路油管從機架下方繞至缸筒側面，避開上方的導軌與板材。
-      for (const [lane, d] of [12, 200].entries()) {
-        const end = at(a + 25, 750, s.inner - 163 + d);
-        const feedY = lane ? 620 : 650; // 高壓與回油分層，支管不穿過另一條環管。
-        pipe(root, [at(a + 65 + lane * 18, feedY, s.inner + 390 + lane * 18), at(a + 65 + lane * 18, feedY, s.inner - 163 + d), at(a + 65 + lane * 18, 750, s.inner - 163 + d), end], 6, 0x567ca0, 0x252c33).mesh.name = 'jaw hydraulic branch';
-      }
-      return ram;
-    });
-    const guides = [-1, 1].map(sign => {
-      const a = sign * s.len * .36;
-      const axis = linearAxis.create({ axis: alongX ? 'z' : 'x', guide: `jaw-guide-${i}-${sign}`,
-        base: { size: size(58, 16, 288), at: at(a, 804, s.inner + 237) },
-        rails: { size: size(22, 14, 288), at: [at(a, 819, s.inner + 237)] },
-        carriage: { size: size(48, 14, 60), at: at(a, 833, s.inner + 137) },
-      });
-      root.add(axis.root);
-      // 滑塊直接裝在原滑座群組，避免引入第二套位移狀態。
-      g.add(axis.carriage);
-      const outer = alongX ? hz : hx, start = s.inner + 365;
-      block(root, size(54, 16, outer - start + 20), at(a, 788, (outer + start) / 2), cream).name = 'jaw guide bracket';
-      return axis;
-    });
-    return { g, pivot, drives, guides, n: new THREE.Vector3(...s.n), alongX, sgn };
+    // 驅動：兩支無桿缸放在鋁框兩端的外側（長邊在 x ±880、短邊在 z ±520），滑座伸出的連接臂帶動夾爪；
+    // 鋁框正下方（落料通道）不放任何驅動件。外拉 120＋退開 80 共 200 mm 行程。
+    const armA = alongX ? 825 : 480, armL = alongX ? 150 : 120;
+    for (const sign of [-1, 1]) {
+      block(g, size(armL, 60, 74), at(sign * armA, M.tableY - 30, s.inner + 137), yellow).name = 'jaw arm';
+      const a = sign * (alongX ? 880 : 520);
+      const slider = block(g, size(40, 20, 40), at(a, 830, s.inner + 120), MAT.steelDark); slider.name = 'jaw drive slider';
+      slider.userData.on = `jaw-drive-${i}`;
+      const b0 = s.inner + 94, b1 = (alongX ? hz : hx) - 50;                 // 缸體尾端貼在檯面側樑／端樑內側面
+      const body = block(root, size(40, 30, b1 - b0), at(a, 805, (b0 + b1) / 2), MAT.alu); body.name = 'jaw drive body';
+      body.userData.guide = `jaw-drive-${i}`;
+    }
+    return { g, pivot, n: new THREE.Vector3(...s.n), alongX, sgn };
   });
 
   // ---------------------------------------------------------------- 中央壓板
@@ -130,29 +120,55 @@ export function createDismantler(scene) {
   block(scraper, [40, 22, 70], [scraperX + 40, BLADE_Y, 25], yellow).name = 'scraper arm';
   block(scraper, [180, 22, 20], [scraperX + 150, BLADE_Y, 0], MAT.chrome).name = 'scraper blade';
 
-  // ---------------------------------------------------------------- 鋁框收集槽（四條，掉落位置正下方）與接線盒料箱
-  const pulledLong = PANEL.W / 2 - PANEL.edge / 2 + M.pull, pulledShort = PANEL.L / 2 - PANEL.edge / 2 + M.pull;
-  const troughs = [
-    { c: [0, pulledLong], size: [1750, 1000] }, { c: [0, -pulledLong], size: [1750, 1000] },
-    { c: [pulledShort, 0], size: [TROUGH.w, 1000] }, { c: [-pulledShort, 0], size: [TROUGH.w, 1000] },
-  ];
-  troughs.forEach(({ c: [x, z] }, i) => {
-    const t = new THREE.Group(); t.name = 'frame trough'; root.add(t);
-    const long = i < 2, L = long ? 1750 : 1000, W = TROUGH.w, y0 = TROUGH.y;
-    const size = (a, h, d) => long ? [a, h, d] : [d, h, a], at = (a, y, d) => long ? [x + a, y, z + d] : [x + d, y, z + a];
-    block(t, size(L, 10, W), at(0, y0 + 5, 0), MAT.steel).name = 'trough floor';
-    for (const s of [-1, 1]) block(t, size(L, TROUGH.h, 6), at(0, y0 + TROUGH.h / 2, s * (W / 2 - 3)), MAT.steel).name = 'trough side';
-    for (const s of [-1, 1]) block(t, size(6, TROUGH.h - 10, W - 12), at(s * (L / 2 - 3), y0 + 10 + (TROUGH.h - 10) / 2, 0), MAT.steel).name = 'trough end';
-    for (const s of [-1, 1]) block(t, size(50, y0, 50), at(s * (L / 2 - 60), y0 / 2, 0), cream).name = 'trough leg';
+  // ---------------------------------------------------------------- 餘料：長框輸送帶（南北）、短框抽屜料箱（東西）、接線盒漏斗＋滑槽
+  const C = SCRAP.conveyor, belts = [-1, 1].map(sgn => {
+    const top = C.top, len = C.x[1] - C.x[0], xc = (C.x[0] + C.x[1]) / 2;
+    const b = beltConveyor.create({ length: len, width: C.width, top, rollerR: 30, name: `frame conveyor ${sgn > 0 ? 'S' : 'N'}`,
+      sides: [{ h: 60, t: 16, y: top - 40, z: C.width / 2 + 8, material: MAT.frame },
+        { h: 20, t: 8, y: top + 10, z: C.width / 2 + 4, length: 2050, x: C.x[0] + 1025 - xc, material: MAT.alu }],   // 擋邊只做到機台東端樑前
+      legs: { x: [-780 - xc, -xc, 800 - xc, 1420 - xc], size: [50, top - 70, 50], foot: false } });
+    b.root.position.set(xc, 0, sgn * C.z); root.add(b.root);
+    return b;
   });
-  // 接線盒料箱（藍色周轉箱）
-  const [cw, ch, cd] = CRATE.size;
-  block(root, [cw, 10, cd], [CRATE.x, CRATE.y + 5, CRATE.z], blue).name = 'crate floor';
-  for (const s of [-1, 1]) {
-    block(root, [cw, ch, 8], [CRATE.x, CRATE.y + ch / 2, CRATE.z + s * (cd / 2 - 4)], blue).name = 'crate side';
-    block(root, [8, ch - 10, cd - 16], [CRATE.x + s * (cw / 2 - 4), CRATE.y + 10 + (ch - 10) / 2, CRATE.z], blue).name = 'crate side';
+  const bins = [-1, 1].map(sgn => {
+    const B = SCRAP.bin, g = new THREE.Group(); g.name = `frame bin ${sgn > 0 ? 'E' : 'W'}`; root.add(g);
+    const xc = sgn * (B.x[0] + B.x[1]) / 2, w = B.x[1] - B.x[0], d = B.z[1] - B.z[0], h = B.y[1] - B.y[0];
+    block(g, [w, 10, d], [xc, B.y[0] + 5, 0], MAT.steel).name = 'bin floor';
+    for (const s2 of [-1, 1]) block(g, [w, h, 6], [xc, B.y[0] + h / 2, s2 * (d / 2 - 3)], MAT.steel).name = 'bin side';
+    for (const s2 of [-1, 1]) block(g, [6, h - 10, d - 12], [xc + s2 * (w / 2 - 3), B.y[0] + 10 + (h - 10) / 2, 0], MAT.steel).name = 'bin side';
+    block(g, [w, B.y[0], d - 100], [xc, B.y[0] / 2, 0], cream).name = 'bin stand';
+    block(g, [200, 40, 30], [xc, B.y[0] + h - 60, B.z[0] - 15], MAT.black).name = 'bin handle';   // 由北側抽出
+    return g;
+  });
+  // 接線盒漏斗（四片斜板）與滑槽（底板＋兩側板）
+  const F = SCRAP.funnel, fr = F.r, fs = F.throat;
+  for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    const side = dx ? [0, 0, 1] : [1, 0, 0];
+    slab(root, [F.x + dx * fr, F.top, F.z + dz * fr], [F.x + dx * fs, F.spout, F.z + dz * fs], 2 * fr, 6, side, MAT.steel).name = 'funnel plate';
   }
-  block(root, [cw + 40, CRATE.y, cd + 40], [CRATE.x, CRATE.y / 2, CRATE.z], cream).name = 'crate stand';
+  const [cx0, cy0, cz0] = CHUTE.from, [cx1, cy1, cz1] = CHUTE.to;
+  slab(root, [cx0, cy0, cz0], [cx1, cy1, cz1], CHUTE.w, 8, [1, 0, 0], MAT.steel).name = 'chute floor';
+  for (const sgn of [-1, 1]) slab(root, [cx0 + sgn * (CHUTE.w / 2 + 4), cy0 + 50, cz0], [cx1 + sgn * (CHUTE.w / 2 + 4), cy1 + 50, cz1], 100, 8, [0, 1, 0], MAT.steel).name = 'chute side';
+  // 長框料車（東側機外，可叉運）、接線盒料箱（北側機外）
+  const scrapOut = new THREE.Group(); scrapOut.name = 'scrap carts'; scene.add(scrapOut);
+  const box = (name, [x0, x1], [z0, z1], h, y0 = 0, mat = blue) => {
+    const xc = (x0 + x1) / 2, zc = (z0 + z1) / 2, w = x1 - x0, d = z1 - z0;
+    block(scrapOut, [w, 12, d], [xc, y0 + 6, zc], mat).name = name + ' floor';
+    for (const s2 of [-1, 1]) block(scrapOut, [w, h, 8], [xc, y0 + h / 2, zc + s2 * (d / 2 - 4)], mat).name = name + ' wall';
+    for (const s2 of [-1, 1]) block(scrapOut, [8, h - 12, d - 16], [xc + s2 * (w / 2 - 4), y0 + 12 + (h - 12) / 2, zc], mat).name = name + ' wall';
+  };
+  const K = SCRAP.cart;
+  box('frame cart', K.x, K.z, K.h - 140, 140, MAT.steelBlue);
+  for (const x of [K.x[0] + 150, K.x[1] - 150]) for (const z of [K.z[0] + 150, K.z[1] - 150]) {
+    cylinder(scrapOut, 50, 40, [x, 50, z], MAT.black, 'x', 16).name = 'cart caster';
+    block(scrapOut, [60, 40, 60], [x, 120, z], MAT.steelDark).name = 'cart caster mount';
+  }
+  const T = SCRAP.tote;
+  box('jbox tote', T.x, T.z, T.h, 0, blue);
+  // 料位感測：長框料車上緣、接線盒料箱上緣（反射式，滿料通知人員換車）
+  const level = [boxSensor.create(), boxSensor.create()];
+  level[0].root.position.set(K.x[1] - 60, K.h + 12, K.z[0] + 4); scrapOut.add(level[0].root);
+  level[1].root.position.set((T.x[0] + T.x[1]) / 2, T.h + 12, T.z[0] + 4); scrapOut.add(level[1].root);
 
   // ---------------------------------------------------------------- 液壓站（頂部西北角）與電控箱
   block(root, [800, 20, 700], [-950, top + 10, -500], cream);                                  // 平台
@@ -177,11 +193,10 @@ export function createDismantler(scene) {
 
   // ---------------------------------------------------------------- 狀態
   const PRESS_UP = M.pressUp, PRESS_DOWN = GLASS_Y;
-  function set({ press: pr = 0, clamp = 0, pull = 0, open = 0, scrape = 0 } = {}) {
+  function set({ press: pr = 0, clamp = 0, pull = 0, open = 0, scrape = 0, belt = 0 } = {}) {
     const out = pull * M.pull + open * M.open;
     for (const j of jaws) {
       j.g.position.copy(j.n).multiplyScalar(out);
-      for (const ram of j.drives) ram.aim(j.n.clone().multiplyScalar(286 + out));
       const ang = (1 - clamp) * Math.PI;                    // 0：扣住；π：翻到外側
       if (j.alongX) j.pivot.rotation.x = j.sgn * ang; else j.pivot.rotation.z = -j.sgn * ang;
     }
@@ -190,7 +205,8 @@ export function createDismantler(scene) {
     const len = PRESS_TOP - (y + 50);
     rod.scale.y = len; rod.position.y = 50 + len / 2;
     scraper.position.z = M.scrapeZ[0] + (M.scrapeZ[1] - M.scrapeZ[0]) * scrape;
+    for (const b of belts) b.set({ s: belt });
   }
   set();
-  return { root, set, jaws, press, scraper, bladeZ: s => M.scrapeZ[0] + (M.scrapeZ[1] - M.scrapeZ[0]) * s };
+  return { root, set, jaws, press, scraper, belts, bins, level, bladeZ: s => M.scrapeZ[0] + (M.scrapeZ[1] - M.scrapeZ[0]) * s };
 }

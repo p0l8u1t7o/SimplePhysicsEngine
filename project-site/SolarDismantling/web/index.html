@@ -24,18 +24,18 @@
   <header id="topbar">
     <div class="brand">
       <div class="title">太陽能板拆框機器人上下料</div>
-      <div class="sub">FANUC 手臂真空吸取整板送入拆框機，拆框後取出無框層壓板疊放</div>
+      <div class="sub">FANUC M-710iC/45M＋懸臂移載機：A/B 雙工位上下料、拆框機訊號交握、餘料外送</div>
     </div>
     <nav id="stations" aria-label="站別"></nav>
     <div class="views">
       <button data-view="iso">全景</button>
+      <button data-view="transfer">交接</button>
       <button data-view="machine">拆框機</button>
       <button data-view="inlet">入料</button>
       <button data-view="outlet">出料</button>
-      <button data-view="back">機台後側</button>
+      <button data-view="scrap">餘料</button>
       <button data-view="top">俯視</button>
-      <button data-view="gripper">吸盤特寫</button>
-      <button data-view="jaws">夾爪特寫</button>
+      <button data-view="gripper">特寫</button>
     </div>
   </header>
 
@@ -46,8 +46,20 @@
       <div id="substep" class="substep"></div>
     </section>
     <section class="card">
-      <h3>現場狀態</h3>
-      <dl id="stats" class="stats"></dl>
+      <h3>情境 <span class="hint" id="cycleNote"></span></h3>
+      <select id="scenario" aria-label="情境"><option value="">正常生產</option><option value="fault">拆框機故障（第 2 片卡料）</option></select>
+    </section>
+    <section class="card">
+      <h3>棧板工位</h3>
+      <dl id="bays" class="stats"></dl>
+    </section>
+    <section class="card">
+      <h3>訊號交握（PLC）</h3>
+      <ul id="signals" class="signals"></ul>
+    </section>
+    <section class="card">
+      <h3>手臂選型評估 <span class="hint">置中吸取／懸臂</span></h3>
+      <ul id="selection" class="checks"></ul>
     </section>
     <section class="card">
       <h3>空間檢核 <span class="hint" id="checkCount"></span></h3>

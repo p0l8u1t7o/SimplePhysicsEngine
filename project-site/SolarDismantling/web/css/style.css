@@ -68,3 +68,11 @@ select option{background:#172431}
 
 #loading{position:absolute;inset:0;display:grid;place-items:center;background:var(--bg);z-index:10;color:var(--muted);font-size:14px;letter-spacing:1px}
 #loading.hide{display:none}
+
+#scenario{width:100%;font-size:12px}
+.signals{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:1fr;gap:3px;font-size:12px}
+.signals li{display:flex;align-items:center;gap:8px;color:var(--muted)}
+.signals li::before{content:"";width:9px;height:9px;border-radius:50%;background:#2a3540;border:1px solid #3b5060;flex:none}
+.signals li.on{color:var(--fg)}.signals li.on::before{background:var(--ok);border-color:var(--ok)}
+.signals li.on.warn::before{background:var(--warn);border-color:var(--warn)}.signals li.on.bad::before{background:var(--bad);border-color:var(--bad)}
+.stats dd.red{color:var(--bad)}.stats dd.yellow{color:var(--warn)}.stats dd.green{color:var(--ok)}

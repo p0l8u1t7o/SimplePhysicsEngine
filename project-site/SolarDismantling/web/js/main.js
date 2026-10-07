@@ -1,26 +1,27 @@
 // 主程式：舞台（core/ui/stage.js）＋播放列（core/ui/player.js）＋共用版面與相機視窗（core/ui/viewer-workspace.js）＋本站的視角、站別與面板。
 // 場景與每個時間點的狀態全部來自 project.js，與 core 統一檢查用的是同一份。
+// 網址參數 ?fault：情境「拆框機故障」（project.json 的 variants 也用同一個參數）。
 import * as THREE from 'three';
 import { createStage, exposeSim } from '@core/ui/stage.js';
 import { createPlayer } from '@core/ui/player.js';
 import { createViewerWorkspace } from '@core/ui/viewer-workspace.js';
 import { createProject, STATIONS } from './project.js';
-import { IN, OUT, MACHINE, ROBOT, GLASS_Y, CONTROLLER, OPERATOR, FENCE } from './layout.js';
-import { CYCLES } from './sequence.js';
+import { MACHINE, ROBOT, GLASS_Y, CONTROLLER, OPERATOR, FENCE, BAYS, TABLE, LOADER, SCRAP } from './layout.js';
 
 const qp = new URLSearchParams(location.search);
 const $ = id => document.getElementById(id);
+const fault = qp.has('fault');
 
 // ---------------------------------------------------------------- 舞台
 const canvas = $('c');
 const stage = createStage({
-  canvas, look: 'cell', extent: { center: [0, 900, 2200], radius: 5200 },
+  canvas, look: 'cell', extent: { center: [0, 900, 2000], radius: 5600 },
   camera: { near: 10, far: 60000 },
-  controls: { minDistance: 400, maxDistance: 26000 },
+  controls: { minDistance: 400, maxDistance: 28000 },
 });
 const { renderer, scene, camera, controls } = stage;
-const project = createProject({ scene });
-const { sequence: seq, robot, machine, cell, stationStart } = project;
+const project = createProject({ scene, fault });
+const { sequence: seq, robot, cell, stationStart } = project;
 
 // ---------------------------------------------------------------- 相機視窗：拆框機內部的監看相機（虛擬），看拆框與剝線盒
 const machineCam = new THREE.PerspectiveCamera(46, 1.5, 50, 12000);
@@ -35,17 +36,17 @@ const workspace = createViewerWorkspace({
 
 // ---------------------------------------------------------------- 視角（照桌面寫；窄畫布由 stage 自動拉遠）
 const VIEWS = {
-  iso: [[5200, 4600, 8200], [0, 700, 1700]],
+  iso: [[5600, 5200, 8600], [0, 600, 1900]],
+  transfer: [[-3300, 2700, 3400], [-300, 1000, 1100]],
   machine: [[1900, 2100, 3300], [0, 1000, 0]],
-  inlet: [[-4600, 2600, 5600], [IN.x, 700, IN.z - 300]],
-  outlet: [[4600, 2600, 5600], [OUT.x, 600, OUT.z - 300]],
-  back: [[-2600, 2600, -4200], [0, 800, 0]],
-  top: [[0, 11000, 2200], [0, 0, 2199]],
+  inlet: [[-4900, 2700, 6200], [BAYS.inA.x, 600, 3300]],
+  outlet: [[4900, 2700, 6200], [BAYS.outA.x, 500, 3300]],
+  scrap: [[3300, 2400, -3600], [600, 500, -300]],
+  top: [[0, 12500, 2100], [0, 0, 2099]],
   gripper: () => {
     const p = tcpWorld(), x = p.x < -1200 ? 1400 : p.x > 1200 ? -1400 : -1000;
     return [p.clone().add(new THREE.Vector3(x, 750, p.z > 2500 ? 800 : 1350)).toArray(), p.toArray()];
   },
-  jaws: [[1200, 1450, 1850], [250, 880, 470]],
 };
 function setView(name, instant = false) {
   const v = typeof VIEWS[name] === 'function' ? VIEWS[name]() : VIEWS[name]; if (!v) return;
@@ -58,15 +59,18 @@ document.querySelectorAll('.views [data-view]').forEach(b => b.onclick = () => s
 // ---------------------------------------------------------------- 3D 標籤
 const label = (html, pos, priority = 0) => stage.addLabel(html, pos, '', { anchor: 'above', priority });
 label('拆框機（現場既有）', new THREE.Vector3(MACHINE.x + 700, 2000, MACHINE.z - 900), 4);
-label('FANUC R-2000iC/165F', new THREE.Vector3(ROBOT.x, 1300, ROBOT.z + 500), 5);
-label('入料棧板：整板 20 片', new THREE.Vector3(IN.x, 1000, IN.z + 900), 3);
-label('出料棧板：無框層壓板', new THREE.Vector3(OUT.x, 450, OUT.z + 900), 3);
-label('鋁框收集槽', new THREE.Vector3(MACHINE.x + 600, 520, MACHINE.z - 600), 1);
-label('接線盒料箱', new THREE.Vector3(MACHINE.x - 600, 580, MACHINE.z - 500), 1);
+label('FANUC M-710iC/45M', new THREE.Vector3(ROBOT.x, 1150, ROBOT.z + 450), 5);
+label('交接台（置中）', new THREE.Vector3(TABLE.x + 700, 1000, TABLE.z + 450), 3);
+label('懸臂移載機', new THREE.Vector3(LOADER.railX, 1700, 1650), 3);
+label('入料 A', new THREE.Vector3(BAYS.inA.x, 500, BAYS.inA.z - 600), 2);
+label('入料 B', new THREE.Vector3(BAYS.inB.x, 900, BAYS.inB.z + 600), 2);
+label('出料 A', new THREE.Vector3(BAYS.outA.x, 600, BAYS.outA.z - 600), 2);
+label('出料 B', new THREE.Vector3(BAYS.outB.x, 300, BAYS.outB.z + 600), 2);
+label('長框料車', new THREE.Vector3((SCRAP.cart.x[0] + SCRAP.cart.x[1]) / 2, 700, 0), 1);
+label('接線盒料箱', new THREE.Vector3(-600, 320, (SCRAP.tote.z[0] + SCRAP.tote.z[1]) / 2), 1);
 label('液壓站', new THREE.Vector3(MACHINE.x - 950, 2800, MACHINE.z - 500), 0);
 label('手臂控制器', new THREE.Vector3(CONTROLLER.x, 1150, CONTROLLER.z), 0);
 label('操作站', new THREE.Vector3(OPERATOR.x, 1600, OPERATOR.z), 0);
-label('叉車口光柵', new THREE.Vector3(-FENCE.x, 1700, (FENCE.gate[0] + FENCE.gate[1]) / 2), 0);
 
 // ---------------------------------------------------------------- 站別按鈕
 const stationBar = $('stations');
@@ -76,35 +80,34 @@ STATIONS.forEach((name, i) => {
   stationBar.appendChild(b);
 });
 
-// ---------------------------------------------------------------- 面板
+// ---------------------------------------------------------------- 面板：情境、工位、訊號、選型評估、空間檢核
+const scenario = $('scenario'); scenario.value = fault ? 'fault' : '';
+scenario.onchange = () => { const u = new URL(location.href); if (scenario.value) u.searchParams.set('fault', ''); else u.searchParams.delete('fault'); location.href = u.toString().replace('fault=', 'fault'); };
+$('cycleNote').textContent = `節拍 ${project.cycleTime.toFixed(1)} s／片`;
 const events = seq.events;
-const ui = { action: $('action'), substep: $('substep'), stationName: $('stationName'), stations: [...stationBar.children], stats: $('stats') };
+const ui = { action: $('action'), substep: $('substep'), stationName: $('stationName'), stations: [...stationBar.children], bays: $('bays'), signals: $('signals') };
 $('cycleTime').textContent = `節拍 ${project.cycleTime.toFixed(1)} s／片`;
 const checks = project.layoutChecks?.() || [];
 $('checks').innerHTML = checks.map(r => `<li class="${r.ok ? 'ok' : 'ng'}">${r.ok ? '✓' : '✗'} ${r.name}<span>${r.value ?? ''}</span></li>`).join('');
 $('checkCount').textContent = `${checks.filter(r => r.ok).length} / ${checks.length}`;
-const pct = v => `${Math.round(v * 100)}%`;
+$('selection').innerHTML = project.selection.map(c => {
+  const [a, b] = c.results, mark = r => r.ok ? '✓' : '✗';
+  return `<li class="${a.ok ? 'ok' : 'ng'}" title="${[a, b].map(r => `${r.req}：${r.ok ? '可' : r.reasons.join('；')}`).join('\n')}">${mark(a)}／${mark(b)} ${c.model}<span>${c.note || (a.ok ? '' : a.reasons[0])}</span></li>`;
+}).join('');
+const BAY_TEXT = { ok: '使用中', low: '剩餘少', empty: '空：請補料', warn: '將滿：備棧板', full: '滿：請換棧板' };
+const BAY_COLOR = { ok: 'green', low: 'yellow', warn: 'yellow', empty: 'red', full: 'red' };
 let shown = '';
 function updatePanels(T) {
-  const { state: st, step } = seq.sample(T), done = T >= project.total - 1e-6;
-  const lams = Array.from({ length: CYCLES }, (_, k) => st['lam' + k]);
-  const picked = lams.filter(v => v !== 'in').length, out = lams.filter(v => v === 'out').length;
-  const frames = Array.from({ length: CYCLES }, (_, k) => st['frm' + k] >= 2).filter(Boolean).length;
-  const boxes = Array.from({ length: CYCLES }, (_, k) => st['box' + k] >= 2).filter(Boolean).length;
-  const mState = st.press > .01 || st.pull > .01 || st.scrape > .01 ? '拆框中' : lams.includes('machine') ? '等待取板' : '待料';
-  const vacuum = step.action === '破真空放板' ? '破真空' : st.vac >= .95 ? '吸附中' : st.vac > 0 ? '建立真空' : '關';
-  const rows = [
-    ['入料棧板', `${IN.n - picked} 片整板`], ['出料棧板', `${OUT.n + out} 片無框板`],
-    ['鋁框收集', `${frames * 4} 支（${frames} 片份）`], ['接線盒', `${boxes} 個`],
-    ['吸盤真空', vacuum], ['拆框機', `${mState}（壓板 ${pct(st.press)}、外拉 ${pct(st.pull)}）`],
-  ];
-  const key = step.action + '|' + rows.map(r => r[1]).join('|') + '|' + done;
+  const { step } = seq.sample(T), done = T >= project.total - 1e-6, pr = project.presentation;
+  const bays = Object.entries(pr.bays).map(([k, b]) => [`${k.startsWith('in') ? '入料' : '出料'} ${k.slice(-1)}`, `${b.n} 片・${BAY_TEXT[b.state]}`, BAY_COLOR[b.state]]);
+  const key = step.action + '|' + bays.map(b => b[1]).join('|') + '|' + pr.signals.map(s => +s.on).join('') + done;
   if (key === shown) return; shown = key;
   ui.action.textContent = done ? '完成：兩片拆框完成，回等待位' : step.action;
   ui.substep.textContent = step.sub || '';
   ui.stationName.textContent = `S${step.station + 1} ${STATIONS[step.station]}`;
-  ui.stations.forEach((b, i) => { b.classList.toggle('active', i === step.station); });
-  ui.stats.innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+  ui.stations.forEach((b, i) => b.classList.toggle('active', i === step.station));
+  ui.bays.innerHTML = bays.map(([k, v, c]) => `<dt>${k}</dt><dd class="${c}">${v}</dd>`).join('');
+  ui.signals.innerHTML = pr.signals.map(s => `<li class="${s.on ? 'on' : ''} ${s.kind || ''}">${s.label}</li>`).join('');
 }
 
 // ---------------------------------------------------------------- 播放列
@@ -137,7 +140,7 @@ if (qp.has('movie')) {
     scene, renderer, camera, controls, render, setView, total: project.total,
     steps: seq.steps,
     sample: t => { movieTime = t; project.apply(t); updatePanels(t); },
-    focus: () => seq.sample(movieTime).step.station === 2 ? new THREE.Vector3(0, 900, 0) : tcpWorld(), far: 30000,
-    offset: [-2200, 1800, 2800],
+    focus: () => { const s = seq.sample(movieTime).step.station; return s === 3 ? new THREE.Vector3(0, 900, 0) : s === 2 || s === 4 ? project.transfer.tcp() : tcpWorld(); },
+    far: 30000, offset: [-2200, 1800, 2800],
   });
 }

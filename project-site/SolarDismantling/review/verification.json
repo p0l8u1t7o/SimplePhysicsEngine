@@ -1,16 +1,116 @@
 {
-  "ok": true,
-  "total": 107.96,
-  "cycle": 50.56,
-  "notes": {
-    "linWorst": 0.04,
-    "interlockGap": 310,
-    "payloadKg": 50.5,
-    "detailSamples": 261,
-    "ramEndGap": 0,
-    "laserSamples": 8,
-    "blowSamples": 7,
-    "fallSamples": 300
+  "scenarios": {
+    "正常": {
+      "ok": true,
+      "total": 104.8,
+      "cycle": 50.07,
+      "notes": {
+        "linWorst": 0.04,
+        "loaderParkedWhileStripping": 1,
+        "robotLoaderGap": 331,
+        "detailSamples": 445
+      },
+      "failures": []
+    },
+    "拆框機故障": {
+      "ok": true,
+      "total": 112.7,
+      "cycle": 50.07,
+      "notes": {
+        "linWorst": 0.04,
+        "loaderParkedWhileStripping": 1,
+        "robotLoaderGap": 331,
+        "faultMove": 0,
+        "detailSamples": 461
+      },
+      "failures": []
+    }
   },
-  "failures": []
+  "selection": [
+    {
+      "model": "M-20iD/35",
+      "results": [
+        {
+          "req": "置中吸盤架（本版）",
+          "ok": false,
+          "reasons": [
+            "J5 慣量 9.4 > 4 kg·m²",
+            "J6 慣量 7.3 > 1.5 kg·m²",
+            "伸展 2554 > 1831 mm（要重排配置）"
+          ]
+        },
+        {
+          "req": "懸臂側進吸盤架（第一版）",
+          "ok": false,
+          "reasons": [
+            "負載 50.5 > 35 kg",
+            "手腕力矩 372 > 110 N·m",
+            "J5 慣量 46.8 > 4 kg·m²",
+            "J6 慣量 43.2 > 1.5 kg·m²",
+            "伸展 2655 > 1831 mm（要重排配置）"
+          ]
+        }
+      ]
+    },
+    {
+      "model": "M-710iC/50",
+      "results": [
+        {
+          "req": "置中吸盤架（本版）",
+          "ok": false,
+          "reasons": [
+            "伸展 2554 > 2050 mm（要重排配置）"
+          ]
+        },
+        {
+          "req": "懸臂側進吸盤架（第一版）",
+          "ok": false,
+          "reasons": [
+            "負載 50.5 > 50 kg",
+            "手腕力矩 372 > 206 N·m",
+            "J5 慣量 46.8 > 21 kg·m²",
+            "J6 慣量 43.2 > 13 kg·m²",
+            "伸展 2655 > 2050 mm（要重排配置）"
+          ]
+        }
+      ]
+    },
+    {
+      "model": "M-710iC/45M",
+      "results": [
+        {
+          "req": "置中吸盤架（本版）",
+          "ok": true,
+          "reasons": []
+        },
+        {
+          "req": "懸臂側進吸盤架（第一版）",
+          "ok": false,
+          "reasons": [
+            "負載 50.5 > 45 kg",
+            "手腕力矩 372 > 206 N·m",
+            "J5 慣量 46.8 > 28 kg·m²",
+            "J6 慣量 43.2 > 20 kg·m²",
+            "伸展 2655 > 2606 mm（要重排配置）"
+          ]
+        }
+      ]
+    },
+    {
+      "model": "R-2000iC/165F",
+      "results": [
+        {
+          "req": "置中吸盤架（本版）",
+          "ok": true,
+          "reasons": []
+        },
+        {
+          "req": "懸臂側進吸盤架（第一版）",
+          "ok": true,
+          "reasons": []
+        }
+      ]
+    }
+  ],
+  "ok": true
 }

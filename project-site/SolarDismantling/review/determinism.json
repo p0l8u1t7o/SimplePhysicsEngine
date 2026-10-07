@@ -1,8 +1,23 @@
 {
-  "variant": "預設",
-  "params": {},
   "ok": true,
-  "objects": 1052,
-  "samples": 40,
-  "failures": []
+  "variants": [
+    {
+      "variant": "預設",
+      "params": {},
+      "ok": true,
+      "objects": 1280,
+      "samples": 40,
+      "failures": []
+    },
+    {
+      "variant": "拆框機故障",
+      "params": {
+        "fault": true
+      },
+      "ok": true,
+      "objects": 1280,
+      "samples": 40,
+      "failures": []
+    }
+  ]
 }

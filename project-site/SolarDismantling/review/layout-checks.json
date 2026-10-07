@@ -1,57 +1,193 @@
 {
-  "variant": "預設",
-  "params": {},
   "ok": true,
-  "count": 8,
-  "failures": [],
-  "rows": [
+  "variants": [
     {
-      "group": "手臂可達",
-      "name": "入料最底層（第 1 片）",
+      "variant": "預設",
+      "params": {},
       "ok": true,
-      "value": "誤差 0.00 mm"
+      "count": 14,
+      "failures": [],
+      "rows": [
+        {
+          "group": "手臂可達",
+          "name": "入料 A 最底層",
+          "ok": true,
+          "value": "誤差 0.00 mm"
+        },
+        {
+          "group": "手臂可達",
+          "name": "入料 A 滿疊（第 20 片）",
+          "ok": true,
+          "value": "誤差 0.01 mm"
+        },
+        {
+          "group": "手臂可達",
+          "name": "入料 B 最底層",
+          "ok": true,
+          "value": "誤差 0.00 mm"
+        },
+        {
+          "group": "手臂可達",
+          "name": "入料 B 滿疊（第 20 片）",
+          "ok": true,
+          "value": "誤差 0.01 mm"
+        },
+        {
+          "group": "手臂可達",
+          "name": "出料 A 第 1 片",
+          "ok": true,
+          "value": "誤差 0.00 mm"
+        },
+        {
+          "group": "手臂可達",
+          "name": "出料 A 滿疊（第 60 片）",
+          "ok": true,
+          "value": "誤差 0.00 mm"
+        },
+        {
+          "group": "手臂可達",
+          "name": "出料 B 第 1 片",
+          "ok": true,
+          "value": "誤差 0.00 mm"
+        },
+        {
+          "group": "手臂可達",
+          "name": "出料 B 滿疊（第 60 片）",
+          "ok": true,
+          "value": "誤差 0.00 mm"
+        },
+        {
+          "group": "手臂可達",
+          "name": "交接台放板位",
+          "ok": true,
+          "value": "誤差 0.04 mm"
+        },
+        {
+          "group": "手臂可達",
+          "name": "排程內 46 個位姿",
+          "ok": true,
+          "value": "最大誤差 0.02 mm"
+        },
+        {
+          "group": "負載",
+          "name": "整板＋吸盤架 ≤ 45 kg（M-710iC/45M）",
+          "ok": true,
+          "value": "28.5 kg"
+        },
+        {
+          "group": "負載",
+          "name": "手腕力矩與慣量在容許內",
+          "ok": true,
+          "value": "置中吸取"
+        },
+        {
+          "group": "圍籬",
+          "name": "棧板外緣在圍籬內",
+          "ok": true,
+          "value": "餘裕 325 mm"
+        },
+        {
+          "group": "節拍",
+          "name": "每片節拍 ≤ 60 s",
+          "ok": true,
+          "value": "50.1 s／片（約 71 片／時）"
+        }
+      ]
     },
     {
-      "group": "手臂可達",
-      "name": "入料最上層（第 20 片）",
+      "variant": "拆框機故障",
+      "params": {
+        "fault": true
+      },
       "ok": true,
-      "value": "誤差 0.01 mm"
-    },
-    {
-      "group": "手臂可達",
-      "name": "拆框機放板位",
-      "ok": true,
-      "value": "誤差 0.00 mm"
-    },
-    {
-      "group": "手臂可達",
-      "name": "出料滿疊（第 40 片）",
-      "ok": true,
-      "value": "誤差 0.00 mm"
-    },
-    {
-      "group": "手臂可達",
-      "name": "排程內 38 個位姿",
-      "ok": true,
-      "value": "最大誤差 0.03 mm"
-    },
-    {
-      "group": "負載",
-      "name": "整板＋吸盤架 ≤ 165 kg（R-2000iC/165F）",
-      "ok": true,
-      "value": "50.5 kg"
-    },
-    {
-      "group": "圍籬",
-      "name": "出入料棧板外緣在圍籬內",
-      "ok": true,
-      "value": "餘裕 404 mm"
-    },
-    {
-      "group": "節拍",
-      "name": "每片節拍 ≤ 60 s",
-      "ok": true,
-      "value": "50.6 s／片（約 71 片／時）"
+      "count": 14,
+      "failures": [],
+      "rows": [
+        {
+          "group": "手臂可達",
+          "name": "入料 A 最底層",
+          "ok": true,
+          "value": "誤差 0.00 mm"
+        },
+        {
+          "group": "手臂可達",
+          "name": "入料 A 滿疊（第 20 片）",
+          "ok": true,
+          "value": "誤差 0.01 mm"
+        },
+        {
+          "group": "手臂可達",
+          "name": "入料 B 最底層",
+          "ok": true,
+          "value": "誤差 0.00 mm"
+        },
+        {
+          "group": "手臂可達",
+          "name": "入料 B 滿疊（第 20 片）",
+          "ok": true,
+          "value": "誤差 0.01 mm"
+        },
+        {
+          "group": "手臂可達",
+          "name": "出料 A 第 1 片",
+          "ok": true,
+          "value": "誤差 0.00 mm"
+        },
+        {
+          "group": "手臂可達",
+          "name": "出料 A 滿疊（第 60 片）",
+          "ok": true,
+          "value": "誤差 0.00 mm"
+        },
+        {
+          "group": "手臂可達",
+          "name": "出料 B 第 1 片",
+          "ok": true,
+          "value": "誤差 0.00 mm"
+        },
+        {
+          "group": "手臂可達",
+          "name": "出料 B 滿疊（第 60 片）",
+          "ok": true,
+          "value": "誤差 0.00 mm"
+        },
+        {
+          "group": "手臂可達",
+          "name": "交接台放板位",
+          "ok": true,
+          "value": "誤差 0.04 mm"
+        },
+        {
+          "group": "手臂可達",
+          "name": "排程內 46 個位姿",
+          "ok": true,
+          "value": "最大誤差 0.02 mm"
+        },
+        {
+          "group": "負載",
+          "name": "整板＋吸盤架 ≤ 45 kg（M-710iC/45M）",
+          "ok": true,
+          "value": "28.5 kg"
+        },
+        {
+          "group": "負載",
+          "name": "手腕力矩與慣量在容許內",
+          "ok": true,
+          "value": "置中吸取"
+        },
+        {
+          "group": "圍籬",
+          "name": "棧板外緣在圍籬內",
+          "ok": true,
+          "value": "餘裕 325 mm"
+        },
+        {
+          "group": "節拍",
+          "name": "每片節拍 ≤ 60 s",
+          "ok": true,
+          "value": "50.1 s／片（約 71 片／時）"
+        }
+      ]
     }
   ]
 }
