@@ -52,12 +52,84 @@ for (let k = 0; k < CYCLES; k++) {
   }
   const jb = new THREE.Box3().setFromObject(m.jbox), [cw, , cd] = CRATE.size;
   if (!inside(jb.getCenter(new THREE.Vector3()), [CRATE.x - cw / 2, CRATE.x + cw / 2], [CRATE.y, CRATE.y + CRATE.size[1]], [CRATE.z - cd / 2, CRATE.z + cd / 2])) failures.push(`第 ${k + 1} 片接線盒不在料箱內`);
+  if (jb.min.x < CRATE.x - cw / 2 + 8 - .5 || jb.max.x > CRATE.x + cw / 2 - 8 + .5 ||
+      jb.min.z < CRATE.z - cd / 2 + 8 - .5 || jb.max.z > CRATE.z + cd / 2 - 8 + .5 || jb.min.y < CRATE.y + 10 - .5) failures.push(`第 ${k + 1} 片接線盒線材超出料箱內壁`);
   if (seq.sample(project.total).state['lam' + k] !== 'out') failures.push(`第 ${k + 1} 片層壓板最後不在出料棧板`);
 }
 
 // 5. 節拍與負載
 if (project.cycleTime > 60) failures.push(`節拍 ${project.cycleTime.toFixed(1)} s 超過 60 s`);
 notes.payloadKg = PANEL.kg + GRIP.kg;
+
+// 6. 細節在短步驟與端點也要倒序一致；另外涵蓋 core 矩陣檢查沒有比的燈色、透明度與 HMI 文字。
+const detailTimes = [...new Set(seq.steps.flatMap(s => [0, .2, .5, .8, 1].map(u => s.start + s.dur * u)))];
+const detailObjects = [robot.laser, ...robot.blow.children, ...robot.dress, ...robot.switches, ...project.cell.tower.lampList,
+  ...project.movers.flatMap(m => [m.jbox, ...m.frames])];
+const snapshot = t => {
+  project.apply(t); scene.updateMatrixWorld(true);
+  return JSON.stringify({ presentation: project.presentation, blow: robot.blow.visible,
+    objects: detailObjects.map(o => ({ matrix: o.matrixWorld.elements.map(v => +v.toFixed(6)), visible: o.visible,
+      opacity: o.material?.opacity, light: o.material?.emissiveIntensity })) });
+};
+const forward = detailTimes.map(snapshot);
+for (let i = detailTimes.length - 1; i >= 0; i--) if (snapshot(detailTimes[i]) !== forward[i]) failures.push(`細節倒序不一致：${detailTimes[i].toFixed(3)} s`);
+notes.detailSamples = detailTimes.length;
+
+// 7. 驅動桿端落在耳板內側面，雷射只在測高時照向板面，破真空只有前 0.3 s 出現吹氣環。
+let ramGap = 0, laserSamples = 0, blowSamples = 0;
+for (const t of detailTimes) {
+  const st = project.apply(t), { step } = seq.sample(t); scene.updateMatrixWorld(true);
+  for (const j of project.machine.jaws) {
+    const lugs = j.g.children.filter(o => o.name === 'jaw drive lug');
+    j.drives.forEach((ram, i) => {
+      const tip = ram.piston.localToWorld(new THREE.Vector3(0, .5, 0));
+      const box = new THREE.Box3().setFromObject(lugs[i]), axis = j.alongX ? 'z' : 'x';
+      ramGap = Math.max(ramGap, Math.abs(tip[axis] - (j.sgn > 0 ? box.min[axis] : box.max[axis])));
+    });
+  }
+  if (robot.laser.visible !== (step.action === '雷射測高')) failures.push(`雷射顯示時機錯誤：${t.toFixed(3)} s`);
+  if (robot.laser.visible) {
+    laserSamples++;
+    const hit = robot.laser.localToWorld(new THREE.Vector3(0, -.5, 0));
+    const top = project.movers.find((m, k) => st['lam' + k] === 'in');
+    if (!top || Math.abs(hit.y - top.lam.position.y) > .2) failures.push(`雷射沒有落在最上層玻璃面：${t.toFixed(3)} s`);
+  }
+  const elapsed = t - step.start, blowing = step.action === '破真空放板' && elapsed > 0 && elapsed < .3;
+  if (robot.blow.visible !== blowing) failures.push(`吹氣顯示時機錯誤：${t.toFixed(3)} s`);
+  if (robot.blow.visible) blowSamples++;
+}
+notes.ramEndGap = +ramGap.toFixed(3); notes.laserSamples = laserSamples; notes.blowSamples = blowSamples;
+if (ramGap > .5) failures.push(`夾爪桿端與耳板相差 ${ramGap.toFixed(3)} mm`);
+if (!laserSamples || !blowSamples) failures.push('缺少雷射或吹氣特效取樣');
+// 壓板降到底時，四支導桿仍須貫穿固定襯套，不能離開導引後懸空。
+const pressed = seq.steps.find(s => s.action === '中央壓板下壓');
+project.apply(pressed.start + pressed.dur); scene.updateMatrixWorld(true);
+const guideBushes = project.machine.root.children.filter(o => o.name === 'press guide bush');
+project.machine.press.children.filter(o => o.name === 'press guide rod').forEach((rod, i) => {
+  const r = new THREE.Box3().setFromObject(rod), b = new THREE.Box3().setFromObject(guideBushes[i]);
+  if (r.max.y < b.max.y || r.min.y > b.min.y) failures.push('壓板導桿未全程貫穿固定襯套');
+});
+
+// 8. 以 0.01 s 檢查翻落時不提早穿過收集槽底／料箱底，並確認各零件確實有轉動。
+let fallSamples = 0, tumbling = false, tilting = false;
+for (const s of seq.steps.filter(s => ['接線盒落入料箱', '鋁框落入收集槽'].includes(s.action))) {
+  for (let dt = 0; dt <= s.dur; dt += .01) {
+    const st = project.apply(s.start + dt); scene.updateMatrixWorld(true); fallSamples++;
+    for (let k = 0; k < CYCLES; k++) {
+      const m = project.movers[k];
+      if (st['box' + k] > 1 && st['box' + k] < 2) {
+        tumbling ||= m.jbox.quaternion.angleTo(new THREE.Quaternion()) > .5;
+        if (new THREE.Box3().setFromObject(m.jbox).min.y < CRATE.y + 10 - .5) failures.push('翻落中的接線盒穿過料箱底');
+      }
+      if (st['frm' + k] > 1 && st['frm' + k] < 2) for (const g of m.frames) {
+        tilting ||= g.quaternion.angleTo(new THREE.Quaternion()) > .005;
+        if (new THREE.Box3().setFromObject(g).min.y < TROUGH.y + 10 - .5) failures.push('翻落中的鋁框穿過收集槽底');
+      }
+    }
+  }
+}
+notes.fallSamples = fallSamples;
+if (!tumbling || !tilting) failures.push('接線盒翻轉或鋁框傾斜未呈現');
 
 const result = { ok: !failures.length, total: +project.total.toFixed(2), cycle: +project.cycleTime.toFixed(2), notes, failures };
 mkdirSync(new URL('../review/', import.meta.url), { recursive: true });

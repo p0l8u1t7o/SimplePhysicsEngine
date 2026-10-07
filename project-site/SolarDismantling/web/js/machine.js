@@ -4,7 +4,9 @@
 //   scrape 剝線盒刮刀由南往北推。
 // 局部座標原點在機台中心地面；板放在機台上時，板原點（玻璃面中心）在 (0, GLASS_Y, 0)，長邊沿 X。
 import * as THREE from 'three';
-import { block, cylinder } from '@core/geom/shapes.js';
+import { block, cylinder, tube, pipe, plate } from '@core/geom/shapes.js';
+import { pivotCylinder, linearAxis } from '@core/models/motion.js';
+import { lightCurtain } from '@core/models/sensors.js';
 import { MAT } from '@core/geom/materials.js';
 import { bolts } from '@core/geom/hardware.js';
 import { MACHINE as M, PANEL, GLASS_Y } from './layout.js';
@@ -68,9 +70,39 @@ export function createDismantler(scene) {
     const finger = block(pivot, size(s.len - 300, 20, 120), [0, 0, 0], yellow); finger.name = 'jaw finger';
     finger.position.set(...(alongX ? [0, 0, -sgn * 60] : [-sgn * 60, 0, 0]));         // 由樞軸往內 120 mm
     for (const a of [-s.len / 2 + 60, s.len / 2 - 60]) block(g, size(40, GLASS_Y + PANEL.lip - M.tableY + 10, 40), at(a, (M.tableY + GLASS_Y + PANEL.lip + 10) / 2, s.inner + 120), yellow).name = 'jaw post';
-    // 固定的驅動油壓缸（滑座下方）
-    for (const a of [-s.len / 4, s.len / 4]) block(root, size(70, 40, 150), at(a, 810, s.inner + 290), MAT.steelDark).name = 'jaw cylinder';
-    return { g, pivot, n: new THREE.Vector3(...s.n), alongX, sgn };
+    // 缸筒固定在承板下方，桿端連到滑座下垂耳板；外拉與退板共用原有 200 mm 行程。
+    const drives = [-1, 1].map(sign => {
+      const a = sign * (alongX ? 375 : 120);
+      const ram = pivotCylinder.create({ barrelR: 24, barrelL: 240, rodR: 12, rodFrom: 240, trunnion: false, segments: 16 });
+      ram.root.position.set(...at(a, 750, s.inner - 163)); root.add(ram.root);
+      ram.barrel.name = `jaw ${i} drive barrel ${sign}`; ram.piston.name = `jaw ${i} drive rod ${sign}`;
+      block(g, size(42, 102, 28), at(a, 789, s.inner + 137), yellow).name = 'jaw drive lug';
+      const outer = alongX ? hz : hx, mountIn = s.inner - 183;
+      block(root, size(70, 30, outer - mountIn + 40), at(a, 709, (outer + mountIn) / 2), cream).name = 'jaw drive mount';
+      block(root, size(70, 70, 50), at(a, 755, outer), cream).name = 'jaw drive bracket';
+      // 兩路油管從機架下方繞至缸筒側面，避開上方的導軌與板材。
+      for (const [lane, d] of [12, 200].entries()) {
+        const end = at(a + 25, 750, s.inner - 163 + d);
+        const feedY = lane ? 620 : 650; // 高壓與回油分層，支管不穿過另一條環管。
+        pipe(root, [at(a + 65 + lane * 18, feedY, s.inner + 390 + lane * 18), at(a + 65 + lane * 18, feedY, s.inner - 163 + d), at(a + 65 + lane * 18, 750, s.inner - 163 + d), end], 6, 0x567ca0, 0x252c33).mesh.name = 'jaw hydraulic branch';
+      }
+      return ram;
+    });
+    const guides = [-1, 1].map(sign => {
+      const a = sign * s.len * .36;
+      const axis = linearAxis.create({ axis: alongX ? 'z' : 'x', guide: `jaw-guide-${i}-${sign}`,
+        base: { size: size(58, 16, 288), at: at(a, 804, s.inner + 237) },
+        rails: { size: size(22, 14, 288), at: [at(a, 819, s.inner + 237)] },
+        carriage: { size: size(48, 14, 60), at: at(a, 833, s.inner + 137) },
+      });
+      root.add(axis.root);
+      // 滑塊直接裝在原滑座群組，避免引入第二套位移狀態。
+      g.add(axis.carriage);
+      const outer = alongX ? hz : hx, start = s.inner + 365;
+      block(root, size(54, 16, outer - start + 20), at(a, 788, (outer + start) / 2), cream).name = 'jaw guide bracket';
+      return axis;
+    });
+    return { g, pivot, drives, guides, n: new THREE.Vector3(...s.n), alongX, sgn };
   });
 
   // ---------------------------------------------------------------- 中央壓板
@@ -78,6 +110,15 @@ export function createDismantler(scene) {
   block(press, [500, 40, 400], [0, 20 + 10, 0], yellow).name = 'press pad';
   block(press, [480, 10, 380], [0, 5, 0], rubber).name = 'press rubber';
   const rod = cylinder(press, 40, 1, [0, 0, 0], MAT.chrome, 'y', 20); rod.name = 'press rod';
+  // 四支導桿沿壓板升降，固定襯套座由頂部小橫樑支撐。
+  for (const z of [-140, 140]) {
+    block(root, [460, 40, 65], [0, 1850, z], cream).name = 'press guide bridge';
+    for (const x of [-180, 180]) {
+      cylinder(press, 14, 920, [x, 510, z], MAT.chrome, 'y', 16).name = 'press guide rod';
+      cylinder(root, 25, 60, [x, 1810, z], MAT.steelDark, 'y', 16).name = 'press guide bush';
+      bolts(press, [[x - 35, 55, z]], 7);
+    }
+  }
 
   // ---------------------------------------------------------------- 剝線盒刮刀：無桿缸（core linearAxis）沿 Z，刮刀臂伸到接線盒那一排
   const scraperX = -760;
@@ -119,6 +160,18 @@ export function createDismantler(scene) {
   cylinder(root, 130, 360, [-1100, top + 440 + 180, -500], blue, 'y', 28);                      // 馬達
   cylinder(root, 150, 30, [-1100, top + 440 + 375, -500], MAT.steelDark, 'y', 28);
   block(root, [160, 120, 160], [-800, top + 440 + 60, -420], MAT.steelDark);                    // 閥組
+  // 高壓／回油雙管：由閥組外側下行，沿北側立柱與檯面下方供應四組夾爪。
+  for (const o of [-14, 14]) {
+    tube(root, [[-715, 2450, -420 + o], [-500, 2410, -420 + o], [-280, 2160, -420 + o], [-180, 1770, -260 + o], [-90, 1740 + o, 0]], 9, rubber, 36).name = 'press hydraulic hose';
+    const lane = o < 0 ? 0 : 18, rx = SHELF_IN.x + 390 + lane, rz = SHELF_IN.z + 390 + lane, feedY = lane ? 620 : 650;
+    pipe(root, [[-800 + o, 2450, -505], [-800 + o, 2450, -990], [-1250 + o, 2450, -990], [-1250 + o, feedY, -990], [-rx, feedY, -990], [-rx, feedY, -rz]], 7, 0x567ca0, 0x252c33).mesh.name = 'hydraulic supply header';
+    pipe(root, [[-rx, feedY, -rz], [rx, feedY, -rz], [rx, feedY, rz], [-rx, feedY, rz], [-rx, feedY, -rz]], 7, 0x567ca0, 0x252c33).mesh.name = 'jaw hydraulic ring';
+  }
+  // 後側清運口保留開放空間，以安全光柵示意防護界線；不宣稱已完成安全驗證。
+  const guard = lightCurtain.create({ span: 2700, height: 1750, w: 30, d: 30, beam: { opacity: .025 }, name: 'rear safety curtain' });
+  guard.root.position.set(0, 150, -975); root.add(guard.root);
+  plate(root, ['FRAME DISMANTLER', 'HYDRAULIC / AUTO'], 360, 70, [650, 1895, 951], 0);
+  for (const x of [-1250, 1250]) bolts(root, [[x, 1880, 956], [x, 1920, 956]], 9, 'z');
   block(root, [160, 640, 420], [-M.L / 2 - 80, 1020, -640], MAT.cabinet).name = 'control box';      // 掛在西端樑外側
   for (let i = 0; i < 6; i++) cylinder(root, 14, 10, [-M.L / 2 - 165, 1250 - Math.floor(i / 2) * 70, -700 + (i % 2) * 120], [MAT.green, MAT.red, MAT.amber][i % 3], 'x', 16);
 
@@ -128,6 +181,7 @@ export function createDismantler(scene) {
     const out = pull * M.pull + open * M.open;
     for (const j of jaws) {
       j.g.position.copy(j.n).multiplyScalar(out);
+      for (const ram of j.drives) ram.aim(j.n.clone().multiplyScalar(286 + out));
       const ang = (1 - clamp) * Math.PI;                    // 0：扣住；π：翻到外側
       if (j.alongX) j.pivot.rotation.x = j.sgn * ang; else j.pivot.rotation.z = -j.sgn * ang;
     }

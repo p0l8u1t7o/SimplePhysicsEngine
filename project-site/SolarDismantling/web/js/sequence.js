@@ -94,6 +94,13 @@ export function createSequence(robot) {
   }
   ptp(4, WAIT, '回等待位', '一個循環完成，下一片接著從入料棧板取');
 
+  // 錄影只改取景距離，步驟時長、位姿、互鎖與關節路徑維持原排程。
+  for (const step of seq.steps) {
+    if (step.station === 2) step.offset = [1550, 1050, 1850];
+    else if (['雷射測高', '真空吸附', '破真空放板', '慢速剝離'].includes(step.action)) step.offset = [-1150, 850, 1450];
+    else if (step.robot === 'lin' && [1, 3].includes(step.station)) step.offset = [1700, 1200, 2200];
+  }
+
   // 各站的節拍（每片）：從第 2 片的事件推算
   const cycle = (() => {
     const ev = seq.events, s = ev.filter(e => e.label.startsWith('第 2 片'))[0], f = ev.filter(e => e.label.startsWith('第 1 片'))[0];

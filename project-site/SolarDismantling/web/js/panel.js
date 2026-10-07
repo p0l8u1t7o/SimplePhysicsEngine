@@ -2,7 +2,7 @@
 // 每個零件群組的原點都是「板的原點」（玻璃面中心，見 layout.js 的 PANEL），整板時四個群組的位姿相同；
 // 拆框後各零件改由自己的位姿決定（鋁框跟夾爪外拉、落入收集槽；接線盒被刮刀推落）。
 import * as THREE from 'three';
-import { block, HAS_DOM } from '@core/geom/shapes.js';
+import { block, cylinder, tube, HAS_DOM } from '@core/geom/shapes.js';
 import { MAT } from '@core/geom/materials.js';
 import { PANEL } from './layout.js';
 
@@ -40,7 +40,7 @@ function cellMaterial() {
 const group = name => { const g = new THREE.Group(); g.name = name; return g; };
 
 // 建立一片板的零件。raw：整板（含鋁框與接線盒）；否則只有層壓板（出料棧板上的既有板）。
-export function createPanelParts(parent, name, { raw = true } = {}) {
+export function createPanelParts(parent, name, { raw = true, detail = true } = {}) {
   const lam = group(name + ' laminate');
   // 上層：玻璃＋電池片（貼圖在上表面），下層：背板；兩層合計 PANEL.lam
   const top = block(lam, [P.glassL, 3.2, P.glassW], [0, -1.6, 0], cellMaterial()); top.name = 'panel glass';
@@ -52,7 +52,14 @@ export function createPanelParts(parent, name, { raw = true } = {}) {
   const jbox = group(name + ' jbox');
   const [bx, bh, bz] = P.jbox.size;
   block(jbox, [bx, bh, bz], [P.jbox.x, -P.lam - bh / 2, 0], jboxMat).name = 'junction box';
-  for (const s of [-1, 1]) block(jbox, [16, 12, 60], [P.jbox.x + s * 40, -P.lam - bh + 6, bz / 2 + 30], jboxMat).name = 'junction cable';
+  // 靜態板堆省略被遮住的線圈與端子；兩片示範板保留短線束與 MC4 外形。
+  if (detail) for (const s of [-1, 1]) {
+    const x = P.jbox.x, y = -P.lam - bh / 2;
+    tube(jbox, [[x + s * 70, y, 0], [x + s * 86, y, 15], [x + s * 86, y, 55], [x + s * 80, y, 78]], 3, jboxMat, 12).name = 'junction cable';
+    cylinder(jbox, 6, 28, [x + s * 80, y, 92], jboxMat, 'z', 10).name = 'junction MC4 housing';
+    cylinder(jbox, 7.5, 10, [x + s * 80, y, 110], MAT.steelDark, 'z', 8).name = 'junction MC4 lock';
+    cylinder(jbox, 4, 9, [x + s * 80, y, 120.5], jboxMat, 'z', 10).name = 'junction MC4 cap';
+  }
   parent.add(jbox); out.jbox = jbox;
 
   // 鋁框斷面（由外往內）：上緣蓋住玻璃 10 mm（離玻璃 0.5 mm）、槽外壁、下方本體（離背板 1 mm）
@@ -67,6 +74,11 @@ export function createPanelParts(parent, name, { raw = true } = {}) {
     block(g, size(len, P.lip - .5, e), at(0, .5 + (P.lip - .5) / 2, c), frameMat).name = 'frame lip';
     block(g, size(len, .5 - bodyTop, outer - wallIn), at(0, (bodyTop + .5) / 2, side * (wallIn + outer) / 2), frameMat).name = 'frame wall';
     block(g, size(len, bodyTop - bottom, e), at(0, (bodyTop + bottom) / 2, c), frameMat).name = 'frame body';
+    if (detail) for (const sign of [-1, 1]) {
+      // 排水孔以暗色孔口表現，角碼接縫貼在內側壁；不用高面數布林運算。
+      cylinder(g, 3.5, 1, at(sign * (len / 2 - 75), -20, side * (outer + 1)), jboxMat, along === 'x' ? 'z' : 'x', 8).name = 'frame drain opening';
+      block(g, size(44, 13, 1), at(sign * (len / 2 - 62), -18, side * (outer - e - 1.5)), MAT.steel).name = 'frame corner key';
+    }
     parent.add(g); return g;
   }
   // 長邊全長，短邊夾在兩支長邊之間

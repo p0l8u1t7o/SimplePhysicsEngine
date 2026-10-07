@@ -28,7 +28,7 @@ export function createCell(scene) {
   woodPallet(scene, 'in pallet', IN.x, IN.z, IN.pallet);
   woodPallet(scene, 'out pallet', OUT.x, OUT.z, OUT.pallet);
   const inStack = new THREE.Group(); inStack.name = 'in stack'; scene.add(inStack);
-  for (let i = 0; i < IN.n - 2; i++) placeParts(createPanelParts(inStack, `in${i}`), new THREE.Vector3(IN.x, inGlassY(i), IN.z), ROT_IN);
+  for (let i = 0; i < IN.n - 2; i++) placeParts(createPanelParts(inStack, `in${i}`, { detail: false }), new THREE.Vector3(IN.x, inGlassY(i), IN.z), ROT_IN);
   const outStack = new THREE.Group(); outStack.name = 'out stack'; scene.add(outStack);
   for (let i = 0; i < OUT.n; i++) placeParts(createPanelParts(outStack, `out${i}`, { raw: false }), new THREE.Vector3(OUT.x, outGlassY(i), OUT.z), ROT_OUT);
 
@@ -74,6 +74,7 @@ export function createCell(scene) {
   const stop = estop.create({ box: { size: [80, 90, 50] } }); stop.root.position.set(OPERATOR.x + 300, 1100, OPERATOR.z + 40); op.add(stop.root);
   block(op, [260, 30, 30], [OPERATOR.x + 170, 1100, OPERATOR.z], MAT.steelDark);
   const tower = signalTower.create({ poleH: 400 }); tower.root.position.set(1450, 1950, -900); scene.add(tower.root);   // 拆框機頂部東北角
+  block(tower.root, [70, 12, 60], [-15, -6, 0], MAT.steelDark).name = 'tower mounting bracket';
   tower.set('green');
 
   return { inStack, outStack, curtains, hmi: panel, tower };

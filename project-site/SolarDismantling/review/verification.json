@@ -5,7 +5,12 @@
   "notes": {
     "linWorst": 0.04,
     "interlockGap": 310,
-    "payloadKg": 50.5
+    "payloadKg": 50.5,
+    "detailSamples": 261,
+    "ramEndGap": 0,
+    "laserSamples": 8,
+    "blowSamples": 7,
+    "fallSamples": 300
   },
   "failures": []
 }

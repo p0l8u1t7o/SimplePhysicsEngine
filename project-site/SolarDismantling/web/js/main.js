@@ -41,6 +41,11 @@ const VIEWS = {
   outlet: [[4600, 2600, 5600], [OUT.x, 600, OUT.z - 300]],
   back: [[-2600, 2600, -4200], [0, 800, 0]],
   top: [[0, 11000, 2200], [0, 0, 2199]],
+  gripper: () => {
+    const p = tcpWorld(), x = p.x < -1200 ? 1400 : p.x > 1200 ? -1400 : -1000;
+    return [p.clone().add(new THREE.Vector3(x, 750, p.z > 2500 ? 800 : 1350)).toArray(), p.toArray()];
+  },
+  jaws: [[1200, 1450, 1850], [250, 880, 470]],
 };
 function setView(name, instant = false) {
   const v = typeof VIEWS[name] === 'function' ? VIEWS[name]() : VIEWS[name]; if (!v) return;
@@ -56,7 +61,7 @@ label('拆框機（現場既有）', new THREE.Vector3(MACHINE.x + 700, 2000, MA
 label('FANUC R-2000iC/165F', new THREE.Vector3(ROBOT.x, 1300, ROBOT.z + 500), 5);
 label('入料棧板：整板 20 片', new THREE.Vector3(IN.x, 1000, IN.z + 900), 3);
 label('出料棧板：無框層壓板', new THREE.Vector3(OUT.x, 450, OUT.z + 900), 3);
-label('鋁框收集槽', new THREE.Vector3(MACHINE.x + 600, 520, MACHINE.z - 980), 1);
+label('鋁框收集槽', new THREE.Vector3(MACHINE.x + 600, 520, MACHINE.z - 600), 1);
 label('接線盒料箱', new THREE.Vector3(MACHINE.x - 600, 580, MACHINE.z - 500), 1);
 label('液壓站', new THREE.Vector3(MACHINE.x - 950, 2800, MACHINE.z - 500), 0);
 label('手臂控制器', new THREE.Vector3(CONTROLLER.x, 1150, CONTROLLER.z), 0);
@@ -87,10 +92,11 @@ function updatePanels(T) {
   const frames = Array.from({ length: CYCLES }, (_, k) => st['frm' + k] >= 2).filter(Boolean).length;
   const boxes = Array.from({ length: CYCLES }, (_, k) => st['box' + k] >= 2).filter(Boolean).length;
   const mState = st.press > .01 || st.pull > .01 || st.scrape > .01 ? '拆框中' : lams.includes('machine') ? '等待取板' : '待料';
+  const vacuum = step.action === '破真空放板' ? '破真空' : st.vac >= .95 ? '吸附中' : st.vac > 0 ? '建立真空' : '關';
   const rows = [
     ['入料棧板', `${IN.n - picked} 片整板`], ['出料棧板', `${OUT.n + out} 片無框板`],
     ['鋁框收集', `${frames * 4} 支（${frames} 片份）`], ['接線盒', `${boxes} 個`],
-    ['吸盤真空', st.vac ? '吸附中' : '關'], ['拆框機', `${mState}（壓板 ${pct(st.press)}、外拉 ${pct(st.pull)}）`],
+    ['吸盤真空', vacuum], ['拆框機', `${mState}（壓板 ${pct(st.press)}、外拉 ${pct(st.pull)}）`],
   ];
   const key = step.action + '|' + rows.map(r => r[1]).join('|') + '|' + done;
   if (key === shown) return; shown = key;
@@ -99,8 +105,6 @@ function updatePanels(T) {
   ui.stationName.textContent = `S${step.station + 1} ${STATIONS[step.station]}`;
   ui.stations.forEach((b, i) => { b.classList.toggle('active', i === step.station); });
   ui.stats.innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
-  cell.hmi.drawText?.(['拆框上下料', mState, `出料 ${OUT.n + out} 片`]);
-  cell.tower.set(mState === '拆框中' ? 'yellow' : 'green');
 }
 
 // ---------------------------------------------------------------- 播放列
@@ -126,13 +130,14 @@ exposeSim({ seekTo: player.seekTo, setView, views: VIEWS, total: project.total, 
 // ---------------------------------------------------------------- 錄影（?movie）
 if (qp.has('movie')) {
   const { installMovie } = await import('@core/movie/movie.js');
+  let movieTime = 0;
   installMovie({
     project: decodeURIComponent(location.pathname.split('/').filter(Boolean).at(-1)),
     title: document.querySelector('.brand .title')?.textContent || document.title,
     scene, renderer, camera, controls, render, setView, total: project.total,
     steps: seq.steps,
-    sample: t => { project.apply(t); updatePanels(t); },
-    focus: tcpWorld, far: 30000,
+    sample: t => { movieTime = t; project.apply(t); updatePanels(t); },
+    focus: () => seq.sample(movieTime).step.station === 2 ? new THREE.Vector3(0, 900, 0) : tcpWorld(), far: 30000,
     offset: [-2200, 1800, 2800],
   });
 }

@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { createArm, K, LIMITS, SPEED, JOINTS } from '@core/models/robots/fanuc-r2000ic.js';
 import { suctionCup, vacuumEjector } from '@core/models/motion.js';
-import { block, cylinder, D2R } from '@core/geom/shapes.js';
+import { block, cylinder, tube, plate, D2R } from '@core/geom/shapes.js';
 import { MAT } from '@core/geom/materials.js';
 import { ROBOT, GRIP } from './layout.js';
 
@@ -37,8 +37,66 @@ export function createRobot(scene) {
   tool.add(cups.root);
   // 真空發生器：主樑兩側各一組
   for (const s of [-1, 1]) { const ej = vacuumEjector.create({ w: 120, h: 50, d: 70 }); ej.root.position.set(s * 121, -96, -C + 420); tool.add(ej.root); }
+  // 真空管沿主樑兩側走，再從橫樑外緣繞到吸盤頸部，避開實心鋁擠型。
+  for (const s of [-1, 1]) {
+    const feed = s < 0 ? [[-180, -35, 80], [-90, -35, -200]] : [];
+    tube(tool, [...feed, [s * 80, -35, -500], [s * 121, -45, -C + 420], [s * 121, -69, -C + 420]], 7, MAT.black, 20).name = `vacuum main hose ${s}`;
+  }
+  tube(tool, [[-80, -35, -500], [-55, -15, -500], [55, -15, -500], [80, -35, -500]], 7, MAT.black, 12).name = 'vacuum supply crossover';
+  for (const [i, [x, z]] of GRIP.cups.entries()) {
+    const s = Math.sign(x), zz = z - C, lane = i % 4 * 12;
+    tube(tool, [[s * (85 + lane), -120, -C + 420], [s * (85 + lane), -158, zz + Math.sign(z) * 80], [x, -158, zz + Math.sign(z) * 80], [x, -230, zz + Math.sign(z) * 68], [x, -262, zz + Math.sign(z) * 26]], 4, MAT.black, 22).name = `vacuum cup hose ${i}`;
+  }
+  // core 尚無負壓開關，本站以簡化機身、壓力顯示與接頭暫代（不冒用光電感測器）。
+  const switches = [-1, 1].map(s => {
+    const sw = new THREE.Group(); sw.name = 'vacuum pressure switch'; tool.add(sw);
+    sw.position.set(s * 121, -50, -C + 420);
+    block(sw, [42, 38, 32], [0, 0, 0], MAT.steelBlue).name = 'vacuum switch body';
+    const display = block(sw, [30, 22, 2], [0, 0, 18], MAT.green.clone()); display.name = 'vacuum switch display';
+    cylinder(sw, 6, 7, [0, -23.5, 0], MAT.chrome, 'y', 10).name = 'vacuum switch port';
+    plate(sw, ['kPa'], 24, 10, [0, 0, 20]);
+    return display;
+  });
+
+  // 前臂固定段＋腕部鬆弛環：每格由關節座標重算分段外皮，跳播不累積形變。
+  tube(arm.j.j3, [[210, 390, -100], [450, 405, -100], [740, 405, -100], [900, 390, -150]], 13, MAT.black, 24).name = 'forearm dress pack';
+  for (const x of [260, 700]) block(arm.j.j3, [35, 45, 30], [x, 373, -100], MAT.steelDark).name = 'dress pack saddle';
+  const dress = Array.from({ length: 20 }, (_, i) => {
+    const m = cylinder(arm.root, 11, 1, [0, 0, 0], MAT.black, 'y', 8); m.name = `wrist dress segment ${i}`; return m;
+  });
+  const local = (node, p) => arm.root.worldToLocal(node.localToWorld(new THREE.Vector3(...p)));
+  function updateDress() {
+    arm.root.updateMatrixWorld(true);
+    const end = tool.localToWorld(new THREE.Vector3(-180, -35, 80));
+    const tip = arm.j.j3.worldToLocal(end.clone());
+    const path = new THREE.CatmullRomCurve3([
+      local(arm.j.j3, [900, 390, -150]), local(arm.j.j3, [1020, 430, -270]),
+      local(arm.j.j3, [tip.x - 140, tip.y + 160, -270]), arm.root.worldToLocal(end),
+    ]);
+    for (let i = 0; i < dress.length; i++) {
+      const a = path.getPoint(i / dress.length), b = path.getPoint((i + 1) / dress.length), delta = b.clone().sub(a);
+      dress[i].position.copy(a).add(b).multiplyScalar(.5);
+      dress[i].quaternion.setFromUnitVectors(UP, delta.clone().normalize());
+      dress[i].scale.y = Math.max(.1, delta.length() - 1);
+    }
+  }
   // 測高雷射（取板前量最上層板面高度），吊在主樑下
   block(tool, [50, 90, 40], [0, -191, -C + 400], MAT.black);
+  const laser = cylinder(tool, 2, 1, [0, -236, -C + 400], new THREE.MeshBasicMaterial({ color: 0xff3030, transparent: true, opacity: .7, depthWrite: false }), 'y', 8);
+  laser.name = 'laser height beam'; laser.userData.fx = true;
+  const blow = new THREE.Group(); blow.name = 'vacuum release air'; blow.userData.fx = true; tool.add(blow);
+  const air = new THREE.MeshBasicMaterial({ color: 0x9aeaff, transparent: true, opacity: .6, depthWrite: false, side: THREE.DoubleSide });
+  for (const [x, z] of GRIP.cups) {
+    const ring = new THREE.Mesh(new THREE.RingGeometry(40, 44, 20), air); ring.rotation.x = -Math.PI / 2; ring.position.set(x, -D + 2, z - C); blow.add(ring);
+  }
+  function setDetail({ vac = 0, laserLength = 0, blowProgress = 0 } = {}) {
+    updateDress();
+    switches.forEach(m => { m.material.emissiveIntensity = vac >= .95 ? 1.4 : .04; });
+    laser.visible = laserLength > 0; laser.scale.y = Math.max(.1, laserLength); laser.position.y = -236 - laserLength / 2;
+    blow.visible = blowProgress > 0 && blowProgress < 1;
+    for (const ring of blow.children) ring.scale.setScalar(1 + 1.4 * blowProgress);
+    air.opacity = .65 * (1 - blowProgress);
+  }
 
   const tcp = new THREE.Object3D(); tcp.name = 'tcp'; tcp.position.set(0, -D, -C); tool.add(tcp);
   arm.apply();
@@ -64,5 +122,5 @@ export function createRobot(scene) {
   }
   // 直線段：以內插的關節角為初值，追蹤中間位姿
   const track = (pose, seed) => solver.track(pose, seed);
-  return { arm, root: arm.root, base, tool, tcp, cups, q: arm.q, setJoints: arm.setJoints, apply: arm.apply, posePanel, solve, track, error: solver.error, seeds: solver.seeds };
+  return { arm, root: arm.root, base, tool, tcp, cups, dress, laser, blow, switches, setDetail, q: arm.q, setJoints: arm.setJoints, apply: arm.apply, posePanel, solve, track, error: solver.error, seeds: solver.seeds };
 }

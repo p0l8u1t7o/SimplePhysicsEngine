@@ -26,6 +26,13 @@ export function createProject({ scene }) {
 
   const _p = new THREE.Vector3(), _q = new THREE.Quaternion(), I = new THREE.Quaternion();
   const seatPos = new THREE.Vector3(MACHINE.x, GLASS_Y, MACHINE.z);
+  // 旋轉中心放在零件自身，不能繞原本的整板中心公轉。
+  function rotateAt(g, pivot, euler) {
+    g.quaternion.setFromEuler(euler);
+    g.position.add(pivot).sub(pivot.clone().applyQuaternion(g.quaternion));
+  }
+  let hmiKey = '';
+  const presentation = {};
   function lamPose(where, k) {
     if (where === 'held') { robot.tcp.getWorldPosition(_p); robot.tcp.getWorldQuaternion(_q); return [_p, _q]; }
     if (where === 'machine') return [seatPos, I];
@@ -39,6 +46,22 @@ export function createProject({ scene }) {
     if (step.robot === 'lin' && smp.u > 0 && smp.u < 1) q = robot.track(linPose(step, smp.e), st.q);
     robot.setJoints(q);
     machine.set(st);
+    const done = t >= seq.total - 1e-6;
+    const lams = movers.map((_, k) => st['lam' + k]);
+    const picked = lams.filter(v => v !== 'in').length, outCount = lams.filter(v => v === 'out').length;
+    const frames = movers.filter((_, k) => st['frm' + k] >= 2).length * 4;
+    const boxes = movers.filter((_, k) => st['box' + k] >= 2).length;
+    const tower = done || t < 1 ? 'yellow' : step.station === 2 ? 'yellow' : 'green';
+    cell.tower.set(tower);
+    const lines = ['拆框上下料', done ? '完成：手臂回等待位' : step.action,
+      `入料 ${IN.n - picked} 片 / 出料 ${OUT.n + outCount} 片`, `鋁框 ${frames} 支 / 接線盒 ${boxes} 個`,
+      step.station === 2 ? '黃燈：拆框機動作，手臂等待' : done || t < 1 ? '黃燈：待命' : '綠燈：手臂上下料'];
+    const key = lines.join('|');
+    if (key !== hmiKey) { cell.hmi.drawText(lines); hmiKey = key; }
+    Object.assign(presentation, { lines, tower, picked, outCount, frames, boxes });
+    const laserLength = step.action === '雷射測高' ? robot.tcp.getWorldPosition(_p).y + GRIP.D - 236 - inGlassY(IN.n - 1 - picked) : 0;
+    const blowProgress = step.action === '破真空放板' ? Math.min(1, (t - step.start) / .3) : 0;
+    robot.setDetail({ vac: st.vac, laserLength, blowProgress });
     for (let k = 0; k < CYCLES; k++) {
       const parts = movers[k], [pos, rot] = lamPose(st['lam' + k], k);
       placeParts(parts, pos, rot);
@@ -49,14 +72,22 @@ export function createProject({ scene }) {
         const yEnd = TROUGH.y + 10 + (PANEL.T - PANEL.lip) + k * (PANEL.T + 1);
         g.position.set(MACHINE.x + d[0] * out, f > 1 ? GLASS_Y + (yEnd - GLASS_Y) * (f - 1) : GLASS_Y, MACHINE.z + d[2] * out);
         g.quaternion.identity();
+        if (f > 1 && f < 2) {
+          const u = f - 1, wobble = Math.sin(Math.PI * u) * (1 - u);
+          const c = (i < 2 ? PANEL.W : PANEL.L) / 2 - PANEL.edge / 2;
+          const pivot = new THREE.Vector3(d[0] * c, -14, d[2] * c);
+          rotateAt(g, pivot, new THREE.Euler(i < 2 ? 0 : .055 * wobble, .006 * wobble, i < 2 ? .045 * wobble : 0));
+        }
       });
       // 接線盒：0 在背板上；0～1 被刮刀往北推；1～2 落入料箱並翻轉
       const b = st['box' + k];
       if (b > 0) {
         const dz = Math.min(0, machine.bladeZ(Math.min(b, 1)) - 10 - PANEL.jbox.size[2] / 2);
         const bh = PANEL.jbox.size[1], yEnd = CRATE.y + 10 + bh + PANEL.lam + k * (bh + 2);   // 群組原點＝板原點（盒底落在料箱底，第 k 個疊上去）
-        parts.jbox.position.set(MACHINE.x, GLASS_Y + (yEnd - GLASS_Y) * Math.max(0, b - 1), MACHINE.z + dz);
+        const u = Math.max(0, b - 1);
+        parts.jbox.position.set(MACHINE.x, GLASS_Y + (yEnd - GLASS_Y) * u, MACHINE.z + dz + (CRATE.z - dz) * u);
         parts.jbox.quaternion.identity();
+        if (u > 0 && u < 1) rotateAt(parts.jbox, new THREE.Vector3(PANEL.jbox.x, -PANEL.lam - bh / 2, 0), new THREE.Euler(Math.PI * 2 * u, 0, .15 * Math.sin(Math.PI * u)));
       }
     }
     return st;
@@ -87,9 +118,11 @@ export function createProject({ scene }) {
 
   return {
     total: seq.total, sequence: seq, timeline: seq, apply, layoutChecks, stationStart: seq.stationStart,
-    cycleTime: cycle, robot, machine, movers, cell,
+    cycleTime: cycle, robot, machine, movers, cell, presentation,
     verify: {
       allow: [
+        { why: '腕部線束第 0 段端口接續前臂固定外皮；僅此端點配對，其他線段仍檢查', test: (a, b) => [a, b].some(named(/^forearm dress pack$/)) && [a, b].some(named(/^wrist dress segment 0$/)) },
+        { why: '腕部線束第 19 段端口接續負 X 側真空主管；僅此端點配對，其他線段仍檢查', test: (a, b) => [a, b].some(named(/^vacuum main hose -1$/)) && [a, b].some(named(/^wrist dress segment 19$/)) },
         { why: '同一片板的零件互相貼合；板堆框疊框', test: (a, b) => isPanel(a) && isPanel(b) },
         { why: '吸盤吸附玻璃面', test: (a, b) => [a, b].some(named(/^suction cup$/)) && [a, b].some(isPanel) },
         { why: '板放在拆框機承板與支撐軌上，被壓板、壓指壓住，刮刀推接線盒', test: (a, b) => [a, b].some(isPanel) && [a, b].some(named(/^(jaw shelf|jaw finger|support rail|press rubber|scraper blade)$/)) },
