@@ -1,0 +1,23 @@
+{
+  "ok": true,
+  "variants": [
+    {
+      "variant": "預設",
+      "params": {},
+      "ok": true,
+      "objects": 298,
+      "samples": 40,
+      "failures": []
+    },
+    {
+      "variant": "鵝頸出水管",
+      "params": {
+        "product": "gooseneck"
+      },
+      "ok": true,
+      "objects": 283,
+      "samples": 40,
+      "failures": []
+    }
+  ]
+}

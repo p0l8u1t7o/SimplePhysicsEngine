@@ -1,0 +1,13 @@
+{
+  "title": "水五金外觀 AOI 檢測機",
+  "summary": "DENSO VM-60B1：匯入 CAD 自動產生產品檔（A/B 面、遮罩、視角、路徑），偏折術免教導檢測",
+  "order": 10,
+  "coreVersion": "1.14.0",
+  "checks": {
+    "quick": ["tools/verify.mjs"],
+    "full": []
+  },
+  "variants": [
+    { "name": "鵝頸出水管", "params": { "product": "gooseneck" } }
+  ]
+}

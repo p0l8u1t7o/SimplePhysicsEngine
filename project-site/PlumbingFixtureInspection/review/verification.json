@@ -1,0 +1,31 @@
+{
+  "scenarios": {
+    "套筒": {
+      "ok": true,
+      "total": 91.05,
+      "cycle": 63.36,
+      "views": 16,
+      "notes": {
+        "coverageA": 0.9838,
+        "captureDrift": 0,
+        "linWorst": 0.079,
+        "result": "NG"
+      },
+      "failures": []
+    },
+    "鵝頸出水管": {
+      "ok": true,
+      "total": 121.02,
+      "cycle": 93.33,
+      "views": 28,
+      "notes": {
+        "coverageA": 0.9724,
+        "captureDrift": 0,
+        "linWorst": 0.076,
+        "result": "OK"
+      },
+      "failures": []
+    }
+  },
+  "ok": true
+}

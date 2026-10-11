@@ -1,0 +1,121 @@
+{
+  "ok": true,
+  "variants": [
+    {
+      "variant": "預設",
+      "params": {},
+      "ok": true,
+      "count": 8,
+      "failures": [],
+      "rows": [
+        {
+          "group": "手臂可達",
+          "name": "排程內 30 個位姿（含 16 個取像姿態）",
+          "ok": true,
+          "value": "最大誤差 0.01 mm"
+        },
+        {
+          "group": "產品檔",
+          "name": "A 面覆蓋率 ≥ 95%（套筒）",
+          "ok": true,
+          "value": "98.4%（16 個姿態）"
+        },
+        {
+          "group": "產品檔",
+          "name": "候選瑕疵都有姿態量到",
+          "ok": true,
+          "value": "5 點"
+        },
+        {
+          "group": "負載",
+          "name": "轉接頭＋快換器＋產品 ≤ 13 kg（VM-60B1）",
+          "ok": true,
+          "value": "2.42 kg"
+        },
+        {
+          "group": "光學",
+          "name": "0.3 mm 瑕疵 ≥ 3 px（主相機）",
+          "ok": true,
+          "value": "4.348 px"
+        },
+        {
+          "group": "節拍",
+          "name": "單件 CT ≤ 120 s（每日 200 件）",
+          "ok": true,
+          "value": "63.4 s"
+        },
+        {
+          "group": "上料窗",
+          "name": "轉接頭軸心高 900～1000 mm",
+          "ok": true,
+          "value": "970 mm"
+        },
+        {
+          "group": "機台",
+          "name": "外形 ≤ 2400 × 2000 × 2300",
+          "ok": true,
+          "value": "2400 × 2000 × 2250"
+        }
+      ]
+    },
+    {
+      "variant": "鵝頸出水管",
+      "params": {
+        "product": "gooseneck"
+      },
+      "ok": true,
+      "count": 8,
+      "failures": [],
+      "rows": [
+        {
+          "group": "手臂可達",
+          "name": "排程內 42 個位姿（含 28 個取像姿態）",
+          "ok": true,
+          "value": "最大誤差 0.06 mm"
+        },
+        {
+          "group": "產品檔",
+          "name": "A 面覆蓋率 ≥ 95%（鵝頸出水管）",
+          "ok": true,
+          "value": "97.2%（28 個姿態）"
+        },
+        {
+          "group": "產品檔",
+          "name": "候選瑕疵都有姿態量到",
+          "ok": true,
+          "value": "4 點"
+        },
+        {
+          "group": "負載",
+          "name": "轉接頭＋快換器＋產品 ≤ 13 kg（VM-60B1）",
+          "ok": true,
+          "value": "3.90 kg"
+        },
+        {
+          "group": "光學",
+          "name": "0.3 mm 瑕疵 ≥ 3 px（主相機）",
+          "ok": true,
+          "value": "4.348 px"
+        },
+        {
+          "group": "節拍",
+          "name": "單件 CT ≤ 120 s（每日 200 件）",
+          "ok": true,
+          "value": "93.3 s"
+        },
+        {
+          "group": "上料窗",
+          "name": "轉接頭軸心高 900～1000 mm",
+          "ok": true,
+          "value": "970 mm"
+        },
+        {
+          "group": "機台",
+          "name": "外形 ≤ 2400 × 2000 × 2300",
+          "ok": true,
+          "value": "2400 × 2000 × 2250"
+        }
+      ]
+    }
+  ]
+}
