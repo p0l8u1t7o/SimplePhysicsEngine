@@ -7,6 +7,8 @@ import { drawerSlide } from '@core/models/motion.js';
 import { visionCamera, codeReader } from '@core/models/vision.js';
 import { signalTower, hmi } from '@core/models/indicators.js';
 import { MACHINE, TABLE_Y, OPTICS, SCAN, DRAWER, HMI_POS, MEASURE, screenRects } from './layout.js';
+import { createBaseCabinet } from './electrical.js';
+import { entryPlate } from '@core/electrical/electrical-cabinet.js';
 
 const SHELL = std(0xe4e7ea, .55, .15, { transparent: true, opacity: .13, depthWrite: false, side: THREE.DoubleSide });
 const SHELL_EDGE = std(0xd5dadf, .5, .3);
@@ -34,7 +36,7 @@ export function createCell(scene) {
   const [x0, x1] = MACHINE.x, [z0, z1] = MACHINE.z, H = MACHINE.h, T = TABLE_Y;
   // ---------------------------------------------------------------- 下層機櫃＋台板
   const base = new THREE.Group(); base.name = 'machine base'; scene.add(base);
-  blockBetween(base, [x0, 60, z0], [x1, MACHINE.baseH, z1], MAT.cabinet).name = 'base cabinet';
+  createBaseCabinet(base);
   for (const x of [x0 + 120, x1 - 120]) for (const z of [z0 + 120, z1 - 120]) {
     cylinder(base, 40, 12, [x, 6, z], MAT.black, 'y', 20).name = 'leveling foot pad';
     cylinder(base, 10, 48, [x, 36, z], MAT.steel, 'y', 12).name = 'leveling foot stem';
@@ -42,7 +44,6 @@ export function createCell(scene) {
   // 櫃門分隔線（正面三扇、背面兩扇）
   for (const x of [-400, 400]) blockBetween(base, [x - 2, 90, z1], [x + 2, MACHINE.baseH - 30, z1 + 2], MAT.steelDark).name = 'cabinet door seam';
   for (const x of [-1000, -200, 600]) block(base, [16, 120, 14], [x + 160, 450, z1 + 9], MAT.black).name = 'cabinet door handle';
-  const table = blockBetween(base, [x0, MACHINE.baseH, z0], [x1, T, z1], MAT.steelDark); table.name = 'work table';
 
   // ---------------------------------------------------------------- 遮光艙：鋁擠型框＋半透明鈑金（正面開上料窗與觀察窗）
   const shell = new THREE.Group(); shell.name = 'enclosure'; scene.add(shell);
@@ -78,7 +79,9 @@ export function createCell(scene) {
     const tray = new THREE.Group(); tray.name = 'drawer tray'; slides.inner.add(tray);                // 跟著內軌移動
     tray.position.set(0, 0, 40);
     block(tray, [DRAWER.w - 70, 12, DRAWER.len], [0, 22, 0], MAT.alu).name = 'drawer plate';   // 台板底面離滑軌頂 1 mm
-    const front = block(tray, [DRAWER.w - 24, W.y[1] - W.y[0] - 24, 18], [0, (W.y[0] + W.y[1]) / 2 - T - 16, DRAWER.len / 2 + 9 + (MACHINE.z[1] - (zc + DRAWER.len / 2))], SHELL_EDGE);
+    // 工位燈背面保留真正的穿線孔，線材由前板內側接入。
+    const front = entryPlate(tray, 'drawer front', [DRAWER.w - 24, 18, W.y[1] - W.y[0] - 24], [0, (W.y[0] + W.y[1]) / 2 - T - 16, DRAWER.len / 2 + 9 + (MACHINE.z[1] - (zc + DRAWER.len / 2))], [[0, -75, 7]], SHELL_EDGE);
+    front.rotation.x = Math.PI / 2;
     front.name = 'drawer front';
     const fy = front.position.y, fzz = front.position.z;
     block(tray, [160, 22, 30], [0, fy - 40, fzz + 24], MAT.black).name = 'drawer handle';
@@ -181,4 +184,3 @@ export function createCell(scene) {
   }
   return { base, shell, drawers, optics, screens, leds, cam, colorCam: color, scanner, scanBeam: beam, reader, hmi: panelHmi, tower, setScreens, setLeds, setLamp };
 }
-

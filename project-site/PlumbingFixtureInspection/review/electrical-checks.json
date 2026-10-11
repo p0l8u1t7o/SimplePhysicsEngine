@@ -1,0 +1,417 @@
+{
+  "ok": true,
+  "variants": [
+    {
+      "variant": "預設",
+      "params": {},
+      "ok": true,
+      "applicable": true,
+      "devices": 11,
+      "connections": 10,
+      "enclosures": 1,
+      "feedthroughs": {
+        "plates": 4,
+        "glands": 2,
+        "holeRays": 24,
+        "wireCrossings": 6,
+        "mountChecks": 4,
+        "failures": []
+      },
+      "failures": [],
+      "components": [
+        {
+          "id": "QS1",
+          "kind": "isolator",
+          "title": "總電源隔離",
+          "size": [
+            36,
+            75,
+            65
+          ],
+          "role": "power",
+          "description": "設備配置示意；實際選型依電氣設計。",
+          "source": null,
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "QF1",
+          "kind": "breaker",
+          "title": "支路保護",
+          "size": [
+            36,
+            75,
+            65
+          ],
+          "role": "power",
+          "description": "設備配置示意；實際選型依電氣設計。",
+          "source": "QS1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "PS1",
+          "kind": "psu",
+          "title": "24 VDC",
+          "size": [
+            65,
+            95,
+            100
+          ],
+          "role": "power",
+          "description": "設備配置示意；實際選型依電氣設計。",
+          "source": "QF1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "PLC1",
+          "kind": "plc",
+          "title": "設備 PLC",
+          "size": [
+            100,
+            90,
+            85
+          ],
+          "role": "control",
+          "description": "設備配置示意；實際選型依電氣設計。",
+          "source": "PS1",
+          "category": "dc",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "SAF1",
+          "kind": "safety",
+          "title": "門鎖／光柵安全繼電器",
+          "size": [
+            60,
+            90,
+            95
+          ],
+          "role": "safety",
+          "description": "設備配置示意；實際選型依電氣設計。",
+          "source": "PS1",
+          "category": "dc",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "IO1",
+          "kind": "io",
+          "title": "抽屜感測／鎖／燈",
+          "size": [
+            70,
+            80,
+            65
+          ],
+          "role": "io",
+          "description": "設備配置示意；實際選型依電氣設計。",
+          "source": "PLC1",
+          "category": "signal",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "SW1",
+          "kind": "switch",
+          "title": "工業 Ethernet",
+          "size": [
+            60,
+            80,
+            70
+          ],
+          "role": "network",
+          "description": "設備配置示意；實際選型依電氣設計。",
+          "source": "PS1",
+          "category": "dc",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "IPC1",
+          "kind": "ipc",
+          "title": "工控 PC＋GPU",
+          "size": [
+            260,
+            110,
+            180
+          ],
+          "role": "vision",
+          "description": "設備配置示意；實際選型依電氣設計。",
+          "source": "SW1",
+          "category": "network",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "LC1",
+          "kind": "light",
+          "title": "八扇區 LED 驅動",
+          "size": [
+            80,
+            90,
+            100
+          ],
+          "role": "vision",
+          "description": "設備配置示意；實際選型依電氣設計。",
+          "source": "IO1",
+          "category": "signal",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "VD1",
+          "kind": "gateway",
+          "title": "三屏影音／電源分配",
+          "size": [
+            100,
+            80,
+            90
+          ],
+          "role": "vision",
+          "description": "設備配置示意；實際選型依電氣設計。",
+          "source": "IPC1",
+          "category": "network",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "RC1",
+          "kind": "robot",
+          "title": "手臂控制器",
+          "size": [
+            357,
+            94,
+            320
+          ],
+          "role": "motion",
+          "description": "RC8A 負責手臂軸控制，PLC 交握任務、完成與異常。",
+          "source": null,
+          "category": "ac",
+          "model": "RC8A 標準型包絡；357×94×320 mm"
+        }
+      ],
+      "cables": {
+        "report": [
+          {
+            "scenario": "預設",
+            "samples": 544,
+            "routes": 33,
+            "supports": 16,
+            "carriers": 2,
+            "feedthroughs": {
+              "plates": 4,
+              "glands": 2,
+              "holeRays": 24,
+              "wireCrossings": 6,
+              "mountChecks": 4,
+              "failures": []
+            }
+          }
+        ],
+        "failures": []
+      }
+    },
+    {
+      "variant": "鵝頸出水管",
+      "params": {
+        "product": "gooseneck"
+      },
+      "ok": true,
+      "applicable": true,
+      "devices": 11,
+      "connections": 10,
+      "enclosures": 1,
+      "feedthroughs": {
+        "plates": 4,
+        "glands": 2,
+        "holeRays": 24,
+        "wireCrossings": 6,
+        "mountChecks": 4,
+        "failures": []
+      },
+      "failures": [],
+      "components": [
+        {
+          "id": "QS1",
+          "kind": "isolator",
+          "title": "總電源隔離",
+          "size": [
+            36,
+            75,
+            65
+          ],
+          "role": "power",
+          "description": "設備配置示意；實際選型依電氣設計。",
+          "source": null,
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "QF1",
+          "kind": "breaker",
+          "title": "支路保護",
+          "size": [
+            36,
+            75,
+            65
+          ],
+          "role": "power",
+          "description": "設備配置示意；實際選型依電氣設計。",
+          "source": "QS1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "PS1",
+          "kind": "psu",
+          "title": "24 VDC",
+          "size": [
+            65,
+            95,
+            100
+          ],
+          "role": "power",
+          "description": "設備配置示意；實際選型依電氣設計。",
+          "source": "QF1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "PLC1",
+          "kind": "plc",
+          "title": "設備 PLC",
+          "size": [
+            100,
+            90,
+            85
+          ],
+          "role": "control",
+          "description": "設備配置示意；實際選型依電氣設計。",
+          "source": "PS1",
+          "category": "dc",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "SAF1",
+          "kind": "safety",
+          "title": "門鎖／光柵安全繼電器",
+          "size": [
+            60,
+            90,
+            95
+          ],
+          "role": "safety",
+          "description": "設備配置示意；實際選型依電氣設計。",
+          "source": "PS1",
+          "category": "dc",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "IO1",
+          "kind": "io",
+          "title": "抽屜感測／鎖／燈",
+          "size": [
+            70,
+            80,
+            65
+          ],
+          "role": "io",
+          "description": "設備配置示意；實際選型依電氣設計。",
+          "source": "PLC1",
+          "category": "signal",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "SW1",
+          "kind": "switch",
+          "title": "工業 Ethernet",
+          "size": [
+            60,
+            80,
+            70
+          ],
+          "role": "network",
+          "description": "設備配置示意；實際選型依電氣設計。",
+          "source": "PS1",
+          "category": "dc",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "IPC1",
+          "kind": "ipc",
+          "title": "工控 PC＋GPU",
+          "size": [
+            260,
+            110,
+            180
+          ],
+          "role": "vision",
+          "description": "設備配置示意；實際選型依電氣設計。",
+          "source": "SW1",
+          "category": "network",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "LC1",
+          "kind": "light",
+          "title": "八扇區 LED 驅動",
+          "size": [
+            80,
+            90,
+            100
+          ],
+          "role": "vision",
+          "description": "設備配置示意；實際選型依電氣設計。",
+          "source": "IO1",
+          "category": "signal",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "VD1",
+          "kind": "gateway",
+          "title": "三屏影音／電源分配",
+          "size": [
+            100,
+            80,
+            90
+          ],
+          "role": "vision",
+          "description": "設備配置示意；實際選型依電氣設計。",
+          "source": "IPC1",
+          "category": "network",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "RC1",
+          "kind": "robot",
+          "title": "手臂控制器",
+          "size": [
+            357,
+            94,
+            320
+          ],
+          "role": "motion",
+          "description": "RC8A 負責手臂軸控制，PLC 交握任務、完成與異常。",
+          "source": null,
+          "category": "ac",
+          "model": "RC8A 標準型包絡；357×94×320 mm"
+        }
+      ],
+      "cables": {
+        "report": [
+          {
+            "scenario": "鵝頸出水管",
+            "samples": 729,
+            "routes": 33,
+            "supports": 16,
+            "carriers": 2,
+            "feedthroughs": {
+              "plates": 4,
+              "glands": 2,
+              "holeRays": 24,
+              "wireCrossings": 6,
+              "mountChecks": 4,
+              "failures": []
+            }
+          }
+        ],
+        "failures": []
+      }
+    }
+  ]
+}

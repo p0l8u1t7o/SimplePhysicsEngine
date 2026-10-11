@@ -9,7 +9,15 @@
         "coverageA": 0.9838,
         "captureDrift": 0,
         "linWorst": 0.079,
-        "result": "NG"
+        "result": "NG",
+        "animationDetail": {
+          "handError": 0,
+          "hardwarePulses": 144,
+          "captureOverlays": 16,
+          "heatPoints": 150,
+          "cableCarriers": 2,
+          "opticalViewRays": 16
+        }
       },
       "failures": []
     },
@@ -22,7 +30,15 @@
         "coverageA": 0.9724,
         "captureDrift": 0,
         "linWorst": 0.076,
-        "result": "OK"
+        "result": "OK",
+        "animationDetail": {
+          "handError": 0,
+          "hardwarePulses": 252,
+          "captureOverlays": 28,
+          "heatPoints": 150,
+          "cableCarriers": 2,
+          "opticalViewRays": 28
+        }
       },
       "failures": []
     }

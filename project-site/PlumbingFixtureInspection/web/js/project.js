@@ -10,6 +10,9 @@ import { createCell } from './cell.js';
 import { createRobot, createAdapter, JOINTS } from './robot.js';
 import { createSequence, linPose, STATIONS, CAPTURE } from './sequence.js';
 import { createTwin } from './twin.js';
+import { createOperator } from './operator.js';
+import { createEffects } from './effects.js';
+import { createElectrical } from './electrical.js';
 import { productGeometry } from './product-mesh.js';
 import { nestTool, productFromTool } from './poses.js';
 import { PRODUCTS, candidates, FINISH, MODE } from './inspection.js';
@@ -28,6 +31,8 @@ export function createProject({ scene, product: pid = 'sleeve' } = {}) {
   floor(scene, { size: [9000, 6200], center: [0, 300], cell: 200 });
   const cell = createCell(scene);
   const robot = createRobot(scene);
+  const electrical = createElectrical(scene, cell);
+  const operator = createOperator(scene);
 
   // ---------------------------------------------------------------- 轉接頭與產品（左：本次受檢件；右：下一件，示範上料與檢測並行）
   const adapters = { L: createAdapter(kind, 'adapter L'), R: createAdapter(kind, 'adapter R') };
@@ -38,10 +43,12 @@ export function createProject({ scene, product: pid = 'sleeve' } = {}) {
     const mesh = new THREE.Mesh(productGeometry(prod), CHROME); mesh.name = 'product body'; mesh.castShadow = mesh.receiveShadow = true; g.add(mesh);
     products[s] = g;
   }
+  const effects = createEffects(products, cell);
   // 機台外的作業區：NG 料架（格位）、OK 料箱（示意）
   const area = new THREE.Group(); area.name = 'work area'; scene.add(area);
   for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) block(area, [30, 1100, 30], [NG_RACK.x + x * 280, 550, NG_RACK.z + z * 180], MAT.frame).name = 'ng rack post';
   for (const y of [520, 880]) block(area, [584, 20, 384], [NG_RACK.x, y, NG_RACK.z], MAT.red).name = 'ng rack shelf';   // 立柱內側，面不重合
+  for (const y of [550, 910]) for (const dx of [-90, 90]) block(area, [8, 40, 350], [NG_RACK.x + dx, y, NG_RACK.z], MAT.steelDark).name = 'ng rack slot divider';
   blockBetween(area, [OK_BIN.x - 260, 0, OK_BIN.z - 180], [OK_BIN.x + 260, 560, OK_BIN.z + 180], MAT.steelBlue).name = 'ok bin stand';
   blockBetween(area, [OK_BIN.x - 240, 560, OK_BIN.z - 160], [OK_BIN.x + 240, 760, OK_BIN.z + 160], MAT.green).name = 'ok bin';
   const RACK = V(NG_RACK.x - 120, 892, NG_RACK.z), BIN = V(OK_BIN.x, 764, OK_BIN.z);
@@ -86,6 +93,7 @@ export function createProject({ scene, product: pid = 'sleeve' } = {}) {
       place(products.L, { quat: held.quat, pos: u < .55 ? hand.lerp(pre, u / .55) : pre.lerp(held.pos, (u - .55) / .45) });
     } else place(products.L, held);
     place(products.R, onAdapter('R'));
+    operator.set(st, step, products.L);
     robot.lock.material.emissiveIntensity = st.lock ? 1.2 : .05;
     cell.reader.set(!!st.reader);
     cell.scanBeam.visible = !!st.scan;
@@ -96,7 +104,9 @@ export function createProject({ scene, product: pid = 'sleeve' } = {}) {
       if (k < 4) { mode = 'fringeV'; phase = k; } else if (k < 8) { mode = 'fringeH'; phase = k - 4; } else { mode = 'white'; white = true; }
     } else if (step.station === 4) mode = 'dark';
     cell.setScreens(mode, phase); cell.setLeds(white ? 1 : 0); cell.cam.set(white);
-    presentation.optics = { mode, phase, white };
+    effects.set(st, step, t, mode);
+    electrical.set(st, step, !!st.scan || step.capture != null);
+    presentation.optics = { mode, phase, white, ...effects.status };
     // 數位空間
     twin.set(st, t);
     cell.tower.set(st.tower);
@@ -127,7 +137,8 @@ export function createProject({ scene, product: pid = 'sleeve' } = {}) {
     presentation.signals = [
       ['左工位抽屜鎖定', st.dL < 1e-3 && st.lampL === 'green' || (st.dL < 1e-3 && st.adL === 'robot')], ['右工位抽屜鎖定（下一件就緒）', st.dR < 1e-3 && st.lampR === 'green'],
       ['快換器鎖定', st.lock > .5], ['轉接頭 ID 讀取', !!st.reader], ['3D 掃描中', !!st.scan],
-      ['手臂到位 DO', step.capture != null || /穩定/.test(step.action)], ['相機硬體觸發', step.capture != null, 'warn'],
+      ['手臂到位 DO', step.capture != null || /穩定/.test(step.action)], ['殘振穩定中', effects.status.settle, 'warn'], ['相機硬體觸發', effects.status.trigger, 'warn'],
+      ['左工位安全光柵（人機不共區）', st.dL > .001], ['維修門互鎖', true],
       ['手臂在光學艙內', inCabin], [`總判定 ${st.verdict || ''}`, !!st.verdict, st.verdict === 'NG' ? 'bad' : ''],
     ].map(([label, on, kind2]) => ({ label, on: !!on, kind: kind2 }));
     Object.assign(presentation, { lines, done, mode, cov: st.cov, verdict: st.verdict });
@@ -157,8 +168,19 @@ export function createProject({ scene, product: pid = 'sleeve' } = {}) {
   const isProduct = named(/^product body$/), isAdapter = m => /^adapter |^mandrel |^collet /.test(m.name);
   return {
     total: seq.total, sequence: seq, timeline: seq, apply, layoutChecks, stationStart: seq.stationStart, cycleTime: cycle,
-    robot, cell, twin, adapters, products, prod, cands, result, presentation,
+    robot, cell, twin, adapters, products, prod, cands, result, presentation, operator, effects, electrical,
     verify: {
+      // 人物只呈現姿勢與交接動作，不當作可驗證尺寸的人體模型；設備與產品仍完整檢查。
+      skip: o => o.userData.operatorProxy === true,
+      cables: { interval: .2, minRoutes: 20, obstacles: () => {
+        const meshes = [];
+        scene.traverse(m => {
+          if (!m.isMesh || !['BoxGeometry', 'CylinderGeometry', 'BufferGeometry'].includes(m.geometry.type)) return;
+          for (let p = m; p; p = p.parent) if (p.userData.fx || p.userData.operatorProxy || p.userData.routingHardware || p.userData.electricalWire) return;
+          meshes.push(m);
+        });
+        return meshes;
+      } },
       allow: [
         { why: '產品套在自己的轉接頭上（內撐心軸穿過底環、撐爪與鍵；筒夾夾住接管端）', test: (a, b, ctx) => pair(a, b, isProduct, isAdapter) && ctx.moduleOf(a).slice(-1) === ctx.moduleOf(b).slice(-1) },
         { why: '轉接頭本體躺在 V 形定位座上（PU 墊相切）', test: (a, b) => pair(a, b, isAdapter, named(/^nest v block$/)) },

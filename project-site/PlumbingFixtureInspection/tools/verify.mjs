@@ -9,6 +9,8 @@ import { createProject } from '../web/js/project.js';
 import { linPose } from '../web/js/sequence.js';
 import { productData } from '../web/js/product-mesh.js';
 import { OPTICS, DRAWER, MACHINE, TAKT } from '../web/js/layout.js';
+import { capturePresentation } from '../web/js/capture-overlay.js';
+import { OPTICS_VIEW } from '../web/js/effects.js';
 
 const report = { scenarios: {} };
 let allOk = true;
@@ -61,9 +63,55 @@ for (const product of ['sleeve', 'gooseneck']) {
   if (pp.x < MACHINE.x[1] || pp.z < MACHINE.z[1] - 200) failures.push('最後產品沒有離開機台（料架／料箱）');
   notes.result = project.result;
 
+  // 新增細節的製程契約：手部交接沿產品路徑、每張硬體觸發、候選必須來自首次量測姿態。
+  let handError = 0, pulses = 0;
+  for (const t of [1.5, 2.4, 3.2, ...seq.steps.filter(s => /放入 (NG|OK)/.test(s.action)).flatMap(s => [.1, .5, .9].map(u => s.start + s.dur * u))]) {
+    project.apply(t);
+    const hands = project.operator.arms.map(a => a.hand.position);
+    const middle = hands[0].clone().add(hands[1]).multiplyScalar(.5);
+    handError = Math.max(handError, middle.distanceTo(project.products.L.position.clone().add(new THREE.Vector3(0, 25, 28))));
+  }
+  if (handError > .001) failures.push(`作業員手部偏離產品 ${handError} mm`);
+  for (const cap of caps) {
+    for (let k = 0; k < 9; k++) {
+      project.apply(cap.start + k * OPTICS.capture.fringe + .005);
+      if (!project.effects.status.trigger) failures.push(`姿態 ${cap.capture + 1} 第 ${k + 1} 張未觸發`); else pulses++;
+    }
+    const end = cap.start + cap.dur;
+    for (const [dt, stage] of [[.05, 0], [.25, 1], [.5, 2]]) {
+      const info = capturePresentation(project, end + dt);
+      if (!info || info.view !== cap.capture || info.stage !== stage || info.candidates.some(c => c.view !== cap.capture)) failures.push(`姿態 ${cap.capture + 1} 疊圖順序／候選來源錯誤`);
+    }
+  }
+  for (const s of seq.steps.filter(s => /結構光掃描/.test(s.action))) {
+    project.apply(s.start + .5);
+    if (!project.effects.overlay.visible || project.effects.uniforms.scanning.value !== 1 || project.effects.scanLeds.some(m => m.material.color.getHex() !== 0x4dbbff)) failures.push('結構光／雙相機狀態不一致');
+  }
+  const heatStep = seq.steps.find(s => s.station === 7);
+  project.apply(heatStep.start + .1); const heatStart = project.twin.heatCloud.geometry.drawRange.count;
+  project.apply(heatStep.start + heatStep.dur); const heatEnd = project.twin.heatCloud.geometry.drawRange.count;
+  if (!(heatEnd > heatStart && heatEnd === 150)) failures.push('熱點沒有依 S8 進度累積');
+  project.twin.root.traverse(o => { if (!o.userData.fx) failures.push('數位空間出現實體物件'); });
+  notes.animationDetail = { handError, hardwarePulses: pulses, captureOverlays: caps.length, heatPoints: heatEnd, cableCarriers: project.electrical.chains.length };
+  // 光學艙視角：每個取像姿態的受檢錨點，不得被屏框或手臂擋住。
+  const opticalSolids = [];
+  for (const root of [robot.arm.root, project.cell.optics]) root.traverse(m => {
+    if (!m.isMesh) return;
+    for (let p = m; p; p = p.parent) if (p.userData.fx) return;
+    if ([].concat(m.material).some(mat => mat.opacity >= .5)) opticalSolids.push(m);
+  });
+  for (const cap of caps) {
+    project.apply(cap.start + .2); scene.updateMatrixWorld(true);
+    const center = project.products.L.localToWorld(new THREE.Vector3(...prod.file.views[cap.capture].anchor));
+    const eye = new THREE.Vector3(...OPTICS_VIEW.eye), direction = center.clone().sub(eye);
+    const hit = new THREE.Raycaster(eye, direction.clone().normalize(), 0, direction.length() - 5).intersectObjects(opticalSolids, false)[0];
+    if (hit) failures.push(`光學艙視角 ${cap.capture + 1} 被 ${hit.object.name} 遮住`);
+  }
+  notes.animationDetail.opticalViewRays = caps.length;
+
   // 5. 細節倒序一致（數位空間、螢幕、燈號）
   const times = [...new Set(seq.steps.flatMap(s => [0, .3, .7, 1].map(u => +(s.start + s.dur * u).toFixed(4))))];
-  const snap = t => { project.apply(t); scene.updateMatrixWorld(true); return JSON.stringify([project.presentation.lines, project.presentation.optics, project.presentation.signals.map(s => s.on), project.twin.marks.map(k => [k.g.visible, k.mat.color.getHex()]), project.twin.icons.map(i => i.visible)]); };
+  const snap = t => { project.apply(t); scene.updateMatrixWorld(true); return JSON.stringify([project.presentation.lines, project.presentation.optics, project.presentation.signals.map(s => s.on), project.twin.marks.map(k => [k.g.visible, k.mat.color.getHex()]), project.twin.icons.map(i => i.visible), project.effects.uniforms.clock.value, project.effects.uniforms.scanning.value, project.twin.heatCloud.geometry.drawRange.count, project.operator.arms.map(a => a.hand.position.toArray()), capturePresentation(project, t)]); };
   const fwd = times.map(snap);
   for (let i = times.length - 1; i >= 0; i--) if (snap(times[i]) !== fwd[i]) { failures.push(`細節倒序不一致：${times[i]} s`); break; }
 
@@ -75,4 +123,5 @@ report.ok = allOk;
 mkdirSync(new URL('../review/', import.meta.url), { recursive: true });
 writeFileSync(new URL('../review/verification.json', import.meta.url), JSON.stringify(report, null, 2));
 console.log(JSON.stringify({ ok: allOk, scenarios: report.scenarios }));
+console.log(`${allOk ? '✓' : '✗'} PlumbingFixtureInspection · verify ${Object.values(report.scenarios).filter(s => s.ok).length}/2 通過（套筒 NG、鵝頸 OK）`);
 process.exit(allOk ? 0 : 1);

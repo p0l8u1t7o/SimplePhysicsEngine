@@ -6,6 +6,9 @@ import * as THREE from 'three';
 import { createStage, exposeSim } from '@core/ui/stage.js';
 import { createPlayer } from '@core/ui/player.js';
 import { createViewerWorkspace } from '@core/ui/viewer-workspace.js';
+import { setElectricalCutaway } from '@core/electrical/electrical-cabinet.js';
+import { capturePresentation, createCaptureOverlay } from './capture-overlay.js';
+import { OPTICS_VIEW } from './effects.js';
 import { createProject, STATIONS, CHROME } from './project.js';
 import { PRODUCTS, FINISH, MODE } from './inspection.js';
 import { OPTICS, SCAN, DRAWER, ROBOT, TWIN, NG_RACK, OK_BIN, HMI_POS, CAMERA_EVAL } from './layout.js';
@@ -24,6 +27,8 @@ const stage = createStage({
 const { renderer, scene, camera, controls } = stage;
 const project = createProject({ scene, product: pid });
 const { sequence: seq, robot, cell, stationStart, prod, products } = project;
+const captureOverlay = createCaptureOverlay(project);
+let renderTime = 0;
 
 // ---------------------------------------------------------------- 條紋反射（環境貼圖）
 const S = new THREE.Vector3(...OPTICS.S);
@@ -53,15 +58,18 @@ const VIEWS = {
   iso: [[3600, 3300, 4600], [-200, 1150, 0]],
   front: [[700, 1600, 3600], [300, 1150, 600]],
   load: [[1500, 1500, 2300], [DRAWER.xs.L + 150, 1000, 700]],
-  optics: [[350, 1900, 900], [S.x, S.y, S.z]],
+  optics: [OPTICS_VIEW.eye, OPTICS_VIEW.target],
   scanner: [[600, 1900, 1400], [SCAN.spot[0], SCAN.spot[1], SCAN.spot[2]]],
-  twin: [[T[0] + 2300, T[1] + 700, T[2] + 2300], [T[0], T[1], T[2]]],
+  twin: [[T[0] - 250, T[1] + 550, T[2] + 3700], [T[0] - 250, T[1] + 100, T[2]]],
+  electrical: [[1100, 1200, 2400], [0, 440, -700]],
+  rework: [[3500, 1500, 2200], [2700, 1000, 600]],
   top: [[-200, 9000, 400], [-200, 0, 399]],
   closeup: () => { const p = tcpWorld(); return [p.clone().add(new THREE.Vector3(700, 380, 650)).toArray(), p.toArray()]; },
 };
 function setView(name, instant = false) {
   const v = typeof VIEWS[name] === 'function' ? VIEWS[name]() : VIEWS[name]; if (!v) return;
   workspace.stopFollowing();
+  setElectricalCutaway(scene, name === 'electrical');
   stage.goTo(v[0], v[1], instant);
   document.querySelectorAll('.views [data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === name));
 }
@@ -128,14 +136,16 @@ function updatePanels(T) {
 // ---------------------------------------------------------------- 播放列
 const player = createPlayer({
   total: project.total,
-  apply: T => project.apply(T),
+  apply: T => { renderTime = T; return project.apply(T); },
   events: seq.events.map(e => ({ time: e.time, label: `S${e.station + 1} · ${e.label}` })),
   onChange: T => { updatePanels(T); stage.invalidate(true); },
 });
 
 function render() {
   updateEnv();
-  workspace.renderCamera({ renderer, scene, camera: cell.cam.camera, title: '主相機（12 MP，對焦在甜蜜點）', result: ui.action.textContent, marks: { time: player.T } });
+  const info = capturePresentation(project, renderTime), o = project.presentation.optics;
+  if (info) workspace.renderImage({ draw: (ctx, w, h) => captureOverlay.draw(ctx, w, h, info), title: '主相機 / 檢測疊圖 SIM', result: '相位圖 → 曲率圖 → 候選（示意）', aspect: 1.37, time: renderTime });
+  else workspace.renderCamera({ renderer, scene, camera: cell.cam.camera, title: '主相機（12 MP，對焦在甜蜜點）', result: o.settle ? '穩定中 / 等待殘振衰減' : o.trigger ? '硬體觸發 / 曝光' : ui.action.textContent, aspect: 1.37, marks: { time: renderTime } });
   workspace.renderOverview(renderer, scene);
 }
 
@@ -154,9 +164,10 @@ if (qp.has('movie')) {
     project: decodeURIComponent(location.pathname.split('/').filter(Boolean).at(-1)),
     title: document.querySelector('.brand .title')?.textContent || document.title,
     scene, renderer, camera, controls, render, setView, total: project.total,
-    steps: seq.steps,
-    sample: t => { movieTime = t; project.apply(t); updatePanels(t); },
-    focus: () => { const s = seq.sample(movieTime).step.station; return s === 3 || s === 7 ? new THREE.Vector3(...TWIN.center) : tcpWorld(); },
+    steps: seq.steps.map(s => ({ ...s, offset: [3, 5, 7].includes(s.station) ? [-250, 550, 3900] : s.station === 4 ? OPTICS_VIEW.eye.map((v, i) => v - OPTICS.S[i]) : s.station === 0 || s.station === 6 ? [1100, 600, 1500] : [1300, 700, 1600] })),
+    sample: t => { movieTime = renderTime = t; project.apply(t); updatePanels(t); },
+    focus: () => { const s = seq.sample(movieTime).step.station; return new THREE.Vector3(...([3, 5, 7].includes(s) ? TWIN.center : s === 4 ? OPTICS.S : s === 2 ? SCAN.spot : tcpWorld().toArray())); },
     offset: [1100, 650, 1300],
+    glandShots: false,
   });
 }
