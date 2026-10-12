@@ -90,10 +90,7 @@ export function createCell(scene) {
   block(ctrl, [740, 1100, 560], [CONTROLLER.x, 550, CONTROLLER.z], MAT.cabinet).name = 'controller cabinet';
   block(ctrl, [600, 140, 8], [CONTROLLER.x, 950, CONTROLLER.z + 284], MAT.fanucDark).name = 'controller badge';
   plate(ctrl, ['R-30iB Plus'], 420, 70, [CONTROLLER.x, 800, CONTROLLER.z + 289], 0);
-  const cab = new THREE.Group(); cab.name = 'vision cabinet'; scene.add(cab);
-  block(cab, [800, 1900, 500], [CABINET.x, 1000, CABINET.z], MAT.cabinet).name = 'vision cabinet body';
-  block(cab, [820, 100, 520], [CABINET.x, 50, CABINET.z], MAT.steelDark).name = 'vision cabinet plinth';
-  plate(cab, ['視覺 IPC＋PLC'], 520, 80, [CABINET.x, 1700, CABINET.z + 252], 0);
+  // 中空視覺櫃與背板由 electrical.js 建立，避免實心箱殼遮住內部元件。
   // 操作站：HMI（輪型、追蹤狀態、棧板計數）＋急停
   const op = new THREE.Group(); op.name = 'operator station'; scene.add(op);
   block(op, [80, 1200, 80], [OPERATOR.x, 620, OPERATOR.z], MAT.steelDark).name = 'operator post';

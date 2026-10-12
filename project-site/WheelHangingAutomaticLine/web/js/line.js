@@ -25,7 +25,15 @@ function createHook(name) {
   const g = new THREE.Group(); g.name = name;
   const z0 = 0, dz = LINE.rodZ - LINE.z, top = LINE.railY - 4;
   block(g, [180, 80, 140], [0, top - 40, z0], MAT.steelDark).name = 'hook trolley';
-  for (const s of [-1, 1]) cylinder(g, 22, 20, [s * 60, top - 40, z0 + 80], MAT.black, 'z', 16).name = 'hook trolley roller';
+  const rollers = [];
+  for (const s of [-1, 1]) for (const side of [-1, 1]) {
+    const r = new THREE.Group(); r.position.set(s * 60, top - 40, side * 80); g.add(r);
+    cylinder(r, 22, 20, [0, 0, 0], MAT.black, 'z', 16).name = 'hook trolley roller';
+    block(r, [24, 4, 1], [0, 0, side * 11], MAT.alu).name = 'roller index'; rollers.push(r);
+  }
+  const tag = plate(g, ['#101'], 130, 70, [85, 2690, 12]);
+  block(g, [132, 72, 4], [85, 2690, 9], MAT.steelDark).name = 'hook number plate';
+  block(g, [70, 12, 12], [25, 2690, 0], MAT.steelDark).name = 'hook tag bracket';
   const pts = [[0, top - 80, z0], [0, 2830, z0], [0, 2760, dz], [0, LINE.barY + 40, dz], [0, LINE.barY, dz + 40], [0, LINE.barY, LINE.barEnd], [0, LINE.barY + LINE.tip, LINE.barEnd + 14]];
   const names = ['hook drop', 'hook offset', 'hook rod', 'hook bend', 'hook bar', 'hook tip'];
   for (let i = 0; i < pts.length - 1; i++) rod(g, new THREE.Vector3(...pts[i]), new THREE.Vector3(...pts[i + 1]), i === 4 ? LINE.barR : 10, MAT.chrome, 14).name = names[i];
@@ -37,7 +45,7 @@ function createHook(name) {
   for (const [key, spec] of Object.entries(WHEELS)) if (key !== 'C') {
     const w = createWheel(spec, `hook wheel ${key}`); w.position.set(0, hangY(spec), 0); g.add(w); wheels[key] = w;
   }
-  return { root: g, wheels };
+  return { root: g, wheels, rollers, tag };
 }
 
 export function createLine(scene) {
@@ -94,6 +102,7 @@ export function createLine(scene) {
     // 托架：樑下兩支短吊桿
     for (const s of [-1, 1]) block(zone, [20, beamY - 40 - p.y - 30, 20], [p.x + s * 120, (beamY - 40 + p.y + 30) / 2, beamZ], MAT.steelDark).name = 'light bracket';
     tagPart(l, 'AREA-LIGHT-525');
+    l.lens.material.color.set(0x9cf6b6); l.lens.material.emissive.set(0x54ff82);
     return l;
   });
   // ---- 到位光電（上游，回歸反射：南側投受光、北側反射板）、線速編碼器
@@ -107,6 +116,15 @@ export function createLine(scene) {
   const enc = rotaryEncoder.create({ bodyR: 30, bodyL: 60, axis: 'z', name: 'line encoder' });
   enc.root.position.set(PICK.encoderX, Y + 100, LINE.z + 130); line.add(enc.root);
   block(line, [90, 120, 86], [PICK.encoderX, Y + 100, LINE.z + 5 + 43], MAT.steelDark).name = 'encoder bracket';
+  const measuring = new THREE.Group(); measuring.name = 'encoder measuring wheel';
+  measuring.position.set(PICK.encoderX, Y + 100, LINE.z + 260); line.add(measuring);
+  cylinder(measuring, 70, 16, [0, 0, 0], MAT.black, 'z', 32).name = 'encoder rubber wheel';
+  block(measuring, [95, 6, 2], [0, 0, 10], MAT.alu).name = 'encoder index';
+  cylinder(line, 8, 110, [PICK.encoderX, Y + 100, LINE.z + 205], MAT.chrome, 'z', 16).name = 'encoder wheel axle';
+  const chain = Array.from({ length: Math.floor(L / 50) }, (_, i) => {
+    const m = new THREE.Mesh(new THREE.TorusGeometry(8, 2, 6, 10), MAT.steelDark);
+    m.scale.x = 2.4; m.rotation.x = i % 2 ? Math.PI / 2 : 0; m.name = 'drive chain link'; line.add(m); return m;
+  });
   plate(scene, ['吊掛線 4 cm/s →'], 900, 160, [2400, 20, LINE.z + 520], 0);
 
   const _hit = { j: null };
@@ -116,11 +134,19 @@ export function createLine(scene) {
       // 找 j ≡ s (mod hooks)，使 x_j(t) 落在 [x0, x0 + SPAN)
       const base = hookX(s, t), n = Math.floor((base - x0) / SPAN), j = s + n * LINE.hooks, x = hookX(j, t);
       h.root.position.set(x, 0, LINE.z); h.j = j;
+      h.rollers.forEach(r => { r.rotation.z = -LINE.v * t / 22; });
+      if (h.tag && h.tag.userData.hookNumber !== j + 101) {
+        const image = h.tag.material.map.image, ctx = image?.getContext?.('2d');
+        if (ctx) { ctx.fillStyle = '#e9edf0'; ctx.fillRect(0, 0, image.width, image.height); ctx.fillStyle = '#1d2833'; ctx.font = 'bold 80px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(`#${j + 101}`, image.width / 2, image.height / 2); h.tag.material.map.needsUpdate = true; }
+        h.tag.userData.hookNumber = j + 101;
+      }
       const m = modelOf(j);
       for (const [k, w] of Object.entries(h.wheels)) w.visible = m === k && !DEMO.includes(j);
     });
+    measuring.rotation.z = -LINE.v * t / 70;
+    chain.forEach((m, i) => { m.position.set(x0 + ((i * 50 + LINE.v * t) % L), Y + 20, LINE.z + 260); });
     return hooks;
   }
   set(0);
-  return { root: line, zone, hooks, lights, sensor, beam, encoder: enc, set, _hit };
+  return { root: line, zone, hooks, lights, sensor, beam, encoder: enc, measuring, chain, set, _hit };
 }

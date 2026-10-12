@@ -1,165 +1,20 @@
 {
   "variant": "預設",
   "params": {},
-  "ok": false,
-  "meshes": 1084,
-  "moving": 741,
-  "joints": 24,
+  "ok": true,
+  "meshes": 2510,
+  "moving": 1174,
+  "joints": 269,
   "samples": 679,
   "dt": 0.1,
   "total": 67.82000000000001,
-  "dynamic": [
-    {
-      "first": 4.6,
-      "last": 15.6,
-      "worst": -24,
-      "a": "robot/gripper finger:Box@(1388,1542,-1123) 56×156×130",
-      "b": "wheel 0/wheel front lip:Lathe@(1104,1542,-1198) 560×26×560",
-      "count": 38
-    },
-    {
-      "first": 31.6,
-      "last": 42.6,
-      "worst": -24,
-      "a": "robot/gripper finger:Box@(1468,1542,-1127) 56×156×130",
-      "b": "wheel 1/wheel barrel:Lathe@(1184,1542,-1308) 560×214×560",
-      "count": 37
-    },
-    {
-      "first": 31.6,
-      "last": 42.6,
-      "worst": -24,
-      "a": "robot/gripper finger:Box@(1468,1542,-1127) 56×156×130",
-      "b": "wheel 1/wheel front lip:Lathe@(1184,1542,-1198) 560×26×560",
-      "count": 37
-    },
-    {
-      "first": 4.7,
-      "last": 15.6,
-      "worst": -24,
-      "a": "robot/gripper finger:Box@(1392,1542,-1149) 56×156×130",
-      "b": "wheel 0/wheel barrel:Lathe@(1108,1542,-1308) 560×214×560",
-      "count": 34
-    },
-    {
-      "first": 54.6,
-      "last": 65.6,
-      "worst": -24,
-      "a": "robot/gripper finger:Box@(845,1542,-1153) 56×156×130",
-      "b": "wheel 2/wheel barrel:Lathe@(1104,1542,-1308) 510×194×510",
-      "count": 33
-    },
-    {
-      "first": 4.7,
-      "last": 15.6,
-      "worst": -24,
-      "a": "robot/gripper finger:Box@(824,1542,-1149) 56×156×130",
-      "b": "wheel 0/wheel barrel:Lathe@(1108,1542,-1308) 560×214×560",
-      "count": 35
-    },
-    {
-      "first": 54.5,
-      "last": 65.7,
-      "worst": -24,
-      "a": "robot/gripper finger:Box@(841,1542,-1122) 56×156×130",
-      "b": "wheel 2/wheel front lip:Lathe@(1100,1542,-1208) 510×26×510",
-      "count": 38
-    },
-    {
-      "first": 4.6,
-      "last": 15.6,
-      "worst": -24,
-      "a": "robot/gripper finger:Box@(820,1542,-1123) 56×156×130",
-      "b": "wheel 0/wheel front lip:Lathe@(1104,1542,-1198) 560×26×560",
-      "count": 37
-    },
-    {
-      "first": 31.6,
-      "last": 42.6,
-      "worst": -24,
-      "a": "robot/gripper finger:Box@(900,1542,-1127) 56×156×130",
-      "b": "wheel 1/wheel barrel:Lathe@(1184,1542,-1308) 560×214×560",
-      "count": 34
-    },
-    {
-      "first": 31.6,
-      "last": 42.6,
-      "worst": -24,
-      "a": "robot/gripper finger:Box@(900,1542,-1127) 56×156×130",
-      "b": "wheel 1/wheel front lip:Lathe@(1184,1542,-1198) 560×26×560",
-      "count": 37
-    },
-    {
-      "first": 54.6,
-      "last": 65.6,
-      "worst": -24,
-      "a": "robot/gripper finger:Box@(1363,1542,-1153) 56×156×130",
-      "b": "wheel 2/wheel barrel:Lathe@(1104,1542,-1308) 510×194×510",
-      "count": 34
-    },
-    {
-      "first": 54.5,
-      "last": 65.7,
-      "worst": -24,
-      "a": "robot/gripper finger:Box@(1359,1542,-1122) 56×156×130",
-      "b": "wheel 2/wheel front lip:Lathe@(1100,1542,-1208) 510×26×510",
-      "count": 38
-    },
-    {
-      "first": 56.7,
-      "last": 65.4,
-      "worst": -14,
-      "a": "robot/gripper jaw:Box@(929,1542,-1182) 56×34×150",
-      "b": "wheel 2/wheel front lip:Lathe@(1188,1542,-1208) 510×26×510",
-      "count": 13
-    },
-    {
-      "first": 6.8,
-      "last": 15.3,
-      "worst": -14,
-      "a": "robot/gripper jaw:Box@(908,1542,-1173) 56×34×150",
-      "b": "wheel 0/wheel front lip:Lathe@(1192,1542,-1198) 560×26×560",
-      "count": 13
-    },
-    {
-      "first": 33.8,
-      "last": 42.3,
-      "worst": -14,
-      "a": "robot/gripper jaw:Box@(988,1542,-1174) 56×34×150",
-      "b": "wheel 1/wheel front lip:Lathe@(1272,1542,-1198) 560×26×560",
-      "count": 13
-    },
-    {
-      "first": 33.8,
-      "last": 42.3,
-      "worst": -14,
-      "a": "robot/gripper jaw:Box@(1556,1542,-1174) 56×34×150",
-      "b": "wheel 1/wheel front lip:Lathe@(1272,1542,-1198) 560×26×560",
-      "count": 13
-    },
-    {
-      "first": 6.8,
-      "last": 15.3,
-      "worst": -14,
-      "a": "robot/gripper jaw:Box@(1476,1542,-1173) 56×34×150",
-      "b": "wheel 0/wheel front lip:Lathe@(1192,1542,-1198) 560×26×560",
-      "count": 13
-    },
-    {
-      "first": 56.7,
-      "last": 65.4,
-      "worst": -14,
-      "a": "robot/gripper jaw:Box@(1447,1542,-1182) 56×34×150",
-      "b": "wheel 2/wheel front lip:Lathe@(1188,1542,-1208) 510×26×510",
-      "count": 13
-    }
-  ],
+  "dynamic": [],
   "static": [],
   "zfight": [],
   "envelope": {
     "robot": {
       "minX": -2000,
-      "maxX": 2742,
+      "maxX": 2781,
       "minY": 195,
       "maxY": 2662,
       "minZ": -1365,

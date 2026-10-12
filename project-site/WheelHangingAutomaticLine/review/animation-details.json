@@ -1,0 +1,62 @@
+{
+  "date": "2026-10-12",
+  "scope": "project-site/WheelHangingAutomaticLine/",
+  "implementation": {
+    "cameraOverlay": "幾何投影橢圓、飽和區示意、深度及視差、可信度、輪型、精取像十字與夾取點、盲區推算提示",
+    "optics": "取像頻閃與點陣同步；點陣落在輪面實體；打光箭頭僅供主畫面",
+    "electrical": "中空櫃、10 個電控元件、12 位端子台、固定配線、J6 服務圈、末端氣管",
+    "mechanical": "真空發生器、夾爪燈號、四輪台車、吊鉤編號牌、鏈節及編碼器量測輪",
+    "presentation": "HMI 最近量測回查；圍籬外操作員姿勢示意",
+    "unchanged": ["layout.js", "sequence.js", "既有 allow 規則", "core/", "其他站", "根目錄檔案"],
+    "committed": false
+  },
+  "automated": {
+    "quick": { "passed": 10, "total": 10 },
+    "fullAttempt": {
+      "command": "UI_PORT=8841 node core/tools/check.mjs WheelHangingAutomaticLine",
+      "passed": 10,
+      "total": 11,
+      "ui": "未完成：無頭 Chrome DevTools 未啟動；啟動診斷顯示 GPU 子程序退出及 GPU process isn't usable"
+    },
+    "shotsAttempt": {
+      "command": "node core/tools/shots.mjs WheelHangingAutomaticLine --out TEMP/whl-codex-shots --port 8842",
+      "status": "未完成：瀏覽器啟動失敗，未產生該工具的 PNG 截圖"
+    },
+    "scene": { "samples": 679, "dynamic": 0, "static": 0, "zfight": 0 },
+    "layout": { "passed": 22, "total": 22 },
+    "determinism": { "objects": 3182, "times": 40 },
+    "electrical": { "devices": 10, "connections": 10, "glands": 4, "routes": 24, "supports": 129, "times": 403, "failures": 0 },
+    "process": { "trackWorstMm": 0.05, "linearWorstMm": 0.047, "handoffs": 6, "handoffJumpMm": 0.08, "pullClearanceMm": [124, 124, 119], "captureViews": 9, "cycleSeconds": 24.97 },
+    "details": { "originalSamples": 253, "overlaySamples": 36, "blindSamples": 9, "effectReverseSamples": 277, "litSamples": 17, "projectedSamples": 9 },
+    "diffCheck": "通過"
+  },
+  "manualBrowser": {
+    "browser": "現有 Chrome；一般分頁導航、步驟選單、視角按鈕及截圖",
+    "viewsInspected": ["iso", "pick", "optics", "electrical", "pallet", "top", "side", "gripper"],
+    "featuresInspected": ["粗取像擬合", "精取像十字與視野外夾取點", "頻閃投影點", "盲區提示", "反射方向", "電控剖視", "末端配線", "操作員"],
+    "observedConsoleErrors": 0,
+    "limits": "目視確認不替代四種尺寸自動 UI 檢查；截圖已在工具輸出逐張查看，未存成 shots.mjs 成果",
+    "rawCdp": "瀏覽器安全機制拒絕，回覆使用者未授權；沒有繞過"
+  },
+  "limitations": [
+    "GPU 與 5GigE 網卡包含在 IPC 包絡與標示內，未繪製機箱內板卡",
+    "J4／J5 使用機內通道示意；J6 外露線束未模擬固定弧長、最小彎曲半徑、扭轉壽命或柔性力學",
+    "光學效果及可信度為示意，不是實測辨識、偏光或飽和模擬"
+  ],
+  "cleanup": {
+    "server": "本次 8842 伺服器已停止，驗證分頁已關閉",
+    "status": "未完成：自動批准審查拒絕指定範圍的遞迴刪除，僅回覆 blocked by policy",
+    "remaining": [
+      "TEMP/whl-codex-browser/",
+      "TEMP/whl-codex-browser-diag/",
+      "TEMP/whl-codex-swift-37288/",
+      "TEMP/whl-codex-swift-40080/",
+      "TEMP/whl-codex-browser-env.mjs"
+    ]
+  },
+  "coreSuggestions": [
+    "renderCamera 提供正式 Canvas2D 疊圖介面、幾何投影助手及標記與相機影像的圖層隔離",
+    "新增固定弧長腕部服務圈模型，檢核彎曲半徑、扭轉與活動幾何倒序一致",
+    "瀏覽器驗證工具提供可設定的 GPU 後端、啟動錯誤診斷及經授權的既有瀏覽器連線選項"
+  ]
+}

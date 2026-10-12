@@ -1,0 +1,190 @@
+{
+  "variant": "預設",
+  "params": {},
+  "ok": true,
+  "applicable": true,
+  "devices": 10,
+  "connections": 10,
+  "enclosures": 1,
+  "feedthroughs": {
+    "plates": 1,
+    "glands": 4,
+    "holeRays": 24,
+    "wireCrossings": 12,
+    "mountChecks": 4,
+    "failures": []
+  },
+  "failures": [],
+  "components": [
+    {
+      "id": "QS1",
+      "kind": "isolator",
+      "title": "總電源隔離",
+      "size": [
+        60,
+        90,
+        80
+      ],
+      "role": "power",
+      "description": "配置示意，額定與型號依實際選型確認。",
+      "source": null,
+      "category": "ac",
+      "model": "配置估算，型號待選"
+    },
+    {
+      "id": "QF1",
+      "kind": "breaker",
+      "title": "支路保護",
+      "size": [
+        50,
+        90,
+        75
+      ],
+      "role": "power",
+      "description": "配置示意，額定與型號依實際選型確認。",
+      "source": "QS1",
+      "category": "ac",
+      "model": "配置估算，型號待選"
+    },
+    {
+      "id": "PS1",
+      "kind": "psu",
+      "title": "24 VDC 電源",
+      "size": [
+        90,
+        120,
+        110
+      ],
+      "role": "power",
+      "description": "配置示意，額定與型號依實際選型確認。",
+      "source": "QF1",
+      "category": "ac",
+      "model": "配置估算，型號待選"
+    },
+    {
+      "id": "PLC1",
+      "kind": "plc",
+      "title": "PLC／編碼器鎖存",
+      "size": [
+        120,
+        100,
+        100
+      ],
+      "role": "control",
+      "description": "配置示意，額定與型號依實際選型確認。",
+      "source": "PS1",
+      "category": "dc",
+      "model": "配置估算，型號待選"
+    },
+    {
+      "id": "SAF1",
+      "kind": "safety",
+      "title": "安全繼電器",
+      "size": [
+        80,
+        100,
+        90
+      ],
+      "role": "safety",
+      "description": "配置示意，額定與型號依實際選型確認。",
+      "source": "PS1",
+      "category": "safety",
+      "model": "配置估算，型號待選"
+    },
+    {
+      "id": "LC1",
+      "kind": "light",
+      "title": "300 µs 頻閃控制器",
+      "size": [
+        90,
+        80,
+        85
+      ],
+      "role": "vision",
+      "description": "配置示意，額定與型號依實際選型確認。",
+      "source": "PLC1",
+      "category": "signal",
+      "model": "配置估算，型號待選"
+    },
+    {
+      "id": "IPC1",
+      "kind": "ipc",
+      "title": "視覺 IPC（內含 GPU）",
+      "size": [
+        210,
+        145,
+        150
+      ],
+      "role": "vision",
+      "description": "機箱包絡包含 GPU 與 5GigE 網卡；幾何特徵辨識、手眼轉換及輪型配方。",
+      "source": "SW1",
+      "category": "network",
+      "model": "配置估算，型號待選"
+    },
+    {
+      "id": "SW1",
+      "kind": "switch",
+      "title": "5GigE／PoE 交換器",
+      "size": [
+        100,
+        100,
+        100
+      ],
+      "role": "network",
+      "description": "配置示意，額定與型號依實際選型確認。",
+      "source": "PS1",
+      "category": "dc",
+      "model": "配置估算，型號待選"
+    },
+    {
+      "id": "IO1",
+      "kind": "io",
+      "title": "到位光電／編碼器介面",
+      "size": [
+        130,
+        85,
+        80
+      ],
+      "role": "io",
+      "description": "配置示意，額定與型號依實際選型確認。",
+      "source": "PLC1",
+      "category": "signal",
+      "model": "配置估算，型號待選"
+    },
+    {
+      "id": "DRV1",
+      "kind": "drive",
+      "title": "夾爪伺服驅動",
+      "size": [
+        110,
+        140,
+        130
+      ],
+      "role": "motion",
+      "description": "配置示意，額定與型號依實際選型確認。",
+      "source": "QF1",
+      "category": "ac",
+      "model": "配置估算，型號待選"
+    }
+  ],
+  "cables": {
+    "report": [
+      {
+        "scenario": "預設",
+        "samples": 403,
+        "routes": 24,
+        "supports": 129,
+        "carriers": 0,
+        "feedthroughs": {
+          "plates": 1,
+          "glands": 4,
+          "holeRays": 24,
+          "wireCrossings": 12,
+          "mountChecks": 4,
+          "failures": []
+        }
+      }
+    ],
+    "failures": []
+  }
+}

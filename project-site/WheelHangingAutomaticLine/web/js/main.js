@@ -6,6 +6,9 @@ import { createStage, exposeSim } from '@core/ui/stage.js';
 import { createPlayer } from '@core/ui/player.js';
 import { createViewerWorkspace } from '@core/ui/viewer-workspace.js';
 import { createProject, STATIONS } from './project.js';
+import { createCaptureOverlay, isCapture } from './capture-overlay.js';
+import { setElectricalCutaway } from '@core/electrical/electrical-cabinet.js';
+import { createElectricalInspector } from '@core/electrical/electrical-inspector.js';
 import { LINE, PICK, BAYS, SHEETS, CONTROLLER, CABINET, OPERATOR } from './layout.js';
 
 const qp = new URLSearchParams(location.search);
@@ -19,9 +22,11 @@ const stage = createStage({
   controls: { minDistance: 400, maxDistance: 30000 },
 });
 const { renderer, scene, camera, controls } = stage;
+camera.layers.enable(1);
 const project = createProject({ scene });
 const { sequence: seq, robot, stationStart } = project;
 const leftCam = robot.cameras[0].camera;
+const captureOverlay = createCaptureOverlay(project);
 
 const tcpWorld = () => robot.tcp.getWorldPosition(new THREE.Vector3());
 const workspace = createViewerWorkspace({
@@ -38,6 +43,7 @@ const VIEWS = {
   pallet: [[3800, 3200, 4200], [1100, 600, 1000]],
   top: [[500, 13500, 400], [500, 0, 399]],
   side: [[7200, 1900, -300], [800, 1450, -700]],
+  electrical: [[-500, 1700, 6400], [-650, 1050, 3500]],
   gripper: () => {
     const p = tcpWorld();
     return [p.clone().add(new THREE.Vector3(1300, 700, 1500)).toArray(), p.toArray()];
@@ -46,10 +52,14 @@ const VIEWS = {
 function setView(name, instant = false) {
   const v = typeof VIEWS[name] === 'function' ? VIEWS[name]() : VIEWS[name]; if (!v) return;
   workspace.stopFollowing();
+  project.effects.setView(name === 'optics');
+  setElectricalCutaway(scene, name === 'electrical');
   stage.goTo(v[0], v[1], instant);
   document.querySelectorAll('.views [data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === name));
 }
 document.querySelectorAll('.views [data-view]').forEach(b => b.onclick = () => setView(b.dataset.view));
+const electricalInspector = createElectricalInspector({ scene, camera, controls, canvas,
+  onEnter: () => setView('electrical', true), onExit: () => setView('iso', true), title: '輪框下掛電控配置' });
 
 // ---------------------------------------------------------------- 3D 標籤
 const label = (html, pos, priority = 0) => stage.addLabel(html, pos, '', { anchor: 'above', priority });
@@ -91,7 +101,7 @@ function updatePanels(T) {
   ui.substep.textContent = step.sub || '';
   ui.stationName.textContent = `S${step.station + 1} ${STATIONS[step.station]}`;
   ui.stations.forEach((b, i) => b.classList.toggle('active', i === step.station));
-  ui.vision.innerHTML = v ? [['階段', v.fine ? '精取像（正對）' : '粗取像（斜 25°）'], ['輪型', v.model], ['外徑', `${v.od} mm`], ['中心 X／Y／Z', v.center.join('／')], ['軸線偏角', `${v.tilt}°`], ['可信度', v.score]]
+  ui.vision.innerHTML = v ? [['階段', v.fine ? '精取像（正對）' : '粗取像（俯視輪面）'], ['輪型', v.model], ['外徑', `${v.od} mm`], ['中心 X／Y／Z', v.center.join('／')], ['軸線偏角', `${v.tilt}°`], ['可信度', v.score]]
     .map(([k, x]) => `<dt>${k}</dt><dd>${x}</dd>`).join('') : '<dt>—</dt><dd class="vision idle">取像時顯示</dd>';
   ui.signals.innerHTML = pr.signals.map(s => `<li class="${s.on ? 'on' : ''}">${s.label}</li>`).join('');
   ui.bays.innerHTML = Object.entries(pr.bays).map(([k, n]) => `<dt>棧板 ${k}</dt><dd>${n}／20 個</dd>`).join('');
@@ -106,7 +116,10 @@ const player = createPlayer({
 });
 
 function render() {
-  workspace.renderCamera({ renderer, scene, camera: leftCam, title: '手臂左相機（虛擬，525 nm＋偏光）', result: ui.action.textContent, marks: { time: player.T } });
+  const t = project.presentation.time;
+  workspace.renderCamera({ renderer, scene, camera: leftCam, vision: captureOverlay, aspect: 6.71 / 5.61, title: '手臂左相機（模擬，525 nm＋偏光）', result: ui.action.textContent, marks: { time: t } });
+  const smp = seq.sample(t);
+  electricalInspector.update({ time: t, playing: player.playing, action: smp.step.action, vision: isCapture(smp.step) && smp.state.strobe > .5, motion: !!smp.step.robot });
   workspace.renderOverview(renderer, scene);
 }
 

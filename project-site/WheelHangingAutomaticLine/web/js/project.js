@@ -9,6 +9,10 @@ import { createRobot, HELD, RATING } from './robot.js';
 import { createWheel } from './wheel.js';
 import { createSequence, trackPose, linPose, frontOf, STATIONS, PLAN, SHEET, SHEET_YAW, sheetRackY } from './sequence.js';
 import { WHEELS, OD_MAX, LINE, PICK, GRIP, STEREO, OBS, FINE, BAYS, SHEETS, PALLET, hangY, slotOf, sheetTopY } from './layout.js';
+import { capturePresentation, isCapture } from './capture-overlay.js';
+import { createOpticalEffects } from './optical-effects.js';
+import { createElectrical } from './electrical.js';
+import { createOperator } from './operator.js';
 
 export { STATIONS };
 
@@ -25,17 +29,22 @@ export function createProject({ scene }) {
   const wheels = PLAN.map((p, k) => { const w = createWheel(p.spec, `wheel ${k}`); scene.add(w); return w; });
   const sheet = createSheet(scene, 'sheet 0');
   const { seq, poses, track, cycle, REL } = createSequence(robot);
+  const effects = createOpticalEffects(scene, wheels);
+  const operator = createOperator(scene);
+  const electrical = createElectrical(scene, { robot, line });
 
   const _p = new THREE.Vector3(), _q = new THREE.Quaternion(), UP = new THREE.Vector3(0, 1, 0);
   const presentation = { signals: [], lines: [], vision: null, bays: {} };
   let hmiKey = '';
   function apply(t) {
+    presentation.time = t;
     const smp = seq.sample(t), st = smp.state, step = smp.step;
+    const optical = { ...st, strobe: isCapture(step) ? st.strobe : 0, pattern: isCapture(step) ? st.pattern : 0 };
     let q = st.q;
     if (step.robot === 'track') q = robot.track(trackPose(step, t, smp.e), st.q);
     else if (step.robot === 'lin' && smp.u > 0 && smp.u < 1) q = robot.track(linPose(step, smp.e), st.q);
     robot.setJoints(q);
-    robot.setDetail({ width: st.width, vac: st.vac, strobe: st.strobe, dist: st.dist, pattern: st.pattern });
+    robot.setDetail({ width: st.width, vac: st.vac, strobe: st.strobe, dist: st.dist, pattern: optical.pattern, gripped: PLAN.some((_, i) => st['lam' + i] === 'robot') });
     line.set(t);
 
     // ---- 示範輪框：吊鉤上 → 手臂上（夾爪座標）→ 棧板上
@@ -56,12 +65,12 @@ export function createProject({ scene }) {
     // ---- 感測、訊號與 HMI（只由時間決定）
     const atSensor = line.hooks.some(h => { const m = modelOf(h.j); return m && Math.abs(h.root.position.x - PICK.sensorX) < WHEELS[m].od / 2; });
     line.sensor.set(atSensor); line.beam.material.color.set(atSensor ? 0xffb020 : 0xff3030);
-    for (const l of line.lights) l.set(st.strobe > .5 ? 1 : .12);
+    for (const l of line.lights) l.set(optical.strobe > .5 ? 1 : .12);
     const k = step.track ? PLAN.indexOf(step.track.p) : -1, tracking = step.robot === 'track';
     const counts = { A: BAYS.A.n + PLAN.filter((p, i) => p.bay === 'A' && st['lam' + i] === 'A').length, B: BAYS.B.n + PLAN.filter((p, i) => p.bay === 'B' && st['lam' + i] === 'B').length };
     const held = PLAN.findIndex((_, i) => st['lam' + i] === 'robot');
     const sig = {
-      sensor: atSensor, tracking, trigger: st.strobe > .5, pattern: st.pattern > .5,
+      sensor: atSensor, tracking, trigger: optical.strobe > .5, pattern: optical.pattern > .5 && optical.strobe > .5,
       gripped: held >= 0, vac: st.vac > .5,
     };
     presentation.signals = [
@@ -71,13 +80,19 @@ export function createProject({ scene }) {
     presentation.bays = counts;
     // 視覺量測（示意）：取像那一步顯示輪型、外徑、中心、軸偏與可信度
     const p = k >= 0 ? PLAN[k] : null;
+    presentation.capture = capturePresentation(seq, t);
+    effects.set(optical, k); electrical.set(optical, step);
     presentation.vision = p && (step.action.includes('取像') || step.action.startsWith('辨識') || step.action === '更新夾取點') ? (() => {
       const c = frontOf(p, t), wob = Math.sin(1.7 * k + 2.3) * .4;
       return { model: p.spec.name, od: (p.spec.od + wob).toFixed(1), center: [c.x, c.y, c.z - p.spec.w / 2].map(v => v.toFixed(1)), tilt: (Math.abs(wob) * .8).toFixed(2), score: (.96 - .02 * k).toFixed(2), fine: step.station === 1 };
     })() : null;
     const done = t >= seq.total - 1e-6;
+    const last = presentation.capture.lastMeasurement;
     const lines = ['輪框下掛　自動運轉', done ? '完成：回取像待命位' : step.action, p ? `追蹤：${p.spec.name}（吊鉤 #${p.j + 101}）` : '追蹤：—',
-      `棧板 A ${counts.A}／20　B ${counts.B}／20`, `線速 40 mm/s　追蹤窗 ${PICK.window.join('～')} mm`];
+      `棧板 A ${counts.A}／20　B ${counts.B}／20`, `線速 40 mm/s　追蹤窗 ${PICK.window.join('～')} mm`,
+      last ? `最近量測 ${last.time.toFixed(2)} s · Ø${last.od} mm` : '最近量測：尚未取像',
+      last ? `XYZ ${last.center.map(v => v.toFixed(1)).join(' / ')}` : 'XYZ —',
+      presentation.capture.mode === 'blind' ? '盲區：最後量測＋編碼器推算' : `視覺 ${sig.trigger ? '取像中' : '待命'} · 真空 ${sig.vac ? 'ON' : 'OFF'}`];
     const key = lines.join('|');
     if (key !== hmiKey) { cell.hmi.drawText(lines); hmiKey = key; }
     presentation.lines = lines;
@@ -125,8 +140,11 @@ export function createProject({ scene }) {
 
   return {
     total: seq.total, sequence: seq, timeline: seq, apply, layoutChecks, stationStart: seq.stationStart,
-    cycleTime: cycle, robot, line, cell, wheels, sheet, presentation, plan: PLAN, track,
+    cycleTime: cycle, robot, line, cell, wheels, sheet, presentation, plan: PLAN, track, effects, operator, electrical,
     verify: {
+      // 人員只表示圍籬外操作位置，不是人體安全距離驗證；機構與配線仍正常檢查。
+      skip: o => o.userData.operatorProxy === true,
+      cables: { obstacles: () => electrical.obstacles, interval: .2, minRoutes: 18 },
       allow: [
         { why: '輪框中心孔靠在吊桿 PU 護套上（吊掛中、上抬前）', test: (a, b) => pair(a, b, isWheel, named(/^hook (sleeve|bar|tip|joint)$/)) },
         { why: 'PU 指墊夾住輪框外緣', test: (a, b) => pair(a, b, isWheel, named(/^finger pad$/)) },

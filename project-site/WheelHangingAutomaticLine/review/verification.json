@@ -11,7 +11,13 @@
     "pullClear1": 124,
     "pullClear2": 119,
     "captureViews": 9,
-    "detailSamples": 253
+    "detailSamples": 253,
+    "overlaySamples": 36,
+    "blindSamples": 9,
+    "fxSamples": 277,
+    "litSamples": 17,
+    "projectedSamples": 9,
+    "cableRoutes": 19
   },
   "failures": []
 }

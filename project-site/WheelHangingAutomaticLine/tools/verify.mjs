@@ -8,6 +8,7 @@ import { createProject } from '../web/js/project.js';
 import { trackPose, linPose, PLAN } from '../web/js/sequence.js';
 import { hookX } from '../web/js/line.js';
 import { LINE, PICK, BAYS, slotOf } from '../web/js/layout.js';
+import { capturePresentation, projectedFeatures, isCapture } from '../web/js/capture-overlay.js';
 
 const scene = new THREE.Scene(), project = createProject({ scene });
 const { sequence: seq, robot, wheels } = project;
@@ -81,6 +82,62 @@ const snap = t => { project.apply(t); scene.updateMatrixWorld(true); return JSON
 const fwd = times.map(snap);
 for (let i = times.length - 1; i >= 0; i--) if (snap(times[i]) !== fwd[i]) { failures.push(`細節倒序不一致：${times[i]} s`); break; }
 notes.detailSamples = times.length;
+
+// 8. 疊圖時機、左右眼投影、量測回查與編碼器推算；不是固定畫面上的裝飾橢圓。
+let overlays = 0, blindSamples = 0;
+for (const s of seq.steps) for (const u of [.01, .5, .99]) {
+  const t = s.start + s.dur * u; project.apply(t); scene.updateMatrixWorld(true);
+  const info = capturePresentation(seq, t);
+  const expected = s.action === '盲區直線接近' ? 'blind' :
+    s.track && (isCapture(s) || /辨識輪型|更新夾取點/.test(s.action)) ? (s.station === 1 ? 'fine' : 'coarse') : 'idle';
+  if (info.mode !== expected) failures.push(`疊圖時機錯誤 ${s.action}`);
+  if (['coarse', 'fine'].includes(info.mode)) {
+    const k = PLAN.indexOf(info.p), spec = info.p.spec;
+    const f = robot.cameras.map(c => projectedFeatures(wheels[k], spec, c.camera, 671, 561));
+    if (f.some(x => x.rings.length !== 2 + spec.lugs || x.rings.some(r => r.some(p => p.some(v => !Number.isFinite(v)))) || x.depth <= 0 || x.disparity <= 0)) failures.push('橢圓投影或深度無效');
+    if (Math.abs(f[0].center[0] - f[1].center[0]) < 1) failures.push('左右眼沒有視差');
+    overlays++;
+  }
+  if (info.mode === 'blind') {
+    const last = info.lastMeasurement;
+    const correctedX = last.center[0] + info.encoderDelta;
+    if (Math.abs(correctedX - hookX(info.p.j, t)) > 1e-6 || last.time >= s.start) failures.push('盲區量測或編碼器推算不正確');
+    blindSamples++;
+  }
+}
+notes.overlaySamples = overlays; notes.blindSamples = blindSamples;
+
+// 頻閃亮度、投影點及訊號使用相同門檻，含段落邊界與倒序取樣。
+let litSamples = 0, projectedSamples = 0;
+const expanded = times.concat(seq.steps.filter(isCapture).flatMap(s => [s.start - .001, s.start + .001, s.start + s.dur - .001, s.start + s.dur + .001]));
+const newSnapshot = t => {
+  const st = project.apply(t), smp = seq.sample(t), k = PLAN.indexOf(smp.step.track?.p);
+  const on = isCapture(smp.step) && st.strobe > .5;
+  for (const light of project.line.lights) {
+    const expected = on ? light.params.on : light.params.off + (light.params.on - light.params.off) * .12;
+    if (Math.abs(light.lens.material.emissiveIntensity - expected) > 1e-8) failures.push(`頻閃不同步 ${t}`);
+  }
+  if (project.presentation.signals.find(s => s.label.startsWith('取像觸發')).on !== on) failures.push(`觸發不同步 ${t}`);
+  project.effects.patterns.forEach((g, i) => {
+    if (g.visible !== (i === k && st.pattern > .5 && on)) failures.push(`投影時機不正確 ${t}`);
+    if (!g.children[0].geometry.attributes.position.count) failures.push('輪面投影點缺失');
+  });
+  const info = capturePresentation(seq, t), flex = project.electrical.flex;
+  return JSON.stringify({ info, lights: project.line.lights.map(l => l.lens.material.emissiveIntensity), patterns: project.effects.patterns.map(g => g.visible),
+    flex: flex.userData.cable.points, geometry: Array.from(flex.children[0].geometry.attributes.position.array),
+    status: [robot.status.material.color.getHex(), robot.status.material.emissiveIntensity],
+    leds: [...project.electrical.panel.devices.values()].map(d => d.userData.electricalLed?.material.emissiveIntensity ?? null),
+    encoder: project.line.measuring.rotation.z, chain: project.line.chain.map(m => m.position.x),
+    tags: project.line.hooks.map(h => h.tag?.userData.hookNumber), hmi: project.presentation.lines });
+};
+const snapshots = expanded.map(t => { const s = newSnapshot(t), smp = seq.sample(t); if (isCapture(smp.step) && smp.state.strobe > .5) litSamples++; if (project.effects.patterns.some(g => g.visible)) projectedSamples++; return s; });
+for (let i = expanded.length - 1; i >= 0; i--) if (newSnapshot(expanded[i]) !== snapshots[i]) { failures.push(`新增效果／配線／量測倒序不一致 ${expanded[i]}`); break; }
+if (!litSamples || !projectedSamples) failures.push('頻閃或投影檢查沒有有效取樣');
+notes.fxSamples = expanded.length; notes.litSamples = litSamples; notes.projectedSamples = projectedSamples;
+notes.cableRoutes = project.electrical.routes.length;
+// 配線動態干涉由完整 electrical 檢查執行；此處確保宣告、障礙物及活動線束資料沒有空轉。
+if (project.verify.cables.interval > .2 || project.verify.cables.minRoutes < 18 || !project.electrical.obstacles.includes(wheels[0].children[0])) failures.push('配線檢查範圍不足');
+for (const ray of project.effects.rays) if (ray.reflected.y >= 0 || ray.reflected.z <= 0) failures.push('正反射不是向下離開輪面');
 
 // 7. 節拍：平均每個輪框 ≤ 吊鉤間隔（含每 4 個一次的隔板）
 const limit = LINE.pitch / LINE.v;

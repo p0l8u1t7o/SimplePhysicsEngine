@@ -6,7 +6,7 @@
 // TCP＝輪框正面（輪緣平面）中心：掌面前方 GRIP.gap。
 import * as THREE from 'three';
 import { createArm, K, LIMITS, SPEED, JOINTS } from '@core/models/robots/fanuc-r2000ic.js';
-import { parallelGripper, suctionCup } from '@core/models/motion.js';
+import { parallelGripper, suctionCup, vacuumEjector } from '@core/models/motion.js';
 import { visionCamera } from '@core/models/vision.js';
 import { block, cylinder, tube } from '@core/geom/shapes.js';
 import { MAT, std } from '@core/geom/materials.js';
@@ -54,6 +54,10 @@ export function createRobot(scene) {
   }
   // 伺服馬達＋減速機（本體 +X 端上方）
   cylinder(tool, 50, 150, [500, -(D - 62), 0], MAT.black, 'z', 24).name = 'gripper servo motor';
+  const ejector = vacuumEjector.create({ name: 'vacuum ejector' });
+  ejector.root.position.set(180, -100, 90); tool.add(ejector.root);
+  const status = cylinder(tool, 12, 6, [390, -170, 95], new THREE.MeshStandardMaterial({ color: 0x39cda0, emissive: 0x39cda0, emissiveIntensity: .25 }), 'z', 16);
+  status.name = 'gripper status lamp';
 
   // ---- 雙眼相機：碳纖維橫樑（基線沿工具 X）裝在夾爪本體 −Z 面；光軸往輪框軸俯 tilt，與夾爪軸在 converge 處相交
   const cams = new THREE.Group(); cams.name = 'stereo head'; tool.add(cams);
@@ -104,11 +108,13 @@ export function createRobot(scene) {
     const hw = dist * STEREO.sensor[0] / 2 / STEREO.focal, hh = dist * STEREO.sensor[1] / 2 / STEREO.focal;
     for (const m of cones) m.scale.set(hw * Math.SQRT2, dist, hh * Math.SQRT2);
   };
-  function setDetail({ width = 2 * GRIP.stroke[1], vac = 0, strobe = 0, dist = 900, pattern = 0 } = {}) {
+  function setDetail({ width = 2 * GRIP.stroke[1], vac = 0, strobe = 0, dist = 900, pattern = 0, gripped = false } = {}) {
     grip.set({ width });
     fx.visible = strobe > 0; setFov(dist); fovMat.opacity = .05 + .12 * strobe;
     projLens.material.emissiveIntensity = pattern > 0 ? 1.6 : .05;
     for (const c of cups.cups) c.material = vac > .5 ? CUP_ON : MAT.black;
+    status.material.color.set(gripped ? 0x39d98a : vac > .5 ? 0x58bfff : 0xffba55);
+    status.material.emissive.copy(status.material.color); status.material.emissiveIntensity = gripped || vac > .5 ? 1 : .2;
   }
 
   const tcp = new THREE.Object3D(); tcp.name = 'tcp'; tcp.position.set(0, -(D + GRIP.gap), 0); tool.add(tcp);
@@ -120,7 +126,7 @@ export function createRobot(scene) {
     toFlange: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -Math.PI / 2),
   });
   return {
-    arm, root: arm.root, base, tool, tcp, grip, cameras, projector: proj, cups, fx, cupLip, setDetail,
+    arm, root: arm.root, base, tool, tcp, grip, cameras, projector: proj, cups, fx, cupLip, setDetail, ejector, status,
     q: arm.q, setJoints: arm.setJoints, apply: arm.apply,
     solve: solver.solve, track: (pose, seed) => solver.track(pose, seed), error: solver.error,
   };
