@@ -1,0 +1,17 @@
+{
+  "ok": true,
+  "total": 67.82,
+  "cycle": 24.97,
+  "notes": {
+    "trackWorst": 0.05,
+    "linWorst": 0.047,
+    "handoffs": 6,
+    "handoffJump": 0.08,
+    "pullClear0": 124,
+    "pullClear1": 124,
+    "pullClear2": 119,
+    "captureViews": 9,
+    "detailSamples": 253
+  },
+  "failures": []
+}

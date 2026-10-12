@@ -1,0 +1,141 @@
+{
+  "variant": "預設",
+  "params": {},
+  "ok": true,
+  "count": 22,
+  "failures": [],
+  "rows": [
+    {
+      "group": "手臂可達",
+      "name": "窗口 900 mm 粗取像（C 款）",
+      "ok": true,
+      "value": "誤差 0.00 mm"
+    },
+    {
+      "group": "手臂可達",
+      "name": "窗口 970 mm 精取像（C 款）",
+      "ok": true,
+      "value": "誤差 0.01 mm"
+    },
+    {
+      "group": "手臂可達",
+      "name": "窗口 1180 mm 夾取（C 款）",
+      "ok": true,
+      "value": "誤差 0.00 mm"
+    },
+    {
+      "group": "手臂可達",
+      "name": "窗口 1230 mm 拉出（C 款）",
+      "ok": true,
+      "value": "誤差 0.00 mm"
+    },
+    {
+      "group": "手臂可達",
+      "name": "窗口 1700 mm 粗取像（最晚）（C 款）",
+      "ok": true,
+      "value": "誤差 0.00 mm"
+    },
+    {
+      "group": "手臂可達",
+      "name": "窗口 2300 mm 夾取（C 款）",
+      "ok": true,
+      "value": "誤差 0.00 mm"
+    },
+    {
+      "group": "手臂可達",
+      "name": "窗口 2300 mm 拉出（C 款）",
+      "ok": true,
+      "value": "誤差 0.00 mm"
+    },
+    {
+      "group": "手臂可達",
+      "name": "棧板 A 第 1 層第 1 格",
+      "ok": true,
+      "value": "誤差 0.03 mm"
+    },
+    {
+      "group": "手臂可達",
+      "name": "棧板 A 第 1 層第 4 格",
+      "ok": true,
+      "value": "誤差 0.00 mm"
+    },
+    {
+      "group": "手臂可達",
+      "name": "棧板 A 第 5 層第 1 格",
+      "ok": true,
+      "value": "誤差 0.05 mm"
+    },
+    {
+      "group": "手臂可達",
+      "name": "棧板 A 第 5 層第 4 格",
+      "ok": true,
+      "value": "誤差 0.00 mm"
+    },
+    {
+      "group": "手臂可達",
+      "name": "棧板 B 第 1 層第 1 格",
+      "ok": true,
+      "value": "誤差 0.01 mm"
+    },
+    {
+      "group": "手臂可達",
+      "name": "棧板 B 第 1 層第 4 格",
+      "ok": true,
+      "value": "誤差 0.00 mm"
+    },
+    {
+      "group": "手臂可達",
+      "name": "棧板 B 第 5 層第 1 格",
+      "ok": true,
+      "value": "誤差 0.01 mm"
+    },
+    {
+      "group": "手臂可達",
+      "name": "棧板 B 第 5 層第 4 格",
+      "ok": true,
+      "value": "誤差 0.00 mm"
+    },
+    {
+      "group": "手臂可達",
+      "name": "排程內 55 個位姿",
+      "ok": true,
+      "value": "最大誤差 0.04 mm"
+    },
+    {
+      "group": "負載",
+      "name": "最重輪框＋夾爪 ≤ 165 kg",
+      "ok": true,
+      "value": "57.5 kg"
+    },
+    {
+      "group": "視覺",
+      "name": "粗取像共同視野 ≥ 700 mm",
+      "ok": true,
+      "value": "736 × 741 mm"
+    },
+    {
+      "group": "視覺",
+      "name": "深度解析（1/4 像素視差）≤ 1 mm",
+      "ok": true,
+      "value": "0.39 mm @ 660 mm"
+    },
+    {
+      "group": "視覺",
+      "name": "取像時輪框位移（300 µs 曝光）",
+      "ok": true,
+      "value": "0.012 mm"
+    },
+    {
+      "group": "追蹤",
+      "name": "夾取到拉出都在追蹤窗內",
+      "ok": true,
+      "value": "1238～1365／1317～1444／1235～1362"
+    },
+    {
+      "group": "節拍",
+      "name": "平均節拍 ≤ 吊鉤間隔 25 s",
+      "ok": true,
+      "value": "25.0 s／個（含隔板）"
+    }
+  ]
+}

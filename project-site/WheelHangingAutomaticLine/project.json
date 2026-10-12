@@ -1,0 +1,10 @@
+{
+  "title": "輪框吊掛線手臂下掛",
+  "summary": "FANUC R-2000iC/165F＋手臂搭載雙眼立體視覺：追蹤 4 cm/s 吊掛線、抗反光辨識輪框、下掛疊放棧板",
+  "order": 11,
+  "coreVersion": "1.14.0",
+  "checks": {
+    "quick": ["tools/verify.mjs"],
+    "full": []
+  }
+}

@@ -68,3 +68,18 @@
 - 現象：`fanuc-m710ic.js`（1.14.0 新增）的逆解初始解在底座座標計算，root 可以繞 Y 旋轉，用來把 J1 的 ±180° 分界轉到不需要經過的方向；`fanuc-r2000ic.js` 仍假設 root 不旋轉
 - 期望：R-2000iC 的 `seeds()` 照 M-710iC 的寫法改成底座座標（化學桶清洗線要用基準截圖與場景傾印確認畫面不變）
 - 影響：之後用 R-2000iC 且需要轉向的站
+
+### 吊掛輸送線（I 型鋼軌道＋吊鉤）與鋁合金輪框模型
+- 提出：WheelHangingAutomaticLine（2026-10-12）
+- 現象：core 只有地面輸送（滾筒、皮帶）；吊掛線的軌道、支架、台車與 C 型吊鉤，以及參數化的鋁合金輪框（輪圈旋轉體、輪轂中心孔與螺栓孔、輪輻、切削面材質）都在站內自己畫
+- 暫代：`project-site/WheelHangingAutomaticLine/web/js/line.js`（軌道、支架、`createHook`、吊鉤循環排列 `hookX`）、`web/js/wheel.js`（`createWheel(spec)`）
+- 期望介面：`overheadConveyor.create({ length, railY, hooks: { pitch, shape }, supports })` ＋ `set({ s })`；`wheel.create({ od, w, bore, pcd, lugs, spokes, hub, finish })`
+- 影響：之後有吊掛線、輪框或圓盤件搬運的站
+
+### 手臂搭載雙眼相機頭（兩台相機＋基線樑＋選配投影器）
+- 提出：WheelHangingAutomaticLine（2026-10-12）
+- 現象：用兩個 `visionCamera` 加碳纖維樑、濾鏡座、投影器在站內組；視野錐（視野錐體效果）也是站內畫
+- 暫代：`project-site/WheelHangingAutomaticLine/web/js/robot.js`「雙眼相機」一段
+- 期望介面：`stereoHead.create({ baseline, focal, sensor, tilt, filters, projector })`，回傳左右相機與 `setFov(dist)`
+- 影響：之後手眼立體視覺的站
+
