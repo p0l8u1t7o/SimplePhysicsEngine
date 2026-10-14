@@ -16,17 +16,17 @@ for(const id of SITE_IDS) {
     p.apply(t);scene.updateMatrixWorld(true);
     return JSON.stringify({driver:D.driver.root.matrixWorld.toArray(),hand:D.driver.hand.matrixWorld.toArray(),gun:D.gun.matrixWorld.toArray(),state:D.state,
       head:p.hero.headMat.emissiveIntensity,tail:p.hero.tailMat.emissiveIntensity,reverse:p.hero.reverseMat.emissiveIntensity,
-      wheels:p.hero.wheels.map(w=>w.rotation.z),lids:p.hero.lids.map(l=>l.rotation.y),scans:D.scans.map(s=>s.g.visible),lights:D.spots.map(s=>s.intensity),
+      wheels:p.hero.wheels.map(w=>w.rotation.z),lids:p.hero.lids.map(l=>l.rotation.x),scans:D.scans.map(s=>s.g.visible),lights:D.spots.map(s=>s.intensity),
       arrows:D.arrowGroups.map(a=>[a.g.visible,a.mat.opacity,...a.arrows.map(m=>m.matrixWorld.toArray())]),
       pits:p.constructionDetails.pits.map(x=>[x.g.visible,x.cage.visible]),truck:p.constructionDetails.truck.matrixWorld.toArray()});
   };
   const forward=new Map(times.map(t=>[t,snapshot(t)]));
   for(const t of [...times].reverse())check(snapshot(t)===forward.get(t),`${id} reverse ${t}`);
   p.apply(H.plugT);scene.updateMatrixWorld(true);
-  check(D.driver.root.visible&&D.driver.root.position.distanceTo(D.portStand)<1,`${id} driver at port`);
+  check(D.driver.root.visible&&Math.hypot(D.driver.root.position.x-D.portStand.x,D.driver.root.position.z-D.portStand.z)<1&&D.driver.root.position.y>=-180,`${id} driver at port with crouch`);
   check(D.driver.root.position.distanceTo(D.pick)<3000,`${id} driver near charger`);
   check(D.driver.hand.getWorldPosition(new THREE.Vector3()).distanceTo(D.gun.position.clone().add(new THREE.Vector3(0,-110,0)))<1,`${id} hand follows connector`);
-  check(p.hero.lids.some(l=>Math.abs(l.rotation.y)>1),`${id} charge lid open`);
+  check(p.hero.lids.some(l=>Math.abs(l.rotation.x)>1),`${id} charge lid open upward`);
   check(D.driver.root.userData.operatorProxy&&p.verify.skip(D.driver.root),`${id} operatorProxy excluded`);
   check(!p.verify.skip(D.gun)&&!D.gun.userData.fx,`${id} connector remains physical`);
   check(transactionAt(H,H.tPark,null)==='確認費率（示意）',`${id} rate confirmation`);

@@ -11,6 +11,7 @@ import { SITES, SITE_IDS, COMPARE, STALL } from './sites.js';
 import { PERIOD_NAME, PERIOD_BANDS, DT, STEPS } from './energy.js';
 import { gateGeom } from './lot.js';
 import { createLprOverlay } from './lpr-overlay.js';
+import { createOutdoorLighting } from './outdoor-lighting.js';
 
 const qp = new URLSearchParams(location.search);
 const $ = id => document.getElementById(id);
@@ -21,11 +22,13 @@ const canvas = $('c');
 const cx = (L.x0 + SITE.yard.x1) / 2, cz = (L.z0 + SITE.street.z0) / 2, R = Math.hypot(SITE.yard.x1 - L.x0, SITE.street.z0 - L.z0) / 2;
 const stage = createStage({
   canvas, look: 'plant', declutter:true, extent: { center: [cx, 0, cz], radius: R * 1.15 },
-  camera: { near: 50, far: 600000 }, controls: { minDistance: 3000, maxDistance: R * 7 },
-  fog: [R * 4, R * 10],
+  controls: { minDistance: 3000, maxDistance: R * 7 },
+  fog: [R * 3, R * 12],
+  camera: { near: 50, far: 1500000, fov: 45 },
 });
 const { renderer, scene, camera, controls } = stage;
 const project = createProject({ scene, site: siteId });
+const outdoor = createOutdoorLighting({scene,renderer,radius:R,center:[cx,cz]});
 const { stationStart, seq } = project;
 document.title = `${SITE.name} · 停車場光儲充能源服務 — 3D 展示`;
 
@@ -42,11 +45,11 @@ workspace.setSources([{ id: 'ems', label: 'EMS 調度畫面' }, { id: 'cctv', la
 const G = gateGeom(SITE), heroCh = project.chargers.find(k => k.c.id === seq.hero.chId), hs = heroCh.c.stall;
 const yardC = [(SITE.yard.x0 + SITE.yard.x1) / 2, 0, (SITE.yard.z0 + SITE.yard.z1) / 2];
 const chargingOffset = [Math.sign(project.details.portStand.x-hs.x)*6500,5300,-hs.dir*8500];
-const energyOffset = [7500,10000,11000];
+const energyOffset = siteId==='urban'?[4500,8000,6500]:[7500,10000,11000];
 const VIEWS = {
-  iso: [[cx + R * .55, R * .78, cz + R * 1.25], [cx, 0, cz - R * .05]],
-  gate: [[G.xc + 14000, 8000, SITE.entrance.zGate + 19000], [G.xc + 2000, 800, SITE.entrance.zGate - 3000]],
-  energy: [[yardC[0]+energyOffset[0],energyOffset[1],yardC[2]+energyOffset[2]], [yardC[0], 900, yardC[2]]],
+  iso: siteId==='urban'?[[cx-R*.7,R*1.05,cz+R*.6],[cx,0,cz-R*.2]]:[[cx + R * .4, R * 1.05, cz + R * .85], [cx, 0, cz - R * .05]],
+  gate: [[G.xc + 14000, siteId==='mixed'?11000:8000, SITE.entrance.zGate + (siteId==='mixed'?14000:19000)], [G.xc + 2000, 800, SITE.entrance.zGate - 3000]],
+  energy: [[yardC[0]+energyOffset[0],energyOffset[1],yardC[2]+energyOffset[2]], [yardC[0], 900, yardC[2]],siteId==='urban'?{fit:(f,v)=>v.set(v.x,v.y*f,v.z*f)}:{}],
   // 從車道側斜看車頭與充電樁正面，讓螢幕和操作姿勢同時可見。
   charging: [[hs.x+chargingOffset[0],chargingOffset[1],hs.z+chargingOffset[2]], [hs.x, 800, hs.z + hs.dir * 1500]],
   carport: SITE.carport ? [[-24000, 9000, 12000], [0, 2500, SITE.carport.zLine]] : null,
@@ -57,7 +60,7 @@ if (!VIEWS.carport) { delete VIEWS.carport; $('carportView').remove(); }
 function setView(name, instant = false) {
   const v = typeof VIEWS[name] === 'function' ? VIEWS[name]() : VIEWS[name]; if (!v) return;
   workspace.stopFollowing();
-  stage.goTo(v[0], v[1], instant, 1.1);
+  stage.goTo(v[0], v[1], instant, 1.1,v[2]||{});
   if (name === 'car' && heroPos()) workspace.startFollowing();
   document.querySelectorAll('.views [data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === name));
 }
@@ -110,6 +113,7 @@ $('checks').innerHTML = checks.map(r => `<li class="${r.ok ? 'ok' : 'ng'}">${r.o
 $('checkCount').textContent = `${checks.filter(r => r.ok).length} / ${checks.length}`;
 const chargerSummary = Object.entries(SITE.chargers.filter(c => !c.expand).reduce((m, c) => { const key = `${c.type} ${c.kw} kW`; m[key] = (m[key] || 0) + 1; return m; }, {})).map(([a, n]) => `${a} × ${n}`).join('、');
 const STATE = { charging: '充電中', limit: '限功率', wait: '排程等待', idle: '可使用', off: '未啟用' };
+const CUSTOMER_ACTION = {exit:'開門下車',enter:'回座並關門','walk to charger':'步行至充電樁','take connector':'從槍座取槍','carry connector':'持槍走向車輛','insert connector':'對準充電口並插槍',authorize:'確認費率與啟動授權','return to car':'走回車門','walk to port':'步行至充電口','remove connector':'停止充電並解鎖','withdraw connector':'拔槍並退出充電口','return connector':'持槍返回充電樁','holster connector':'將充電槍放回槍座'};
 const kw = v => `${v >= 0 ? '' : '−'}${Math.abs(v).toFixed(0)} kW`;
 let shown = '';
 function updatePanels(T) {
@@ -117,7 +121,7 @@ function updatePanels(T) {
   const last = events.filter(x => x.start <= T + 1e-6).at(-1), station = last?.station ?? 0;
   const key = [Math.round(T * 4), act.map(s => s.action).join(), station].join('|');
   if (key === shown) return; shown = key;
-  ui.action.textContent = done ? `完成：${SITE.name}全流程` : act.map(s => s.action).join('、') || last?.action || '待命';
+  ui.action.textContent = done ? `完成：${SITE.name}全流程` : (pr.hero&&CUSTOMER_ACTION[project.details.state.phase]) || act.map(s => s.action).join('、') || last?.action || '待命';
   ui.substep.textContent = act.map(s => s.sub).filter(Boolean).join('、');
   ui.stationName.textContent = `S${station + 1} ${project.stations[station]}`;
   ui.stations.forEach((b, i) => { b.classList.toggle('active', i === station); b.classList.toggle('done', i < station || done); });
@@ -138,7 +142,7 @@ function updatePanels(T) {
   const h = pr.hero; $('heroCard').hidden = !h;
   if (h) {
     $('heroHint').textContent = `${h.ch.id} · ${h.ch.type} ${h.ch.kw} kW`;
-    const stateText = { in: '進場中', park: '停妥', charge: h.limited ? '充電中（限功率）' : h.wait ? '排程等待離峰' : h.p > .05 ? '充電中' : '已充滿、待機', unplug: '拔槍', out: '結算離場' }[h.phase];
+    const stateText = ['確認費率（示意）','授權','啟動成功'].includes(h.transaction) ? h.transaction : { in: '進場中', park: '停妥', charge: h.limited ? '充電中（限功率）' : h.wait ? '排程等待離峰' : h.p > .05 ? '充電中' : '已充滿、待機', unplug: '拔槍與歸槍', out: '結算離場' }[h.phase];
     $('hero').innerHTML = [['車牌', 'EVA-0588（示意）'], ['狀態', stateText], ['功率', `${h.p.toFixed(1)} kW`], ['已充電量', `${h.kwh.toFixed(1)} ／ ${h.need.toFixed(0)} kWh`], ['帳單', h.phase === 'out' ? '停車＋充電合併結算 ✓' : '離場時合併結算']]
       .map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('');
   }
@@ -147,16 +151,15 @@ function updatePanels(T) {
 }
 
 // ---------------------------------------------------------------- 日照：太陽方位、亮度、背景與霧
-const BG_NIGHT = new THREE.Color(0x060a10), BG_DAY = new THREE.Color(0x182430), _bg = new THREE.Color();
 function applySky() {
   const h = project.presentation.hour, d = daylight(h), hh = ((h % 24) + 24) % 24;
   const el = Math.max(.12, Math.sin(Math.PI * Math.max(0, Math.min(1, (hh - 6) / 12))) * 1.15), az = Math.PI * Math.max(0, Math.min(1, (hh - 6) / 12));
   const s = stage.lights.sun;
   s.position.set(cx + Math.cos(az) * R * 1.6 * Math.cos(el), R * 1.8 * Math.sin(el) + R * .4, cz + R * 1.6 * Math.sin(az) * Math.cos(el) + R * .3);
-  s.target.position.set(cx, 0, cz); s.intensity = .08 + 1.65 * d; s.color.setHSL(.1, .5 * (1 - d) + .05, .75 + .25 * d);
-  if (stage.lights.hemi) stage.lights.hemi.intensity = .2 + .4 * d;
-  if (stage.lights.fill) stage.lights.fill.intensity = .18 + .3 * d;
-  _bg.copy(BG_NIGHT).lerp(BG_DAY, d); scene.background.copy(_bg); scene.fog?.color.copy(_bg);
+  s.target.position.set(cx, 0, cz); s.intensity = .025 + 2.5 * d; s.color.setHSL(.1, .5 * (1 - d) + .05, .75 + .25 * d);
+  if (stage.lights.hemi) stage.lights.hemi.intensity = .4 + .63 * d;
+  if (stage.lights.fill) stage.lights.fill.intensity = .16 + .17 * d;
+  outdoor.apply(d);
   renderer.shadowMap.needsUpdate = true;
 }
 

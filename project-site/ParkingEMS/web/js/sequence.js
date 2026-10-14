@@ -5,6 +5,7 @@ import { createTimeline } from '@core/anim/track.js';
 import { CAR, STALL, chargerPose } from './sites.js';
 import { gateGeom } from './lot.js';
 import { rounded, makePath } from './paths.js';
+import { planInteraction } from './customer-motion.js';
 
 export const STATIONS = {
   flagship: ['現況與測量', '基礎與立柱', '光電車棚', '儲能與配電', '充電樁', '系統聯測', '全天調度', '客戶充電'],
@@ -219,6 +220,10 @@ function heroPlan(site, chId, station, step, hourMap) {
     urban: { h: [17.55, 17.6, 17.62, 18.2, 18.23, 18.28], text: ['17:35 進場：狹長入口單車道通行，車牌辨識', '停入 DC 快充格', '插槍授權，顯示費率', '尖峰快充：儲能供電，SOC 偏低時動態限功率', '充電完成、拔槍', '倒車出格', '結算離場'], d: [3.8, 4.5, 2, 8, 1.5, 2, 6.5] },
   }[site.id];
   const subs = { flagship: ['', '停車場既有車流就是充電服務入口', '插槍不一定自動啟動，需顯示價格確認與啟動成功', '', '', '', '帳單整合充電明細'], mixed: ['', '', '夜泊 AC 直接用離峰電，不經儲能', '', '', '', ''], urban: ['', '', '', '', '', '', ''] }[site.id];
+  const interaction = planInteraction(site,ch);
+  T.d[2] = interaction.connectDuration;
+  T.d[night ? 5 : 4] = interaction.leaveDuration + (night ? 3 : 0);
+  if(!night)T.d[5]=3;
   const s = T.text.map((a, i) => step(station, T.d[i], a, subs[i] || ''));
   // 時鐘：進場與停妥 h0→h1；插槍 h1→h2；（住商：等待 h2→h3）充電 → 拔槍 → 離場
   const H = T.h, last = s.at(-1);
@@ -233,8 +238,9 @@ function heroPlan(site, chId, station, step, hourMap) {
   }
   const iCharge = night ? 4 : 3, iUnplug = night ? 5 : 4, iRev = night ? 5 : 5;
   const tStop = s[0].start + 2.6, tGo = s[0].t1, tPark = s[1].t1;
-  const plugT = s[2].start + .6, unplugT = s[iUnplug].start + .7;
-  const revT0 = night ? s[5].start + 1 : s[5].start, revT1 = s[5].t1;
+  const leaveStart=s[iUnplug].start;
+  const plugT = s[2].start + interaction.plugOffset, unplugT = leaveStart + interaction.unplugOffset;
+  const revT0 = night ? s[5].start + interaction.leaveDuration : s[5].start, revT1 = s[5].t1;
   const g = last, tOutStop = g.start + (night ? 3 : 3.8), tOutGo = tOutStop + (night ? .9 : 1);
   const legs = [
     { path: inPath, t0: s[0].start, t1: tStop, s0: 0, s1: sStopIn, ease: u => 1 - (1 - u) ** 2 },
@@ -251,7 +257,7 @@ function heroPlan(site, chId, station, step, hourMap) {
     exit: { open: [tOutStop + .2, tOutStop + .85], close: [outPass + .2, outPass + 1] },
     lprIn: [tStop - .1, tStop + .35], lprOut: [tOutStop - .1, tOutStop + .3],
   };
-  return { ch, chId, legs, gates, plugT, unplugT, chargeStep: s[iCharge], steps: s, t0: s[0].start, t1: last.t1, tPark, night, hours: H, revT0 };
+  return { ch, chId, legs, gates, plugT, unplugT, leaveStart, interaction, chargeStep: s[iCharge], steps: s, t0: s[0].start, t1: last.t1, tPark, night, hours: H, revT0 };
 }
 
 // 動畫秒 → 一天中的時刻（h；施工期固定 10:30；超過 24 表示隔天）

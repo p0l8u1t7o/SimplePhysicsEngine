@@ -6,7 +6,8 @@ import * as THREE from 'three';
 import { block, cylinder, rod, bevelBox } from '@core/geom/shapes.js';
 import { MAT, std } from '@core/geom/materials.js';
 import { liveScreen } from '@core/models/equipment.js';
-import { CAR } from './sites.js';
+import { detailedCar, detailedFleet } from './vehicles.js';
+import { surfaceMaterials } from './surfaces.js';
 
 const grp = (name, parent) => { const g = new THREE.Group(); g.name = name; parent?.add(g); return g; };
 const put = (m, name, pos) => { m.name = name; if (pos) m.position.set(...pos); return m; };
@@ -32,73 +33,11 @@ export const M = {
 };
 
 // ---------------------------------------------------------------- 電動車（原點：車底中心；車頭朝 +X）
-export const CAR_COLORS = [0xe9ecef, 0x2b2f35, 0x8b96a1, 0x9b1d22, 0x1f4f8f, 0xc9ccd0, 0x3c4a3d, 0x50565c];
-export function createCar(name, color = 0xe9ecef) {
-  const root = grp(name), L = CAR.len, W = CAR.w, r = CAR.wheelR, paint = std(color, .35, .45);
-  const body = bevelBox(L, 620, W, paint, 120); put(body, 'car body', [0, 180 + 310, 0]); root.add(body);
-  const cabin = bevelBox(2550, 560, W - 160, M.glass, 160); put(cabin, 'car cabin', [-180, 800 + 280, 0]); root.add(cabin);
-  box(root, 'car roof', [2100, 50, W - 260], [-220, 1385, 0], paint);
-  const wheels = [], headMat = M.head.clone(), tailMat = M.tail.clone(), reverseMat = M.head.clone();
-  for (const [x, z] of [[1400, 1], [1400, -1], [-1400, 1], [-1400, -1]]) {
-    const wh = cylinder(root, r, 230, [x, r, z * (W / 2 - 120)], M.tire, 'z', 20); wh.name = 'car wheel';
-    const hub = grp('car wheel rotation', root); hub.position.set(x, r, z * (W / 2 + 3));
-    cylinder(hub, 185, 12, [0, 0, 0], M.rim, 'z', 14).name = 'wheel rim';
-    for (let j = 0; j < 3; j++) { const spoke = box(hub, 'wheel spoke', [310, 30, 6], [0, 0, z * 10], M.cabinetDark); spoke.rotation.z = j * Math.PI / 3; }
-    wheels.push(hub);
-  }
-  for (const s of [1, -1]) {
-    box(root, 'car headlight', [40, 90, 420], [L / 2 - 10, 560, s * (W / 2 - 300)], headMat);
-    box(root, 'car taillight', [40, 80, 380], [-L / 2 + 10, 640, s * (W / 2 - 280)], tailMat);
-    box(root, 'car reverse light', [30, 65, 170], [-L / 2 - 6, 500, s * 580], reverseMat);
-  }
-  const plate = liveScreen(520, 130, 384, 96); plate.mesh.rotation.y = Math.PI / 2;
-  put(plate.mesh, 'hero front plate', [L / 2 + 16, 390, 0]); root.add(plate.mesh);
-  plate.draw(name, (c, w, h) => { c.fillStyle = '#f5f3de'; c.fillRect(0, 0, w, h); c.fillStyle = '#18232d'; c.font = 'bold 65px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(name.startsWith('hero') ? 'EVA-0588' : 'EV', w / 2, h / 2); });
-  // 充電口（左前、右前葉子板各一，用離充電樁近的那一側）與充電狀態燈
-  const ports = [1, -1].map(s => { const p = box(root, 'car port', [220, 160, 12], [L / 2 - 650, 760, s * (W / 2 + 4)], M.ledOff); p.userData.side = s; return p; });
-  const lids = ports.map(p => { const g = grp('charge port lid hinge', root); g.position.copy(p.position).add(new THREE.Vector3(-115, 0, p.userData.side * 18)); box(g, 'charge port lid', [225, 170, 10], [115, 0, 0], paint); return g; });
-  return {
-    root, ports, wheels, lids, headMat, tailMat, reverseMat, plate: plate.mesh,
-    setDetail({ distance = 0, night = 0, moving = false, reverse = false, brake = false, side = 0, open = false } = {}) {
-      for (const w of wheels) w.rotation.z = -distance / r;
-      headMat.emissiveIntensity = moving ? .25 + night * 3 : .05;
-      tailMat.emissiveIntensity = brake ? 3 : moving ? .3 + night : .05;
-      reverseMat.emissiveIntensity = reverse && moving ? 3 : 0;
-      lids.forEach((l, i) => { l.rotation.y = open && ports[i].userData.side === side ? -side * 1.35 : 0; });
-      Object.assign(root.userData, { wheelDistance: distance, headlights: moving && night > .5, reversing: reverse && moving, braking: brake });
-    },
-    portWorld(side) { const p = ports[side > 0 ? 0 : 1]; return p.getWorldPosition(new THREE.Vector3()); },
-    setCharging(side, state) { ports.forEach(p => { p.material = p.userData.side === side ? (state === 'charging' ? M.ledBlue : state === 'done' ? M.ledGreen : state === 'wait' ? M.ledAmber : M.ledOff) : M.ledOff; }); },
-  };
-}
+Object.assign(M, surfaceMaterials(M));
 
-// 背景停放車輛：InstancedMesh（不進干涉檢查），每格依時間決定有沒有車
-export function createParkedFleet(name, count) {
-  const root = grp(name), L = CAR.len, W = CAR.w;
-  const body = new THREE.InstancedMesh(new THREE.BoxGeometry(L, 620, W), std(0xffffff, .4, .4), count);
-  const cabin = new THREE.InstancedMesh(new THREE.BoxGeometry(2500, 540, W - 180), M.glass, count);
-  const wheels = new THREE.InstancedMesh(new THREE.CylinderGeometry(CAR.wheelR, CAR.wheelR, W - 20, 14).rotateX(Math.PI / 2), M.tire, count * 2);
-  for (const m of [body, cabin, wheels]) { m.castShadow = m.receiveShadow = true; m.frustumCulled = false; root.add(m); }
-  body.name = 'fleet body'; cabin.name = 'fleet cabin'; wheels.name = 'fleet wheels';
-  const c = new THREE.Color();
-  for (let i = 0; i < count; i++) body.setColorAt(i, c.setHex(CAR_COLORS[(i * 7 + 3) % CAR_COLORS.length]));
-  const _m = new THREE.Matrix4(), _p = new THREE.Matrix4(), _q = new THREE.Quaternion(), Z = new THREE.Matrix4().makeScale(0, 0, 0), UP = new THREE.Vector3(0, 1, 0);
-  return {
-    root,
-    // slots：[{ x, z, yaw, on }]
-    set(slots) {
-      slots.forEach((s, i) => {
-        if (!s.on) { body.setMatrixAt(i, Z); cabin.setMatrixAt(i, Z); wheels.setMatrixAt(2 * i, Z); wheels.setMatrixAt(2 * i + 1, Z); return; }
-        _q.setFromAxisAngle(UP, s.yaw); _m.compose(new THREE.Vector3(s.x, 0, s.z), _q, new THREE.Vector3(1, 1, 1));
-        body.setMatrixAt(i, _p.makeTranslation(0, 490, 0).premultiply(_m));
-        cabin.setMatrixAt(i, _p.makeTranslation(-180, 1070, 0).premultiply(_m));
-        wheels.setMatrixAt(2 * i, _p.makeTranslation(1400, CAR.wheelR, 0).premultiply(_m));
-        wheels.setMatrixAt(2 * i + 1, _p.makeTranslation(-1400, CAR.wheelR, 0).premultiply(_m));
-      });
-      body.instanceMatrix.needsUpdate = cabin.instanceMatrix.needsUpdate = wheels.instanceMatrix.needsUpdate = true;
-    },
-  };
-}
+export const CAR_COLORS = [0xe9ecef, 0x2b2f35, 0x8b96a1, 0x9b1d22, 0x1f4f8f, 0xc9ccd0, 0x3c4a3d, 0x50565c];
+export const createCar = (name, color = 0xe9ecef) => detailedCar(name, color, M);
+export const createParkedFleet = (name, count) => detailedFleet(name, count, CAR_COLORS, M);
 
 // ---------------------------------------------------------------- 充電樁
 // 狀態燈：idle 綠、charging 藍、wait 琥珀、off 灰；畫面用 liveScreen（Node 端是深色平面）
@@ -167,6 +106,8 @@ export function createCabinet(name, { size = [2400, 2000, 800], label = '', scre
 }
 // 櫃外附件與警示示意；未建立櫃內電控與實際消防迴路。
 function cabinetDetails(root, w, h, d, base) {
+  for(const y of [.18,.52,.85])box(root,'door hinge',[28,95,32],[-w/2+35,base+h*y,d/2+20],M.galv);
+  for(const x of [-w*.25,w*.25])cylinder(root,24,65,[x,base+35,-d/2-28],M.cabinetDark,'y',10).name='sealed cable gland';
   box(root, 'door handle', [35, 230, 35], [w * .37, base + h * .48, d / 2 + 24], M.galv);
   for (let j = 0; j < 5; j++) box(root, 'vent louver', [w * .42, 14, 20], [-w * .1, base + 190 + j * 44, d / 2 + 16], M.cabinetDark);
   cylinder(root, 48, 32, [-w * .36, base + h * .68, d / 2 + 22], M.lineYellow, 'z', 16).name = 'estop collar';
@@ -245,15 +186,26 @@ export function createFence(name, points, { mesh = M.fenceMesh, foot = M.fenceOr
     const a = points[i], b = points[(i + 1) % points.length], len = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(1, Math.round(len / 2200));
     for (let k = 0; k < n; k++) segs.push({ x: a[0] + (b[0] - a[0]) * (k + .5) / n, z: a[1] + (b[1] - a[1]) * (k + .5) / n, w: len / n, yaw: -Math.atan2(b[1] - a[1], b[0] - a[0]) });
   }
-  const panel = new THREE.InstancedMesh(new THREE.BoxGeometry(1, h, 30), mesh, segs.length);
+  // 網孔用透明度貼圖保留穿透視線；外框仍是實體鋼管。
+  const data=new Uint8Array(64*64*4);
+  for(let y=0;y<64;y++)for(let x=0;x<64;x++)data.set([255,255,255,x%8===0||y%8===0?255:0],(y*64+x)*4);
+  const grid=new THREE.DataTexture(data,64,64);grid.needsUpdate=true;
+  const wire=mesh.clone();wire.map=grid;wire.opacity=1;wire.transparent=false;wire.alphaTest=.5;wire.roughness=.8;
+  const panel = new THREE.InstancedMesh(new THREE.BoxGeometry(1, h, 30), wire, segs.length);
+  const frame = new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,40),M.galv,segs.length*4);
   const feet = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 220, 300), foot, segs.length);
   const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), UP = new THREE.Vector3(0, 1, 0);
   segs.forEach((s, i) => {
     _q.setFromAxisAngle(UP, s.yaw);
     panel.setMatrixAt(i, _m.compose(new THREE.Vector3(s.x, 220 + h / 2, s.z), _q, new THREE.Vector3(s.w - 60, 1, 1)));
     feet.setMatrixAt(i, _m.compose(new THREE.Vector3(s.x, 110, s.z), _q, new THREE.Vector3(s.w - 60, 1, 1)));
+    for(let j=0;j<4;j++){
+      const x=j<2?(j===0?-1:1)*(s.w/2-40):0,y=j<2?220+h/2:220+(j===2?0:h);
+      const p=new THREE.Vector3(x,y,0).applyQuaternion(_q).add(new THREE.Vector3(s.x,0,s.z));
+      frame.setMatrixAt(i*4+j,_m.compose(p,_q,new THREE.Vector3(j<2?40:s.w-40,j<2?h+40:40,1)));
+    }
   });
-  panel.name = 'fence panels'; feet.name = 'fence feet'; feet.castShadow = true; root.add(panel, feet);
+  panel.name = 'fence panels'; frame.name='fence tubular frame';feet.name = 'fence feet'; feet.castShadow = true; root.add(panel, feet,frame);
   return { root };
 }
 // 車載伸臂吊車：車體＋外伸撐腳＋旋轉台＋伸臂（仰角、伸長）＋吊鉤
@@ -322,12 +274,17 @@ export function createCarport(name, cp) {
     const f = grp(`carport footing ${i}`, root); f.position.set(x, 0, cp.zLine);
     box(f, 'carport pedestal', [600, 300, 600], [0, 150, 0], M.concrete); foundations.push(f);
     const c = grp(`carport column ${i}`, root); c.position.set(x, 300, cp.zLine);
-    box(c, 'carport column', [300, cp.colH - 340, 300], [0, 30 + (cp.colH - 340) / 2, 0], M.column);   // 柱頂比樑底低 10 mm（樑傾斜 3°，避免柱角穿進樑）
+    const columnHeight = cp.colH - 340;
+    box(c, 'carport column web', [18, columnHeight, 260], [0, 30 + columnHeight / 2, 0], M.column);
+    for (const z of [-140, 140]) box(c, 'carport column flange', [300, columnHeight, 20], [0, 30 + columnHeight / 2, z], M.column);
     box(c, 'carport base plate', [440, 30, 440], [0, 15, 0], M.galv); columns.push(c);
+    for (const x of [-175,175]) for (const z of [-175,175]) cylinder(c, 23, 45, [x,53,z], M.galv,'y',6).name='column anchor nut';
     // T 型懸臂樑：頂面沿屋面斜度，兩端到屋面邊
     const b = grp(`carport beam ${i}`, root); b.position.set(x, 0, cp.zLine);
     const z0 = cp.z0 - 150, z1 = cp.z1 + 150, len = z1 - z0;
-    const beam = box(b, 'carport beam', [240, 360, len / Math.cos(tilt)], [0, 0, 0], M.steel);
+    const beam = grp('carport beam section', b), length = len / Math.cos(tilt);
+    box(beam, 'carport beam web', [16, 320, length], [0,0,0], M.steel);
+    for(const y of [-170,170])box(beam, 'carport beam flange', [240,20,length], [0,y,0], M.steel);
     beam.position.set(0, (roofY(z0) + roofY(z1)) / 2 - 325, (z0 + z1) / 2 - cp.zLine); beam.rotation.x = tilt;   // 樑頂＝檁條底、樑底＝柱頂
     beams.push(b);
   }
@@ -342,8 +299,22 @@ export function createCarport(name, cp) {
       const pur = box(bay, 'carport purlin', [bx1 - bx0, 120, 80], [0, roofY(zc) - 85, zc], M.galv); pur.rotation.x = tilt;
       for (let i = i0; i < i1; i++) {
         const mx = cp.x0 + i * pitch + cp.mod.w / 2 - bxc;
-        const m = box(bay, 'pv module', [cp.mod.w, 35, cp.mod.l], [mx, roofY(zc) - 5, zc], M.pv); m.rotation.x = tilt;
+        const m = box(bay, 'pv module', [cp.mod.w, 35, cp.mod.l], [mx, roofY(zc) - 5, zc], [M.pvFrame,M.pvFrame,M.pv,M.pvFrame,M.pvFrame,M.pvFrame]); m.rotation.x = tilt;
       }
+    }
+    const gy=roofY(cp.z1)-70,gz=cp.z1+110;
+    box(bay,'canopy gutter base',[bx1-bx0,12,180],[0,gy,gz],M.galv);
+    for(const z of [-84,84])box(bay,'canopy gutter edge',[bx1-bx0,100,12],[0,gy+56,gz+z],M.galv);
+    box(bay,'canopy cable tray',[bx1-bx0,60,100],[0,roofY(cp.zLine)-580,cp.zLine+320],M.galv).userData.installAfterPlacement=true;
+    for(const x of cp.cols.filter(x=>x>=bx0&&x<bx1)){
+      // 天溝集水管沿樑側接回柱側落水管，屋面就位後才裝配。
+      const drain=grp('canopy drain assembly',bay);drain.userData.installAfterPlacement=true;
+      const px=x-bxc+210,top=gy-180;
+      cylinder(drain,42,top-70,[px,(top+70)/2,cp.zLine],M.galv,'y',12).name='carport downpipe';
+      const a=new THREE.Vector3(px,top,cp.zLine),b=new THREE.Vector3(px,gy-42,gz),delta=b.clone().sub(a);
+      const run=cylinder(drain,42,delta.length(),a.clone().add(b).multiplyScalar(.5).toArray(),M.galv,'y',12);
+      run.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),delta.normalize());run.name='gutter collector pipe';
+      for(const y of [700,top-400])box(drain,'downpipe bracket',[75,35,110],[px,y,cp.zLine],M.galv);
     }
     bay.userData.range = [bx0, bx1]; bays.push(bay);
   }

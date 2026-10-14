@@ -95,7 +95,7 @@
       "labels": {
         "ok": true,
         "info": {
-          "visible": 2,
+          "visible": 1,
           "outside": 0,
           "overlaps": 0
         }
@@ -130,7 +130,7 @@
       "labels": {
         "ok": true,
         "info": {
-          "visible": 0,
+          "visible": 1,
           "outside": 0,
           "overlaps": 0
         }

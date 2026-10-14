@@ -7,7 +7,7 @@
       "evKwh": 623,
       "cycles": 0.48,
       "limitHours": 0,
-      "total": 131
+      "total": 157.3
     },
     "mixed": {
       "peakGrid": 60,
@@ -15,7 +15,7 @@
       "evKwh": 359,
       "cycles": 0.49,
       "limitHours": 0,
-      "total": 98.3
+      "total": 124.1
     },
     "urban": {
       "peakGrid": 45,
@@ -23,7 +23,7 @@
       "evKwh": 464,
       "cycles": 0.77,
       "limitHours": 1.25,
-      "total": 117.3
+      "total": 143.6
     },
     "urban-x": {
       "peakGrid": 75,

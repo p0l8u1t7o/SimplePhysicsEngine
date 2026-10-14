@@ -9,6 +9,7 @@ import { SITE_IDS, SITES, CAR } from '../web/js/sites.js';
 import { simulate, STEPS, DT, ETA, SOC_MAX } from '../web/js/energy.js';
 import { gateGeom } from '../web/js/lot.js';
 import './verify-details.mjs';
+import './verify-realism.mjs';
 
 const failures = [], results = {};
 const fail = (site, msg) => failures.push(`${SITES[site].name}：${msg}`);

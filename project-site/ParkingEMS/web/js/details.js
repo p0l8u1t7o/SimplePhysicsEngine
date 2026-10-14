@@ -4,6 +4,8 @@ import { block, cylinder } from '@core/geom/shapes.js';
 import { liveScreen } from '@core/models/equipment.js';
 import { M } from './models.js';
 import { CAR } from './sites.js';
+import { sampleInteraction,createInteractionSample } from './customer-motion.js';
+import { createChargingCable } from './charging-cable.js';
 import { createOperator } from './operator.js';
 import { clamp, transactionAt, displaySoc } from './detail-state.js';
 
@@ -13,19 +15,20 @@ const v = a => new THREE.Vector3(...a);
 export function createDetails({ scene, site, seq, hero, chargers, cableOf, lot, flows, carport }) {
   const root = group(scene, 'animation details'), H = seq.hero;
   const driver = createOperator(root, 'driver pose proxy');
-  const ch = chargers.find(k => k.c.id === H.chId), side = cableOf[H.chId].side;
-  const carYaw = -Math.atan2(H.ch.stall.dir, 0);
-  const parked = new THREE.Matrix4().makeRotationY(carYaw).setPosition(H.ch.stall.x, 0, H.ch.stall.z);
-  const door = v([200, 0, side * 1250]).applyMatrix4(parked);
-  const port = v([CAR.len / 2 - 650, 760, side * (CAR.w / 2 + 4)]).applyMatrix4(parked);
-  const portStand = v([CAR.len / 2 - 650, 0, side * 1420]).applyMatrix4(parked);
-  const out = ch.m.outlet.clone().applyMatrix4(new THREE.Matrix4().makeRotationY(ch.pose.yaw).setPosition(ch.pose.x, ch.pose.y, ch.pose.z));
-  const pick = out.clone(); pick.y = 0; pick.add(v([0, 0, 650]).applyAxisAngle(new THREE.Vector3(0, 1, 0), ch.pose.yaw));
+  const ch=chargers.find(k=>k.c.id===H.chId);
+  const {side,yaw:carYaw,door,port,portStand,out,pick}=H.interaction.g;
   const gun = group(root, 'customer charging connector');
   block(gun, [90, 90, 220], [0, 0, 0], M.cabinetDark).name = 'connector body';
   block(gun, [60, 140, 65], [0, -105, 40], M.accent).name = 'connector handle';
-  // 連接器與車口留 8 mm，避免以穿插表示接合；纜線仍沿原有路徑。
+  // 槍口留接合間距；線纜從底部出線，沿向下彎曲的路徑接到槍把尾端。
   const gunEnd = port.clone().add(v([0, 0, side * 126]).applyAxisAngle(new THREE.Vector3(0, 1, 0), carYaw));
+  const flexibleCable=createChargingCable(root,M.cableBlack);
+  const cableAnchor=out.clone().add(new THREE.Vector3(0,-400,0));
+  const approach=gunEnd.clone().add(v([0,0,side*300]).applyAxisAngle(new THREE.Vector3(0,1,0),carYaw));
+  const chargerNormal=new THREE.Vector3(0,0,1).applyAxisAngle(new THREE.Vector3(0,1,0),ch.pose.yaw);
+  const dock=out.clone().addScaledVector(chargerNormal,126),extracted=dock.clone().addScaledVector(chargerNormal,240);
+  const grip=new THREE.Vector3(),tail=new THREE.Vector3(),carried=new THREE.Vector3();
+  const motionSample=createInteractionSample(),facingSample=createInteractionSample();
 
   const arrowGroups = flows.map(f => {
     const g = group(root, `power arrows ${f.r.id}`); g.userData.fx = true;
@@ -46,8 +49,11 @@ export function createDetails({ scene, site, seq, hero, chargers, cableOf, lot, 
   }
   // 少量無陰影投射燈：避免每根燈桿都增加一個逐像素光源。
   const spots = [];
-  for (const light of lot.lights.filter((_,i) => i % Math.max(1, Math.ceil(lot.lights.length / 2)) === 0).slice(0,2)) {
-    const s = new THREE.SpotLight(0xffe7b8, 0, 18000, .85, .7, 0); s.position.set(1000, 6840, 0); s.target.position.set(1000, 0, 0); light.root.add(s, s.target); spots.push(s);
+  const nearest=p=>lot.lights.reduce((best,l)=>l.root.position.distanceToSquared(p)<best.root.position.distanceToSquared(p)?l:best,lot.lights[0]);
+  const entrance=new THREE.Vector3((site.entrance.lane[0]+site.entrance.lane[1])/2,0,site.entrance.zGate);
+  const selected=new Set([nearest(portStand),nearest(entrance),nearest(new THREE.Vector3(site.ems.x,0,site.ems.z)),lot.lights[0],lot.lights.at(-1)]);
+  for (const light of selected) {
+    const s = new THREE.SpotLight(0xffe7b8, 0, 26000, 1.18, .7, 0); s.position.set(1000, 6840, 0); s.target.position.set(1000, 0, 0); light.root.add(s, s.target); spots.push(s);
   }
   const ledMat = M.lamp.clone();
   if (carport) {
@@ -58,7 +64,9 @@ export function createDetails({ scene, site, seq, hero, chargers, cableOf, lot, 
   }
   // 三行數值牌集中於能源區上方；只在全天調度、客戶情境與擴充後調度顯示。
   const board = liveScreen(3900, 1450, 780, 290); board.mesh.name = 'energy live board'; root.add(board.mesh);
-  board.mesh.position.set((site.yard.x0 + site.yard.x1) / 2, 5300, site.yard.z1);
+  board.mesh.position.set((site.yard.x0 + site.yard.x1) / 2+1000, 4500, site.yard.z0+1000);
+  if(site.id==='urban'){board.mesh.position.y=3500;board.mesh.scale.setScalar(.75);}
+  board.mesh.rotation.set(-.28,.6,0);
   board.mesh.userData.fx = true;
   const settlement = liveScreen(900, 480, 600, 320); settlement.mesh.name = 'exit settlement display';
   settlement.mesh.position.set(0, 1300, -62); settlement.mesh.rotation.y = Math.PI; lot.gate.lprOut.root.add(settlement.mesh);
@@ -74,34 +82,44 @@ export function createDetails({ scene, site, seq, hero, chargers, cableOf, lot, 
   const up = new THREE.Vector3(0,1,0), a = new THREE.Vector3(), b = new THREE.Vector3();
   let state = {};
   function apply(t, h, energy, S, day) {
-    const session = S.sessionAt(h)[H.chId], active = t >= H.tPark && t < H.revT0;
-    const beforePlug = t < H.plugT, afterPlug = t >= H.plugT && t < H.plugT + 1.1;
-    const returning = t >= H.unplugT - .6;
-    driver.root.visible = active && (beforePlug || afterPlug || returning);
-    let walk = 0, reach = 0;
-    if (beforePlug) {
-      const u = clamp((t-H.tPark)/(H.plugT-H.tPark));
-      if (u < .4) { a.copy(door).lerp(pick,u/.4); b.copy(pick); walk=1; }
-      else { a.copy(pick).lerp(portStand,(u-.4)/.6); b.copy(port); walk=1; reach=.8; }
-    } else if (afterPlug) { const u=clamp((t-H.plugT)/1.1); a.copy(portStand).lerp(door,u); b.copy(door); walk=1; reach=1-u; }
-    else if (returning) {
-      const u = clamp((t-(H.unplugT-.6))/(H.revT0-H.unplugT+.6));
-      if(t < H.unplugT) { a.copy(door).lerp(portStand,clamp((t-H.unplugT+.6)/.6)); b.copy(port); walk=1; reach=1; }
-      else { a.copy(portStand).lerp(door,clamp((t-H.unplugT)/(H.revT0-H.unplugT))); b.copy(door); walk=1; reach=1-u; }
-    } else { a.copy(door); b.copy(pick); }
-    driver.root.position.copy(a); driver.root.rotation.y = Math.atan2(b.x-a.x,b.z-a.z); driver.pose(t,walk,reach);
-    const carry = beforePlug && t >= H.tPark + .4*(H.plugT-H.tPark);
-    const takingBack = t>=H.unplugT&&t<H.revT0;
-    gun.visible = active && (carry || (t >= H.plugT && t < H.unplugT) || takingBack);
-    const carryU = clamp((t-H.tPark-.4*(H.plugT-H.tPark))/(.6*(H.plugT-H.tPark)));
-    gun.position.copy(out).lerp(gunEnd, carry ? carryU : 1); gun.rotation.set(0,carYaw + (side > 0 ? 0 : Math.PI),0);
-    if(carry)gun.position.y+=Math.sin(Math.PI*carryU)*700;
-    if(takingBack) {
-      const u=clamp((t-H.unplugT)/(H.revT0-H.unplugT));
-      gun.position.copy(gunEnd).lerp(out,u);gun.position.y+=Math.sin(Math.PI*u)*700;
-      driver.root.position.copy(portStand).lerp(pick,u);driver.root.rotation.y=ch.pose.yaw+Math.PI;
+    const session = S.sessionAt(h)[H.chId], motion=sampleInteraction(H,t,motionSample);
+    const {phase}=motion;
+    driver.root.visible=hero.root.visible&&motion.visible;
+    driver.root.position.copy(motion.position);
+    // 將轉身分散在 0.9 秒內；角度逐段展開，避免跨過正負 π 時跳向。
+    let angle=0,previous=0,sum=0,weight=0;
+    for(let i=0;i<=40;i++){
+      const s=sampleInteraction(H,t+(i/40-.5)*.9,facingSample),raw=Math.atan2(s.look.x-s.position.x,s.look.z-s.position.z);
+      angle=i?angle+Math.atan2(Math.sin(raw-previous),Math.cos(raw-previous)):raw;previous=raw;
+      const w=1-Math.abs(i/20-1);sum+=angle*w;weight+=w;
     }
-    if(driver.root.visible && gun.visible)driver.reachTo(gun.position.clone().add(new THREE.Vector3(0,-110,0)));
+    driver.root.rotation.y=sum/weight;
+    driver.pose(t,motion.walk,motion.handling?.8:0);
+    const crouch=168*Math.max(Math.min(clamp((t-H.plugT+1.1)/.5),clamp((H.plugT+1.5-t)/.4)),Math.min(clamp((t-H.unplugT+1.1)/.5),clamp((H.unplugT+.7-t)/.7)));
+    driver.root.position.y-=crouch;
+    if(crouch>0)driver.legs.forEach(l=>{l.rotation.x=-.62*crouch/168;l.joint.rotation.x=1.24*crouch/168;});
+    if(motion.seated>0){driver.root.rotation.z=-.28*motion.seated;driver.legs.forEach(l=>{l.rotation.x=-1.1*motion.seated;l.joint.rotation.x=1.4*motion.seated;});}
+    else driver.root.rotation.z=0;
+    hero.setDoor(side,hero.root.visible?motion.door:0);
+    carried.set(0,1000,200);driver.root.updateWorldMatrix(true,false);driver.root.localToWorld(carried);
+    gun.visible=hero.root.visible;
+    gun.position.copy(motion.connected?gunEnd:motion.carry?carried:dock);
+    gun.rotation.set(0,motion.connected||motion.carry?carYaw+(side>0?0:Math.PI):ch.pose.yaw,0);
+    if(phase==='take connector'||phase==='holster connector'){
+      const u=phase==='take connector'?motion.gunU:1-motion.gunU;
+      gun.position.copy(u<.5?dock:extracted).lerp(u<.5?extracted:carried,u<.5?u*2:(u-.5)*2);
+      const targetYaw=carYaw+(side>0?0:Math.PI),delta=Math.atan2(Math.sin(targetYaw-ch.pose.yaw),Math.cos(targetYaw-ch.pose.yaw));
+      gun.rotation.y=ch.pose.yaw+delta*Math.max(0,(u-.5)*2);
+    }
+    if(phase==='insert connector')gun.position.copy(motion.gunU<.4?carried:approach).lerp(motion.gunU<.4?approach:gunEnd,motion.gunU<.4?motion.gunU/.4:(motion.gunU-.4)/.6);
+    if(phase==='withdraw connector')gun.position.copy(motion.gunU<.5?gunEnd:approach).lerp(motion.gunU<.5?approach:carried,motion.gunU<.5?motion.gunU*2:(motion.gunU-.5)*2);
+    if(driver.root.visible&&gun.visible&&(motion.carry||motion.handling)){
+      grip.copy(gun.position);grip.y-=110;driver.reachTo(grip);
+    }
+    tail.set(0,-194,40).applyEuler(gun.rotation).add(gun.position);
+    flexibleCable.set(cableAnchor,tail,gun.visible);
+    if(ch.m.coil)ch.m.coil.visible=!gun.visible;
+    if(hero.root.visible)cableOf[H.chId].mesh.visible=false;
     beams.visible = hero.root.visible && !!hero.root.userData.headlights;
     for (const {g,m,lpr} of scans) {
       const win = lpr === lot.gate.lprIn ? H.gates.lprIn : H.gates.lprOut;
@@ -120,7 +138,7 @@ export function createDetails({ scene, site, seq, hero, chargers, cableOf, lot, 
         curve.getTangentAt(u,b).multiplyScalar(p>=0?1:-1); arrows[i].quaternion.setFromUnitVectors(up,b.normalize());
       }
     }
-    for (const s of spots) s.intensity = (1-day)*2.4;
+    for (const s of spots) s.intensity = (1-day)*5.5;
     ledMat.emissiveIntensity=(1-day)*2.8;
     board.mesh.visible = operation;
     const power = energy.dis-energy.chg;
@@ -132,7 +150,7 @@ export function createDetails({ scene, site, seq, hero, chargers, cableOf, lot, 
       c.font='24px sans-serif'; c.fillStyle='#c4d8de'; c.fillText('功率與 SOC：EMS 模型示意　儲能 + 放電／− 充電',28,269);
     });
     bill(lot.gate.kiosk.screen,t); bill(settlement,t);
-    state = { transaction:transactionAt(H,t,session), driverVisible:driver.root.visible, connectorVisible:gun.visible, settlement:settlementText(t), soc:displaySoc(session?.got||0) };
+    state = { transaction:transactionAt(H,t,session), driverVisible:driver.root.visible, connectorVisible:gun.visible, settlement:settlementText(t), soc:displaySoc(session?.got||0), phase, door:motion.door, connected:motion.connected };
   }
-  return {root,driver,gun,port,portStand,pick,side,spots,scans,arrowGroups,board,apply,get state(){return state;}};
+  return {root,driver,gun,flexibleCable,port,portStand,pick,side,spots,scans,arrowGroups,board,apply,get state(){return state;}};
 }

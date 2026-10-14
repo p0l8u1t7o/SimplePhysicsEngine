@@ -189,6 +189,8 @@ export function createProject({ scene, site: siteId = 'flagship' } = {}) {
     for (const b of seq.builds) {
       const R = reg[b.key]; if (!R) continue;
       const o = R.obj, u = b.t1 > b.t0 ? clamp01((t - b.t0) / (b.t1 - b.t0)) : 1;
+      // 樑下線槽在模組放妥後才安裝，不能跟著屋面從上方穿過主樑。
+      for(const child of o.children)if(child.userData.installAfterPlacement)child.visible=u>=1;
       o.position.copy(R.pos); o.scale.copy(R.scale);
       if (b.mode === 'show') { o.visible = t >= b.t0 && t < b.t1; continue; }
       o.visible = t >= b.t0;
@@ -254,19 +256,20 @@ export function createProject({ scene, site: siteId = 'flagship' } = {}) {
       const p = legsAt(H.legs, t);
       hero.root.position.set(p.x, 0, p.z); hero.root.rotation.set(0, p.yaw, 0);
       hero.root.userData.driving = false;   // 客戶車輛照實際路權檢查
-      const plugged = t >= H.plugT && t < H.unplugT, hs = ses[H.chId];
+      const plugged = t >= H.plugT + 1.05 && t < H.unplugT, hs = ses[H.chId];
       if (plugged) hc.mesh.visible = true;
       const state = !plugged ? 'off' : hs && hs.s.hero && hs.p > .05 ? (r.limited && hs.p < H.ch.kw - .3 ? 'limit' : 'charging') : hs && hs.s.hero && hs.frac < .995 ? 'wait' : 'done';
       hero.setCharging(hc.side, state);
       hero.setDetail({distance:wheelTravel(H.legs,t),night:1-daylight(h),moving:p.moving,reverse:!!p.leg?.path.reverse,
-        brake:!p.moving || (!!p.leg && t > p.leg.t1-.35),side:hc.side,open:t>=H.tPark+.2 && t<H.revT0});
+        brake:!p.moving || (!!p.leg && t > p.leg.t1-.35),side:hc.side,
+        open:Math.min(clamp01((t-H.plugT+1.7)/.5),clamp01((H.unplugT+1.2-t)/.5))});
     } else { hero.setCharging(0, 'off'); hero.setDetail(); }
     // 充電樁燈號與畫面
     for (const k of chargers) {
       const built = reg[k.c.id].obj.visible;
       const s = ses[k.c.id], hs = s && s.s.hero;
       const occupied = s && (hs ? onHero && t >= H.tPark : evCars.find(e => e.c === k.c).car.root.visible);
-      const plugged = s && (hs ? t >= H.plugT && t < H.unplugT : cableOf[k.c.id].mesh.visible);
+      const plugged = s && (hs ? t >= H.plugT + 1.05 && t < H.unplugT : cableOf[k.c.id].mesh.visible);
       const state = !built || !op ? (t >= (seq.builds.find(b => b.key === 'test')?.t0 ?? Infinity) && built ? 'idle' : 'off') : plugged ? (s.p > .05 ? (r.limited && s.p < k.c.kw - .3 ? 'limit' : 'charging') : s.frac >= .995 ? 'idle' : 'wait') : 'idle';
       k.m.set(state);
       k.state = state; k.session = plugged ? s : null; k.occupied = !!occupied;
@@ -346,7 +349,7 @@ export function createProject({ scene, site: siteId = 'flagship' } = {}) {
     // 夜間照明（路燈、建物窗格）
     const day = daylight(h), night = 1 - day;
     M.lamp.emissiveIntensity = night * 2.4;
-    for (const m of lot.buildings) if (m.emissiveMap) m.emissiveIntensity = night * .9;
+    for (const m of lot.buildings) if (m.emissiveMap) m.emissiveIntensity = night * .3;
     M.pv.emissiveIntensity = .15 + .35 * day;
     for (const b of bess) b.set(t < seq.opStart ? (reg[`bess${bess.indexOf(b)}`].obj.visible && t >= (seq.builds.find(x => x.key === 'test')?.t0 ?? 1e9) ? 'idle' : 'off') : r.dis > .5 ? 'charging' : r.chg > .5 ? 'wait' : 'idle');
     inverter?.set(t >= seq.opStart ? (r.pv > 1 ? 'idle' : 'off') : 'off');
@@ -368,8 +371,9 @@ export function createProject({ scene, site: siteId = 'flagship' } = {}) {
     presentation.flows = flowsNow; presentation.gate = gate; presentation.sim = S;
     const mine = hs && hs.s.hero ? hs : null;
     presentation.hero = t >= H.t0 && t <= H.t1 ? {
-      phase: t < H.tPark ? 'in' : t < H.plugT ? 'park' : t < H.unplugT ? 'charge' : t < H.revT0 ? 'unplug' : 'out',
-      kwh: mine ? mine.got : t >= H.unplugT ? heroKwh : 0, p: mine && t < H.unplugT ? mine.p : 0, need: heroNeed, ch: H.ch,
+      phase: t < H.tPark ? 'in' : t < H.plugT+1.05 ? 'park' : t < H.unplugT ? 'charge' : t < H.revT0 ? 'unplug' : 'out',
+      transaction: transactionAt(H,t,mine),
+      kwh: t < H.plugT + 1.05 ? 0 : mine ? mine.got : t >= H.unplugT ? heroKwh : 0, p: mine && t >= H.plugT + 1.05 && t < H.unplugT ? mine.p : 0, need: heroNeed, ch: H.ch,
       limited: !!mine && r.limited && mine.p > .05 && mine.p < H.ch.kw - .3, wait: !!mine && mine.p <= .05 && mine.frac < .995 && t >= H.plugT,
     } : null;
     presentation.chargers = chargers.map(k => ({ id: k.c.id, type: k.c.type, kw: k.c.kw, state: k.state, p: k.session?.p || 0, built: reg[k.c.id].obj.visible }));

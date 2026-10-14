@@ -4,21 +4,21 @@
   "sites": {
     "flagship": {
       "samples": 26,
-      "lights": 3,
+      "lights": 5,
       "allowRules": 4,
-      "total": 131
+      "total": 157.3034137778918
     },
     "mixed": {
       "samples": 19,
-      "lights": 2,
+      "lights": 4,
       "allowRules": 4,
-      "total": 98.3
+      "total": 124.07700130488021
     },
     "urban": {
       "samples": 19,
-      "lights": 2,
+      "lights": 4,
       "allowRules": 4,
-      "total": 117.3
+      "total": 143.63750146750257
     }
   },
   "failures": []

@@ -1,6 +1,8 @@
 // 場地環境：地面、停車場鋪面與標線、街道、周邊建物與植栽、入口閘門、車牌辨識、繳費機、路燈、電桿。
 // 鋪面、標線、建物、植栽是背景（userData.decor，不進干涉與閃爍檢查）；閘門、車辨、繳費機、路燈是實體。
 import * as THREE from 'three';
+import { groundMaterial } from './surfaces.js';
+import { createTrees, buildingDetails, pavingDetails } from './site-details.js';
 import { block, floorText, HAS_DOM } from '@core/geom/shapes.js';
 import { std } from '@core/geom/materials.js';
 import { STALL, AISLE, STRIP } from './sites.js';
@@ -8,7 +10,7 @@ import { M, createBarrier, createLPR, createKiosk, createStreetLight, createUtil
 
 const grp = (name, parent) => { const g = new THREE.Group(); g.name = name; parent?.add(g); return g; };
 const decor = g => { g.userData.decor = true; return g; };
-const plane = (parent, name, w, d, x, y, z, mat) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), mat); m.rotation.x = -Math.PI / 2; m.position.set(x, y, z); m.receiveShadow = true; m.name = name; parent.add(m); return m; };
+const plane = (parent, name, w, d, x, y, z, mat) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), groundMaterial(mat,w,d)); m.rotation.x = -Math.PI / 2; m.position.set(x, y, z); m.receiveShadow = true; m.name = name; parent.add(m); return m; };
 
 // 標線：一個 InstancedMesh（寬、長以縮放表示）
 function stripes(parent, name, list, mat, y = 4) {
@@ -21,12 +23,12 @@ function stripes(parent, name, list, mat, y = 4) {
 // 建物立面貼圖（瀏覽器才有；Node 端用素色）：窗格在夜間發光
 function facadeTexture(seed, lit) {
   if (!HAS_DOM) return null;
-  const c = document.createElement('canvas'); c.width = 128; c.height = 256; const g = c.getContext('2d');
-  g.fillStyle = lit ? '#000' : '#fff'; g.fillRect(0, 0, 128, 256);
+  const c = document.createElement('canvas'); c.width = 256; c.height = 512; const g = c.getContext('2d');
+  g.fillStyle = lit ? '#000' : '#fff'; g.fillRect(0, 0, 256, 512);
   let r = seed * 9301 + 49297;
   const rnd = () => (r = (r * 9301 + 49297) % 233280) / 233280;
   // 白天：淺色牆＋深色窗（map）；夜間：同一批窗格裡約一半亮燈（emissiveMap）
-  for (let y = 6; y < 256; y += 16) for (let x = 6; x < 128; x += 20) { const on = rnd(); g.fillStyle = lit ? (on > .5 ? `rgba(255,${205 + (on * 40 | 0)},150,1)` : '#000') : '#5d6a76'; g.fillRect(x, y, 12, 9); }
+  for (let y = 6; y < 512; y += 110) for (let x = 6; x < 256; x += 62) { const on = rnd(); g.fillStyle = lit ? (on > .5 ? `rgba(255,${205 + (on * 40 | 0)},150,1)` : '#000') : '#5d6a76'; g.fillRect(x+9, y+22, 33, 48); }
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
 }
 
@@ -96,19 +98,16 @@ export function createLot(scene, site) {
   site.buildings.forEach(([x, z, w, d, h], i) => {
     const tex = facadeTexture(i + 1, false), lit = facadeTexture(i + 1, true);
     const mat = std([0x8e8a83, 0x9a9184, 0x7f8790, 0xa59e92][i % 4], .85, 0, tex ? { map: tex, emissiveMap: lit, emissive: 0xffd9a0, emissiveIntensity: 0 } : {});
-    if (tex) for (const x of [tex, lit]) x.repeat.set(Math.max(1, Math.round(w / 6000)), Math.max(1, Math.round(h / 9000)));
-    const b = block(bg, [w, h, d], [x, h / 2, z], mat); b.name = 'building'; buildings.push(mat);
+    if (tex) for (const x of [tex, lit]) x.repeat.set(Math.max(1, Math.round(w / 6000)), Math.max(1, Math.round(h / 15500)));
+    const b = block(bg, [w, h, d], [x, h / 2, z], mat); b.name = 'building'; buildings.push(mat); buildingDetails(bg,[x,z,w,d,h],i);
     block(bg, [w + 200, 300, d + 200], [x, h + 150, z], std(0x5b5f63, .9, 0)).name = 'building parapet';
   });
   // 植栽（InstancedMesh）：外緣帶與街道兩側
   const trees = [];
   for (let x = pave.x0 + 3000; x < pave.x1 - 2000; x += 7000) trees.push([x, L.z0 - STRIP / 2 - 200]);
   for (let x = xMin + 8000; x < xMax - 8000; x += 9000) if (x < E.lane[0] - 3000 || x > E.lane[1] + 3000) trees.push([x, site.street.z1 + 2500]);
-  const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(150, 200, 2400, 8), M.wood, trees.length);
-  const crown = new THREE.InstancedMesh(new THREE.SphereGeometry(2000, 12, 9), std(0x355e3b, .9, 0), trees.length);
-  const _m = new THREE.Matrix4();
-  trees.forEach(([x, z], i) => { const s = .8 + .4 * ((i * 37) % 10) / 10; trunk.setMatrixAt(i, _m.makeTranslation(x, 1200, z)); crown.setMatrixAt(i, _m.makeScale(s, s * .9, s).setPosition(x, 2400 + 1600 * s, z)); });
-  trunk.castShadow = crown.castShadow = true; trunk.name = 'tree trunks'; crown.name = 'tree crowns'; bg.add(trunk, crown);
+  createTrees(bg,trees,M);
+  pavingDetails(bg,site,M);
 
   // ---- 入口：分島、柵欄機（進場在東半、出場在西半）、車辨、繳費機
   const G = gateGeom(site), { xc, isl, armLen } = G, gate = grp('gate', root);
