@@ -1,0 +1,263 @@
+{
+  "sites": {
+    "flagship": {
+      "shots": [
+        {
+          "name": "overview",
+          "view": "iso",
+          "time": 82.2,
+          "file": "flagship-overview.png"
+        },
+        {
+          "name": "entry",
+          "view": "gate",
+          "time": 103.10000000000001,
+          "file": "flagship-entry.png"
+        },
+        {
+          "name": "equipment",
+          "view": "energy",
+          "time": 82.2,
+          "file": "flagship-equipment.png"
+        },
+        {
+          "name": "night",
+          "view": "charging",
+          "time": 66.2,
+          "file": "flagship-night.png"
+        },
+        {
+          "name": "door",
+          "view": "charging",
+          "time": 111.3,
+          "file": "flagship-door.png"
+        },
+        {
+          "name": "pickup",
+          "view": "charging",
+          "time": 116.35085344447295,
+          "file": "flagship-pickup.png"
+        },
+        {
+          "name": "insert",
+          "view": "charging",
+          "time": 119.20646879370778,
+          "file": "flagship-insert.png"
+        },
+        {
+          "name": "connected",
+          "view": "charging",
+          "time": 121.70646879370778,
+          "file": "flagship-connected.png"
+        },
+        {
+          "name": "return",
+          "view": "charging",
+          "time": 139.6747526588014,
+          "file": "flagship-return.png"
+        },
+        {
+          "name": "crane",
+          "view": "iso",
+          "time": 12.1,
+          "file": "flagship-crane.png"
+        },
+        {
+          "name": "canopy",
+          "view": "carport",
+          "time": 82.2,
+          "file": "flagship-canopy.png"
+        }
+      ],
+      "performance": {
+        "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5070 Ti Laptop GPU (0x00002F18) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
+        "width": 1680,
+        "height": 1000,
+        "samples": 300,
+        "p50Ms": 10,
+        "p95Ms": 10.100000000000364,
+        "maxMs": 10.200000000000728,
+        "fps": 99.98333611064822,
+        "drawCalls": 2953,
+        "triangles": 6304102,
+        "gpuTimer": {
+          "available": true,
+          "samples": 60,
+          "p50Ms": 7.867904,
+          "p95Ms": 8.618656,
+          "maxMs": 9.045568
+        }
+      }
+    },
+    "mixed": {
+      "shots": [
+        {
+          "name": "overview",
+          "view": "iso",
+          "time": 51,
+          "file": "mixed-overview.png"
+        },
+        {
+          "name": "entry",
+          "view": "gate",
+          "time": 71.9,
+          "file": "mixed-entry.png"
+        },
+        {
+          "name": "equipment",
+          "view": "energy",
+          "time": 51,
+          "file": "mixed-equipment.png"
+        },
+        {
+          "name": "night",
+          "view": "charging",
+          "time": 35,
+          "file": "mixed-night.png"
+        },
+        {
+          "name": "door",
+          "view": "charging",
+          "time": 79.1,
+          "file": "mixed-door.png"
+        },
+        {
+          "name": "pickup",
+          "view": "charging",
+          "time": 83.76925032622005,
+          "file": "mixed-pickup.png"
+        },
+        {
+          "name": "insert",
+          "view": "charging",
+          "time": 86.243262557202,
+          "file": "mixed-insert.png"
+        },
+        {
+          "name": "connected",
+          "view": "charging",
+          "time": 88.743262557202,
+          "file": "mixed-connected.png"
+        },
+        {
+          "name": "return",
+          "view": "charging",
+          "time": 108.02074486316918,
+          "file": "mixed-return.png"
+        },
+        {
+          "name": "crane",
+          "view": "iso",
+          "time": 9.1,
+          "file": "mixed-crane.png"
+        }
+      ],
+      "performance": {
+        "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5070 Ti Laptop GPU (0x00002F18) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
+        "width": 1680,
+        "height": 1000,
+        "samples": 300,
+        "p50Ms": 10,
+        "p95Ms": 10.100000000000364,
+        "maxMs": 10.200000000000728,
+        "fps": 99.98666844420742,
+        "drawCalls": 1671,
+        "triangles": 3420026,
+        "gpuTimer": {
+          "available": true,
+          "samples": 60,
+          "p50Ms": 6.607168,
+          "p95Ms": 7.661888,
+          "maxMs": 7.736544
+        }
+      }
+    },
+    "urban": {
+      "shots": [
+        {
+          "name": "overview",
+          "view": "iso",
+          "time": 49,
+          "file": "urban-overview.png"
+        },
+        {
+          "name": "entry",
+          "view": "gate",
+          "time": 69.9,
+          "file": "urban-entry.png"
+        },
+        {
+          "name": "equipment",
+          "view": "energy",
+          "time": 49,
+          "file": "urban-equipment.png"
+        },
+        {
+          "name": "night",
+          "view": "charging",
+          "time": 33,
+          "file": "urban-night.png"
+        },
+        {
+          "name": "door",
+          "view": "charging",
+          "time": 76.6,
+          "file": "urban-door.png"
+        },
+        {
+          "name": "pickup",
+          "view": "charging",
+          "time": 81.65937536687564,
+          "file": "urban-pickup.png"
+        },
+        {
+          "name": "insert",
+          "view": "charging",
+          "time": 84.52351263851318,
+          "file": "urban-insert.png"
+        },
+        {
+          "name": "connected",
+          "view": "charging",
+          "time": 87.02351263851318,
+          "file": "urban-connected.png"
+        },
+        {
+          "name": "return",
+          "view": "charging",
+          "time": 103.99605746480816,
+          "file": "urban-return.png"
+        },
+        {
+          "name": "crane",
+          "view": "iso",
+          "time": 9.1,
+          "file": "urban-crane.png"
+        }
+      ],
+      "performance": {
+        "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5070 Ti Laptop GPU (0x00002F18) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
+        "width": 1680,
+        "height": 1000,
+        "samples": 300,
+        "p50Ms": 10,
+        "p95Ms": 10.100000000000364,
+        "maxMs": 10.100000000000364,
+        "fps": 99.98666844420745,
+        "drawCalls": 816,
+        "triangles": 1675441,
+        "gpuTimer": {
+          "available": true,
+          "samples": 60,
+          "p50Ms": 5.91456,
+          "p95Ms": 7.082624,
+          "maxMs": 7.664
+        }
+      }
+    }
+  },
+  "errors": []
+}

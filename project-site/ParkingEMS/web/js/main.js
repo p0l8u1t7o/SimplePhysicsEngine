@@ -12,8 +12,11 @@ import { PERIOD_NAME, PERIOD_BANDS, DT, STEPS } from './energy.js';
 import { gateGeom } from './lot.js';
 import { createLprOverlay } from './lpr-overlay.js';
 import { createOutdoorLighting } from './outdoor-lighting.js';
+import { loadCinematicAssets } from './cinematic-assets.js';
+import { createCinematicRenderer } from './cinematic-renderer.js';
 
 const qp = new URLSearchParams(location.search);
+const renderQuality=qp.get('quality')==='low'?'low':qp.get('quality')==='high'?'high':matchMedia('(pointer: coarse), (max-width: 900px)').matches?'low':'high';
 const $ = id => document.getElementById(id);
 const siteId = SITE_IDS.includes(qp.get('site')) ? qp.get('site') : 'flagship', SITE = SITES[siteId], L = SITE.lot;
 
@@ -27,8 +30,14 @@ const stage = createStage({
   camera: { near: 50, far: 1500000, fov: 45 },
 });
 const { renderer, scene, camera, controls } = stage;
+renderer.setPixelRatio(Math.min(devicePixelRatio,renderQuality==='high'?1.5:1));
+stage.lights.sun.shadow.mapSize.setScalar(renderQuality==='high'?4096:1024);
 const project = createProject({ scene, site: siteId });
-const outdoor = createOutdoorLighting({scene,renderer,radius:R,center:[cx,cz]});
+const assetStatus=await loadCinematicAssets(scene,renderer,renderQuality);
+if(assetStatus.failures.length){const warning=document.createElement('div');warning.className='asset-warning';warning.textContent='部分材質未載入，已使用基本外觀；重新整理可重試。';document.body.append(warning);console.warn('ParkingEMS assets unavailable',assetStatus.failures);}
+const outdoor = createOutdoorLighting({scene,renderer,radius:R,center:[cx,cz],environment:assetStatus.environment});
+const cinema=createCinematicRenderer({renderer,scene,camera,quality:renderQuality,useLog:stage.useLog});
+const cinemaOverview={render:()=>cinema.render()};
 const { stationStart, seq } = project;
 document.title = `${SITE.name} · 停車場光儲充能源服務 — 3D 展示`;
 
@@ -44,14 +53,14 @@ workspace.setSources([{ id: 'ems', label: 'EMS 調度畫面' }, { id: 'cctv', la
 // ---------------------------------------------------------------- 視角（照桌面寫；窄畫布由 stage 自動拉遠）
 const G = gateGeom(SITE), heroCh = project.chargers.find(k => k.c.id === seq.hero.chId), hs = heroCh.c.stall;
 const yardC = [(SITE.yard.x0 + SITE.yard.x1) / 2, 0, (SITE.yard.z0 + SITE.yard.z1) / 2];
-const chargingOffset = [Math.sign(project.details.portStand.x-hs.x)*6500,5300,-hs.dir*8500];
+const chargingOffset = [Math.sign(project.details.portStand.x-hs.x)*6500,3400,-hs.dir*8500];
 const energyOffset = siteId==='urban'?[4500,8000,6500]:[7500,10000,11000];
 const VIEWS = {
   iso: siteId==='urban'?[[cx-R*.7,R*1.05,cz+R*.6],[cx,0,cz-R*.2]]:[[cx + R * .4, R * 1.05, cz + R * .85], [cx, 0, cz - R * .05]],
   gate: [[G.xc + 14000, siteId==='mixed'?11000:8000, SITE.entrance.zGate + (siteId==='mixed'?14000:19000)], [G.xc + 2000, 800, SITE.entrance.zGate - 3000]],
   energy: [[yardC[0]+energyOffset[0],energyOffset[1],yardC[2]+energyOffset[2]], [yardC[0], 900, yardC[2]],siteId==='urban'?{fit:(f,v)=>v.set(v.x,v.y*f,v.z*f)}:{}],
   // 從車道側斜看車頭與充電樁正面，讓螢幕和操作姿勢同時可見。
-  charging: [[hs.x+chargingOffset[0],chargingOffset[1],hs.z+chargingOffset[2]], [hs.x, 800, hs.z + hs.dir * 1500]],
+  charging: [[hs.x+chargingOffset[0],chargingOffset[1],hs.z+chargingOffset[2]], [hs.x, 1100, hs.z + hs.dir * 1500]],
   carport: SITE.carport ? [[-24000, 9000, 12000], [0, 2500, SITE.carport.zLine]] : null,
   top: [[cx, R * 2.3, cz + 10], [cx, 0, cz]],
   car: () => { const p = heroPos() || new THREE.Vector3(hs.x, 900, hs.z); return [p.clone().add(new THREE.Vector3(9000, 7000, 11000)).toArray(), p.toArray()]; },
@@ -157,8 +166,8 @@ function applySky() {
   const s = stage.lights.sun;
   s.position.set(cx + Math.cos(az) * R * 1.6 * Math.cos(el), R * 1.8 * Math.sin(el) + R * .4, cz + R * 1.6 * Math.sin(az) * Math.cos(el) + R * .3);
   s.target.position.set(cx, 0, cz); s.intensity = .025 + 2.5 * d; s.color.setHSL(.1, .5 * (1 - d) + .05, .75 + .25 * d);
-  if (stage.lights.hemi) stage.lights.hemi.intensity = .4 + .63 * d;
-  if (stage.lights.fill) stage.lights.fill.intensity = .16 + .17 * d;
+  if (stage.lights.hemi) stage.lights.hemi.intensity = .38 + .18 * d;
+  if (stage.lights.fill) stage.lights.fill.intensity = .18 + .06 * d;
   outdoor.apply(d);
   renderer.shadowMap.needsUpdate = true;
 }
@@ -222,7 +231,7 @@ function render() {
   if(workspace.source==='lpr') workspace.renderCamera({renderer,scene,camera:lpr,vision:lprOverlay,aspect:16/9,title:'入口車辨（虛擬）',result:'EVA-0588 · 幾何投影與補光同步示意',marks:{time:pr.time}});
   else if (workspace.source === 'cctv') workspace.renderCamera({ renderer, scene, camera: cctv, aspect: 16 / 9, title: '充電區監視器（虛擬）', result: ui.action.textContent, marks: { time: pr.time } });
   else workspace.renderImage({ draw: drawEMS, aspect: 960 / 560, title: `EMS 全天調度（${SITE.name}，示意）`, result: pr.op ? `${fmtHour(pr.hour)} · ${PERIOD_NAME[pr.period]} · SOC ${Math.round(pr.energy.soc * 100)}%` : '上線前', time: pr.time });
-  workspace.renderOverview(renderer, scene);
+  workspace.renderOverview(cinemaOverview, scene);
 }
 
 setView(qp.get('view') in VIEWS ? qp.get('view') : 'iso', true);
@@ -230,7 +239,7 @@ if (qp.has('cam')) { const a = qp.get('cam').split(',').map(Number); if (a.lengt
 $('loading').classList.add('hide');
 stage.loop(dt => { const changed = player.update(dt); workspace.follow(); stage.updateLabels(); return changed; }, { render });
 
-exposeSim({ seekTo: player.seekTo, setView, views: VIEWS, total: project.total, play: player.play, pause: player.pause, get T() { return player.T; }, stationStart, project, site: siteId });
+exposeSim({ seekTo: player.seekTo, setView, views: VIEWS, total: project.total, play: player.play, pause: player.pause, get T() { return player.T; }, stationStart, project, site: siteId,renderQuality,assets:{loaded:assetStatus.loaded,failures:assetStatus.failures,skyFile:assetStatus.skyFile} });
 
 // ---------------------------------------------------------------- 錄影（?movie：core/movie 依時間軸步驟運鏡；export-mp4.mjs 用 ?movie&auto）
 if (qp.has('movie')) {

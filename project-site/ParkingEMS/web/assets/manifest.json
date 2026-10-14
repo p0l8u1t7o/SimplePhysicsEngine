@@ -1,0 +1,70 @@
+[
+  {
+    "file": "materials/asphalt_02_Diffuse.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_02/asphalt_02_diff_1k.jpg",
+    "license": "CC0-1.0",
+    "source": "https://polyhaven.com/a/asphalt_02",
+    "sha256": "1aa5ce99f58a625c71d48cfc3e68b65ca85ccb00f39e045c0a928608a0ea25ed"
+  },
+  {
+    "file": "materials/asphalt_02_nor_gl.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_02/asphalt_02_nor_gl_1k.jpg",
+    "license": "CC0-1.0",
+    "source": "https://polyhaven.com/a/asphalt_02",
+    "sha256": "42a1c381b53204e83a982db2864479a30bc127bbdeebb1006f8ee51bff099df3"
+  },
+  {
+    "file": "materials/asphalt_02_Rough.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_02/asphalt_02_rough_1k.jpg",
+    "license": "CC0-1.0",
+    "source": "https://polyhaven.com/a/asphalt_02",
+    "sha256": "70ba3edc65525eb4dc366cf010ca7ae0bd34e0251ff0225c2dad627a873d0712"
+  },
+  {
+    "file": "materials/concrete_floor_01_Diffuse.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_floor_01/concrete_floor_01_diff_1k.jpg",
+    "license": "CC0-1.0",
+    "source": "https://polyhaven.com/a/concrete_floor_01",
+    "sha256": "db7c800f1464359b5f359fc743e82ac51b34e014fdfd53844f4af34bb1949229"
+  },
+  {
+    "file": "materials/concrete_floor_01_nor_gl.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_floor_01/concrete_floor_01_nor_gl_1k.jpg",
+    "license": "CC0-1.0",
+    "source": "https://polyhaven.com/a/concrete_floor_01",
+    "sha256": "28be1f6fa82eeab137c84954bf7ea0f5d8a4434352d01c29f15e20926eb7227e"
+  },
+  {
+    "file": "materials/concrete_floor_01_Rough.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_floor_01/concrete_floor_01_rough_1k.jpg",
+    "license": "CC0-1.0",
+    "source": "https://polyhaven.com/a/concrete_floor_01",
+    "sha256": "f5239e1c6db5f0ddb4c2397e881a5938ab511386aab19a23c20d40f4ab2c181b"
+  },
+  {
+    "file": "materials/daylight.hdr",
+    "url": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/kloppenheim_06_puresky_1k.hdr",
+    "license": "CC0-1.0",
+    "source": "https://polyhaven.com/a/kloppenheim_06_puresky",
+    "sha256": "206c67e3a1b992282821cf06662bdd69bbb4915c1c4444a66338a40d6a7d4e34"
+  },
+  {
+    "file": "vendor/RGBELoader.js",
+    "url": "https://raw.githubusercontent.com/mrdoob/three.js/r160/examples/jsm/loaders/RGBELoader.js",
+    "license": "MIT",
+    "sha256": "f0e87d0008d9484d31358b32befd1bf80e4301f77573cc9a7cf7d871cc3f64b4"
+  },
+  {
+    "file": "vendor/LICENSE-three.txt",
+    "url": "https://raw.githubusercontent.com/mrdoob/three.js/r160/LICENSE",
+    "license": "MIT",
+    "sha256": "852e0e8699169bf9f6fdc6bda3e682d078dcbc738b5d33e74df594721bff271d"
+  },
+  {
+    "file": "materials/daylight-4k.hdr",
+    "url": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/4k/kloppenheim_06_puresky_4k.hdr",
+    "license": "CC0-1.0",
+    "source": "https://polyhaven.com/a/kloppenheim_06_puresky",
+    "sha256": "1bebd7cbbfb5c48a642f03d93bffbabb2c42d0b109061f37a72259d1cbdb3053"
+  }
+]

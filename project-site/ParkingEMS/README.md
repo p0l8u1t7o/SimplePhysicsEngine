@@ -63,6 +63,19 @@ node project-site/ParkingEMS/tools/render-realism.mjs TEMP/pems-realism-shots 88
 
 `verify-realism.mjs` 一併由 `verify.mjs` 執行，檢查手與槍把接觸、固定骨長、槍線端點、操作期間車輛靜止、授權前無供電及倒車互鎖。`render-realism.mjs` 取得三場型 31 個固定畫面與本機無頭瀏覽器幀時間。結果與資料限制見 [review/render-realism.md](review/render-realism.md)。新增外觀模組為 `vehicles.js`、`surfaces.js`、`site-details.js`、`outdoor-lighting.js`；動作模組為 `customer-motion.js`、`charging-cable.js`。
 
+## 渲染品質（2026-10-14 第二輪）
+
+桌面預設高畫質：HDR 環境反射、瀝青／混凝土 PBR 紋理、4× MSAA 的 HDR 色彩緩衝、螢幕空間接觸遮蔽、輕微亮部擴散及 4096 太陽陰影。觸控裝置或寬度 ≤900 px 預設低畫質：DPR 上限 1、1024 太陽陰影、直接渲染。桌面 DPR 上限 1.5；可用 `?site=urban&quality=low` 或 `&quality=high` 覆寫，重新載入時套用。
+
+三場型共用加密車體／曲面玻璃／輪胎、實例化薄葉樹冠及立體建物窗框。素材封裝於 `web/assets/`，來源與授權見 [素材說明](web/assets/README.md)。桌面採 4K 天空，低畫質採 1K；表面貼圖逾時 8 秒、HDRI 逾時 20 秒，缺檔時顯示提示並保留基本材質／天空。`window.sim.renderQuality`、`window.sim.assets` 可查實際模式與素材狀態。
+
+```powershell
+node project-site/ParkingEMS/tools/verify-cinematic.mjs TEMP/pems-cinema/pipeline 8854
+node project-site/ParkingEMS/tools/render-realism.mjs TEMP/pems-cinema/final-review 8853
+```
+
+第一個工具查素材雜湊、三場型的桌面／手機／標準深度渲染及強制缺檔降級；第二個取得固定事件畫面和本機播放量測。桌面 30 FPS 是目標，仍需在展示電腦確認。程序車體／人物與固定 HDRI 尚不等同掃描模型或離線電影渲染，詳見 [本輪驗證](review/cinematic-render.md)。
+
 ## 檔案
 
 | 檔案 | 用途 |

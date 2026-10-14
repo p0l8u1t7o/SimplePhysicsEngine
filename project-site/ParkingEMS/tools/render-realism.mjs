@@ -31,6 +31,24 @@ try{
       const drawCalls=s.renderer.info.render.calls,triangles=s.renderer.info.render.triangles;s.renderer.info.autoReset=true;
       return {gpu,userAgent:navigator.userAgent,width:innerWidth,height:innerHeight,samples:sorted.length,p50Ms:quantile(.5),p95Ms:quantile(.95),maxMs:sorted.at(-1),fps:1000/(sorted.reduce((a,b)=>a+b,0)/sorted.length),drawCalls,triangles};
     })()`);
+    // GPU 查詢涵蓋主場景與後處理，避免只把 rAF 排程頻率當成 GPU 完成速度。
+    r.performance.gpuTimer=await browser.evaluate(`(async()=>{
+      const s=__coreStages[0],renderer=s.renderer,gl=renderer.getContext(),ext=gl.getExtension('EXT_disjoint_timer_query_webgl2');
+      if(!ext)return {available:false,reason:'GPU timer extension unavailable'};
+      const original=renderer.render,queries=[];let current=null;
+      renderer.render=function(scene,camera){
+        if(scene===s.scene&&!current&&queries.length<60){current=gl.createQuery();gl.beginQuery(ext.TIME_ELAPSED_EXT,current);}
+        try{return original.call(this,scene,camera);}finally{if(current&&(scene!==s.scene||sim.renderQuality==='low')){gl.endQuery(ext.TIME_ELAPSED_EXT);queries.push(current);current=null;}}
+      };
+      try{
+        sim.play();for(let i=0;i<90&&queries.length<60;i++)await new Promise(requestAnimationFrame);sim.pause();
+        const until=performance.now()+3000;while(queries.some(q=>!gl.getQueryParameter(q,gl.QUERY_RESULT_AVAILABLE))&&performance.now()<until)await new Promise(requestAnimationFrame);
+        const disjoint=gl.getParameter(ext.GPU_DISJOINT_EXT),ready=queries.every(q=>gl.getQueryParameter(q,gl.QUERY_RESULT_AVAILABLE));
+        if(disjoint||!ready||!queries.length)return {available:false,reason:disjoint?'GPU disjoint':'GPU result timeout'};
+        const ms=queries.map(q=>gl.getQueryParameter(q,gl.QUERY_RESULT)/1e6).sort((a,b)=>a-b);
+        return {available:true,samples:ms.length,p50Ms:ms[Math.floor(ms.length*.5)],p95Ms:ms[Math.floor(ms.length*.95)],maxMs:ms.at(-1)};
+      }finally{renderer.render=original;if(current){gl.endQuery(ext.TIME_ELAPSED_EXT);gl.deleteQuery(current);}for(const q of queries)gl.deleteQuery(q);sim.pause();}
+    })()`);
     report.errors.push(...browser.errors.map(error=>({site,error})));
     console.log(`${site}: ${r.shots.length} shots, ${r.performance.fps.toFixed(1)} fps, p95 ${r.performance.p95Ms.toFixed(1)} ms`);
   }

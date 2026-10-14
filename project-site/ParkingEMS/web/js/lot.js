@@ -20,18 +20,6 @@ function stripes(parent, name, list, mat, y = 4) {
   im.count = list.length; im.name = name; im.receiveShadow = true; parent.add(im); return im;
 }
 
-// 建物立面貼圖（瀏覽器才有；Node 端用素色）：窗格在夜間發光
-function facadeTexture(seed, lit) {
-  if (!HAS_DOM) return null;
-  const c = document.createElement('canvas'); c.width = 256; c.height = 512; const g = c.getContext('2d');
-  g.fillStyle = lit ? '#000' : '#fff'; g.fillRect(0, 0, 256, 512);
-  let r = seed * 9301 + 49297;
-  const rnd = () => (r = (r * 9301 + 49297) % 233280) / 233280;
-  // 白天：淺色牆＋深色窗（map）；夜間：同一批窗格裡約一半亮燈（emissiveMap）
-  for (let y = 6; y < 512; y += 110) for (let x = 6; x < 256; x += 62) { const on = rnd(); g.fillStyle = lit ? (on > .5 ? `rgba(255,${205 + (on * 40 | 0)},150,1)` : '#000') : '#5d6a76'; g.fillRect(x+9, y+22, 33, 48); }
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
-}
-
 export function gateGeom(site) {
   const E = site.entrance, xc = (E.lane[0] + E.lane[1]) / 2, isl = E.narrow ? 600 : 1200;
   const armLen = (E.lane[1] - E.lane[0]) / 2 - isl / 2 - 300;
@@ -93,13 +81,11 @@ export function createLot(scene, site) {
     floorText(bg, ['消防通道'], (E.lane[0] + E.lane[1]) / 2, E.zLot + 7000, 3000, 800, { rot: Math.PI / 2, fg: '#ff8070', y: 7 });
   }
 
-  // ---- 周邊建物（立面窗格貼圖；夜間發光）
+  // ---- 周邊建物（立體窗框與玻璃；夜間發光）
   const buildings = [];
   site.buildings.forEach(([x, z, w, d, h], i) => {
-    const tex = facadeTexture(i + 1, false), lit = facadeTexture(i + 1, true);
-    const mat = std([0x8e8a83, 0x9a9184, 0x7f8790, 0xa59e92][i % 4], .85, 0, tex ? { map: tex, emissiveMap: lit, emissive: 0xffd9a0, emissiveIntensity: 0 } : {});
-    if (tex) for (const x of [tex, lit]) x.repeat.set(Math.max(1, Math.round(w / 6000)), Math.max(1, Math.round(h / 15500)));
-    const b = block(bg, [w, h, d], [x, h / 2, z], mat); b.name = 'building'; buildings.push(mat); buildingDetails(bg,[x,z,w,d,h],i);
+    const mat = std([0x8e8a83, 0x9a9184, 0x7f8790, 0xa59e92][i % 4], .85, 0);
+    const b = block(bg, [w, h, d], [x, h / 2, z], mat); b.name = 'building'; buildings.push(buildingDetails(bg,[x,z,w,d,h],i));
     block(bg, [w + 200, 300, d + 200], [x, h + 150, z], std(0x5b5f63, .9, 0)).name = 'building parapet';
   });
   // 植栽（InstancedMesh）：外緣帶與街道兩側

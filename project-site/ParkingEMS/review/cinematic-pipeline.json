@@ -1,0 +1,200 @@
+{
+  "assetFiles": 10,
+  "cases": [
+    {
+      "site": "flagship",
+      "mode": "desktop",
+      "coldReadyMs": 2899.3672,
+      "state": {
+        "quality": "high",
+        "assets": {
+          "loaded": 7,
+          "failures": [],
+          "skyFile": "daylight-4k.hdr"
+        },
+        "logDepth": true,
+        "dpr": 1,
+        "shadow": 4096,
+        "normalMap": true,
+        "roughnessMap": true,
+        "environment": true,
+        "total": 157.3034137778918
+      }
+    },
+    {
+      "site": "flagship",
+      "mode": "mobile",
+      "coldReadyMs": 2260.7290999999996,
+      "state": {
+        "quality": "low",
+        "assets": {
+          "loaded": 7,
+          "failures": [],
+          "skyFile": "daylight.hdr"
+        },
+        "logDepth": true,
+        "dpr": 1,
+        "shadow": 1024,
+        "normalMap": true,
+        "roughnessMap": true,
+        "environment": true,
+        "total": 157.3034137778918
+      }
+    },
+    {
+      "site": "flagship",
+      "mode": "linear-depth",
+      "coldReadyMs": 2999.2192000000014,
+      "state": {
+        "quality": "high",
+        "assets": {
+          "loaded": 7,
+          "failures": [],
+          "skyFile": "daylight-4k.hdr"
+        },
+        "logDepth": false,
+        "dpr": 1,
+        "shadow": 4096,
+        "normalMap": true,
+        "roughnessMap": true,
+        "environment": true,
+        "total": 157.3034137778918
+      }
+    },
+    {
+      "site": "mixed",
+      "mode": "desktop",
+      "coldReadyMs": 898.3572999999997,
+      "state": {
+        "quality": "high",
+        "assets": {
+          "loaded": 7,
+          "failures": [],
+          "skyFile": "daylight-4k.hdr"
+        },
+        "logDepth": true,
+        "dpr": 1,
+        "shadow": 4096,
+        "normalMap": true,
+        "roughnessMap": true,
+        "environment": true,
+        "total": 124.07700130488021
+      }
+    },
+    {
+      "site": "mixed",
+      "mode": "mobile",
+      "coldReadyMs": 557.1310999999987,
+      "state": {
+        "quality": "low",
+        "assets": {
+          "loaded": 7,
+          "failures": [],
+          "skyFile": "daylight.hdr"
+        },
+        "logDepth": true,
+        "dpr": 1,
+        "shadow": 1024,
+        "normalMap": true,
+        "roughnessMap": true,
+        "environment": true,
+        "total": 124.07700130488021
+      }
+    },
+    {
+      "site": "mixed",
+      "mode": "linear-depth",
+      "coldReadyMs": 883.6457000000009,
+      "state": {
+        "quality": "high",
+        "assets": {
+          "loaded": 7,
+          "failures": [],
+          "skyFile": "daylight-4k.hdr"
+        },
+        "logDepth": false,
+        "dpr": 1,
+        "shadow": 4096,
+        "normalMap": true,
+        "roughnessMap": true,
+        "environment": true,
+        "total": 124.07700130488021
+      }
+    },
+    {
+      "site": "urban",
+      "mode": "desktop",
+      "coldReadyMs": 839.0025999999998,
+      "state": {
+        "quality": "high",
+        "assets": {
+          "loaded": 7,
+          "failures": [],
+          "skyFile": "daylight-4k.hdr"
+        },
+        "logDepth": true,
+        "dpr": 1,
+        "shadow": 4096,
+        "normalMap": true,
+        "roughnessMap": true,
+        "environment": true,
+        "total": 143.63750146750257
+      }
+    },
+    {
+      "site": "urban",
+      "mode": "mobile",
+      "coldReadyMs": 652.9609999999993,
+      "state": {
+        "quality": "low",
+        "assets": {
+          "loaded": 7,
+          "failures": [],
+          "skyFile": "daylight.hdr"
+        },
+        "logDepth": true,
+        "dpr": 1,
+        "shadow": 1024,
+        "normalMap": true,
+        "roughnessMap": true,
+        "environment": true,
+        "total": 143.63750146750257
+      }
+    },
+    {
+      "site": "urban",
+      "mode": "linear-depth",
+      "coldReadyMs": 782.420299999998,
+      "state": {
+        "quality": "high",
+        "assets": {
+          "loaded": 7,
+          "failures": [],
+          "skyFile": "daylight-4k.hdr"
+        },
+        "logDepth": false,
+        "dpr": 1,
+        "shadow": 4096,
+        "normalMap": true,
+        "roughnessMap": true,
+        "environment": true,
+        "total": 143.63750146750257
+      }
+    }
+  ],
+  "failures": [],
+  "fallback": {
+    "assets": {
+      "loaded": 5,
+      "failures": [
+        "asphalt_02_nor_gl.jpg",
+        "daylight-4k.hdr"
+      ],
+      "skyFile": "daylight-4k.hdr"
+    },
+    "warning": true,
+    "environment": true,
+    "normal": false,
+    "expectedNetworkErrors": []
+  }
+}

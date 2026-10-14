@@ -1,0 +1,4 @@
+vendor/*.js text eol=lf
+vendor/*.txt text eol=lf
+materials/*.jpg -text
+materials/*.hdr -text

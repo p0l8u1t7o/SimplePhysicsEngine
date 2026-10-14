@@ -16,7 +16,7 @@ function noiseTexture(kind) {
 export function surfaceMaterials(M){
   const result={};
   for(const [key,kind,color] of [['asphalt','asphalt',0x787976],['road','asphalt',0x666966],['grass','grass',0x71815a],['concrete','concrete',0xc7c5bc],['sidewalk','concrete',0xa6a69e]]){
-    const mat=M[key].clone();mat.color.setHex(color);mat.map=noiseTexture(kind);mat.roughness=.92;mat.metalness=0;result[key]=mat;
+    const mat=M[key].clone();mat.color.setHex(color);mat.map=noiseTexture(kind);mat.roughness=.92;mat.metalness=0;mat.userData.surface=kind;result[key]=mat;
   }
   result.steel=finished(M.steel,'metal',.6);result.galv=finished(M.galv,'metal',.35);
   result.cabinet=finished(M.cabinet,'polymer',.15);result.bess=finished(M.bess,'polymer',.15);
@@ -35,5 +35,6 @@ export function surfaceMaterials(M){
 export function groundMaterial(base,w,d){
   if(!base.map)return base;
   const m=base.clone();m.map=base.map.clone();m.map.repeat.set(w/3200,d/3200);m.map.needsUpdate=true;
+  m.userData.surfaceRepeat=[w/4000,d/4000];
   m.bumpMap=m.map;m.bumpScale=.25;return m;
 }

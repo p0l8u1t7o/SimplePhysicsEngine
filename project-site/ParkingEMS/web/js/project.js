@@ -261,7 +261,7 @@ export function createProject({ scene, site: siteId = 'flagship' } = {}) {
       const state = !plugged ? 'off' : hs && hs.s.hero && hs.p > .05 ? (r.limited && hs.p < H.ch.kw - .3 ? 'limit' : 'charging') : hs && hs.s.hero && hs.frac < .995 ? 'wait' : 'done';
       hero.setCharging(hc.side, state);
       hero.setDetail({distance:wheelTravel(H.legs,t),night:1-daylight(h),moving:p.moving,reverse:!!p.leg?.path.reverse,
-        brake:!p.moving || (!!p.leg && t > p.leg.t1-.35),side:hc.side,
+        brake:(!p.moving&&(t<H.tPark+.6||t>=H.revT0-.6)) || (p.moving&&!!p.leg&&t>p.leg.t1-.35),side:hc.side,
         open:Math.min(clamp01((t-H.plugT+1.7)/.5),clamp01((H.unplugT+1.2-t)/.5))});
     } else { hero.setCharging(0, 'off'); hero.setDetail(); }
     // 充電樁燈號與畫面
@@ -349,7 +349,7 @@ export function createProject({ scene, site: siteId = 'flagship' } = {}) {
     // 夜間照明（路燈、建物窗格）
     const day = daylight(h), night = 1 - day;
     M.lamp.emissiveIntensity = night * 2.4;
-    for (const m of lot.buildings) if (m.emissiveMap) m.emissiveIntensity = night * .3;
+    for (const m of lot.buildings) m.emissiveIntensity = night * .3;
     M.pv.emissiveIntensity = .15 + .35 * day;
     for (const b of bess) b.set(t < seq.opStart ? (reg[`bess${bess.indexOf(b)}`].obj.visible && t >= (seq.builds.find(x => x.key === 'test')?.t0 ?? 1e9) ? 'idle' : 'off') : r.dis > .5 ? 'charging' : r.chg > .5 ? 'wait' : 'idle');
     inverter?.set(t >= seq.opStart ? (r.pv > 1 ? 'idle' : 'off') : 'off');

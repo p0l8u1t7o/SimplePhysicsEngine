@@ -15,32 +15,47 @@ const panel = (g, name, pts, mat) => {
 
 // 橫向截面沿車長放樣，肩線與前後保桿均有曲度；門的位置留實際開口。
 function bodyGeometry() {
-  const sections = [[-2250,660,740],[-2100,790,840],[-1750,840,900],[-1050,850,910],[-500,820,910],[650,780,910],[1100,750,905],[1750,690,860],[2130,590,770],[2250,480,680]];
-  const vertices=[],indices=[];
-  for(const [x,y,w] of sections) {
-    const arch = Math.max(...[-1400,1400].map(c => Math.abs(x-c)<390 ? 330+Math.sqrt(Math.max(0,390**2-(x-c)**2)) : 200));
-    for(const [py,pz] of [[200,-w*.76],[Math.min(y-95,arch),-w*.98],[y-65,-w],[y,-w*.77],[y,w*.77],[y-65,w],[Math.min(y-95,arch),w*.98],[200,w*.76]])vertices.push(x,py,pz);
+  const sections=[[-2250,700,740],[-2100,805,850],[-1750,865,900],[-1050,865,910],[-500,825,910],[650,815,910],[1100,825,905],[1750,780,870],[2130,650,790],[2250,500,680]];
+  const xs=[...new Set([...Array.from({length:97},(_,i)=>-2250+i*4500/96),-500,650,-1760,-1040,1040,1760])].sort((a,b)=>a-b);
+  const vertices=[],indices=[],points=[],count=40;
+  for(const x of xs){
+    let i=0;while(i<sections.length-2&&x>sections[i+1][0])i++;
+    const a=sections[i],b=sections[i+1],u=(x-a[0])/(b[0]-a[0]),f=u*u*(3-2*u),y=THREE.MathUtils.lerp(a[1],b[1],f),w=THREE.MathUtils.lerp(a[2],b[2],f);
+    const arch=Math.max(205,...[-1400,1400].map(c=>Math.abs(x-c)<360?330+Math.sqrt(360**2-(x-c)**2):205));
+    const ring=[[205,-w*.78],[arch,-w*.96],[y-95,-w],[y-12,-w*.85],[y+16,-w*.5],[y+28,0],[y+16,w*.5],[y-12,w*.85],[y-95,w],[arch,w*.96],[205,w*.78],[205,0]].map(([py,z])=>new THREE.Vector3(x,py,z));
+    const curve=new THREE.CatmullRomCurve3(ring,true,'catmullrom',.18);
+    for(let j=0;j<count;j++){const p=curve.getPoint(j/count);vertices.push(p.x,p.y,p.z);points.push(p);}
   }
-  for(let i=0;i<sections.length-1;i++)for(let j=0;j<8;j++) {
-    if(i===4&&(j===1||j===5))continue;
-    const a=i*8+j,b=i*8+(j+1)%8,c=(i+1)*8+(j+1)%8,d=(i+1)*8+j;
+  for(let i=0;i<xs.length-1;i++)for(let j=0;j<count;j++){
+    const a=i*count+j,b=i*count+(j+1)%count,c=b+count,d=a+count;
+    const p=points[a];if(xs[i]>=-500&&xs[i+1]<=650&&Math.abs(p.z)>850&&p.y>330&&p.y<815)continue;
     indices.push(a,b,d,b,c,d);
   }
-  for(const i of [0,sections.length-1])for(let j=1;j<7;j++)indices.push(i*8,i*8+(i?j:j+1),i*8+(i?j+1:j));
+  for(const i of [0,xs.length-1])for(let j=1;j<count-1;j++)indices.push(i*count,i*count+(i?j:j+1),i*count+(i?j+1:j));
   const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));geo.setIndex(indices);geo.computeVertexNormals();return geo;
 }
-const BODY = bodyGeometry();
-const TIRE = new THREE.TorusGeometry(247,83,12,32);
+const BODY=bodyGeometry(),TIRE=new THREE.TorusGeometry(247,83,16,48);
+const tireVertices=TIRE.attributes.position;
+for(let i=0;i<tireVertices.count;i++){const x=tireVertices.getX(i),y=tireVertices.getY(i),z=tireVertices.getZ(i),r=Math.hypot(x,y);if(r>305){const groove=Math.pow(Math.abs(Math.sin(Math.atan2(y,x)*36+z*.06)),18)*3;tireVertices.setXYZ(i,x*(r-groove)/r,y*(r-groove)/r,z);}}TIRE.computeVertexNormals();
+
+function curvedPanel(parent,name,corners,material,bow=22){
+  const points=corners.map(p=>new THREE.Vector3(...p)),vertices=[],indices=[],a=new THREE.Vector3(),b=new THREE.Vector3(),p=new THREE.Vector3();
+  const normal=new THREE.Vector3().crossVectors(points[1].clone().sub(points[0]),points[3].clone().sub(points[0])).normalize();if(normal.y<0)normal.negate();
+  const nx=18,ny=12;
+  for(let j=0;j<=ny;j++)for(let i=0;i<=nx;i++){const u=i/nx,v=j/ny;a.copy(points[0]).lerp(points[1],u);b.copy(points[3]).lerp(points[2],u);p.copy(a).lerp(b,v).addScaledVector(normal,Math.sin(Math.PI*u)*Math.sin(Math.PI*v)*bow);vertices.push(p.x,p.y,p.z);}
+  for(let j=0;j<ny;j++)for(let i=0;i<nx;i++){const a=j*(nx+1)+i,b=a+1,c=a+nx+1;indices.push(a,b,c,b,c+1,c);}
+  const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));geo.setIndex(indices);geo.computeVertexNormals();return mesh(parent,name,geo,material);
+}
 
 export function detailedCar(name,color,M) {
-  const root=group(null,name), paint=new THREE.MeshPhysicalMaterial({color,roughness:.28,metalness:.35,clearcoat:.8,clearcoatRoughness:.18,side:THREE.DoubleSide});
-  const glass=new THREE.MeshPhysicalMaterial({color:0x233b48,roughness:.12,metalness:.35,clearcoat:1,side:THREE.DoubleSide});
+  const root=group(null,name), paint=new THREE.MeshPhysicalMaterial({color,roughness:.26,metalness:.38,clearcoat:1,clearcoatRoughness:.12,side:THREE.DoubleSide});
+  const glass=new THREE.MeshPhysicalMaterial({color:0x334b54,roughness:.07,metalness:.25,clearcoat:1,transparent:true,opacity:.86,side:THREE.DoubleSide});
   mesh(root,'car body',BODY,paint);
   block(root,[2300,150,1440],[-200,320,0],M.cabinetDark).name='car floor';
   // 前後玻璃與車頂分離，避免舊版方盒車艙的垂直輪廓。
-  panel(root,'car windshield',[[950,800,-770],[120,1410,-665],[120,1410,665],[950,800,770]],glass);
-  panel(root,'car rear glass',[[-1710,850,770],[-780,1380,660],[-780,1380,-660],[-1710,850,-770]],glass);
-  const roof=bevelBox(970,65,1380,paint,30);roof.position.set(-350,1420,0);roof.name='car roof';root.add(roof);
+  curvedPanel(root,'car windshield',[[950,800,-770],[120,1410,-665],[120,1410,665],[950,800,770]],glass);
+  curvedPanel(root,'car rear glass',[[-1710,850,770],[-780,1380,660],[-780,1380,-660],[-1710,850,-770]],glass);
+  curvedPanel(root,'car roof',[[-850,1405,-680],[160,1420,-680],[160,1420,680],[-850,1405,680]],paint,30);
   for(const s of [-1,1]) {
     panel(root,'rear quarter glass',[[-1680,865,s*787],[-790,1365,s*680],[-540,1378,s*690],[-540,834,s*895]],glass);
     panel(root,'rear pillar',[[-1720,855,s*793],[-810,1400,s*681],[-730,1400,s*690],[-1620,855,s*807]],paint);
@@ -76,10 +91,14 @@ export function detailedCar(name,color,M) {
   const headMat=M.head.clone(),tailMat=M.tail.clone(),reverseMat=M.head.clone();
   for(const s of [-1,1]) {
     const h=bevelBox(110,100,440,headMat,25);h.position.set(2150,595,s*525);h.name='car headlight';root.add(h);
-    block(root,[35,82,470],[-2155,710,s*510],tailMat).name='car taillight';
-    block(root,[30,52,135],[-2190,470,s*490],reverseMat).name='car reverse light';
+    const tail=bevelBox(24,76,450,tailMat,10);tail.position.set(-2258,615,s*475);tail.name='car taillight';root.add(tail);
+    block(root,[20,28,130],[-2258,577,s*440],reverseMat).name='car reverse light';
   }
   block(root,[50,115,1050],[2205,340,0],M.cabinetDark).name='front lower grille';
+  const bumper=bevelBox(36,120,1220,M.cabinetDark,16);bumper.position.set(-2252,305,0);bumper.name='rear lower bumper';root.add(bumper);
+  block(root,[28,120,420],[-2262,460,0],M.cabinetDark).name='rear license recess';
+  block(root,[8,90,360],[-2278,460,0],M.rim).name='rear license plate';
+  block(root,[16,24,510],[-2258,632,0],paint).name='rear trunk trim';
   const plate=liveScreen(520,130,384,96);plate.mesh.rotation.y=Math.PI/2;plate.mesh.position.set(2266,470,0);plate.mesh.name='hero front plate';root.add(plate.mesh);
   plate.draw(name,(c,w,h)=>{c.fillStyle='#eeeee6';c.fillRect(0,0,w,h);c.fillStyle='#17232d';c.font='bold 65px sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(name.startsWith('hero')?'EVA-0588':'EV',w/2,h/2);});
   const ports=[1,-1].map(s=>{const p=block(root,[220,160,12],[CAR.len/2-650,760,s*(CAR.w/2+4)],M.ledOff);p.name='car port';p.userData.side=s;return p;});

@@ -102,3 +102,5 @@ select option{background:#172431}
 .compare td:first-child{color:var(--muted);white-space:nowrap}
 .compare .on{color:#bff3d6;background:rgba(61,214,140,.08)}
 .label3d.hero{background:#0d3b38e8;border-color:#3dd6b0;color:#dffff6}
+.asset-warning{position:fixed;top:70px;left:12px;right:12px;z-index:1000;padding:10px 14px;background:#493917;color:#fff0cc;border:1px solid #bf974b;border-radius:6px;pointer-events:none}
+.asset-credit{color:var(--muted);font-size:10px;text-decoration:none}

@@ -35,6 +35,9 @@ for(const id of SITE_IDS){
   check(r.stationaryErrorMm<.001,`${id}: car stationary during operation`);
   p.apply(H.plugT+1);
   check(p.presentation.hero.p===0&&p.presentation.hero.kwh===0,`${id}: no power before authorization completes`);
+  check(!p.hero.root.userData.braking,`${id}: parked charging car releases service brake lights`);
+  p.apply(H.t0+3);
+  check(p.hero.root.userData.braking,`${id}: brake lights remain on while waiting at entry gate`);
   p.apply(H.revT0+.01);
   check(!D.driver.root.visible&&!D.state.connected&&D.state.door===0,`${id}: driver seated, door closed and unplugged before reversing`);
   check(p.hero.lids.every(l=>l.rotation.x===0),`${id}: port lid closed before departure`);
