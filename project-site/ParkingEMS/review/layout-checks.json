@@ -1,0 +1,246 @@
+{
+  "ok": true,
+  "variants": [
+    {
+      "variant": "預設",
+      "params": {},
+      "ok": true,
+      "count": 13,
+      "failures": [],
+      "rows": [
+        {
+          "group": "場型",
+          "name": "車位數符合旗艦型分級（100 車位以上）",
+          "ok": true,
+          "value": "148 格"
+        },
+        {
+          "group": "場型",
+          "name": "車道寬 ≥ 6 m、車位 2.5 × 5.0 m（假設）",
+          "ok": true,
+          "value": "2.5 × 5 m"
+        },
+        {
+          "group": "入口",
+          "name": "閘門等候車輛不占用街道",
+          "ok": true,
+          "value": "餘 1.0 m"
+        },
+        {
+          "group": "光電",
+          "name": "模組 192 片 × 520 Wp",
+          "ok": true,
+          "value": "99.8 kWp"
+        },
+        {
+          "group": "光電",
+          "name": "車棚樑下淨高 ≥ 2.5 m",
+          "ok": true,
+          "value": "3.16 m"
+        },
+        {
+          "group": "光電",
+          "name": "立柱不侵入停車空間（柱寬 300、車側餘 340）",
+          "ok": true,
+          "value": "餘 190 mm"
+        },
+        {
+          "group": "儲能",
+          "name": "儲能櫃與最近車位間距 ≥ 3 m（假設，依消防審查）",
+          "ok": true,
+          "value": "10.9 m"
+        },
+        {
+          "group": "調度",
+          "name": "市電取電 ≤ 契約容量 150 kW",
+          "ok": true,
+          "value": "峰值 49 kW（無儲能 105）"
+        },
+        {
+          "group": "調度",
+          "name": "SOC 維持 12～95%",
+          "ok": true,
+          "value": "44～95%"
+        },
+        {
+          "group": "調度",
+          "name": "充電需求滿足率 ≥ 97%",
+          "ok": true,
+          "value": "100.0%（限功率 0 h）"
+        },
+        {
+          "group": "調度",
+          "name": "儲能每日循環 ≤ 1",
+          "ok": true,
+          "value": "0.48 次／日"
+        },
+        {
+          "group": "憑證",
+          "name": "合格光電可評估憑證（1,000 度 1 張）",
+          "ok": true,
+          "value": "約 200 張／年（未扣躉售與資格）"
+        },
+        {
+          "group": "施工",
+          "name": "吊裝都在吊車作業半徑內（伸臂 30 m）",
+          "ok": true,
+          "value": "21 次吊裝、最大半徑 28.4 m"
+        }
+      ]
+    },
+    {
+      "variant": "住商型",
+      "params": {
+        "site": "mixed"
+      },
+      "ok": true,
+      "count": 10,
+      "failures": [],
+      "rows": [
+        {
+          "group": "場型",
+          "name": "車位數符合住商型分級（50–99 車位）",
+          "ok": true,
+          "value": "72 格"
+        },
+        {
+          "group": "場型",
+          "name": "車道寬 ≥ 6 m、車位 2.5 × 5.0 m（假設）",
+          "ok": true,
+          "value": "2.5 × 5 m"
+        },
+        {
+          "group": "入口",
+          "name": "閘門等候車輛不占用街道",
+          "ok": true,
+          "value": "餘 1.0 m"
+        },
+        {
+          "group": "儲能",
+          "name": "儲能櫃與最近車位間距 ≥ 3 m（假設，依消防審查）",
+          "ok": true,
+          "value": "10.0 m"
+        },
+        {
+          "group": "調度",
+          "name": "市電取電 ≤ 契約容量 60 kW",
+          "ok": true,
+          "value": "峰值 60 kW（無儲能 61）"
+        },
+        {
+          "group": "調度",
+          "name": "SOC 維持 12～95%",
+          "ok": true,
+          "value": "44～95%"
+        },
+        {
+          "group": "調度",
+          "name": "充電需求滿足率 ≥ 97%",
+          "ok": true,
+          "value": "100.0%（限功率 0 h）"
+        },
+        {
+          "group": "調度",
+          "name": "儲能每日循環 ≤ 1",
+          "ok": true,
+          "value": "0.49 次／日"
+        },
+        {
+          "group": "憑證",
+          "name": "市電儲能不產生憑證",
+          "ok": true,
+          "value": "—"
+        },
+        {
+          "group": "施工",
+          "name": "吊裝都在吊車作業半徑內（伸臂 26 m）",
+          "ok": true,
+          "value": "2 次吊裝、最大半徑 11.4 m"
+        }
+      ]
+    },
+    {
+      "variant": "都會型",
+      "params": {
+        "site": "urban"
+      },
+      "ok": true,
+      "count": 12,
+      "failures": [],
+      "rows": [
+        {
+          "group": "場型",
+          "name": "車位數符合都會型分級（20–49 車位）",
+          "ok": true,
+          "value": "28 格"
+        },
+        {
+          "group": "場型",
+          "name": "車道寬 ≥ 6 m、車位 2.5 × 5.0 m（假設）",
+          "ok": true,
+          "value": "2.5 × 5 m"
+        },
+        {
+          "group": "入口",
+          "name": "閘門等候車輛不占用街道",
+          "ok": true,
+          "value": "餘 1.0 m"
+        },
+        {
+          "group": "入口",
+          "name": "狹長入口每向車道 ≥ 2.3 m（車寬 1.82 m）",
+          "ok": true,
+          "value": "2.45 m"
+        },
+        {
+          "group": "儲能",
+          "name": "儲能櫃與最近車位間距 ≥ 3 m（假設，依消防審查）",
+          "ok": true,
+          "value": "8.2 m"
+        },
+        {
+          "group": "調度",
+          "name": "市電取電 ≤ 契約容量 45 kW",
+          "ok": true,
+          "value": "峰值 45 kW（無儲能 75）"
+        },
+        {
+          "group": "調度",
+          "name": "SOC 維持 10～95%",
+          "ok": true,
+          "value": "10～90%"
+        },
+        {
+          "group": "調度",
+          "name": "充電需求滿足率 ≥ 97%",
+          "ok": true,
+          "value": "98.9%（限功率 1.25 h）"
+        },
+        {
+          "group": "調度",
+          "name": "儲能每日循環 ≤ 1",
+          "ok": true,
+          "value": "0.77 次／日"
+        },
+        {
+          "group": "擴充",
+          "name": "擴充後（60 kW／128 kWh、契約 75 kW）限功率時數下降",
+          "ok": true,
+          "value": "1.25 → 0 h；日充電 464 → 582 kWh"
+        },
+        {
+          "group": "憑證",
+          "name": "市電儲能不產生憑證",
+          "ok": true,
+          "value": "—"
+        },
+        {
+          "group": "施工",
+          "name": "吊裝都在吊車作業半徑內（伸臂 16 m）",
+          "ok": true,
+          "value": "3 次吊裝、最大半徑 14.1 m"
+        }
+      ]
+    }
+  ]
+}

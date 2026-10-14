@@ -83,3 +83,10 @@
 - 期望介面：`stereoHead.create({ baseline, focal, sensor, tilt, filters, projector })`，回傳左右相機與 `setFov(dist)`
 - 影響：之後手眼立體視覺的站
 
+### 停車場與能源設備模型（電動車、充電樁、儲能櫃、配電盤、光電車棚、柵欄機、車載吊車）
+- 提出：ParkingEMS（2026-10-14）
+- 現象：core 沒有室外與能源類設備；電動車（含充電口）、背景停放車輛（InstancedMesh）、AC 壁掛／立柱與 DC 快充樁、室外儲能櫃、低壓配電盤、受電變壓器、PV 逆變器、柵欄機、車牌辨識相機、繳費機、路燈、電桿、施工圍籬、伸縮臂車載吊車、T 型雙懸臂光電車棚都在站內畫
+- 暫代：`project-site/ParkingEMS/web/js/models.js`（全部）、`web/js/lot.js`（停車場鋪面與標線、建物、植栽）
+- 期望介面：`evCharger.create({ type: 'AC'|'DC', kw, mount })` ＋ `set(state)`／`screen`；`bess.create({ kw, kwh, size })`；`carport.create({ cols, mod, nx, ny, tilt })`；`truckCrane.create({ boom, scale })` ＋ `aim(hook)`；`car.create({ color })` ＋ `portWorld(side)`
+- 影響：之後的能源、停車、室外工地類展示
+

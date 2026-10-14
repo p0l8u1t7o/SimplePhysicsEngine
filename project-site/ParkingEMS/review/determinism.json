@@ -1,0 +1,33 @@
+{
+  "ok": true,
+  "variants": [
+    {
+      "variant": "預設",
+      "params": {},
+      "ok": true,
+      "objects": 755,
+      "samples": 40,
+      "failures": []
+    },
+    {
+      "variant": "住商型",
+      "params": {
+        "site": "mixed"
+      },
+      "ok": true,
+      "objects": 446,
+      "samples": 40,
+      "failures": []
+    },
+    {
+      "variant": "都會型",
+      "params": {
+        "site": "urban"
+      },
+      "ok": true,
+      "objects": 344,
+      "samples": 40,
+      "failures": []
+    }
+  ]
+}

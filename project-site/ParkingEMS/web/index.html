@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="../core/favicon.svg" type="image/svg+xml">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>停車場光儲充能源服務 — 3D 展示</title>
+<link rel="stylesheet" href="css/style.css">
+<!-- 共用版面（精簡版面、相機視窗、工具列）的樣式 core/ui/viewer-workspace.css 由 createViewerWorkspace 自動載入 -->
+<script type="importmap">
+{ "imports": {
+    "three": "../core/vendor/three.module.js",
+    "three/addons/": "../core/vendor/addons/",
+    "@core/": "../core/"
+} }
+</script>
+</head>
+<body>
+<!-- 標準骨架（core/README.md「小螢幕與觸控」）：#topbar（.brand、#stations、.views）、#side、#bottombar（.ctl、.stepRow、#timeline、#clock）；
+     窄螢幕與觸控裝置的精簡版面由 createViewerWorkspace 處理，style.css 只寫桌面版面。場型以網址 ?site=flagship｜mixed｜urban 切換 -->
+<div id="app">
+  <canvas id="c"></canvas>
+
+  <header id="topbar">
+    <div class="brand">
+      <div class="title">停車場光儲充能源服務</div>
+      <div class="sub" id="siteSub">三種標準場型的建置、全天 EMS 調度與停充整合（概念示意）</div>
+    </div>
+    <nav id="stations" aria-label="站別"></nav>
+    <div class="views">
+      <button data-view="iso">全景</button>
+      <button data-view="gate">入口</button>
+      <button data-view="energy">能源區</button>
+      <button data-view="charging">充電區</button>
+      <button data-view="carport" id="carportView">車棚</button>
+      <button data-view="top">俯視</button>
+      <button data-view="car">追車</button>
+    </div>
+  </header>
+
+  <aside id="side">
+    <section class="card sites">
+      <h3>場型 <span class="hint" id="siteCls"></span></h3>
+      <div class="siteBtns" id="siteBtns"></div>
+      <div class="siteScene" id="siteScene"></div>
+    </section>
+    <section class="card">
+      <h3>目前動作 <span class="hint" id="stationName"></span></h3>
+      <div id="action" class="action">待命</div>
+      <div id="substep" class="substep"></div>
+    </section>
+    <section class="card">
+      <h3>能源調度 <span class="hint" id="clockHint">示意值</span></h3>
+      <div class="clockRow"><span id="hour" class="hour">10:30</span><span id="period" class="period"></span></div>
+      <dl id="energy" class="stats"></dl>
+      <div id="alert" class="alert"></div>
+    </section>
+    <section class="card" id="heroCard" hidden>
+      <h3>客戶充電 <span class="hint" id="heroHint"></span></h3>
+      <dl id="hero" class="stats"></dl>
+    </section>
+    <section class="card">
+      <h3>充電樁 <span class="hint" id="chargerHint"></span></h3>
+      <ul id="chargerList" class="chargers"></ul>
+    </section>
+    <section class="card">
+      <h3>三種場型比較 <span class="hint">提案定義</span></h3>
+      <table id="compare" class="compare"></table>
+    </section>
+    <section class="card">
+      <h3>空間檢核 <span class="hint" id="checkCount"></span></h3>
+      <ul id="checks" class="checks"></ul>
+    </section>
+  </aside>
+
+  <footer id="bottombar">
+    <div class="ctl">
+      <button id="playBtn" class="primary">⏸ 暫停</button>
+      <button id="restartBtn">↺ 重播</button>
+      <label>速度 <input id="speed" type="range" aria-label="播放速度"><span id="speedVal">1×</span></label>
+      <label class="chk"><input id="loop" type="checkbox" checked> 循環播放</label>
+      <span class="note">概念動畫示意，非特定場站設計或實際施工紀錄</span>
+    </div>
+    <div class="stepRow"><button id="previous" aria-label="上一步">‹</button><select id="stepSelect" aria-label="動作步驟"></select><button id="next" aria-label="下一步">›</button><span id="cycleTime"></span></div>
+    <input id="timeline" aria-label="流程時間" type="range">
+    <div id="clock" class="clock">00:00.0</div>
+  </footer>
+
+  <div id="loading">載入 3D 場景中…</div>
+</div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+{
+  "title": "停車場光儲充能源服務",
+  "summary": "三種場型（旗艦型光儲充、住商型與都會型市電儲能充電）的建置流程、全天 EMS 調度與停充整合",
+  "order": 12,
+  "coreVersion": "1.14.0",
+  "checks": {
+    "quick": [
+      "tools/verify.mjs"
+    ],
+    "full": []
+  },
+  "variants": [
+    {
+      "name": "住商型",
+      "params": {
+        "site": "mixed"
+      }
+    },
+    {
+      "name": "都會型",
+      "params": {
+        "site": "urban"
+      }
+    }
+  ]
+}
