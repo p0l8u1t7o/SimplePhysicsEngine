@@ -5,7 +5,7 @@
 - **DENSO HSR065 SCARA**＋三工具頭：T1 葉片吸嘴（多孔吸盤＋白色背景板）、T2 上蓋四點真空墊＋均壓外框（含荷重元，兼壓合）、T3 本體夾爪。三支工具各有氣動滑台，只有使用中的伸出。
 - **上視遠心相機**量葉片與上蓋在吸嘴上的偏移，J4 轉到放料角度並補正後才放料；**手臂下視相機**定位銷、檢查疊放與成品。
 - **雙抽屜吸塑盤**：每個抽屜一套 24 顆的料（本體／成品、上蓋、小葉片、大葉片），一個供料時另一個可以拉出換盤；成品放回本體盤原格。
-- 規劃循環約 **23.8 秒／顆**（人員約 30 秒／顆）。所有 Three.js 依賴在 `web/vendor`，可離線執行。
+- 規劃循環約 **23.8 秒／顆**（人員約 30 秒／顆）。所有 Three.js 依賴在 `core/vendor`，可離線執行。
 
 文件：
 - [自動化方案規劃](docs/automation-plan.md)：現況分析、設備配置、末端工具、治具、節拍、精度預算、選型、風險與待確認。
@@ -44,7 +44,7 @@ node ../../core/tools/serve.mjs "shutter assembly"
 node ../../core/tools/serve.mjs "shutter assembly" --no-open
 ```
 
-開啟 [本地模擬](http://127.0.0.1:8770/shutter%20assembly/)，也可在根目錄執行 `scripts\start.cmd -Station "shutter assembly"`（點兩下 `scripts\start.cmd` 會同時開展示網站與 vs3d 介面；所有專案共用 `core/tools/serve.mjs`，首頁 http://127.0.0.1:8770/ 列出全部專案）。ES module 需要 HTTP，不能直接用 `file://` 開 HTML。
+開啟 [本地模擬](http://127.0.0.1:8770/shutter%20assembly/)，也可在根目錄執行 `scripts\start.cmd -Station "shutter assembly"`（`scripts\start.cmd -Site` 只開展示網站，`-All` 連 vs3d 介面一起開；所有專案共用 `core/tools/serve.mjs`，首頁 http://127.0.0.1:8770/ 列出全部專案）。ES module 需要 HTTP，不能直接用 `file://` 開 HTML。
 
 ## 操作
 
@@ -92,7 +92,7 @@ node --import ../../core/tools/register.mjs tools/verify-physics.mjs
 node --import ../../core/tools/register.mjs tools/verify-product-detail.mjs
 ```
 
-GitHub 首頁與五專案發布設定：[static.yml](../../tools/github-pages/static.yml)／[發布說明](../../tools/github-pages/README.md)。需將新版工作流程放入 GitHub 儲存庫最外層 `.github/workflows/static.yml`，並上傳本專案 web 內容後才會更新線上網站。
+GitHub Pages：推送到 `main` 時由根目錄 `.github/workflows/pages.yml` 跑快速檢查，通過後自動建置並發布全部站（[發布說明](../../tools/github-pages/README.md)）。
 
 ![葉片套在樞軸銷上](review/blades.png)
 
@@ -124,7 +124,7 @@ GitHub 首頁與五專案發布設定：[static.yml](../../tools/github-pages/st
 需要 Node.js 22 以上，不需 npm 套件。全部檢查（import 路徑、倒序一致、全場干涉與重合面，加上 `project.json` 列的專案驗證）：
 
 ```powershell
-node ../../core/tools/check.mjs shutter          # 在本資料夾；在 TestCode 則為 node core/tools/check.mjs shutter
+node ../../core/tools/check.mjs shutter          # 在本資料夾；在庫根目錄則為 node core/tools/check.mjs shutter
 node --import ../../core/tools/register.mjs tools/verify.mjs   # 只跑流程驗證
 ```
 
@@ -155,7 +155,7 @@ node --import ../../core/tools/register.mjs tools/verify.mjs   # 只跑流程驗
 
 SCARA 兩臂固定護套、R25 mm Z 軸拖鏈、旋轉入口與末端氣管；相機與治具線路沿固定支架及機櫃整理。
 
-[配線研究與實機確認項目](../../tools/docs/cable-routing-review.md)｜[本機 docs 配線紀錄](docs/cable-management.md)｜[線材檢查結果](review/cables.json)｜[配線畫面](review/cables.png)
+[配線研究與實機確認項目](../../tools/docs/cable-routing-review.md)｜[本機 docs 配線紀錄](docs/cable-management.md)｜[配線與電盤檢查結果](review/electrical-checks.json)｜[配線畫面](review/cables.png)
 
 配線與電盤檢查由 core 的 `electrical` 執行（快速檢查就會跑；情境與障礙物宣告在 `web/js/project.js` 的 `verify.cables`）：`node ../../core/tools/check.mjs "shutter assembly" --only electrical`，結果在 `review/electrical-checks.json`。docs 依現有忽略規則僅留在本機；根目錄研究文件隨原始碼保存。
 

@@ -11,7 +11,7 @@
 - 關蓋
 - 分析完成後取杯
 
-整合軟體是主控。Metrohm 以 tiamo＋Titrando 為主案（Remote Box＋樣品表／結果檔），OMNIS 列為備案。滴定前由滴定頭加純水 50 mL。所有 Three.js 依賴在 `web/vendor`，可離線執行。
+整合軟體是主控。Metrohm 以 tiamo＋Titrando 為主案（Remote Box＋樣品表／結果檔），OMNIS 列為備案。滴定前由滴定頭加純水 50 mL。所有 Three.js 依賴在 `core/vendor`，可離線執行。
 
 方案說明、配置、時間、Metrohm 整合、選型與待確認事項見 [系統規劃](docs/system-plan.md)。用戶提供的流程在 `docs/酸鹼自動滴定-機械手臂規劃-0828.pptx`。
 
@@ -31,7 +31,7 @@ node ../../core/tools/serve.mjs AutomaticAcid-BaseTitration
 node ../../core/tools/serve.mjs AutomaticAcid-BaseTitration --no-open
 ```
 
-開啟 [本地模擬](http://127.0.0.1:8770/AutomaticAcid-BaseTitration/)，也可在根目錄執行 `scripts\start.cmd -Station AutomaticAcid-BaseTitration`（點兩下 `scripts\start.cmd` 會同時開展示網站與 vs3d 介面；所有專案共用 `core/tools/serve.mjs`，首頁 http://127.0.0.1:8770/ 列出全部專案）。ES module 需 HTTP，請勿直接用 `file://` 開啟 HTML。
+開啟 [本地模擬](http://127.0.0.1:8770/AutomaticAcid-BaseTitration/)，也可在根目錄執行 `scripts\start.cmd -Station AutomaticAcid-BaseTitration`（`scripts\start.cmd -Site` 只開展示網站，`-All` 連 vs3d 介面一起開；所有專案共用 `core/tools/serve.mjs`，首頁 http://127.0.0.1:8770/ 列出全部專案）。ES module 需 HTTP，請勿直接用 `file://` 開啟 HTML。
 
 ## 操作
 
@@ -73,7 +73,7 @@ node ../../core/tools/serve.mjs AutomaticAcid-BaseTitration --no-open
 需要 Node.js 22 以上，不需 npm 套件。一次跑完 core 共用檢查（import 路徑、倒序一致、全場干涉與重合面閃爍，以及桌面、手機直向、手機橫向、觸控平板四種尺寸的標準互動測試 `ui`，結果在 `review/ui-check.json`，port 用環境變數 `UI_PORT` 指定）與本專案 `tools/verify*.mjs`：
 
 ```powershell
-node ../../core/tools/check.mjs AutomaticAcid-BaseTitration          # 在本資料夾；在 TestCode 則為 node core/tools/check.mjs AutomaticAcid
+node ../../core/tools/check.mjs AutomaticAcid-BaseTitration          # 在本資料夾；在庫根目錄則為 node core/tools/check.mjs AutomaticAcid
 ```
 
 全場檢查結果在 `review/scene-verification.txt`。只跑排程與幾何驗證：
@@ -156,7 +156,7 @@ node --import ../../core/tools/register.mjs tools/verify-render.mjs
 
 桌下分隔線槽管理電源與訊號；滴定頭使用 R40 mm 升降拖鏈容納兩路液管與電極線；機器人供電經實際穿線孔。
 
-[配線研究與實機確認項目](../../tools/docs/cable-routing-review.md)｜[本機 docs 配線紀錄](docs/cable-management.md)｜[線材檢查結果](review/cables.json)｜[配線畫面](review/cables.png)
+[配線研究與實機確認項目](../../tools/docs/cable-routing-review.md)｜[本機 docs 配線紀錄](docs/cable-management.md)｜[配線與電盤檢查結果](review/electrical-checks.json)｜[配線畫面](review/cables.png)
 
 配線與電盤檢查由 core 的 `electrical` 執行（快速檢查就會跑；情境與障礙物宣告在 `web/js/project.js` 的 `verify.cables`）：`node ../../core/tools/check.mjs "AutomaticAcid-BaseTitration" --only electrical`，結果在 `review/electrical-checks.json`。docs 依現有忽略規則僅留在本機；根目錄研究文件隨原始碼保存。
 

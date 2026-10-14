@@ -1,6 +1,6 @@
 # 軍規筆電自動化 QC 線：第一階段設備模擬
 
-以 V110 系列外觀 QII、工單 RMK12608372 及 `../Temp/MilitaryGradePC` 的實機照片重建。保留路線 B：六軸手臂＋F/T 力覺末端＋工業相機／線雷射、五站載具輸送、進出料升降堆料架及翻轉治具。所有 Three.js 依賴在 `web/vendor`，可離線執行。
+以 V110 系列外觀 QII、工單 RMK12608372 及實機照片（本機 `docs/`）重建。保留路線 B：六軸手臂＋F/T 力覺末端＋工業相機／線雷射、五站載具輸送、進出料升降堆料架及翻轉治具。所有 Three.js 依賴在 `core/vendor`，可離線執行。
 
 ## 第一階段範圍
 
@@ -28,7 +28,7 @@ node ../../core/tools/serve.mjs MilitaryGradePC
 node ../../core/tools/serve.mjs MilitaryGradePC --no-open
 ```
 
-開啟 [本地模擬](http://127.0.0.1:8770/MilitaryGradePC/)，也可在根目錄執行 `scripts\start.cmd -Station MilitaryGradePC`（點兩下 `scripts\start.cmd` 會同時開展示網站與 vs3d 介面；所有專案共用 `core/tools/serve.mjs`，首頁 http://127.0.0.1:8770/ 列出全部專案）。ES module 需 HTTP，請勿直接用 `file://` 開啟 HTML。
+開啟 [本地模擬](http://127.0.0.1:8770/MilitaryGradePC/)，也可在根目錄執行 `scripts\start.cmd -Station MilitaryGradePC`（`scripts\start.cmd -Site` 只開展示網站，`-All` 連 vs3d 介面一起開；所有專案共用 `core/tools/serve.mjs`，首頁 http://127.0.0.1:8770/ 列出全部專案）。ES module 需 HTTP，請勿直接用 `file://` 開啟 HTML。
 
 ## 操作
 
@@ -78,7 +78,7 @@ node ../../core/tools/serve.mjs MilitaryGradePC --no-open
 
 ```powershell
 node --import ../../core/tools/register.mjs tools/verify.mjs
-# 或在 TestCode 執行統一檢查（imports、倒序一致、全場干涉／重合面，再加上本專案 tools/verify*.mjs）
+# 或在庫根目錄執行統一檢查（imports、倒序一致、全場干涉／重合面，再加上本專案 tools/verify*.mjs）
 node ../../core/tools/check.mjs MilitaryGradePC
 ```
 
@@ -88,7 +88,7 @@ node ../../core/tools/check.mjs MilitaryGradePC
 
 ## MP4 影片與再次輸出
 
-目前影片：`videos/V110_QC_1080p30.mp4`，1920×1080、固定 30 fps、約 3 分 6 秒，H.264 / yuv420p。包含完整工序順序：入料 → 外觀拍照 → 護蓋開閉／端子拍照 → 翻面／底部拍照 → 出料。影片縮短自由移位時間，接觸與翻轉動作保留較慢速度；片長不是實機節拍。
+輸出位置：本站 `videos/V110_QC_1080p30.mp4`（本機輸出；上一次中斷的輸出留在 `review/interrupted-export/`），1920×1080、固定 30 fps、約 3 分 6 秒，H.264 / yuv420p。包含完整工序順序：入料 → 外觀拍照 → 護蓋開閉／端子拍照 → 翻面／底部拍照 → 出料。影片縮短自由移位時間，接觸與翻轉動作保留較慢速度；片長不是實機節拍。
 
 影片按時機切換全景、堆料架、移載追蹤、護蓋近景、翻轉治具及底部拍照視角，含繁體中文工序字幕、曝光提示與進度條。使用 RTX 5070 Ti 的 Direct3D 11 / WebGL 渲染及 NVIDIA NVENC H.264 編碼，逐格完成後才送入編碼器，與螢幕更新率及渲染耗時無關。
 
@@ -150,7 +150,7 @@ python tools/render_server.py
 
 第七軸 R65 mm 拖鏈與 S1 取像頭 R55 mm 拖鏈保持定長；立座沿背面走線，末端相機、光源與輪廓儀各有支線。
 
-[配線研究與實機確認項目](../../tools/docs/cable-routing-review.md)｜[本機 docs 配線紀錄](docs/cable-management.md)｜[線材檢查結果](review/cables.json)｜[配線畫面](review/cables.png)
+[配線研究與實機確認項目](../../tools/docs/cable-routing-review.md)｜[本機 docs 配線紀錄](docs/cable-management.md)｜[配線與電盤檢查結果](review/electrical-checks.json)｜[配線畫面](review/cables.png)
 
 配線與電盤檢查由 core 的 `electrical` 執行（快速檢查就會跑；情境與障礙物宣告在 `web/js/project.js` 的 `verify.cables`）：`node ../../core/tools/check.mjs "MilitaryGradePC" --only electrical`，結果在 `review/electrical-checks.json`。docs 依現有忽略規則僅留在本機；根目錄研究文件隨原始碼保存。
 

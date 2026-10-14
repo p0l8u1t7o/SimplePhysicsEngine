@@ -13,7 +13,8 @@ const dest = join(ROOT, id);
 if (existsSync(dest)) throw new Error(`已存在：${dest}`);
 
 cpSync(join(CORE, 'template'), dest, { recursive: true });
-const vars = { __ID__: id, __TITLE__: title, __SUMMARY__: summary || title, __URL__: encodeURIComponent(id), __SLUG__: slug(id) };
+const vars = { __ID__: id, __TITLE__: title, __SUMMARY__: summary || title, __URL__: encodeURIComponent(id), __SLUG__: slug(id),
+  __CORE_VERSION__: readFileSync(join(CORE, 'VERSION'), 'utf8').trim() };
 // 依檔案類型跳脫：JSON 字串（引號、反斜線）、HTML 文字（< > &）；範本的 index.html 版面骨架（#topbar／#side／#bottombar）只代換標題與說明
 const escape = { json: v => JSON.stringify(v).slice(1, -1), html: v => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') };
 // 範本可能是唯讀的（studio 工作區的 core），複製出來的檔案一律改成可寫

@@ -2,7 +2,7 @@
 
 ## Node 版（建議）：`node core/tools/export-mp4.mjs <專案>`
 
-全自動，不必開瀏覽器按按鈕：用 `core/tools/build-site.mjs` 建單站網站副本（`TEMP/mp4-export-*`，結束即刪），在 127.0.0.1:8810～8819 開接收端（端點與資料格式同 `server.py`），以無頭 Chrome／Edge（新模式、D3D11 GPU）開 `/<專案>/?pause&movie&auto`，影格送進 ffmpeg（NVENC 可用就用，否則 libx264），最後用 ffprobe 核對影格數。
+全自動，不必開瀏覽器按按鈕：用 `core/tools/build-site.mjs` 建單站網站副本（`TEMP/mp4-export-*`，結束即刪），在 127.0.0.1:8810～8819 開接收端（取代已退役的 `server.py`），以無頭 Chrome／Edge（新模式、D3D11 GPU）開 `/<專案>/?pause&movie&auto`，影格送進 ffmpeg（NVENC 可用就用，否則 libx264），最後用 ffprobe 核對影格數。
 
 - 成品預設在 `TEMP/videos/<專案>-<日期>/<專案>_1080p30.mp4`＋`.shots.json`（`verify.py --output` 可直接用），也可指定 `node core/tools/export-mp4.mjs <專案> <輸出資料夾>`。已有成品時不覆寫。
 - 選項：`--port`、`--encoder auto|h264_nvenc|libx264`、`--ffmpeg`（否則 `FFMPEG_PATH` ＞ 共用的 `tools/bin/ffmpeg.exe` ＞ PATH）、`--chrome`（否則 `CHROME_PATH`）、`--samples`（另存抽查影格）、`--manual`（只開接收端，用自己的瀏覽器按「檢查鏡頭與固定影格」等按鈕）。
@@ -23,8 +23,8 @@ Python 版的接收端（`prepare.py`、`server.py`）已於 2026-10-04 退役�
 - 資訊約 2 秒後淡出。後段保留電盤剖視、元件與周圍配置、整線、穿板接頭，以短疊化銜接，避免鏡頭穿越桌板。接頭鏡位另檢查中心及周邊遮擋。
 - PCB 原始模型是五站並行節拍，先保留完整節拍，再依上／下料軌道、供料震動及植入事件選取細節重播，以原速或更慢展示，不再將完整節拍擠進幾秒造成龍門閃過；不宣稱追蹤同一片基板經過原模型未建立的多節拍排程。
 - 可拖曳預覽時間軸抽查鏡頭。錄製時保持瀏覽器及本機服務運行；中斷後同一服務可從已接收的下一影格接續。
-- 點選「檢查鏡頭與固定影格」輸出全景、推近、製程及細節抽查圖，並在固定時間重畫 10 次；`python tools/movie-export/audit.py --output TEMP/videos/revised-20260929` 產生 contact sheet 與量化差異。
-- `python tools/movie-export/verify.py --output TEMP/videos/revised-20260929` 以 FFprobe 比對總影格與時間、檢查完整製程連續性、解碼全片、檢查黑影格與單影格大面積閃光候選。另在 TEMP 產生抽查圖與驗證 JSON；這些數值不能取代目視檢查運動與局部反光。
+- 點選「檢查鏡頭與固定影格」輸出全景、推近、製程及細節抽查圖，並在固定時間重畫 10 次；`python tools/movie-export/audit.py --output <輸出資料夾>` 產生 contact sheet 與量化差異。
+- `python tools/movie-export/verify.py --output <輸出資料夾>` 以 FFprobe 比對總影格與時間、檢查完整製程連續性、解碼全片、檢查黑影格與單影格大面積閃光候選。另在 TEMP 產生抽查圖與驗證 JSON；這些數值不能取代目視檢查運動與局部反光。
 - 接收端不覆寫成品：預設資料夾已有成品時自動改用 `-2` 結尾的新資料夾，指定的資料夾已有成品就報錯。全部影片、稽核圖與中間檔保持在忽略的 TEMP 中。
 - `node --test tools/movie-export/test-camera-path.mjs`（測 `core/movie/camera-path.mjs`）驗證追焦交接不瞬移、不過衝，以及開場停留和推近的連續性。
 

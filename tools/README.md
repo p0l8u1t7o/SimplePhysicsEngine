@@ -32,9 +32,9 @@ node core/tools/check.mjs --only electrical          # 全部專案；結果在�
 
 檢查內容：外露線路與支架對選定剛體的取樣碰撞（線端 10 mm 可插入接頭）、拖鏈定長與折返半徑、穿板孔真的開孔且有線穿過、背板固定柱接觸櫃壁、元件主體在櫃內且不重疊、櫃內連線不穿過元件。未模擬軟線下垂、疲勞、全線材互撞及支架強度。配置與選型依據見[五站線材研究](docs/cable-routing-review.md)、[支架檢查紀錄](docs/support-routing-review.md)、[穿板與電盤紀錄](docs/electrical-routing-review.md)、[五站電控規劃](docs/electrical-control-plan.md)（這幾份是當時的研究紀錄，裡面提到的根目錄工具已經退役）。
 
-## 五站共用視窗控制
+## 各站共用視窗控制
 
-`core/ui/viewer-workspace.js`、`viewer-workspace.css` 管理相機拖曳、獨立視窗與產品焦點，五站直接引用同一份。詳見[操作說明](docs/viewer-controls.md)與[瀏覽器驗證紀錄](review/viewer-workspace-checks.json)。
+`core/ui/viewer-workspace.js`、`viewer-workspace.css` 管理相機拖曳、獨立視窗與產品焦點，全部站直接引用同一份。詳見[操作說明](docs/viewer-controls.md)與[瀏覽器驗證紀錄](review/viewer-workspace-checks.json)。
 
 ## 跨站視覺檢查
 
@@ -50,4 +50,4 @@ node --import ./core/tools/register.mjs tools/verify-vision.mjs
 
 ## MP4 展示影片
 
-[movie-export](movie-export/README.md) 使用五站網站的本機副本逐格渲染完整流程，並以 NVIDIA NVENC 編碼 1080p／30 fps MP4。包含產品追隨、電盤剖視、整線與穿板接頭。影片與抽查影格集中於忽略版控的 `TEMP/videos/`，不放進 GitHub Pages。
+錄影由 `node core/tools/export-mp4.mjs <專案>` 全自動輸出（逐站建單站副本、逐格渲染，NVIDIA NVENC 或 libx264 編碼 1080p／30 fps MP4）；[movie-export](movie-export/README.md) 留下稽核與驗證工具。包含產品追隨、電盤剖視、整線與穿板接頭。影片與抽查影格集中於忽略版控的 `TEMP/videos/`，不放進 GitHub Pages。

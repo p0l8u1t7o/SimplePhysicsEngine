@@ -9,6 +9,7 @@ TestCode 原本是 `Python` 庫底下的一個資料夾。2026-10 起改為獨�
    ```powershell
    powershell -ExecutionPolicy Bypass -File tools\migrate\new-repo.ps1 -Target "D:\Working Space\<新庫名>" -RepoName <新庫名> -IncludeLocal -Push
    ```
+   - 這是搬庫當時在舊庫執行的路徑；搬庫後腳本位於本庫的 `scripts/migrate/new-repo.ps1`。
    - `-IncludeLocal` 會一併複製只留本機的資料：各專案 `docs/` 與 `TEMP/3d-app-plan.md`。它們在新庫一樣不進版控。
    - 帳號不是 `p0l8u1t7o` 時加 `-Owner <帳號>`；remote 網址不同時加 `-Remote <url>`。
    - 不加 `-Push` 時，先檢查新資料夾的內容，再自己 `git push -u origin main`。

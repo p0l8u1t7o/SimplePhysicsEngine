@@ -5,7 +5,7 @@
 - **半自動**：人工擺托盤，機內移載模組自動取放與量測。
 - **ST1** 由 DD 中空軸馬達＋三爪 PEEK 夾頭懸掛夾持，三個光學通道共用一次裝夾。
 - **ST2** 工件落在鎢鋼薄環座上，上下對置的兩支共焦感測器做螺旋掃描，差分求底厚。
-- 規劃節拍約 **11.4～11.6 秒／件（約 310～316 UPH）**。所有 Three.js 依賴在 `web/vendor`，可離線執行。
+- 規劃節拍約 **11.4～11.6 秒／件（約 310～316 UPH）**。所有 Three.js 依賴在 `core/vendor`，可離線執行。
 
 ![設備全景](review/overview.png)
 
@@ -52,7 +52,7 @@ node ../../core/tools/serve.mjs WorkpieceMeasurement
 node ../../core/tools/serve.mjs WorkpieceMeasurement --no-open
 ```
 
-開啟 [本地模擬](http://127.0.0.1:8770/WorkpieceMeasurement/)，也可在根目錄執行 `scripts\start.cmd -Station WorkpieceMeasurement`（點兩下 `scripts\start.cmd` 會同時開展示網站與 vs3d 介面；所有專案共用 `core/tools/serve.mjs`，首頁 http://127.0.0.1:8770/ 列出全部專案）。ES module 需要 HTTP，不能直接用 `file://` 開 HTML。
+開啟 [本地模擬](http://127.0.0.1:8770/WorkpieceMeasurement/)，也可在根目錄執行 `scripts\start.cmd -Station WorkpieceMeasurement`（`scripts\start.cmd -Site` 只開展示網站，`-All` 連 vs3d 介面一起開；所有專案共用 `core/tools/serve.mjs`，首頁 http://127.0.0.1:8770/ 列出全部專案）。ES module 需要 HTTP，不能直接用 `file://` 開 HTML。
 
 ## 操作
 
@@ -158,7 +158,7 @@ node ../../core/tools/run.mjs WorkpieceMeasurement tools/verify.mjs
 ### 統一檢查（共用框架）
 
 ```powershell
-node ../../core/tools/check.mjs WorkpieceMeasurement     # 在本資料夾；在 TestCode 則是 node core/tools/check.mjs Workpiece
+node ../../core/tools/check.mjs WorkpieceMeasurement     # 在本資料夾；在庫根目錄則為 node core/tools/check.mjs Workpiece
 ```
 
 依序跑 `imports`、`determinism`（倒序／跳播一致）、`layout`、`scene`（全場動態干涉、架設相撞、重合面閃爍，結果在 `review/scene-verification.txt`），再跑 `project.json` 列的 `tools/verify.mjs`、`verify-details.mjs`、`verify-wiring.mjs`。`scene` 與網頁用同一個 `web/js/project.js` 建場景，所以檢查的就是畫面上的幾何；地面與光束示意不列入。
@@ -198,15 +198,15 @@ node ../../core/tools/check.mjs WorkpieceMeasurement     # 在本資料夾；在
 - CL-S015 參考距離依原廠為 15 mm，一般量程 ±1 mm；外形是安裝包絡，非原廠 CAD。狹口量內底須先做樣品 POC。
 - 吸嘴貼靠帶很窄：規格 A 全長 4.2 mm，扣掉托盤穴深 1 mm 與夾持帶 1.5 mm，只剩 1.7 mm。薄片吸嘴的剛性與吸附力要做實物確認。
 - 使用者確認工件為「杯體加工件」，用途為機構零件；舊 AI 規劃書的工件命名不採用。
-- 已加入電盤剖視、透視及整線配置；MP4 已輸出至本機 `TEMP/videos/workpiece-20260929/`，不納入版控或網站發布。
+- 已加入電盤剖視、透視及整線配置；MP4 用 `node core/tools/export-mp4.mjs WorkpieceMeasurement` 輸出到本機 `TEMP/videos/`，不納入版控或網站發布。
 
 ## 共焦／電控更新（2026-09-29）
 
-CL-3000、CL-S015 ×2、CL-S015N ×2、CL-CV5 ×2、OP-88864 ×1 按同一報價套組整併。OP-88864 是感測頭對置調整治具；ST1 夾頭與 ST2 環座另外設計。新增上頭避讓軸、固定支架、實際穿線孔與護口。元件模型沿用共用 `tools/electrical-components.js` 的配置示意外形。
+CL-3000、CL-S015 ×2、CL-S015N ×2、CL-CV5 ×2、OP-88864 ×1 按同一報價套組整併。OP-88864 是感測頭對置調整治具；ST1 夾頭與 ST2 環座另外設計。新增上頭避讓軸、固定支架、實際穿線孔與護口。元件模型沿用 core 的 `core/electrical/electrical-components.js` 的配置示意外形。
 
 點選「電盤剖視」「電盤透視」「整線配置」檢視。資訊可由工具列的 ◨ 收合，手機預設收合。材料與器件尺寸、線徑、彎曲半徑、熱負載和原廠接腳須待選型確認，電路圖為工程規劃用途。
 
-重建圖面：先 `node WorkpieceMeasurement/tools/export_control_plan.mjs`，再 `python tools/circuit-drawings/render.py WorkpieceMeasurement`（需 reportlab 與中文字型）。成本表 2026-10-06 起在 3D工作室平台上維護：本站頁面的「成本表」分頁可以看、改、存快照、匯出 xlsx（命令列 `node studio/vs3d.mjs parts bom @WorkpieceMeasurement`）；本機 `docs/cost-estimate.xlsx` 是轉換前的原檔。
+重建圖面：先 `node project-site/WorkpieceMeasurement/tools/export_control_plan.mjs`，再 `python tools/circuit-drawings/render.py WorkpieceMeasurement`（需 reportlab 與中文字型）。成本表 2026-10-06 起在 3D工作室平台上維護：本站頁面的「成本表」分頁可以看、改、存快照、匯出 xlsx（命令列 `node studio/vs3d.mjs parts bom @WorkpieceMeasurement`）；本機 `docs/cost-estimate.xlsx` 是轉換前的原檔。
 
 細節檢查：`node core/tools/run.mjs WorkpieceMeasurement tools/verify-details.mjs`。檢查盤內元件包絡、穿線孔射線、線材有限座標／櫃內轉彎、升降導軌及共焦光纖對C型架間隙；627個狀態通過。其餘線材與全機物件配對、彎曲半徑與原廠端子尚不在認證範圍。
 

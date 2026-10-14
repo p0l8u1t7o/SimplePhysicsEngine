@@ -34,7 +34,6 @@ three.js 已放在 `core/vendor/`，不需要網路或套件管理器。
 | `UI_PORT` | `check.mjs` 內建 `ui` 檢查用的 port（平行跑檢查時錯開） | 8771 |
 | `CIRCUIT_FONT` | 電路圖字型 | `C:/Windows/Fonts/msjh.ttc` |
 | `PDFTOPPM` | poppler 的 pdftoppm | （無，需要時指定） |
-| `NODE_BINARY` | 成本估算表包裝程式用的 node | PATH 上的 node |
 
 ## 常用 port
 
@@ -44,7 +43,9 @@ three.js 已放在 `core/vendor/`，不需要網路或套件管理器。
 | 8780 | `node studio/vs3d.mjs ui`（vs3d 網頁介面；`scripts\start.ps1` 也用它） |
 | 8771 | `check.mjs` 的 `ui` 檢查（`UI_PORT`） |
 | 8790 | `shots.mjs` 預設（`--port` 可改） |
-| 8782／8783 | 錄影輸出伺服器（`tools/movie-export`） |
+| 8810～8819 | `core/tools/export-mp4.mjs` 錄影接收端 |
+| 8795 | `core/tools/perf-check.mjs` 預設（`--port` 可改） |
+| 8766 | MilitaryGradePC 的 `tools/render_server.py`（站內錄影） |
 
 ## 不進版控的東西
 

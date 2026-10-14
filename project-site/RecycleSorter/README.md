@@ -19,7 +19,7 @@
 | 皮帶 | 整條線是同一條既有皮帶（綠色平皮帶、鏽色側牆），X −6000…+1300；後段直接架在上面，主帶沿用既有驅動 |
 | 整列 | 兩段導料板：前段 600 → 400、後段 400 → 280；各自上游有一道限高刮料簾（簾底離帶面 110），把疊料攤成單層 |
 | 前段立體取像站 | X −4800 的獨立門型架，與後段完全同規格（同相機、同鏡頭、基線 300、WD 800）。雙眼重疊視野 404 mm，所以前段導料收到 400 |
-| ABB 並聯手臂 | IRB 360 型（工作直徑 1600），吊在 1800 × 1800 × 2760 的藍色鋼構網籠頂部，抓取線 X −3400；吸嘴上裝真空產生器（壓縮空氣式），控制器是 OmniCore C30＋DSQC 2000 I/O 擴充。模型與逆解在 `web/js/delta.js`（已登記到 `core/REQUESTS.md`） |
+| ABB 並聯手臂 | IRB 360 型（工作直徑 1600），吊在 1800 × 1800 × 2760 的藍色鋼構網籠頂部，抓取線 X −3400；吸嘴上裝真空產生器（壓縮空氣式），控制器是 OmniCore C30＋DSQC 2000 I/O 擴充。本體與逆解用 core 的 `abb-irb360` 模型 |
 | 既有分類帶 | 與主帶平行、在電控櫃的對側，兩段反向：網籠下游那段往下游走放食品類 HDPE，上游那段往上游走放非食品類，帶尾各一個收料箱 |
 | 既有電控櫃 | 主帶操作側、緊鄰網籠下游（第 3 頁圖的位置），門朝操作走道，內部照現場照片。**上層**：背板是既有的 ABB 盤（兩排 DIN 軌，上游端是 DSQC 2000）；上游端的控制器鐵架下層放 OmniCore C30、上層放 DENSO RC8A，頂上放教導器；下游側板內面裝 DENSO 系統盤。**下層**：原本的吸塵器改成空壓機與儲氣筒 |
 | 配線與配管（示意） | 前段相機幹線、ABB 手臂纜線；氣管由櫃內分配座分兩路——一路沿網籠上到 ABB 手臂的真空產生器，一路沿地面到 DENSO 立座的三點組；兩站的整合通訊在櫃內 |
@@ -147,7 +147,7 @@ node ../../core/tools/check.mjs "RecycleSorter" --quick  # 部署前快速檢查
 | `tools/physics-flow.mjs` | 後段混合料流的物理版分析（core/physics）：前段放行的工件照排程放上主帶，算皮帶上的密度、相鄰間隙、碰在一起的比例與到抓取窗口時可以吸的比例，和拍板的混合料流節拍對照；結果在 `review/physics-flow.json`（2026-10-06：2.18 件／m、最小間隙 40 mm、13／13 可以吸） |
 | `tools/render-audit.mjs`、`tools/render-b-audit.mjs` | 兩輪渲染補強的守門工具（狀態／動件回歸、配置比對、幾何預算、實例展開干涉檢查）；基準是補上前段之前的版本 |
 | `tools/build_vision_items.py` | 產生本機的 `docs/vision-items.xlsx`（只負責機器視覺時的採購品項表，分前段、後段、兩站共用的數量）；與成本表重複的品項單價取自平台上本站的成本表（`node studio/vs3d.mjs parts bom @RecycleSorter --json`）；需要 Python 與 openpyxl |
-
-成本表（ABB 追蹤整合與視覺／錄影／遠端訓練架構的預算級估價）2026-10-06 起在 3D工作室平台上維護：本站頁面的「成本表」分頁可以看、改、存快照、匯出 xlsx（命令列 `node studio/vs3d.mjs parts bom @RecycleSorter`）。本機 `docs/integration-cost.xlsx` 是轉換前的原檔，留著當歷史紀錄；原本的產生器 `tools/build_integration_cost.py` 已退役。
 | `AGENTS.md`／`CLAUDE.md` | 本站規則：範圍、規格摘要、已拍板事項（`CLAUDE.md` 以 `@AGENTS.md` 引用） |
 | `.claude/settings.json` | 寫檔關卡：從本資料夾啟動的 Claude Code 只能改本站 |
+
+成本表（ABB 追蹤整合與視覺／錄影／遠端訓練架構的預算級估價）2026-10-06 起在 3D工作室平台上維護：本站頁面的「成本表」分頁可以看、改、存快照、匯出 xlsx（命令列 `node studio/vs3d.mjs parts bom @RecycleSorter`）。本機 `docs/integration-cost.xlsx` 是轉換前的原檔，留著當歷史紀錄；原本的產生器 `tools/build_integration_cost.py` 已退役。

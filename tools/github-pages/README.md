@@ -12,7 +12,8 @@
 
 1. `node core/tools/check.mjs --quick`：
    - 共用模型檢查；
-   - 每個專案的 import 路徑、倒序一致、空間檢核、全場干涉與閃爍（含各情境）；
+   - core 的剛體動力學與範例檢查、專案資料夾結構；
+   - 每個專案的 import 路徑、結構、用戶名稱、倒序一致、空間檢核、全場干涉與閃爍（含各情境）、配線與電盤、物理、BOM 一致性（只警告）；
    - `project.json` 的 `checks.quick`（各專案的 `tools/verify.mjs`）。
 
    任一項失敗就不發布，約需數分鐘。瀏覽器互動檢查（`ui`）只在本機完整檢查跑，不在 CI。
@@ -30,4 +31,4 @@
 
 不發布 docs、成本表、原始照片、影片與驗證報告。這只控制 Pages 網站內容，不會改變儲存庫本身的公開／私有設定。
 
-動畫與相機模擬在瀏覽器運行。MP4 錄影輸出要在本機跑 `tools/movie-export`（需要 `scripts\setup.ps1 -Ffmpeg`）。
+動畫與相機模擬在瀏覽器運行。MP4 錄影輸出要在本機跑 `node core/tools/export-mp4.mjs <專案>`（需要 `scripts\setup.ps1 -Ffmpeg`）。

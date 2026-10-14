@@ -33,7 +33,7 @@ node ../../core/tools/serve.mjs PCB-CopperAssembly
 node ../../core/tools/serve.mjs PCB-CopperAssembly --no-open
 ```
 
-開啟 [本地模擬](http://127.0.0.1:8770/PCB-CopperAssembly/)，也可在根目錄執行 `scripts\start.cmd -Station PCB-CopperAssembly`（點兩下 `scripts\start.cmd` 會同時開展示網站與 vs3d 介面；所有專案共用 `core/tools/serve.mjs`，首頁 http://127.0.0.1:8770/ 列出全部專案）。ES module 需 HTTP，請勿直接用 `file://` 開啟 HTML。
+開啟 [本地模擬](http://127.0.0.1:8770/PCB-CopperAssembly/)，也可在根目錄執行 `scripts\start.cmd -Station PCB-CopperAssembly`（`scripts\start.cmd -Site` 只開展示網站，`-All` 連 vs3d 介面一起開；所有專案共用 `core/tools/serve.mjs`，首頁 http://127.0.0.1:8770/ 列出全部專案）。ES module 需 HTTP，請勿直接用 `file://` 開啟 HTML。
 
 ## 操作
 
@@ -70,7 +70,7 @@ node ../../core/tools/serve.mjs PCB-CopperAssembly --no-open
 需要 Node.js 22 以上，不需 npm 套件。統一檢查（import 路徑、倒序一致、空間檢核、全場干涉與重合面，再加上本專案 `project.json` 列的驗證腳本）：
 
 ```powershell
-node ../../core/tools/check.mjs PCB-CopperAssembly          # 在本資料夾；在 TestCode 則為 node core/tools/check.mjs PCB
+node ../../core/tools/check.mjs PCB-CopperAssembly          # 在本資料夾；在庫根目錄則為 node core/tools/check.mjs PCB
 node --import ../../core/tools/register.mjs tools/verify.mjs  # 只跑排程驗證
 ```
 
@@ -144,7 +144,7 @@ node --import ../../core/tools/register.mjs tools/verify-geometry.mjs
 
 雙龍門、S1/S3 掃描與 S0/S4 上下料共 12 組拖鏈；相機支線朝機頭外側，供氣歧管接入頭部內部通道。
 
-[配線研究與實機確認項目](../../tools/docs/cable-routing-review.md)｜[本機 docs 配線紀錄](docs/cable-management.md)｜[線材檢查結果](review/cables.json)｜[配線畫面](review/cables.png)
+[配線研究與實機確認項目](../../tools/docs/cable-routing-review.md)｜[本機 docs 配線紀錄](docs/cable-management.md)｜[配線與電盤檢查結果](review/electrical-checks.json)｜[配線畫面](review/cables.png)
 
 配線與電盤檢查由 core 的 `electrical` 執行（快速檢查就會跑；情境與障礙物宣告在 `web/js/project.js` 的 `verify.cables`）：`node ../../core/tools/check.mjs "PCB-CopperAssembly" --only electrical`，結果在 `review/electrical-checks.json`。docs 依現有忽略規則僅留在本機；根目錄研究文件隨原始碼保存。
 

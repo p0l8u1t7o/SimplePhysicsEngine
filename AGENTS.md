@@ -18,7 +18,7 @@
 - 安裝：`powershell -ExecutionPolicy Bypass -File scripts\setup.ps1 [-All]`（會一併安裝 git hook），需求見 `REQUIREMENTS.md`。
 - 啟動網頁：`scripts\start.cmd`（不帶參數只開 vs3d 介面 8780；`-Site` 展示網站 8770、`-All` 兩個都開、`-Station <名稱>` 開某一站），停止：`scripts\stop.cmd`。腳本一律放在 `scripts/`，`.ps1` 存成 UTF-8 BOM。
 - **3D 專案只需要 Node.js 22 以上**（開發機 24.21），沒有 npm 套件；three.js 放在 `core/vendor/`。瀏覽器檢查用 Chrome 或 Edge（可設 `CHROME_PATH`）。
-- Python 3.12 ＋ `requirements.txt` 只給選用工具用（錄影稽核、電路圖、成本表）。
+- Python 3.12 ＋ `requirements.txt` 只給選用工具用（錄影稽核、電路圖、視覺採購品項表）；成本表已改在 3D工作室平台維護與匯出。
 - Node 端跑 core 模組要加 `--import ./core/tools/register.mjs`（解析 `three` 與 `@core/`）。`core/tools/run.mjs` 會自動加上。
 - Shell 是 Windows 上的 Git Bash 或 PowerShell 5.1。
 
@@ -30,12 +30,12 @@
 | `project-site/<專案>/` | 所有展示專案（之後新增的也放這裡）。`web/`（網站；`web/js/project.js` 是網頁與檢查共用的場景）、`project.json`（首頁說明、`coreVersion`、`checks.quick`／`checks.full`、`variants`、`ui`）、`tools/`（專案自有檢查）、`review/`（檢查結果，進版控）、`docs/`（只留本機）、`AGENTS.md`／`CLAUDE.md`（該站規則）、`.claude/settings.json`（寫檔關卡） |
 | `tools/` | 跨專案工具：干涉回歸、跨站視覺檢查（`verify-vision.mjs`）、電路圖、錄影輸出（配線與電盤檢查已移到 core 的 `electrical`）；`bin/` 是各站共用的 ffmpeg／ffprobe（`setup.ps1 -Ffmpeg` 下載，不進版控） |
 | `scripts/` | 腳本：`setup.ps1`（環境設定）、`start`／`stop`（`.ps1`＋可點兩下的 `.cmd`，網頁啟動與停止，PID 與輸出在 `logs/`）、`migrate/`（搬庫腳本） |
-| `studio/` | 3D 動畫生成應用程式（從本庫啟動介面時也能對 `project-site/` 的站下指令：本庫模式，只提交該站路徑、每次開本機分支）：目前是 P1 命令列原型 `node studio/vs3d.mjs`（說明見 `studio/README.md`，測試 `node --test "studio/test/*.test.mjs"`）；計畫書在本機 `TEMP/3d-app-plan.md`；元件資料庫（介面「元件庫」、`vs3d parts`，SQLite 檔 `studio/data/studio.db` 只留本機） |
+| `studio/` | 3D 動畫生成應用程式（從本庫啟動介面時也能對 `project-site/` 的站下指令：本庫模式，只提交該站路徑、每次開本機分支）：命令列 `node studio/vs3d.mjs`＋網頁介面 `vs3d ui`（第一段、第二段、審查補強、評估平台；說明見 `studio/README.md`，測試 `node --test "studio/test/*.test.mjs"`）；計畫書在本機 `TEMP/3d-app-plan.md`；元件資料庫（介面「元件庫」、`vs3d parts`，SQLite 檔 `studio/data/studio.db` 只留本機） |
 | `.githooks/` | pre-commit 範圍檢查 |
 | `.github/workflows/` | `pages.yml`：PR 跑快速檢查；推送到 `main` 時快速檢查、建置、發布 Pages（只改 `studio/` 時不跑）。`scope.yml`：PR 範圍檢查 |
 | `PENDING.md` | 待辦事項 |
 
-9 個專案（都在 `project-site/`）：AutomaticAcid-BaseTitration（酸鹼滴定）、ChemicalTankWashing（200L 化學桶清洗線）、MilitaryGradePC（軍規筆電 QC 線）、PCB-CopperAssembly（散熱銅片植入）、RobotArmPressSSD（USB 接頭壓合）、shutter assembly（快門葉片組裝，資料夾名稱有空白）、WorkpieceMeasurement（杯體 AOI＋共焦量測）、RecycleSorter（回收物分揀，vs3d 產生後匯入）、SolarDismantling（太陽能板拆框機器人上下料）。
+12 個專案（都在 `project-site/`）：AutomaticAcid-BaseTitration（酸鹼滴定）、ChemicalTankWashing（200L 化學桶清洗線）、MilitaryGradePC（軍規筆電 QC 線）、PCB-CopperAssembly（散熱銅片植入）、RobotArmPressSSD（USB 接頭壓合）、shutter assembly（快門葉片組裝，資料夾名稱有空白）、WorkpieceMeasurement（杯體 AOI＋共焦量測）、RecycleSorter（回收物分揀，vs3d 產生後匯入）、SolarDismantling（太陽能板拆框機器人上下料）、PlumbingFixtureInspection（水五金外觀 AOI）、WheelHangingAutomaticLine（輪框吊掛線手臂下掛）、ParkingEMS（停車場光儲充能源服務，三種場型）。
 
 **新專案一律放在 `project-site/<專案>/`**（`new-project.mjs` 會自動放在這裡）。專案裡的 Node 工具往庫根目錄要寫 `../../core`、`../../tools`；網頁的 importmap 是網址相對路徑（`../core/`），不用改。
 
@@ -100,10 +100,10 @@ node --import ./core/tools/register.mjs tools/verify-interference.mjs   # 四站
 
 ## 檢查與回歸的做法
 
-- **`check.mjs` 內建項目**：`imports`、`structure`、`names`、`determinism`、`layout`、`scene`（干涉＋閃爍，部署前也會擋）、`ui`（只在完整檢查跑；平行執行時設 `UI_PORT`），再加上 `project.json` 列的自有檢查。core 本身另有 `models` 檢查。
+- **`check.mjs` 內建項目**：`imports`、`structure`、`names`、`determinism`、`layout`、`scene`（干涉＋閃爍，部署前也會擋）、`electrical`（配線與電盤）、`physics`（剛體動力學烘焙）、`bom`（場景 ↔ 平台 BOM，只警告）、`ui`（只在完整檢查跑；平行執行時設 `UI_PORT`），再加上 `project.json` 列的自有檢查。core 本身另有 `models`、`physics`、`examples`、`structure` 檢查（不指定專案時才跑）。
 - **改 core 或渲染時**：
   1. 先拍基準：`git worktree add <暫存資料夾> HEAD`，在 worktree 裡跑 `shots.mjs --out TEMP/shots-<名>-base`，用完 `git worktree remove`。
-  2. 改完比對：7 站桌面截圖要 0 張超過門檻。刻意的外觀改變要逐張看過，並記進 `core/MIGRATION.md`。
+  2. 改完比對：全部站的桌面截圖要 0 張超過門檻（`shots.mjs` 不指定專案就是全部）。刻意的外觀改變要逐張看過，並記進 `core/MIGRATION.md`。
 - **review JSON**：只有時間戳、`seconds`、`generated` 改變的，提交前先還原。有實質內容變化的才提交。根目錄 `tools/review/*.json` 的 sourceHash 會隨程式改變，連同程式一起提交。
 - **allow 規則**：必須窄，而且要寫原因；不能用 allow 蓋掉真問題。看到「0 筆干涉」時要先確認規則本身沒有放水。過去 `bodyOf` 為 null 時 `null===null` 讓固定件之間全部放行，修正後抓到大量真問題。
 - **換用 core 模型時三樣都要比**：快速檢查的數字、桌面截圖、`scene-dump.mjs --diff`（逐網格與走線五金）。夾具改釘到別處不會報錯、截圖也可能低於門檻（1.9.0 那一批 SSD 的兩支夾腳就是這樣漏掉的）。
@@ -133,6 +133,13 @@ node --import ./core/tools/register.mjs tools/verify-interference.mjs   # 四站
 
 - 4 輪統一：P0～P7、第二輪、精進輪、第四輪。第四輪內容是到位閘門、小螢幕、look 加地面、ui-check、favicon。
 - `extent` 推算的燈位對不上各站手調的值，所以各站只用 `look` 省掉配色設定。
+- 3D 動畫生成應用程式（studio，2026-10-04；計畫書在本機 `TEMP/3d-app-plan.md`）：
+  - 給公司內部同事用，Claude Code 與 Codex 並行；介面是網頁版（`vs3d ui`，本機 127.0.0.1，`scripts\start.cmd` 啟動），不做 Electron 桌面外殼；前端 React＋Vite，npm 套件只放在 `studio/ui/`（core 與各站仍然沒有套件）。
+  - 角色依段落指派模型（`studio/lib/roles.mjs`）：規劃、開發、修正、審查預設 Claude opus，渲染與細節補強預設 Codex gpt-6-astra（high）；第二段（電控、電盤、配線、相機）的開發與修正預設 Codex gpt-6-astra，審查維持 opus；元件補全 `enrich` 用 sonnet。
+  - 流程：第一段完成後審查、補強、守門檢查全自動，只在最後停下看前後對照（接受／要調整／整批還原）；審查的必修項（違反拍板或規則）自動送修正，建議補強才給使用者。第二段先規劃成 `.studio/plan/segment2.md`＋`segment2.json`，卡片確認後才開發，不能改第一段的排程指紋。手機幀率預算是「不低於補強前的 80%」，30 fps 只當提示。
+  - 上傳檔只留本機；成品可匯出網站壓縮檔、單一 HTML（超過 15 MB 時提示改用壓縮檔或內部發布）、MP4；同事之間用專案交接包；core 自動升級並自動驗證。STEP 輸入做成 Python＋OCP 的選用元件。
+  - 一般工作區的每個專案各自一個 git 庫；寫入隔離採多層防護（CLI 關卡＋唯讀屬性、每輪雜湊比對＋`check-scope`、偵測到越界就自動還原）。
+  - 本庫模式：代理在使用者的工作目錄改檔，不得執行 `checkout`／`restore`／`stash`／`reset --hard`／`clean`，改用逐檔寫回；遇到併改就停下提問；每次開本機分支，只提交該站的路徑。
 - 元件資料庫（2026-10-05）：SQLite（`node:sqlite`），元件＋價格紀錄＋專案使用紀錄＋供應商；資料庫檔只留本機、不進版控。各站做設計、選型、成本表時先查資料庫（`vs3d parts search`，用元件編號 `P-xxxxx` 引用），確定的選型與報價在介面「元件庫」補回去。元件用分類樹分類（2026-10-06 起由使用者自訂，見下方「自動化專案評估平台」）。vs3d 的代理另外會拿到一份清單（每次執行前寫到專案的 `.studio/parts-catalog.md`），規劃與選型時先查、沿用的寫出編號。說明在 `studio/README.md`「元件資料庫」。
 - studio 介面（2026-10-05）：配色只用綠與白（和 Excel 相同的綠 `#217346`），不做淺色／深色切換；左上角名稱「3D工作室」；本庫 `project-site/` 的站集中在「本庫的站」那一頁，不放在左邊的專案清單。
 - studio 帳號（2026-10-05）：「用戶管理」指的是介面的登入帳號與權限（管理者／一般／唯讀），不是客戶名單；沒有帳號時不用登入，帳號資料只留本機 `studio/data/`。

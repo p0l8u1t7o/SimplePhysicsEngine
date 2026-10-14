@@ -20,7 +20,7 @@ node ../../core/tools/serve.mjs "SolarDismantling"
 
 JB1 是原機西端交握改裝箱，JB2 接交接台置中閥組與有板感測，JB3／JB4 分別接入料／出料 A/B。南側架高線槽接西側高架橋，垂降沿獨立立柱固定；手臂控制器到機座走地面線槽。移載機 Z 軸拖鏈位於導軌下方、前柱內側，升降拖鏈隨台車與升降座更新；兩者皆由 `apply(t)` 的既有位置計算，不另設時鐘。線材圖例可由右下角展開。
 
-電控是功能與安裝空間示意，外形、保護容量、線徑、拖鏈規格仍待選型；不代表施工接線圖或安全驗證。這次配線的自動檢查及瀏覽器驗證狀態見 [review/electrical-validation.md](review/electrical-validation.md)。
+電控是功能與安裝空間示意，外形、保護容量、線徑、拖鏈規格仍待選型；不代表施工接線圖或安全驗證。配線的自動檢查結果見 [review/electrical-checks.json](review/electrical-checks.json)。
 
 細節仍屬提案示意：拆框機尺寸、夾爪驅動位置與落料路線是依影片推估；M-710iC/45M 的臂長是推估值；線束鬆弛環以關節位置決定，翻落以固定時間曲線呈現，未做柔性管線或碰撞動力學求解；光柵與互鎖不代表現場安全驗證完成。
 
@@ -29,7 +29,7 @@ JB1 是原機西端交握改裝箱，JB2 接交接台置中閥組與有板感測
 ## 檢查
 
 ```powershell
-node ../../core/tools/check.mjs "SolarDismantling"          # 完整：import 路徑、倒序一致、空間檢核、全場干涉與閃爍、四種尺寸的介面測試（ui）、本專案檢查
+node ../../core/tools/check.mjs "SolarDismantling"          # 完整：import 路徑、結構、用戶名稱、倒序一致、空間檢核、全場干涉與閃爍、配線與電盤、物理、BOM 一致性、四種尺寸的介面測試（ui）、本專案檢查
 node ../../core/tools/check.mjs "SolarDismantling" --quick  # 部署前快速檢查
 ```
 

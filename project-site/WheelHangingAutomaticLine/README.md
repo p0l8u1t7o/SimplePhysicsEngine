@@ -31,7 +31,7 @@ node ../../core/tools/serve.mjs "WheelHangingAutomaticLine"
 ## 檢查
 
 ```powershell
-node ../../core/tools/check.mjs "WheelHangingAutomaticLine"          # 完整：import 路徑、倒序一致、空間檢核、全場干涉與閃爍、四種尺寸的介面測試（ui）、本專案檢查
+node ../../core/tools/check.mjs "WheelHangingAutomaticLine"          # 完整：import 路徑、結構、用戶名稱、倒序一致、空間檢核、全場干涉與閃爍、配線與電盤、物理、BOM 一致性、四種尺寸的介面測試（ui）、本專案檢查
 node ../../core/tools/check.mjs "WheelHangingAutomaticLine" --quick  # 部署前快速檢查
 ```
 

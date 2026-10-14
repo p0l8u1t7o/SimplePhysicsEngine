@@ -12,7 +12,7 @@
 | `models/` | 共用模型庫：每個模型有 `meta`（名稱、分類、可調參數、可動狀態、用法）與 `create(params) → { root, set(state) }`，在 `models/index.js` 登記；`models/parts.js`：`fromPart(元件編號)` 用元件庫的模型與參數建立並標 `partRef`、`tagPart`；目錄頁 `/core/catalog/` 可預覽、調參與搜尋。共 81 個，清單見下方「共用模型」 |
 | `migrations/` | 各版共用模型的換用對照（各站把自己畫的零件換成共用模型時照著改）：`1.10.0-vision.md`、`1.10.0-motion.md`、`1.10.0-equipment.md`、`1.10.0-transport.md`；1.9.0 的對照表在 `MIGRATION.md` |
 | `catalog/` | 模型目錄頁（發布在 Pages） |
-| `anim/` | `cycle.js`：節拍分析（各站佔用、稼動率、瓶頸）；`track.js`：時間軌與時間軸（`createTimeline`、`Track`、`smooth`），狀態只由時間決定；`sequence.js`：單一手臂的步驟序列；`arrival.js`：手臂到位閘門（播放時等手臂到位、逾時故障） |
+| `anim/` | `sampling.js`：取樣時間（網頁與檢查共用，不依賴 three）；`cycle.js`：節拍分析（各站佔用、稼動率、瓶頸）；`track.js`：時間軌與時間軸（`createTimeline`、`Track`、`smooth`），狀態只由時間決定；`sequence.js`：單一手臂的步驟序列；`arrival.js`：手臂到位閘門（播放時等手臂到位、逾時故障） |
 | `electrical/` | 線材、拖鏈、電盤、電控元件（`component()` 元件表）與檢視器 |
 | `examples/` | `segment2/`：第二段（電控、電盤、配線、相機子畫面、視覺疊圖）的完整範例與說明，跟著 core 一起檢查；新專案照 `examples/segment2/README.md` 做。`physics/`：剛體動力學四種用途（物料流、掉落與滑槽、料箱堆積、夾取穩定）的範例頁與檢查 |
 | `optics/` | 機器視覺的光學計算（純函式：L1 視野、倍率、每像素、最小缺陷、景深、運動模糊、行頻、像圈、接口、頻寬、打光；L2 `lighting.js` 明暗場、缺陷對比、遮擋、近似模擬影像）與 3D 配置檢視頁 `optics/view.html`；studio 的光學工作台、`vs3d optics eval`、相機模型共用，說明在 `optics/README.md` |
@@ -51,8 +51,8 @@ node core/tools/new-project.mjs MyStation "我的工作站" "首頁卡片上的�
 程式中寫 `import { block, cylinder } from '@core/geom/shapes.js'`、`import { MAT } from '@core/geom/materials.js'`。Node 端用 `core/tools/register.mjs` 解析相同名稱：
 
 ```powershell
-node --import ../core/tools/register.mjs tools/verify.mjs      # 在專案資料夾
-node core/tools/run.mjs <專案> tools/verify.mjs                 # 在 TestCode
+node --import ../../core/tools/register.mjs tools/verify.mjs      # 在專案資料夾
+node core/tools/run.mjs <專案> tools/verify.mjs                 # 在庫根目錄
 ```
 
 ## 網址（本機與 GitHub Pages 相同）
@@ -61,7 +61,7 @@ node core/tools/run.mjs <專案> tools/verify.mjs                 # 在 TestCode
 |---|---|
 | `/` | 首頁（`tools/site.mjs` 依各專案 `project.json` 產生） |
 | `/core/…` | `core/`（不含 tools） |
-| `/<專案>/…` | `<專案>/web/…` |
+| `/<專案>/…` | `project-site/<專案>/web/…` |
 
 ```powershell
 node core/tools/serve.mjs                 # http://127.0.0.1:8770/  首頁
@@ -246,4 +246,4 @@ python core/tools/compare-review.py TEMP/review-base                     # revie
 
 ## GitHub Pages
 
-`.github/workflows/static.yml` 會先跑 `check.mjs --quick`，再用 `tools/build-site.mjs _site` 建置。新增專案只要有 `web/index.html` 與 `project.json` 就會出現在首頁，不必改工作流程。
+`.github/workflows/pages.yml` 會先跑 `check.mjs --quick`，再用 `tools/build-site.mjs _site` 建置。新增專案只要有 `web/index.html` 與 `project.json` 就會出現在首頁，不必改工作流程。
