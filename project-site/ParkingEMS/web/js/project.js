@@ -428,7 +428,13 @@ export function createProject({ scene, site: siteId = 'flagship' } = {}) {
     return rows;
   }
 
-  const skipDecor = o => o.userData.decor === true || o.userData.operatorProxy === true;
+  // 車輛細件不進全場檢查：輪圈與輪輻包在輪胎內、座椅在車廂內，燈、格柵、車牌、飾條、門把貼在車殼表面，
+  // 碰撞外形由車殼、車廂玻璃與車頂、車柱外的玻璃、後視鏡、車門、輪胎、充電口代表。10 輛車每輛 85 個網格讓檢查變成 34 分鐘。
+  // 這些細件同時不做重合面檢查（排除時為 0 筆）；之後改 vehicles.js 的細件要另外看畫面確認沒有閃爍。
+  const CAR_DETAIL = new Set(['wheel rim', 'wheel recess', 'wheel spoke', 'wheel center', 'car seat', 'seat back', 'car headlight', 'car taillight', 'car reverse light',
+    'front lower grille', 'rear lower bumper', 'rear license recess', 'rear license plate', 'rear trunk trim', 'hero front plate', 'car door handle', 'door belt trim',
+    'mirror glass', 'car sill', 'car B pillar', 'front pillar', 'rear pillar']);
+  const skipDecor = o => o.userData.decor === true || o.userData.operatorProxy === true || (CAR_DETAIL.has(o.name) && !!carRoot(o));
   return {
     total: seq.total, timeline: seq.tl, events: seq.tl.events, stationStart: seq.tl.stationStart, stations: seq.stations,
     apply, layoutChecks, presentation, site, sim, simX, seq, lot, crane, chargers, evCars, hero, carport, bess, msb, ems, transformer, flows: flowMeshes, details, constructionDetails,
