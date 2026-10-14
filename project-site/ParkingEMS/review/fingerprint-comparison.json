@@ -1,0 +1,32 @@
+[
+  {
+    "variant": "預設",
+    "total": 131,
+    "eventsEqual": true,
+    "statesEqual": true,
+    "layoutEqual": true,
+    "originalMoving": 310,
+    "changed": [],
+    "addedMoving": 227
+  },
+  {
+    "variant": "住商型",
+    "total": 98.3,
+    "eventsEqual": true,
+    "statesEqual": true,
+    "layoutEqual": true,
+    "originalMoving": 208,
+    "changed": [],
+    "addedMoving": 284
+  },
+  {
+    "variant": "都會型",
+    "total": 117.3,
+    "eventsEqual": true,
+    "statesEqual": true,
+    "layoutEqual": true,
+    "originalMoving": 111,
+    "changed": [],
+    "addedMoving": 142
+  }
+]

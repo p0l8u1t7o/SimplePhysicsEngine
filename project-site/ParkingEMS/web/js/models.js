@@ -38,15 +38,35 @@ export function createCar(name, color = 0xe9ecef) {
   const body = bevelBox(L, 620, W, paint, 120); put(body, 'car body', [0, 180 + 310, 0]); root.add(body);
   const cabin = bevelBox(2550, 560, W - 160, M.glass, 160); put(cabin, 'car cabin', [-180, 800 + 280, 0]); root.add(cabin);
   box(root, 'car roof', [2100, 50, W - 260], [-220, 1385, 0], paint);
+  const wheels = [], headMat = M.head.clone(), tailMat = M.tail.clone(), reverseMat = M.head.clone();
   for (const [x, z] of [[1400, 1], [1400, -1], [-1400, 1], [-1400, -1]]) {
     const wh = cylinder(root, r, 230, [x, r, z * (W / 2 - 120)], M.tire, 'z', 20); wh.name = 'car wheel';
+    const hub = grp('car wheel rotation', root); hub.position.set(x, r, z * (W / 2 + 3));
+    cylinder(hub, 185, 12, [0, 0, 0], M.rim, 'z', 14).name = 'wheel rim';
+    for (let j = 0; j < 3; j++) { const spoke = box(hub, 'wheel spoke', [310, 30, 6], [0, 0, z * 10], M.cabinetDark); spoke.rotation.z = j * Math.PI / 3; }
+    wheels.push(hub);
   }
-  box(root, 'car headlight', [40, 90, 420], [L / 2 - 10, 560, W / 2 - 300], M.head); box(root, 'car headlight', [40, 90, 420], [L / 2 - 10, 560, -(W / 2 - 300)], M.head);
-  box(root, 'car taillight', [40, 80, 380], [-L / 2 + 10, 640, W / 2 - 280], M.tail); box(root, 'car taillight', [40, 80, 380], [-L / 2 + 10, 640, -(W / 2 - 280)], M.tail);
+  for (const s of [1, -1]) {
+    box(root, 'car headlight', [40, 90, 420], [L / 2 - 10, 560, s * (W / 2 - 300)], headMat);
+    box(root, 'car taillight', [40, 80, 380], [-L / 2 + 10, 640, s * (W / 2 - 280)], tailMat);
+    box(root, 'car reverse light', [30, 65, 170], [-L / 2 - 6, 500, s * 580], reverseMat);
+  }
+  const plate = liveScreen(520, 130, 384, 96); plate.mesh.rotation.y = Math.PI / 2;
+  put(plate.mesh, 'hero front plate', [L / 2 + 16, 390, 0]); root.add(plate.mesh);
+  plate.draw(name, (c, w, h) => { c.fillStyle = '#f5f3de'; c.fillRect(0, 0, w, h); c.fillStyle = '#18232d'; c.font = 'bold 65px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(name.startsWith('hero') ? 'EVA-0588' : 'EV', w / 2, h / 2); });
   // 充電口（左前、右前葉子板各一，用離充電樁近的那一側）與充電狀態燈
   const ports = [1, -1].map(s => { const p = box(root, 'car port', [220, 160, 12], [L / 2 - 650, 760, s * (W / 2 + 4)], M.ledOff); p.userData.side = s; return p; });
+  const lids = ports.map(p => { const g = grp('charge port lid hinge', root); g.position.copy(p.position).add(new THREE.Vector3(-115, 0, p.userData.side * 18)); box(g, 'charge port lid', [225, 170, 10], [115, 0, 0], paint); return g; });
   return {
-    root, ports,
+    root, ports, wheels, lids, headMat, tailMat, reverseMat, plate: plate.mesh,
+    setDetail({ distance = 0, night = 0, moving = false, reverse = false, brake = false, side = 0, open = false } = {}) {
+      for (const w of wheels) w.rotation.z = -distance / r;
+      headMat.emissiveIntensity = moving ? .25 + night * 3 : .05;
+      tailMat.emissiveIntensity = brake ? 3 : moving ? .3 + night : .05;
+      reverseMat.emissiveIntensity = reverse && moving ? 3 : 0;
+      lids.forEach((l, i) => { l.rotation.y = open && ports[i].userData.side === side ? -side * 1.35 : 0; });
+      Object.assign(root.userData, { wheelDistance: distance, headlights: moving && night > .5, reversing: reverse && moving, braking: brake });
+    },
     portWorld(side) { const p = ports[side > 0 ? 0 : 1]; return p.getWorldPosition(new THREE.Vector3()); },
     setCharging(side, state) { ports.forEach(p => { p.material = p.userData.side === side ? (state === 'charging' ? M.ledBlue : state === 'done' ? M.ledGreen : state === 'wait' ? M.ledAmber : M.ledOff) : M.ledOff; }); },
   };
@@ -128,6 +148,7 @@ export function createBESS(name, { size = [1700, 2400, 1400], kw = 100, kwh = 21
   box(root, 'bess vent', [w * .4, 120, 10], [0, 200 + h - 420, d / 2 + 5], M.cabinetDark);
   const scr = liveScreen(w * .5, 300, 384, 230); put(scr.mesh, 'bess label', [0, 200 + h * .52, d / 2 + 7]); root.add(scr.mesh);
   scr.draw('static', (c, W, H) => { c.fillStyle = '#e8eef0'; c.fillRect(0, 0, W, H); c.fillStyle = '#16323a'; c.font = 'bold 54px sans-serif'; c.textAlign = 'center'; c.fillText('儲能系統', W / 2, 74); c.font = '38px sans-serif'; c.fillText(`${kw} kW／${kwh} kWh`, W / 2, 140); c.fillStyle = '#c0392b'; c.font = 'bold 30px sans-serif'; c.fillText('⚠ 高壓電池 · 熱失控偵測', W / 2, 200); });
+  cabinetDetails(root, w, h, d, 200);
   return { root, set: statusOf(root, [led]), size, top: 200 + h };
 }
 export function createCabinet(name, { size = [2400, 2000, 800], label = '', screen = false, mat = M.cabinet } = {}) {
@@ -141,7 +162,19 @@ export function createCabinet(name, { size = [2400, 2000, 800], label = '', scre
   if (screen) { scr = liveScreen(Math.min(420, w * .7), 260, 420, 260); put(scr.mesh, 'cabinet screen', [0, 150 + h * .62, d / 2 + 5]); root.add(scr.mesh); }
   if (label) { const tag = liveScreen(Math.min(w * .8, 900), 160, 450, 80); put(tag.mesh, 'cabinet label', [0, 150 + h - 180, d / 2 + 9]); root.add(tag.mesh); tag.draw(label, (c, W, H) => { c.fillStyle = '#1e2a33'; c.fillRect(0, 0, W, H); c.fillStyle = '#e8eef0'; c.font = 'bold 40px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(label, W / 2, H / 2); }); }
   const led = box(root, 'cabinet led', [60, 60, 8], [w / 2 - 120, 150 + h - 120, d / 2 + 6], M.ledGreen);
+  cabinetDetails(root, w, h, d, 150);
   return { root, screen: scr, set: statusOf(root, [led]), top: 150 + h };
+}
+// 櫃外附件與警示示意；未建立櫃內電控與實際消防迴路。
+function cabinetDetails(root, w, h, d, base) {
+  box(root, 'door handle', [35, 230, 35], [w * .37, base + h * .48, d / 2 + 24], M.galv);
+  for (let j = 0; j < 5; j++) box(root, 'vent louver', [w * .42, 14, 20], [-w * .1, base + 190 + j * 44, d / 2 + 16], M.cabinetDark);
+  cylinder(root, 48, 32, [-w * .36, base + h * .68, d / 2 + 22], M.lineYellow, 'z', 16).name = 'estop collar';
+  cylinder(root, 30, 35, [-w * .36, base + h * .68, d / 2 + 58], M.barrierRed, 'z', 16).name = 'estop button';
+  cylinder(root, 42, 35, [w * .34, base + h - 340, d / 2 + 22], M.cabinet, 'z', 12).name = 'fire detector';
+  cylinder(root, 15, 26, [w / 2 + 18, base + 100, d * .25], M.galv, 'x', 8).name = 'earth terminal';
+  const tag = liveScreen(150, 100, 180, 120); tag.mesh.position.set(-w * .33, base + h * .39, d / 2 + 12); tag.mesh.name = 'electrical warning'; root.add(tag.mesh);
+  tag.draw('warning', (c, W, H) => { c.fillStyle = '#f5ce45'; c.fillRect(0, 0, W, H); c.fillStyle = '#241d0f'; c.textAlign = 'center'; c.font = 'bold 32px sans-serif'; c.fillText('⚠ 高壓', W / 2, 48); c.font = '22px sans-serif'; c.fillText('PE 接地', W / 2, 90); });
 }
 export function createTransformer(name, { size = [1900, 1800, 1500] } = {}) {
   const root = grp(name), [w, h, d] = size;

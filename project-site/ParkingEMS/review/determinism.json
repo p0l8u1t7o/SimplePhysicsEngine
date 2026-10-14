@@ -5,7 +5,7 @@
       "variant": "預設",
       "params": {},
       "ok": true,
-      "objects": 755,
+      "objects": 1454,
       "samples": 40,
       "failures": []
     },
@@ -15,7 +15,7 @@
         "site": "mixed"
       },
       "ok": true,
-      "objects": 446,
+      "objects": 992,
       "samples": 40,
       "failures": []
     },
@@ -25,7 +25,7 @@
         "site": "urban"
       },
       "ok": true,
-      "objects": 344,
+      "objects": 725,
       "samples": 40,
       "failures": []
     }

@@ -1,0 +1,25 @@
+{
+  "ok": true,
+  "assertions": 193,
+  "sites": {
+    "flagship": {
+      "samples": 26,
+      "lights": 3,
+      "allowRules": 4,
+      "total": 131
+    },
+    "mixed": {
+      "samples": 19,
+      "lights": 2,
+      "allowRules": 4,
+      "total": 98.3
+    },
+    "urban": {
+      "samples": 19,
+      "lights": 2,
+      "allowRules": 4,
+      "total": 117.3
+    }
+  },
+  "failures": []
+}

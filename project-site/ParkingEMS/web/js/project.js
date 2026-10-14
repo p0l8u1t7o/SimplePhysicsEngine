@@ -10,6 +10,9 @@ import { createSequence, hourAt, segmentAt, timeOfHour, DRIVE, STATIONS } from '
 import { createLot, gateGeom } from './lot.js';
 import { M, CAR_COLORS, createCar, createParkedFleet, createACCharger, createDCCharger, createBESS, createCabinet, createTransformer, createInverter, createFence, createCrane, createCarport } from './models.js';
 import { bezier, makePath, legsAt, yawOf, smoothstep, rounded } from './paths.js';
+import { createDetails } from './details.js';
+import { wheelTravel, transactionAt, displaySoc } from './detail-state.js';
+import { createConstructionDetails } from './construction-details.js';
 
 export { STATIONS, SITES };
 const grp = (name, parent) => { const g = new THREE.Group(); g.name = name; parent?.add(g); return g; };
@@ -155,6 +158,8 @@ export function createProject({ scene, site: siteId = 'flagship' } = {}) {
     t.name = `ev cable ${k.c.id}`; return { mesh: t, side };
   };
   const cableOf = Object.fromEntries(evCars.map(k => [k.c.id, cableFor({ ...k, m: chargers.find(x => x.c === k.c).m }, k.car)]));
+  const details = createDetails({ scene, site, seq, hero, chargers, cableOf, lot, flows: flowMeshes, carport });
+  const constructionDetails = createConstructionDetails({scene,site,seq,reg,flows:flowMeshes,crane});
 
   // ---------------------------------------------------------------- 時刻 t → 場景
   const _hook = new THREE.Vector3(), UP = new THREE.Vector3(0, 1, 0);
@@ -232,7 +237,7 @@ export function createProject({ scene, site: siteId = 'flagship' } = {}) {
         if (s.s.d <= seg.h1) { const td = timeOfHour(seg, s.s.d); drive = Math.min(drive, clamp01((td - t) / DRIVE)); }
       }
       car.root.visible = vis; cab.mesh.visible = false;
-      if (!vis) { car.setCharging(0, 'off'); continue; }
+      if (!vis) { car.setCharging(0, 'off'); car.setDetail(); continue; }
       const p = k.path.at(k.path.length * ease(drive));
       car.root.position.set(p.x, 0, p.z); car.root.rotation.set(0, drive >= 1 ? parkYaw(k.c.stall) : p.yaw, 0);
       car.root.userData.driving = drive < 1;
@@ -240,6 +245,7 @@ export function createProject({ scene, site: siteId = 'flagship' } = {}) {
       cab.mesh.visible = plugged;
       const state = !plugged ? 'off' : s.p > .05 ? (r.limited && s.p < k.c.kw - .3 ? 'limit' : 'charging') : s.frac >= .995 ? 'done' : 'wait';
       car.setCharging(cab.side, state);
+      car.setDetail({distance:k.path.length * ease(drive),night:1-daylight(h),moving:drive<1,side:cab.side,open:plugged});
     }
     // 客戶車輛
     const H = seq.hero, onHero = t >= H.t0 && t <= H.t1;
@@ -252,7 +258,9 @@ export function createProject({ scene, site: siteId = 'flagship' } = {}) {
       if (plugged) hc.mesh.visible = true;
       const state = !plugged ? 'off' : hs && hs.s.hero && hs.p > .05 ? (r.limited && hs.p < H.ch.kw - .3 ? 'limit' : 'charging') : hs && hs.s.hero && hs.frac < .995 ? 'wait' : 'done';
       hero.setCharging(hc.side, state);
-    } else hero.setCharging(0, 'off');
+      hero.setDetail({distance:wheelTravel(H.legs,t),night:1-daylight(h),moving:p.moving,reverse:!!p.leg?.path.reverse,
+        brake:!p.moving || (!!p.leg && t > p.leg.t1-.35),side:hc.side,open:t>=H.tPark+.2 && t<H.revT0});
+    } else { hero.setCharging(0, 'off'); hero.setDetail(); }
     // 充電樁燈號與畫面
     for (const k of chargers) {
       const built = reg[k.c.id].obj.visible;
@@ -262,18 +270,28 @@ export function createProject({ scene, site: siteId = 'flagship' } = {}) {
       const state = !built || !op ? (t >= (seq.builds.find(b => b.key === 'test')?.t0 ?? Infinity) && built ? 'idle' : 'off') : plugged ? (s.p > .05 ? (r.limited && s.p < k.c.kw - .3 ? 'limit' : 'charging') : s.frac >= .995 ? 'idle' : 'wait') : 'idle';
       k.m.set(state);
       k.state = state; k.session = plugged ? s : null; k.occupied = !!occupied;
-      if (k.m.screen) k.m.screen.draw(`${state}|${plugged ? Math.round(s.p) + '|' + Math.round(s.frac * 100) : ''}|${s?.s.start > h ? fmtHour(s.s.start) : ''}`, (c, w, hh) => drawChargerScreen(c, w, hh, k, state, s, h));
+      const transaction = k.c.id === H.chId ? transactionAt(H,t,s) : '';
+      if (k.m.screen) k.m.screen.draw(`${state}|${transaction}|${s?.p?.toFixed(1)}|${s?.got?.toFixed(1)}|${s?.frac?.toFixed(2)}|${s?.s.start > h ? fmtHour(s.s.start) : ''}`, (c, w, hh) => drawChargerScreen(c, w, hh, k, state, s, h, transaction));
     }
   }
-  function drawChargerScreen(c, w, h, k, state, s, hour) {
+  function drawChargerScreen(c, w, h, k, state, s, hour, transaction) {
     const bgc = { charging: '#0f3d63', limit: '#5a3d0a', wait: '#4a3a10', idle: '#0e3326', off: '#111' }[state] || '#111';
     c.fillStyle = bgc; c.fillRect(0, 0, w, h); c.fillStyle = '#e9f2f6'; c.textAlign = 'center'; c.textBaseline = 'middle';
     const big = Math.round(h * .26), small = Math.round(h * .15);
     c.font = `bold ${small}px sans-serif`; c.fillText(`${k.c.id} · ${k.c.type} ${k.c.kw} kW`, w / 2, h * .17);
     c.font = `bold ${big}px sans-serif`;
     const main = { charging: `${s ? s.p.toFixed(1) : 0} kW`, limit: `限功率 ${s ? s.p.toFixed(0) : 0} kW`, wait: s && s.s.start > hour ? `排程 ${fmtHour(s.s.start)}` : '等待中', idle: '可使用', off: '' }[state];
-    c.fillText(main, w / 2, h * .5);
-    if (s && (state === 'charging' || state === 'limit')) { c.fillStyle = '#244'; c.fillRect(w * .1, h * .74, w * .8, h * .1); c.fillStyle = '#4fe0b0'; c.fillRect(w * .1, h * .74, w * .8 * s.frac, h * .1); }
+    c.font = `bold ${transaction ? small : big}px sans-serif`;
+    c.fillText(transaction || main, w / 2, h * .43);
+    const handshake = ['確認費率（示意）', '授權', '啟動成功'].includes(transaction);
+    if (handshake) {
+      c.font = `${Math.round(h*.12)}px sans-serif`; c.fillStyle = '#9feacb';
+      c.fillText('依畫面確認操作（示意）',w/2,h*.7);
+    } else if (s && (transaction || state === 'charging' || state === 'limit' || state === 'wait')) {
+      c.font = `${Math.round(h*.12)}px sans-serif`; c.fillStyle='#9feacb';
+      c.fillText(`${s.p.toFixed(1)} kW · ${s.got.toFixed(1)} kWh`,w/2,h*.67);
+      c.fillText(`SOC ${displaySoc(s.got).toFixed(0)}%（示意）`,w/2,h*.87);
+    }
     else { c.font = `${small}px sans-serif`; c.fillStyle = '#9fc'; c.fillText(state === 'idle' ? '費率依現場公告（示意）' : '', w / 2, h * .8); }
   }
   function applyFleet(t, h) {
@@ -306,6 +324,7 @@ export function createProject({ scene, site: siteId = 'flagship' } = {}) {
       }
       const live = op ? Math.abs(p) > .3 : testing;
       out[R.id] = p;
+      f.power = p;
       if (live) {
         f.mat.map = f.tex; f.mat.color.setHex(0xffffff); f.mat.opacity = op ? Math.min(1, .45 + Math.abs(p) / 60) : .5 + .4 * Math.sin(t * 9) ** 2;
         f.tex.offset.x = -(p >= 0 ? 1 : -1) * t * 1.6;
@@ -332,11 +351,14 @@ export function createProject({ scene, site: siteId = 'flagship' } = {}) {
     for (const b of bess) b.set(t < seq.opStart ? (reg[`bess${bess.indexOf(b)}`].obj.visible && t >= (seq.builds.find(x => x.key === 'test')?.t0 ?? 1e9) ? 'idle' : 'off') : r.dis > .5 ? 'charging' : r.chg > .5 ? 'wait' : 'idle');
     inverter?.set(t >= seq.opStart ? (r.pv > 1 ? 'idle' : 'off') : 'off');
     msb.set(t >= seq.opStart ? 'idle' : 'off'); ems.set(t >= seq.opStart ? 'idle' : 'off');
-    ems.screen?.draw(`${Math.round(r.soc * 100)}|${t >= seq.opStart}|${PERIOD_NAME[r.period]}`, (c, w, hh) => {
+    details.apply(t,h,r,S,day);
+    constructionDetails.apply(t);
+    ems.screen?.draw(`${Math.round(r.soc * 100)}|${t >= seq.opStart}|${PERIOD_NAME[r.period]}|${r.grid.toFixed(0)}|${S.contract}|${r.limited}`, (c, w, hh) => {
       c.fillStyle = '#0b1c26'; c.fillRect(0, 0, w, hh); c.fillStyle = '#e8f2f6'; c.font = 'bold 34px sans-serif'; c.textAlign = 'left';
       c.fillText('EMS', 18, 42); c.font = '28px sans-serif'; c.fillText(t >= seq.opStart ? `${PERIOD_NAME[r.period]} · SOC ${Math.round(r.soc * 100)}%` : '聯測中', 18, 100);
       c.fillStyle = '#244'; c.fillRect(18, 130, w - 36, 34); c.fillStyle = '#3dd68c'; c.fillRect(18, 130, (w - 36) * r.soc, 34);
       c.fillStyle = '#9cc'; c.font = '24px sans-serif'; c.fillText(`市電 ${r.grid.toFixed(0)} kW／契約 ${S.contract} kW`, 18, 210);
+      c.fillStyle=r.limited?'#ffbc5e':'#75edb0'; c.font='22px sans-serif'; c.fillText(r.limited?'限功率：啟用（示意）':'限功率：未觸發',18,245);
     });
     // ---- 面板用的狀態
     const H = seq.hero, hs = S.sessionAt(h)[H.chId];
@@ -402,10 +424,10 @@ export function createProject({ scene, site: siteId = 'flagship' } = {}) {
     return rows;
   }
 
-  const skipDecor = o => o.userData.decor === true;
+  const skipDecor = o => o.userData.decor === true || o.userData.operatorProxy === true;
   return {
     total: seq.total, timeline: seq.tl, events: seq.tl.events, stationStart: seq.tl.stationStart, stations: seq.stations,
-    apply, layoutChecks, presentation, site, sim, simX, seq, lot, crane, chargers, evCars, hero, carport, bess, msb, ems, transformer, flows: flowMeshes,
+    apply, layoutChecks, presentation, site, sim, simX, seq, lot, crane, chargers, evCars, hero, carport, bess, msb, ems, transformer, flows: flowMeshes, details, constructionDetails,
     verify: {
       skip: skipDecor,
       allow: [
