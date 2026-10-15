@@ -1,0 +1,47 @@
+{
+  "ok": true,
+  "assertions": 16030,
+  "variants": [
+    {
+      "plan": "box-laser",
+      "part": "stator",
+      "samples": 19
+    },
+    {
+      "plan": "box-laser",
+      "part": "rotor",
+      "samples": 13
+    },
+    {
+      "plan": "box-vision",
+      "part": "stator",
+      "samples": 27
+    },
+    {
+      "plan": "box-vision",
+      "part": "rotor",
+      "samples": 18
+    },
+    {
+      "plan": "piece-laser",
+      "part": "stator",
+      "samples": 21
+    },
+    {
+      "plan": "piece-laser",
+      "part": "rotor",
+      "samples": 26
+    },
+    {
+      "plan": "piece-vision",
+      "part": "stator",
+      "samples": 18
+    },
+    {
+      "plan": "piece-vision",
+      "part": "rotor",
+      "samples": 18
+    }
+  ],
+  "failures": []
+}

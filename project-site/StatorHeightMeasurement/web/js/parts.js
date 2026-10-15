@@ -2,13 +2,14 @@
 // 工件本地座標：底面在 y=0、頂面在 y=h；定子軛在 +z、齒靴在 −z。
 import * as THREE from 'three';
 import { slot } from './spec.js';
+import { punchedFace } from './finishes.js';
 
 // 疊片側面：細橫紋（1 uv＝1 mm，兩道明暗＝約 0.5 mm 一片），DataTexture 不需要 DOM
 function stackTexture() {
   const h = 8, data = new Uint8Array(4 * h);
-  for (let i = 0; i < h; i++) { const v = i < 4 ? 255 : 196; data.set([v, v, v, 255], i * 4); }
+  for (let i = 0; i < h; i++) { const v = [115, 185, 224, 231, 218, 208, 193, 160][i]; data.set([v, v, v, 255], i * 4); }
   const tex = new THREE.DataTexture(data, 1, h); tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.magFilter = THREE.LinearFilter; tex.minFilter = THREE.LinearMipmapLinearFilter; tex.generateMipmaps = true; tex.needsUpdate = true;
+  tex.repeat.y = 2; tex.magFilter = THREE.LinearFilter; tex.minFilter = THREE.LinearMipmapLinearFilter; tex.generateMipmaps = true; tex.needsUpdate = true;
   return tex;
 }
 let MATS = null;
@@ -16,8 +17,8 @@ export function partMaterials() {
   if (MATS) return MATS;
   const tex = stackTexture();
   MATS = {
-    cap: new THREE.MeshStandardMaterial({ color: 0xb8c0c8, roughness: .32, metalness: .85 }),    // 沖切面：亮銀
-    side: new THREE.MeshStandardMaterial({ color: 0x5b6067, roughness: .55, metalness: .7, map: tex }),   // 疊片側面：深灰帶紋
+    cap: new THREE.MeshStandardMaterial({ color: 0xd2d7dc, roughness: .3, metalness: .85, map: punchedFace, roughnessMap: punchedFace }),    // 沖切面：亮銀與淺凹鉚接痕
+    side: new THREE.MeshStandardMaterial({ color: 0x62636a, roughness: .48, metalness: .72, map: tex, roughnessMap: tex }),   // 疊片側面：深灰帶紋
     ng: new THREE.MeshStandardMaterial({ color: 0xd8483f, roughness: .5, metalness: .3, emissive: 0x5a0f0b, emissiveIntensity: .6 }),
   };
   return MATS;
@@ -29,8 +30,6 @@ function statorShape(p) {
     [-tw / 2, -L], [tw / 2, -L], [tw / 2, -L + tt], [sw / 2, -L + tt], [sw / 2, L - yt], [yw / 2, L - yt], [yw / 2, L],
     [-yw / 2, L], [-yw / 2, L - yt], [-sw / 2, L - yt], [-sw / 2, -L + tt], [-tw / 2, -L + tt],
   ].map(([x, y]) => new THREE.Vector2(x, y)));
-  const dimple = (cx, cy, w, h) => { const q = new THREE.Path(); q.moveTo(cx - w / 2, cy - h / 2); q.lineTo(cx + w / 2, cy - h / 2); q.lineTo(cx + w / 2, cy + h / 2); q.lineTo(cx - w / 2, cy + h / 2); q.closePath(); return q; };
-  s.holes.push(dimple(0, L - yt / 2, 3, 1.2), dimple(0, -L + tt + 4, 1.2, 3));   // 疊片鉚接點
   return s;
 }
 function rotorShape(p) {
@@ -47,6 +46,11 @@ export function partGeometry(p) {
   const shape = p.key === 'rotor' ? rotorShape(p) : statorShape(p);
   // 頂底各 0.3 mm 倒角：讓沖切面的高光邊看得出來
   const geo = new THREE.ExtrudeGeometry(shape, { depth: p.h - .6, bevelEnabled: true, bevelThickness: .3, bevelSize: .3, bevelSegments: 1, curveSegments: p.key === 'rotor' ? 40 : 4 });
+  // 只改端面 UV；側面仍保留每毫米取樣，疊片線距不隨工件大小改變。
+  const pos = geo.attributes.position, uv = geo.attributes.uv;
+  for (const g of geo.groups) if (g.materialIndex === 0) for (let i = g.start; i < g.start + g.count; i++) {
+    uv.setXY(i, (pos.getX(i) / 48 + .5) * .5 + (p.key === 'rotor' ? .5 : 0), pos.getY(i) / 48 + .5);
+  }
   geo.translate(0, 0, .3); geo.rotateX(-Math.PI / 2);   // 擠出方向 → +y；形狀 y → −z（再轉 180° 讓軛朝 +z）
   geo.rotateY(Math.PI); geo.computeVertexNormals(); geo.computeBoundingBox();
   GEO.set(p.key, geo);

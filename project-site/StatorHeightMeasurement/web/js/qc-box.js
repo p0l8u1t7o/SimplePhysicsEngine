@@ -15,6 +15,9 @@ import { laserProfiler, visionCamera } from '@core/models/vision.js';
 import { LAYOUT, BOX, slot, plateSize } from './spec.js';
 import { createLoad, partMesh } from './parts.js';
 import { createBase, createEnclosure } from './qc-common.js';
+import { qcDetails } from './equipment-details.js';
+import { carrier } from '@core/electrical/cable-routing.js';
+import { polished } from './finishes.js';
 
 export const QB = {
   nest: { z: 350, top: 980 }, hinge: 1020, meas: -350, arm: 330, post: 390,
@@ -27,7 +30,7 @@ export const QB = {
   camY: 1116,                   // 相機光軸高度（頂升後的列中心）
 };
 const flipMat = new THREE.MeshStandardMaterial({ color: 0x3f6f9a, roughness: .5, metalness: .35 });
-const lapped = new THREE.MeshStandardMaterial({ color: 0xd4d9de, roughness: .18, metalness: .95 });
+const lapped = polished;
 
 export function createBoxStation(scene, part, plan) {
   const S = LAYOUT.qc.station, vision = plan.sensor === 'vision';
@@ -58,6 +61,10 @@ export function createBoxStation(scene, part, plan) {
   }
   cylinder(root, 60, 100, [QB.post + 90, QB.hinge, 0], MAT.black, 'x', 28);
   const mot = block(root, [120, 120, 120], [QB.post + 200, QB.hinge, 0], MAT.steelBlue); mot.name = 'flip servo';
+  for (const s of [-1, 1]) {
+    block(root, [14, 170, 170], [s * (QB.post + 48), QB.hinge, 0], MAT.alu);
+    for (const y of [-58, 58]) for (const z of [-58, 58]) cylinder(root, 8, 8, [s * (QB.post + 59), QB.hinge + y, z], MAT.steel, 'x', 6);
+  }
   decal(root, 100, 40, [QB.post + 261, QB.hinge, 0], [0, Math.PI / 2, 0], ['SERVO'], { color: '#e8eef3', center: true });
 
   // ---- 翻轉臂（flip：繞 X 軸，原點在軸心）
@@ -117,6 +124,9 @@ export function createBoxStation(scene, part, plan) {
   const col = new THREE.Group(); col.name = 'gantry column'; col.position.set(G.park, 900, G.z); root.add(col);
   block(col, [120, 420, 120], [0, 104 + 210, 0], MAT.frame);
   const beamLen = G.beam[1] - G.beam[0];
+  // 拖鏈位於樑西側，保留翻轉臂上方的掃掠間隙。
+  const chain = carrier(col, 'gantry Y carrier', { origin: [-90, 570, -50], axis: [0, 0, 1], rise: [-1, 0, 0], min: 0, max: 930, radius: 26, width: 24, pitch: 24 });
+  block(col, [8, 32, beamLen - 10], [-45, G.y - 900, (G.beam[0] + G.beam[1]) / 2 - G.z], MAT.steelDark);
   block(col, [80, 70, beamLen], [0, G.y - 900, (G.beam[0] + G.beam[1]) / 2 - G.z], MAT.frame);
   const yCar = new THREE.Group(); yCar.name = 'gantry y'; col.add(yCar);
   block(yCar, [120, 50, 120], [0, G.y - 900 - 65, 0], MAT.steelDark);
@@ -164,5 +174,6 @@ export function createBoxStation(scene, part, plan) {
   const binParts = [0, 1, 2].map(k => { const m = partMesh(part, 'ng bin part'); m.rotation.z = Math.PI / 2; m.position.set(QB.bin.x - 40 + k * 40, QB.bin.top - 146 + 11, QB.bin.z); m.visible = false; binG.add(m); return m; });
 
   const enc = createEnclosure(root, { x0: QB.table[0] - 20, x1: QB.table[1] + 20, z0: QB.table[2] - 20, z1: QB.table[3] + 20 });
-  return { root, wallBeams, flip, boxCarrier, pads, holder, holderLoad, rails, xAxis, col, yCar, zCar, tool, pick, ngPart, laser, cam, back, pins, binParts, enc, slabs };
+  qcDetails(root, enc, slabs);
+  return { root, wallBeams, flip, boxCarrier, pads, holder, holderLoad, rails, xAxis, col, yCar, zCar, tool, pick, ngPart, laser, cam, back, pins, binParts, enc, slabs, chain };
 }

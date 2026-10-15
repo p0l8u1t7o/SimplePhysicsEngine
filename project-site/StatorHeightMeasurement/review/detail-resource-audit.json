@@ -1,0 +1,109 @@
+{
+  "note": "Node 場景統計；未計視錐剔除、多視窗與陰影 pass，不是 renderer.info 或 FPS",
+  "variants": [
+    {
+      "plan": "box-laser",
+      "part": "stator",
+      "scheduleIdentical": true,
+      "before": {
+        "maxTriangles": 189724,
+        "maxMaterialGroups": 789
+      },
+      "after": {
+        "maxTriangles": 146448,
+        "maxMaterialGroups": 933
+      }
+    },
+    {
+      "plan": "box-laser",
+      "part": "rotor",
+      "scheduleIdentical": true,
+      "before": {
+        "maxTriangles": 1328912,
+        "maxMaterialGroups": 759
+      },
+      "after": {
+        "maxTriangles": 1354972,
+        "maxMaterialGroups": 903
+      }
+    },
+    {
+      "plan": "box-vision",
+      "part": "stator",
+      "scheduleIdentical": true,
+      "before": {
+        "maxTriangles": 191594,
+        "maxMaterialGroups": 821
+      },
+      "after": {
+        "maxTriangles": 148318,
+        "maxMaterialGroups": 965
+      }
+    },
+    {
+      "plan": "box-vision",
+      "part": "rotor",
+      "scheduleIdentical": true,
+      "before": {
+        "maxTriangles": 1330326,
+        "maxMaterialGroups": 782
+      },
+      "after": {
+        "maxTriangles": 1356386,
+        "maxMaterialGroups": 926
+      }
+    },
+    {
+      "plan": "piece-laser",
+      "part": "stator",
+      "scheduleIdentical": true,
+      "before": {
+        "maxTriangles": 200668,
+        "maxMaterialGroups": 816
+      },
+      "after": {
+        "maxTriangles": 153290,
+        "maxMaterialGroups": 941
+      }
+    },
+    {
+      "plan": "piece-laser",
+      "part": "rotor",
+      "scheduleIdentical": true,
+      "before": {
+        "maxTriangles": 1343728,
+        "maxMaterialGroups": 788
+      },
+      "after": {
+        "maxTriangles": 1365642,
+        "maxMaterialGroups": 913
+      }
+    },
+    {
+      "plan": "piece-vision",
+      "part": "stator",
+      "scheduleIdentical": true,
+      "before": {
+        "maxTriangles": 201688,
+        "maxMaterialGroups": 827
+      },
+      "after": {
+        "maxTriangles": 154310,
+        "maxMaterialGroups": 952
+      }
+    },
+    {
+      "plan": "piece-vision",
+      "part": "rotor",
+      "scheduleIdentical": true,
+      "before": {
+        "maxTriangles": 1340876,
+        "maxMaterialGroups": 797
+      },
+      "after": {
+        "maxTriangles": 1362790,
+        "maxMaterialGroups": 922
+      }
+    }
+  ]
+}

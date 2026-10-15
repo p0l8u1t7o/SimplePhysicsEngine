@@ -2,6 +2,8 @@
 // DENSO HSR065 SCARA＋真空吸盤工具（定子吸齒部、轉子吸環面，換型換吸盤）、鐵盒滾筒輸送（空盒 2 格、擺盒位、滿盒 2 格）、
 // 圍籬與光柵、人機與三色燈。
 import * as THREE from 'three';
+import { unloaderDetails } from './equipment-details.js';
+import { polished } from './finishes.js';
 import { block, cylinder, rod, plate, decal } from '@core/geom/shapes.js';
 import { MAT } from '@core/geom/materials.js';
 import { createHSR065 } from '@core/models/robots/denso-hsr065.js';
@@ -87,7 +89,7 @@ export function createUnloader(scene, part) {
   const railY = CV.top - 25 - 150 + 20;                                   // 側樑底
   for (const x of [CV.x0 + 120, U.scara.x - 600, U.scara.x + 600, CV.x1 - 120]) for (const s of [-1, 1]) block(root, [60, railY - F.top, 50], [x, F.top + (railY - F.top) / 2, CV.z + s * (BOX.size[2] / 2 + 15 + 25)], MAT.steelDark);
   // 側導板（盒子不偏）
-  for (const s of [-1, 1]) block(root, [CV.x1 - CV.x0, 40, 6], [(CV.x0 + CV.x1) / 2, CV.top + 30, CV.z + s * (BOX.size[2] / 2 + 12)], MAT.alu);
+  for (const s of [-1, 1]) block(root, [CV.x1 - CV.x0, 40, 6], [(CV.x0 + CV.x1) / 2, CV.top + 30, CV.z + s * (BOX.size[2] / 2 + 12)], polished);
   // 止擋：W1、擺盒位、E1 的前緣與末端
   const stops = [1, 2, 3, 4].map(i => {
     const st = stopper.create({ blade: { size: [10, 24, 120] } });
@@ -119,5 +121,6 @@ export function createUnloader(scene, part) {
   plate(root, ['自動下料機（SCARA 擺盒）'], 700, 110, [U.scara.x, F.top + 1400, 1662], 0, { font: 'bold 40px "Noto Sans TC","Microsoft JhengHei",sans-serif' });
   block(root, [fx[1] - fx[0] + 40, 160, 40], [U.scara.x, F.top + 1400, 1640], MAT.yellow);
 
+  unloaderDetails(root, arm);
   return { root, arm, tool, conv, stops, pusher, lc, panel, tower };
 }

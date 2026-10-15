@@ -7,11 +7,13 @@ import { LAYOUT } from './spec.js';
 import { partGeometry, partMaterials } from './parts.js';
 import { visionCamera } from '@core/models/vision.js';
 import { barLight } from '@core/models/lights.js';
+import { stainless, polished, wornSteel } from './finishes.js';
+import { pressDetails, alignerDetails, pitDetails } from './equipment-details.js';
 
 const P = LAYOUT.press, LN = LAYOUT.lane, PIT = LAYOUT.pit;
 const orange = new THREE.MeshStandardMaterial({ color: 0xe46f22, roughness: .55, metalness: .25 });
 const dieMat = new THREE.MeshStandardMaterial({ color: 0x4b525a, roughness: .45, metalness: .6 });
-const coverMat = new THREE.MeshStandardMaterial({ color: 0x7d858c, roughness: .6, metalness: .55 });
+const coverMat = wornSteel;
 const pitMat = new THREE.MeshStandardMaterial({ color: 0x0c0e10, roughness: 1 });
 export const laneX = k => P.x + (k - (LN.n - 1) / 2) * LN.pitch;
 
@@ -32,16 +34,18 @@ export function createPress(scene, part) {
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) cylinder(slide, 34, 120, [P.x + sx * 600, P.bed + 780, zc + sz * 520], MAT.steel);
   // 正面的操作盤與銘牌
   block(root, [420, 600, 160], [x1 + 260, 1400, P.front - 200], MAT.cabinet);
-  plate(root, ['沖壓機（現場既有）'], 900, 150, [P.x, P.h - 300, zc + P.d / 2 + 2], 0);
+  plate(root, ['沖壓機（現場既有）'], 900, 150, [P.x, P.h - 300, zc + P.d / 2 + 20], 0);
 
   // ---- 出料滑道（現場既有，散料區）：從下模前緣往南伸出到整列單元；6 列，每列兩側導板
   const chute = new THREE.Group(); chute.name = 'chute'; chute.userData.noBom = '現場既有出料滑道'; scene.add(chute);
   const G0 = LN.guide[0], len = G0 - LN.z0, w = LN.n * LN.pitch + 40, zm = (LN.z0 + G0) / 2;
-  block(chute, [w, 12, len], [P.x, LN.y - 6, zm], MAT.steel);
-  for (let k = 0; k <= LN.n; k++) block(chute, [4, LN.wall, len], [P.x + (k - LN.n / 2) * LN.pitch, LN.y + LN.wall / 2, zm], MAT.steel);
+  block(chute, [w, 12, len], [P.x, LN.y - 6, zm], stainless);
+  for (let k = 0; k <= LN.n; k++) block(chute, [4, LN.wall, len], [P.x + (k - LN.n / 2) * LN.pitch, LN.y + LN.wall / 2, zm], polished);
   for (const s of [-1, 1]) block(chute, [50, LN.y - 24, 50], [P.x + s * (w / 2 - 25), 12 + (LN.y - 24) / 2, G0 - 60], MAT.steelDark);
 
   const aligner = createAligner(scene, part, w);
+  pressDetails(root, slide);
+  alignerDetails(aligner, part);
 
   // ---- 滑道上的工件：每列一個 InstancedMesh。
   // 位置序號 s＝m − fed（fed＝已送進定位座的顆數，可帶小數）：s ≤ −1 在定位座、−1～0 正從擋銷前滑進定位座、s ≥ 0 在通道裡排隊（上游間距較鬆）。
@@ -100,7 +104,8 @@ function createAligner(scene, part, w) {
     block(g, [24, 40, 24], [x, LN.y - 12 - 20 - 10, zE], MAT.black);
     // 側推缸：東側通道壁外，把工件推靠西側基準壁
     block(g, [30, 22, 26], [x + ch / 2 + 4 + 15, LN.y + 14, pickZ], MAT.black);
-    const pad = block(g, [4, 16, 18], [x + ch / 2 - 2 + 6, LN.y + 14, pickZ], MAT.yellow); pad.name = 'nest pusher'; pad.userData.on = 'nest pusher'; pushers.push({ pad, x0: x + ch / 2 + 4 });
+    // 圓形聚氨酯墊消除方墊角落；中心與側推行程沿用既有定位。
+    const pad = cylinder(g, 8, 4, [x + ch / 2 - 2 + 6, LN.y + 14, pickZ], MAT.yellow, 'x', 16); pad.name = 'nest pusher'; pad.userData.on = 'nest pusher'; pushers.push({ pad, x0: x + ch / 2 + 4 });
     // 到位／方向光纖（西側壁外兩支）＋指示燈
     for (const dz of [-6, 6]) block(g, [8, 8, 8], [x - ch / 2 - 8, LN.y + 12, pickZ + dz], MAT.black);
     const led = block(g, [6, 4, 6], [x - ch / 2 - 8, LN.y + 18, pickZ + 14], MAT.green.clone()); led.name = 'nest led'; leds.push(led);
@@ -148,13 +153,7 @@ export function createPit(scene) {
   }
   // 落料網格：菱形鋼網（斜向細桿）
   const gm = new THREE.Group(); gm.name = 'grate'; root.add(gm);
-  // 兩組 45° 斜桿：z − gz0 = ±(x − c)，裁到網格矩形內
-  for (const s of [1, -1]) for (let c = gx0 - (gz1 - gz0); c <= gx1 + (gz1 - gz0); c += 70) {
-    const xa = Math.max(gx0, s > 0 ? c : c - (gz1 - gz0)), xb = Math.min(gx1, s > 0 ? c + (gz1 - gz0) : c);
-    if (xb - xa < 15) continue;
-    const zOf = x => s > 0 ? gz0 + (x - c) : gz0 + (c - x);
-    rod(gm, [xa, T - 4, zOf(xa)], [xb, T - 4, zOf(xb)], 3, MAT.steelDark, 6);
-  }
+  pitDetails(root, gm);
   block(gm, [gx1 - gx0, T, 20], [(gx0 + gx1) / 2, T / 2, gz0 + 10], MAT.steelDark);
   block(gm, [gx1 - gx0, T, 20], [(gx0 + gx1) / 2, T / 2, gz1 - 10], MAT.steelDark);
   floorText(root, ['廢料坑蓋板區（可掀開）'], (PIT.x0 + PIT.x1) / 2 - 900, PIT.z1 - 220, 1600, 200);

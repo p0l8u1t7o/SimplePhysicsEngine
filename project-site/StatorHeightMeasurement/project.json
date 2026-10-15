@@ -7,7 +7,9 @@
     "quick": [
       "tools/verify.mjs"
     ],
-    "full": []
+    "full": [
+      "tools/verify-details.mjs"
+    ]
   },
   "variants": [
     {

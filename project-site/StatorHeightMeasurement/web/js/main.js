@@ -8,6 +8,7 @@ import { createProject, LAYOUT, PLANS, PARTS } from './project.js';
 import { QB } from './qc-box.js';
 import { QP } from './qc-piece.js';
 import { RATE, slot } from './spec.js';
+import { drawMeasurement } from './measurement-view.js';
 
 const qp = new URLSearchParams(location.search), movie = qp.has('movie');
 const $ = id => document.getElementById(id);
@@ -172,7 +173,7 @@ const nestCam = project.press.aligner.cam.camera;
 function render() {
   const show = source === 'auto' ? (player.T < project.t0 ? 'nest' : 'grid') : source;
   if (show === 'nest') workspace.renderCamera({ renderer, scene, camera: nestCam, title: '定位座相機：確認 6 個定位座的位置與方向', result: '偏差回饋給手臂；光纖到位＋方向感測為主、相機為輔', aspect: 2.4, marks: { time: player.T } });
-  else workspace.renderImage({ draw: (ctx, w, h) => drawGrid(ctx, w, h, player.T, true), title: `${plan.name}・量測結果`, result: ui.action.textContent, aspect: 1.6, time: player.T });
+  else workspace.renderImage({ draw: (ctx, w, h) => drawMeasurement(ctx, w, h, player.T, project, drawGrid), title: `${plan.name}・模擬量測`, result: ui.action.textContent, aspect: 1.6, time: player.T });
   workspace.renderOverview(renderer, scene);
 }
 

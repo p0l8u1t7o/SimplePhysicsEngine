@@ -15,6 +15,7 @@ import { createBoxStation, QB } from './qc-box.js';
 import { createPieceStation, QP } from './qc-piece.js';
 import { solve, atHeight, padAt, evalSegs, pickPlace } from './motion.js';
 import { partMesh } from './parts.js';
+import { createMeasurementEffects } from './measurement-effects.js';
 
 export { LAYOUT, PLANS, PARTS };
 export const STATIONS_BOX = ['沖壓出料・SCARA 擺盒', '換盒', '人員搬盒到品檢區', '翻盒到基準板', '高度量測', '剔除 NG・翻回鐵盒', '放行'];
@@ -48,6 +49,7 @@ export function createProject({ scene, plan: planKey = 'box-laser', part: partKe
   const un = createUnloader(scene, part);
   createQcRoom(scene);
   const st = plan.mode === 'box' ? createBoxStation(scene, part, plan) : createPieceStation(scene, part, plan);
+  const effects = createMeasurementEffects(st, part, plan);
 
   // 鐵盒：A＝上一盒滿盒（作業員搬去量）、B＝擺盒中、C／D＝空盒；逐顆方案另有出料空盒 E
   const boxes = {
@@ -104,8 +106,9 @@ export function createProject({ scene, plan: planKey = 'box-laser', part: partKe
 
   // ---------------------------------------------------------------- 時間軸（作業員、鐵盒、推車、量測站）
   const tl = createTimeline();
-  const info = tl.track('info', {});
-  const mark = (at, action, station, sub = '') => info.add(.01, {}, { at, action, station, sub });
+  // 說明標記：每個標記一條獨立時間軌（同一條軌只能往後排，時間較早的標記會被擠到後面）
+  let markN = 0;
+  const mark = (at, action, station, sub = '') => tl.track(`info ${markN++}`, {}).add(.01, {}, { at, action, station, sub });
   mark(tp(0), 'SCARA 從滑道末端吸起工件、交錯 180° 擺進鐵盒', 0, `沖壓機 6 列出料、每 ${C.toFixed(2)} s 一顆`);
   mark(tp(0) + uCycle(0).marks.lifted + .05, '散料經收斂導正段排成單列，擋銷分料送進定位座、側推靠基準壁', 0, '到位／方向光纖＋上方相機確認位置與方向（雙重保險）');
   mark(XS, '鐵盒擺滿：滿盒往東送出、空盒補進擺盒位', 1, `輸送線兩格空盒＋兩格滿盒緩衝，約 ${Math.round(4 * cap * C / 60)} 分鐘換一次人`);
@@ -194,13 +197,13 @@ export function createProject({ scene, plan: planKey = 'box-laser', part: partKe
     rw.add(0, { wall: 1 }, { at: t0, action: '雷射量盒壁位置：確認基準板與盒壁的間隙，超差就警報退盒', station: 3, sub: `基準板每邊離盒壁 ≥ ${Math.floor(gapPlate())} mm，四周導角＋浮動單元` });
     rw.add(.8, {}); rw.add(0, { wall: 0 });
     fl.add(1.2, { pl: 0 }, { at: rw.t + .1, action: '基準板座下降：研磨基準板壓到工件頂面', station: 3, sub: '浮動壓板讓每顆頂面都貼平' });
-    fl.add(.6, { cl: 1 }, { action: '側夾夾緊鐵盒' }); bq.add(0, { mode: 'clamped' }, { at: fl.t - .6 });
+    fl.add(.6, { cl: 1 }, { action: '側夾夾緊鐵盒', station: 3 }); bq.add(0, { mode: 'clamped' }, { at: fl.t - .6 });
     const f1 = fl.add(3, { th: 1 }, { action: '整盒翻轉 180°：工件頂面朝下落在基準板上', station: 3, sub: '伺服＋減速機，慢速 S 曲線' });
     fl.add(.4, { latch: 0 }, { action: '基準板座落在花崗岩定位座、解鎖', station: 3 });
     pr.add(0, { loc: 'holder' }, { at: f1.start + f1.dur });
     fl.add(1, { bl: QB.boxLift }, { action: '鐵盒上移離開工件', station: 3 });
     fl.add(1.5, { th: .5 });
-    fl.add(1.5, { th: 0, bl: 0 }, { action: '空鐵盒翻回入料座' });
+    fl.add(1.5, { th: 0, bl: 0 }, { action: '空鐵盒翻回入料座', station: 3 });
     fl.add(.4, { cl: 0 }); bq.add(0, { mode: 'nest' }, { at: fl.t });
     rw.add(.5, { back: plan.sensor === 'vision' ? 1 : 0 }, { at: fl.t });
     // 量測：逐列
@@ -238,8 +241,8 @@ export function createProject({ scene, plan: planKey = 'box-laser', part: partKe
     t = gt.t;
     fl.add(.4, { cl: 1 }, { at: t, action: '夾住空鐵盒、翻到量測區罩住工件', station: 5 }); bq.add(0, { mode: 'clamped' }, { at: t });
     fl.add(1.5, { th: .5, bl: QB.boxLift }); fl.add(1.5, { th: 1 });
-    fl.add(1, { bl: 0 }, { action: '鐵盒下降罩住工件' });
-    fl.add(.4, { latch: 1 }, { action: '基準板座上鎖' });
+    fl.add(1, { bl: 0 }, { action: '鐵盒下降罩住工件', station: 5 });
+    fl.add(.4, { latch: 1 }, { action: '基準板座上鎖', station: 5 });
     const f2 = fl.add(3, { th: 0 }, { action: '整組翻回：工件落回盒底', station: 5 });
     pr.add(0, { loc: 'box' }, { at: f2.start + f2.dur });
     fl.add(1, { pl: QB.park }, { action: '基準板座上升、鬆開側夾', station: 5 });
@@ -258,8 +261,11 @@ export function createProject({ scene, plan: planKey = 'box-laser', part: partKe
     pieceT = { t0, t1, tEnd, cyc, rate };
     tl.track('piece', {}).add(tEnd - t0, {}, { at: t0 });
     mark(t0, 'SCARA 從入料盒吸起第 1 顆、放上量測砧', 3, `每顆 ${cyc.toFixed(2)} s（${(60 / cyc).toFixed(1)} 顆／分 ≥ 18）`);
-    mark(t0 + 1.42, plan.sensor === 'vision' ? '兩組正交遠心相機拍側面輪廓' : '量測頭滑入：一點量頂面、一點量砧面', 4);
-    mark(t0 + (plan.sensor === 'vision' ? 1.99 : 2.2), 'OK 放回出料盒同一格、NG 丟進滑槽', 5);
+    // 第一顆循環的段落時間（與 pCycle 相同：移動、下降、吸放、上升，量測後再下降取回）
+    const M = { move: .32, down: .1, grip: .06 }, meas = plan.sensor === 'vision' ? .25 : .46;
+    const tMeas = 2 * M.move + 4 * M.down + 2 * M.grip, tBack = tMeas + meas + 2 * M.down + M.grip;
+    mark(t0 + tMeas, plan.sensor === 'vision' ? '兩組正交遠心相機拍側面輪廓' : '量測頭滑入：一點量頂面、一點量砧面', 4);
+    mark(t0 + tBack, 'OK 放回出料盒同一格、NG 丟進滑槽', 5);
     mark(t1, `快轉：其餘 ${cap - K} 顆（實際約 ${((cap - K) * cyc / 60).toFixed(1)} 分鐘）`, 4);
     return tEnd;
   }
@@ -360,6 +366,7 @@ export function createProject({ scene, plan: planKey = 'box-laser', part: partKe
     // ---- 量測站
     let hands = null;
     if (plan.mode === 'box') applyBox(t, smp); else applyPiece(t, smp);
+    effects.update(smp);
     // 作業員手部：抱盒時在盒子短邊、推車時在推把
     const handOn = obj => { const p = obj.root.position, yaw = obj.root.rotation.y || 0, c = Math.cos(yaw), s = Math.sin(yaw); return [-1, 1].map(k => V(p.x + k * 235 * c, p.y + 70, p.z - k * 235 * s)); };
     const outB = boxes[outBox];
@@ -407,6 +414,7 @@ export function createProject({ scene, plan: planKey = 'box-laser', part: partKe
     const G = smp.gantry;
     R.xAxis.set({ pos: G.x - 100 });
     R.yCar.position.z = (G.y - S.z) - QB.gantry.z;
+    R.chain.set(R.yCar.position.z + 50);
     R.zCar.position.y = G.zt - 900;
     R.col.position.x = G.x;
     R.pick.position.y = -40 * G.ext;

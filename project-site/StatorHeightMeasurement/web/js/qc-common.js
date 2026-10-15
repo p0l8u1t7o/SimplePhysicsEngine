@@ -4,8 +4,9 @@ import { block, cylinder, plate, floorText } from '@core/geom/shapes.js';
 import { MAT } from '@core/geom/materials.js';
 import { hmi, signalTower, estop } from '@core/models/indicators.js';
 import { LAYOUT } from './spec.js';
+import { granite } from './finishes.js';
 
-export const graniteMat = new THREE.MeshStandardMaterial({ color: 0x2b2e33, roughness: .5, metalness: .05 });
+export const graniteMat = granite;
 export const tableMat = new THREE.MeshStandardMaterial({ color: 0x8b99a6, roughness: .55, metalness: .35 });
 export const polyMat = new THREE.MeshStandardMaterial({ color: 0xcfe3f2, roughness: .1, metalness: 0, transparent: true, opacity: .1, depthWrite: false, side: THREE.DoubleSide });
 const isoMat = new THREE.MeshStandardMaterial({ color: 0x23262b, roughness: .8 });
@@ -25,6 +26,13 @@ export function createQcRoom(scene) {
   block(root, [t + 20, 80, Q.door[1] - Q.door[0] + 60], [Q.x0, H + 10, (Q.door[0] + Q.door[1]) / 2], MAT.frame);
   plate(root, ['品檢區（低振動・低噪音）'], 1000, 140, [Q.x0 - 36, H - 200, (Q.door[0] + Q.door[1]) / 2], -Math.PI / 2);
   floorText(root, ['品檢區：離沖壓機約 10 m，不在廢料坑蓋板上'], (Q.x0 + Q.x1) / 2, Q.z1 - 260, 2600, 220);
+  // 不加陰影光源：用發光擴散罩表現室內燈具，維持手機繪製預算。
+  const diffuser = new THREE.MeshStandardMaterial({ color: 0xe7f1fc, emissive: 0xd7e9ff, emissiveIntensity: .8, roughness: .5 });
+  for (const z of [-1300, 1400]) {
+    block(root, [3400, 50, 100], [5200, 2640, z], MAT.frame);
+    block(root, [3300, 5, 80], [5200, 2612, z], diffuser);
+    for (const x of [3600, 6800]) cylinder(root, 4, 170, [x, 2750, z], MAT.steel, 'y', 8);
+  }
   return { root };
 }
 

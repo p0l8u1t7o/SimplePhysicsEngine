@@ -64,3 +64,20 @@ node ../../core/tools/check.mjs "StatorHeightMeasurement" --quick  # 部署前�
 | `web/js/project.js` | 場景組裝、全場時間軸、`apply(t)`、空間檢核、檢查設定 |
 | `web/js/main.js` | 舞台、視角、方案切換、量測結果格位圖、播放列 |
 | `tools/verify.mjs` | 本站製程檢查（四方案 × 兩種工件） |
+| `web/js/finishes.js` | 共用拉絲、磨耗、花崗岩與沖壓端面程序貼圖 |
+| `web/js/equipment-details.js` | 沖床、整列器、廢料坑、下料機與品檢設備外觀細節 |
+| `web/js/measurement-effects.js` | 隨時間定位的雷射掃描線、共焦光點與背光亮度 |
+| `web/js/measurement-view.js` | 量測視窗的高度輪廓、側影與雙點讀值；保留 OK／NG 格位圖 |
+| `tools/verify-details.mjs` | 八組方案的反向跳時、量測視窗與光學提示檢查 |
+
+## 外觀細節補強
+
+2026-10-16 的細節補強以 `2a6704e` 的整列器與小型基準板配置為準，保留原排程與運動位置。材質、護罩、配管、折邊鐵盒及量測提示詳見 [補強與驗證報告](review/detail-pass.md)。量測視窗顯示既有模擬結果，並非實際相機影像或感測器精度驗證。
+
+在庫根目錄執行新增檢查：
+
+```powershell
+node --import ./core/tools/register.mjs project-site/StatorHeightMeasurement/tools/verify-details.mjs
+```
+
+本輪排程指紋零差異、快速檢查 10/10（干涉與閃爍 0）；四尺寸 UI 測試通過，手機幀率 40.8 fps（補強前 28.5 fps；`core/tools/perf-check.mjs`）。

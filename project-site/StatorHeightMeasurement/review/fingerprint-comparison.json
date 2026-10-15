@@ -1,0 +1,30 @@
+{
+  "ok": true,
+  "variants": [
+    {
+      "variant": "預設",
+      "ok": true,
+      "diffs": []
+    },
+    {
+      "variant": "整盒視覺",
+      "ok": true,
+      "diffs": []
+    },
+    {
+      "variant": "逐顆雷射",
+      "ok": true,
+      "diffs": []
+    },
+    {
+      "variant": "逐顆視覺",
+      "ok": true,
+      "diffs": []
+    },
+    {
+      "variant": "整盒雷射・轉子",
+      "ok": true,
+      "diffs": []
+    }
+  ]
+}

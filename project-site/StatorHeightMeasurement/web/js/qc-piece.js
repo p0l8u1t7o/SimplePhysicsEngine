@@ -12,6 +12,7 @@ import { LAYOUT, BOX } from './spec.js';
 import { partMesh } from './parts.js';
 import { createSuctionTool } from './unloader.js';
 import { createBase, createEnclosure } from './qc-common.js';
+import { qcDetails, armHoses } from './equipment-details.js';
 
 export const QP = {
   // 取放點都在 SCARA 半徑 330～620 mm 的環帶內（J2 不進 >120° 的本體干涉區）
@@ -74,6 +75,7 @@ export function createPieceStation(scene, part, plan) {
   block(root, [320, 10, 320], [A.x, A.y - 5, A.z], MAT.alu);
   const arm = createHSR065(); arm.root.position.set(A.x, A.y, A.z); root.add(arm.root); tagPart(arm.root, 'P-00205');
   const tool = createSuctionTool(arm.flange, part, 'qc tool');
+  armHoses(arm);
 
   // ---- 量測：雷射位移頭滑台／遠心相機
   let heads = null, beams = [], cams = [], lights = [];
@@ -109,5 +111,6 @@ export function createPieceStation(scene, part, plan) {
     lights = [la, lb];
   }
   const enc = createEnclosure(root, { x0: QP.table[0] - 20, x1: QP.table[1] + 20, z0: QP.table[2] - 20, z1: QP.table[3] + 20, sides: false });
+  qcDetails(root, enc, slabs);
   return { root, wallBeams, arm, tool, onAnvil, heads, beams, cams, lights, binParts, enc, slabs };
 }
