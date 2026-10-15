@@ -1,0 +1,39 @@
+{
+  "title": "定子轉子自動下料與高度檢測",
+  "summary": "沖壓機出口 SCARA 自動擺盒，品檢區整盒翻轉／逐顆量測高度（雷射與視覺四方案）",
+  "order": 13,
+  "coreVersion": "1.14.0",
+  "checks": {
+    "quick": [
+      "tools/verify.mjs"
+    ],
+    "full": []
+  },
+  "variants": [
+    {
+      "name": "整盒視覺",
+      "params": {
+        "plan": "box-vision"
+      }
+    },
+    {
+      "name": "逐顆雷射",
+      "params": {
+        "plan": "piece-laser"
+      }
+    },
+    {
+      "name": "逐顆視覺",
+      "params": {
+        "plan": "piece-vision"
+      }
+    },
+    {
+      "name": "整盒雷射・轉子",
+      "params": {
+        "plan": "box-laser",
+        "part": "rotor"
+      }
+    }
+  ]
+}

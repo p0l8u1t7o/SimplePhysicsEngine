@@ -1,0 +1,78 @@
+{
+  "ok": true,
+  "rows": [
+    {
+      "plan": "box-laser",
+      "part": "stator",
+      "total": 73,
+      "qcPerBox": 0.69,
+      "rate": 203.4,
+      "ng": 2,
+      "placeErr": 0
+    },
+    {
+      "plan": "box-laser",
+      "part": "rotor",
+      "total": 68.6,
+      "qcPerBox": 0.61,
+      "rate": 73.2,
+      "ng": 2,
+      "placeErr": 0
+    },
+    {
+      "plan": "box-vision",
+      "part": "stator",
+      "total": 82.3,
+      "qcPerBox": 0.84,
+      "rate": 166,
+      "ng": 2,
+      "placeErr": 0
+    },
+    {
+      "plan": "box-vision",
+      "part": "rotor",
+      "total": 75.1,
+      "qcPerBox": 0.72,
+      "rate": 62.2,
+      "ng": 2,
+      "placeErr": 0
+    },
+    {
+      "plan": "piece-laser",
+      "part": "stator",
+      "total": 70,
+      "qcPerBox": 6.07,
+      "rate": 23.1,
+      "ng": 2,
+      "placeErr": 0
+    },
+    {
+      "plan": "piece-laser",
+      "part": "rotor",
+      "total": 70,
+      "qcPerBox": 1.95,
+      "rate": 23.1,
+      "ng": 2,
+      "placeErr": 0
+    },
+    {
+      "plan": "piece-vision",
+      "part": "stator",
+      "total": 69,
+      "qcPerBox": 5.6,
+      "rate": 25,
+      "ng": 2,
+      "placeErr": 0
+    },
+    {
+      "plan": "piece-vision",
+      "part": "rotor",
+      "total": 69,
+      "qcPerBox": 1.8,
+      "rate": 25,
+      "ng": 2,
+      "placeErr": 0
+    }
+  ],
+  "failures": []
+}

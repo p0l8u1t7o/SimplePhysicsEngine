@@ -1,0 +1,269 @@
+{
+  "ok": true,
+  "variants": [
+    {
+      "variant": "預設",
+      "params": {},
+      "ok": true,
+      "count": 7,
+      "failures": [],
+      "rows": [
+        {
+          "group": "下料",
+          "name": "節拍：SCARA 取放一顆 ≤ 3.33 s",
+          "ok": true,
+          "value": "1.52 s／3.33 s"
+        },
+        {
+          "group": "下料",
+          "name": "調整腳全部落在蓋板支撐樑上",
+          "ok": true,
+          "value": "6 支"
+        },
+        {
+          "group": "下料",
+          "name": "不壓在落料網格上",
+          "ok": true,
+          "value": "網格保持可落料"
+        },
+        {
+          "group": "下料",
+          "name": "空盒＋滿盒緩衝（人員多久換一次盒）",
+          "ok": true,
+          "value": "31 分鐘"
+        },
+        {
+          "group": "量測",
+          "name": "品檢站離沖壓機 ≥ 8 m、不在廢料坑上",
+          "ok": true,
+          "value": "10.3 m"
+        },
+        {
+          "group": "量測",
+          "name": "量測產能 ≥ 18 顆／分",
+          "ok": true,
+          "value": "203.4 顆／分（每盒 0.7 分）"
+        },
+        {
+          "group": "量測",
+          "name": "NG 全部被剔除",
+          "ok": true,
+          "value": "2 顆"
+        }
+      ]
+    },
+    {
+      "variant": "整盒視覺",
+      "params": {
+        "plan": "box-vision"
+      },
+      "ok": true,
+      "count": 7,
+      "failures": [],
+      "rows": [
+        {
+          "group": "下料",
+          "name": "節拍：SCARA 取放一顆 ≤ 3.33 s",
+          "ok": true,
+          "value": "1.52 s／3.33 s"
+        },
+        {
+          "group": "下料",
+          "name": "調整腳全部落在蓋板支撐樑上",
+          "ok": true,
+          "value": "6 支"
+        },
+        {
+          "group": "下料",
+          "name": "不壓在落料網格上",
+          "ok": true,
+          "value": "網格保持可落料"
+        },
+        {
+          "group": "下料",
+          "name": "空盒＋滿盒緩衝（人員多久換一次盒）",
+          "ok": true,
+          "value": "31 分鐘"
+        },
+        {
+          "group": "量測",
+          "name": "品檢站離沖壓機 ≥ 8 m、不在廢料坑上",
+          "ok": true,
+          "value": "10.3 m"
+        },
+        {
+          "group": "量測",
+          "name": "量測產能 ≥ 18 顆／分",
+          "ok": true,
+          "value": "166.0 顆／分（每盒 0.8 分）"
+        },
+        {
+          "group": "量測",
+          "name": "NG 全部被剔除",
+          "ok": true,
+          "value": "2 顆"
+        }
+      ]
+    },
+    {
+      "variant": "逐顆雷射",
+      "params": {
+        "plan": "piece-laser"
+      },
+      "ok": true,
+      "count": 7,
+      "failures": [],
+      "rows": [
+        {
+          "group": "下料",
+          "name": "節拍：SCARA 取放一顆 ≤ 3.33 s",
+          "ok": true,
+          "value": "1.52 s／3.33 s"
+        },
+        {
+          "group": "下料",
+          "name": "調整腳全部落在蓋板支撐樑上",
+          "ok": true,
+          "value": "6 支"
+        },
+        {
+          "group": "下料",
+          "name": "不壓在落料網格上",
+          "ok": true,
+          "value": "網格保持可落料"
+        },
+        {
+          "group": "下料",
+          "name": "空盒＋滿盒緩衝（人員多久換一次盒）",
+          "ok": true,
+          "value": "31 分鐘"
+        },
+        {
+          "group": "量測",
+          "name": "品檢站離沖壓機 ≥ 8 m、不在廢料坑上",
+          "ok": true,
+          "value": "10.3 m"
+        },
+        {
+          "group": "量測",
+          "name": "量測產能 ≥ 18 顆／分",
+          "ok": true,
+          "value": "23.1 顆／分（每盒 6.1 分）"
+        },
+        {
+          "group": "量測",
+          "name": "NG 全部被剔除",
+          "ok": true,
+          "value": "2 顆"
+        }
+      ]
+    },
+    {
+      "variant": "逐顆視覺",
+      "params": {
+        "plan": "piece-vision"
+      },
+      "ok": true,
+      "count": 7,
+      "failures": [],
+      "rows": [
+        {
+          "group": "下料",
+          "name": "節拍：SCARA 取放一顆 ≤ 3.33 s",
+          "ok": true,
+          "value": "1.52 s／3.33 s"
+        },
+        {
+          "group": "下料",
+          "name": "調整腳全部落在蓋板支撐樑上",
+          "ok": true,
+          "value": "6 支"
+        },
+        {
+          "group": "下料",
+          "name": "不壓在落料網格上",
+          "ok": true,
+          "value": "網格保持可落料"
+        },
+        {
+          "group": "下料",
+          "name": "空盒＋滿盒緩衝（人員多久換一次盒）",
+          "ok": true,
+          "value": "31 分鐘"
+        },
+        {
+          "group": "量測",
+          "name": "品檢站離沖壓機 ≥ 8 m、不在廢料坑上",
+          "ok": true,
+          "value": "10.3 m"
+        },
+        {
+          "group": "量測",
+          "name": "量測產能 ≥ 18 顆／分",
+          "ok": true,
+          "value": "25.0 顆／分（每盒 5.6 分）"
+        },
+        {
+          "group": "量測",
+          "name": "NG 全部被剔除",
+          "ok": true,
+          "value": "2 顆"
+        }
+      ]
+    },
+    {
+      "variant": "整盒雷射・轉子",
+      "params": {
+        "plan": "box-laser",
+        "part": "rotor"
+      },
+      "ok": true,
+      "count": 7,
+      "failures": [],
+      "rows": [
+        {
+          "group": "下料",
+          "name": "節拍：SCARA 取放一顆 ≤ 3.33 s",
+          "ok": true,
+          "value": "1.52 s／3.33 s"
+        },
+        {
+          "group": "下料",
+          "name": "調整腳全部落在蓋板支撐樑上",
+          "ok": true,
+          "value": "6 支"
+        },
+        {
+          "group": "下料",
+          "name": "不壓在落料網格上",
+          "ok": true,
+          "value": "網格保持可落料"
+        },
+        {
+          "group": "下料",
+          "name": "空盒＋滿盒緩衝（人員多久換一次盒）",
+          "ok": true,
+          "value": "10 分鐘"
+        },
+        {
+          "group": "量測",
+          "name": "品檢站離沖壓機 ≥ 8 m、不在廢料坑上",
+          "ok": true,
+          "value": "10.3 m"
+        },
+        {
+          "group": "量測",
+          "name": "量測產能 ≥ 18 顆／分",
+          "ok": true,
+          "value": "73.2 顆／分（每盒 0.6 分）"
+        },
+        {
+          "group": "量測",
+          "name": "NG 全部被剔除",
+          "ok": true,
+          "value": "2 顆"
+        }
+      ]
+    }
+  ]
+}

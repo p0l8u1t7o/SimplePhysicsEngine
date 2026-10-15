@@ -1,0 +1,54 @@
+{
+  "ok": true,
+  "variants": [
+    {
+      "variant": "預設",
+      "params": {},
+      "ok": true,
+      "objects": 767,
+      "samples": 40,
+      "failures": []
+    },
+    {
+      "variant": "整盒視覺",
+      "params": {
+        "plan": "box-vision"
+      },
+      "ok": true,
+      "objects": 831,
+      "samples": 40,
+      "failures": []
+    },
+    {
+      "variant": "逐顆雷射",
+      "params": {
+        "plan": "piece-laser"
+      },
+      "ok": true,
+      "objects": 795,
+      "samples": 40,
+      "failures": []
+    },
+    {
+      "variant": "逐顆視覺",
+      "params": {
+        "plan": "piece-vision"
+      },
+      "ok": true,
+      "objects": 813,
+      "samples": 40,
+      "failures": []
+    },
+    {
+      "variant": "整盒雷射・轉子",
+      "params": {
+        "plan": "box-laser",
+        "part": "rotor"
+      },
+      "ok": true,
+      "objects": 745,
+      "samples": 40,
+      "failures": []
+    }
+  ]
+}
