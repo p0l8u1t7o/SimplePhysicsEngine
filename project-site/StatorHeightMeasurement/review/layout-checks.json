@@ -5,7 +5,7 @@
       "variant": "預設",
       "params": {},
       "ok": true,
-      "count": 7,
+      "count": 10,
       "failures": [],
       "rows": [
         {
@@ -30,7 +30,7 @@
           "group": "下料",
           "name": "空盒＋滿盒緩衝（人員多久換一次盒）",
           "ok": true,
-          "value": "31 分鐘"
+          "value": "32 分鐘"
         },
         {
           "group": "量測",
@@ -42,13 +42,31 @@
           "group": "量測",
           "name": "量測產能 ≥ 18 顆／分",
           "ok": true,
-          "value": "203.4 顆／分（每盒 0.7 分）"
+          "value": "194.6 顆／分（每盒 0.7 分）"
         },
         {
           "group": "量測",
           "name": "NG 全部被剔除",
           "ok": true,
           "value": "2 顆"
+        },
+        {
+          "group": "整列",
+          "name": "相機架立柱在手臂掃過範圍外（> 650＋工具半徑）",
+          "ok": true,
+          "value": "770 mm"
+        },
+        {
+          "group": "擺盒",
+          "name": "同列間隙 ≥ 1.5 mm（大於盒子定位後的殘差）",
+          "ok": true,
+          "value": "1.5 mm"
+        },
+        {
+          "group": "翻盒",
+          "name": "基準板離盒壁 ≥ 13 mm（折板盒公差 ±3＋浮動）",
+          "ok": true,
+          "value": "16.8 mm／邊"
         }
       ]
     },
@@ -58,7 +76,7 @@
         "plan": "box-vision"
       },
       "ok": true,
-      "count": 7,
+      "count": 10,
       "failures": [],
       "rows": [
         {
@@ -83,7 +101,7 @@
           "group": "下料",
           "name": "空盒＋滿盒緩衝（人員多久換一次盒）",
           "ok": true,
-          "value": "31 分鐘"
+          "value": "32 分鐘"
         },
         {
           "group": "量測",
@@ -95,13 +113,31 @@
           "group": "量測",
           "name": "量測產能 ≥ 18 顆／分",
           "ok": true,
-          "value": "166.0 顆／分（每盒 0.8 分）"
+          "value": "156.8 顆／分（每盒 0.9 分）"
         },
         {
           "group": "量測",
           "name": "NG 全部被剔除",
           "ok": true,
           "value": "2 顆"
+        },
+        {
+          "group": "整列",
+          "name": "相機架立柱在手臂掃過範圍外（> 650＋工具半徑）",
+          "ok": true,
+          "value": "770 mm"
+        },
+        {
+          "group": "擺盒",
+          "name": "同列間隙 ≥ 1.5 mm（大於盒子定位後的殘差）",
+          "ok": true,
+          "value": "1.5 mm"
+        },
+        {
+          "group": "翻盒",
+          "name": "基準板離盒壁 ≥ 13 mm（折板盒公差 ±3＋浮動）",
+          "ok": true,
+          "value": "16.8 mm／邊"
         }
       ]
     },
@@ -111,7 +147,7 @@
         "plan": "piece-laser"
       },
       "ok": true,
-      "count": 7,
+      "count": 10,
       "failures": [],
       "rows": [
         {
@@ -136,7 +172,7 @@
           "group": "下料",
           "name": "空盒＋滿盒緩衝（人員多久換一次盒）",
           "ok": true,
-          "value": "31 分鐘"
+          "value": "32 分鐘"
         },
         {
           "group": "量測",
@@ -148,13 +184,31 @@
           "group": "量測",
           "name": "量測產能 ≥ 18 顆／分",
           "ok": true,
-          "value": "23.1 顆／分（每盒 6.1 分）"
+          "value": "23.1 顆／分（每盒 6.2 分）"
         },
         {
           "group": "量測",
           "name": "NG 全部被剔除",
           "ok": true,
           "value": "2 顆"
+        },
+        {
+          "group": "整列",
+          "name": "相機架立柱在手臂掃過範圍外（> 650＋工具半徑）",
+          "ok": true,
+          "value": "770 mm"
+        },
+        {
+          "group": "擺盒",
+          "name": "同列間隙 ≥ 1.5 mm（大於盒子定位後的殘差）",
+          "ok": true,
+          "value": "1.5 mm"
+        },
+        {
+          "group": "翻盒",
+          "name": "基準板離盒壁 ≥ 13 mm（折板盒公差 ±3＋浮動）",
+          "ok": true,
+          "value": "16.8 mm／邊"
         }
       ]
     },
@@ -164,7 +218,7 @@
         "plan": "piece-vision"
       },
       "ok": true,
-      "count": 7,
+      "count": 10,
       "failures": [],
       "rows": [
         {
@@ -189,7 +243,7 @@
           "group": "下料",
           "name": "空盒＋滿盒緩衝（人員多久換一次盒）",
           "ok": true,
-          "value": "31 分鐘"
+          "value": "32 分鐘"
         },
         {
           "group": "量測",
@@ -201,13 +255,31 @@
           "group": "量測",
           "name": "量測產能 ≥ 18 顆／分",
           "ok": true,
-          "value": "25.0 顆／分（每盒 5.6 分）"
+          "value": "25.0 顆／分（每盒 5.8 分）"
         },
         {
           "group": "量測",
           "name": "NG 全部被剔除",
           "ok": true,
           "value": "2 顆"
+        },
+        {
+          "group": "整列",
+          "name": "相機架立柱在手臂掃過範圍外（> 650＋工具半徑）",
+          "ok": true,
+          "value": "770 mm"
+        },
+        {
+          "group": "擺盒",
+          "name": "同列間隙 ≥ 1.5 mm（大於盒子定位後的殘差）",
+          "ok": true,
+          "value": "1.5 mm"
+        },
+        {
+          "group": "翻盒",
+          "name": "基準板離盒壁 ≥ 13 mm（折板盒公差 ±3＋浮動）",
+          "ok": true,
+          "value": "16.8 mm／邊"
         }
       ]
     },
@@ -218,7 +290,7 @@
         "part": "rotor"
       },
       "ok": true,
-      "count": 7,
+      "count": 10,
       "failures": [],
       "rows": [
         {
@@ -243,7 +315,7 @@
           "group": "下料",
           "name": "空盒＋滿盒緩衝（人員多久換一次盒）",
           "ok": true,
-          "value": "10 分鐘"
+          "value": "9 分鐘"
         },
         {
           "group": "量測",
@@ -255,13 +327,31 @@
           "group": "量測",
           "name": "量測產能 ≥ 18 顆／分",
           "ok": true,
-          "value": "73.2 顆／分（每盒 0.6 分）"
+          "value": "63.5 顆／分（每盒 0.6 分）"
         },
         {
           "group": "量測",
           "name": "NG 全部被剔除",
           "ok": true,
           "value": "2 顆"
+        },
+        {
+          "group": "整列",
+          "name": "相機架立柱在手臂掃過範圍外（> 650＋工具半徑）",
+          "ok": true,
+          "value": "770 mm"
+        },
+        {
+          "group": "擺盒",
+          "name": "同列間隙 ≥ 1.5 mm（大於盒子定位後的殘差）",
+          "ok": true,
+          "value": "4.0 mm"
+        },
+        {
+          "group": "翻盒",
+          "name": "基準板離盒壁 ≥ 13 mm（折板盒公差 ±3＋浮動）",
+          "ok": true,
+          "value": "19.8 mm／邊"
         }
       ]
     }

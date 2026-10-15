@@ -5,12 +5,12 @@
       "variant": "預設",
       "params": {},
       "ok": true,
-      "meshes": 576,
-      "moving": 162,
-      "joints": 59,
-      "samples": 406,
-      "dt": 0.18,
-      "total": 72.99999999999994,
+      "meshes": 671,
+      "moving": 183,
+      "joints": 71,
+      "samples": 401,
+      "dt": 0.19,
+      "total": 76.09999999999997,
       "dynamic": [],
       "static": [],
       "zfight": [],
@@ -20,7 +20,7 @@
           "maxX": -3830,
           "minY": 12,
           "maxY": 2140,
-          "minZ": 323,
+          "minZ": 245,
           "maxZ": 1831
         }
       },
@@ -33,7 +33,7 @@
         "移動件在指定導軌上滑行（導軌 userData.guide，移動件 userData.on）"
       ],
       "thresholds": {},
-      "scope": "OBB 分離軸（穿插門檻 2 mm，可依模組調整，圓柱為保守外框、曲面以頂點複核）；動態每 0.18 s 取樣；重合面檢查盒、倒角外殼、圓柱端面與平面，距離 < 0.6 mm、重疊 > 25 mm²、外觀不同者，取 11 個時刻。不是連續碰撞證明。"
+      "scope": "OBB 分離軸（穿插門檻 2 mm，可依模組調整，圓柱為保守外框、曲面以頂點複核）；動態每 0.19 s 取樣；重合面檢查盒、倒角外殼、圓柱端面與平面，距離 < 0.6 mm、重疊 > 25 mm²、外觀不同者，取 11 個時刻。不是連續碰撞證明。"
     },
     {
       "variant": "整盒視覺",
@@ -41,12 +41,12 @@
         "plan": "box-vision"
       },
       "ok": true,
-      "meshes": 606,
-      "moving": 183,
-      "joints": 80,
-      "samples": 392,
-      "dt": 0.21,
-      "total": 82.30000000000001,
+      "meshes": 704,
+      "moving": 204,
+      "joints": 94,
+      "samples": 395,
+      "dt": 0.22,
+      "total": 86.80000000000001,
       "dynamic": [],
       "static": [],
       "zfight": [],
@@ -56,7 +56,7 @@
           "maxX": -3830,
           "minY": 12,
           "maxY": 2140,
-          "minZ": 284,
+          "minZ": 311,
           "maxZ": 1831
         }
       },
@@ -69,7 +69,7 @@
         "移動件在指定導軌上滑行（導軌 userData.guide，移動件 userData.on）"
       ],
       "thresholds": {},
-      "scope": "OBB 分離軸（穿插門檻 2 mm，可依模組調整，圓柱為保守外框、曲面以頂點複核）；動態每 0.21 s 取樣；重合面檢查盒、倒角外殼、圓柱端面與平面，距離 < 0.6 mm、重疊 > 25 mm²、外觀不同者，取 11 個時刻。不是連續碰撞證明。"
+      "scope": "OBB 分離軸（穿插門檻 2 mm，可依模組調整，圓柱為保守外框、曲面以頂點複核）；動態每 0.22 s 取樣；重合面檢查盒、倒角外殼、圓柱端面與平面，距離 < 0.6 mm、重疊 > 25 mm²、外觀不同者，取 11 個時刻。不是連續碰撞證明。"
     },
     {
       "variant": "逐顆雷射",
@@ -77,12 +77,12 @@
         "plan": "piece-laser"
       },
       "ok": true,
-      "meshes": 608,
-      "moving": 191,
-      "joints": 57,
-      "samples": 390,
+      "meshes": 697,
+      "moving": 203,
+      "joints": 68,
+      "samples": 395,
       "dt": 0.18,
-      "total": 70.03465579938818,
+      "total": 70.9355538930847,
       "dynamic": [],
       "static": [],
       "zfight": [],
@@ -92,7 +92,7 @@
           "maxX": -3830,
           "minY": 12,
           "maxY": 2140,
-          "minZ": 323,
+          "minZ": 237,
           "maxZ": 1831
         }
       },
@@ -113,12 +113,12 @@
         "plan": "piece-vision"
       },
       "ok": true,
-      "meshes": 619,
-      "moving": 186,
-      "joints": 56,
-      "samples": 407,
+      "meshes": 708,
+      "moving": 200,
+      "joints": 69,
+      "samples": 412,
       "dt": 0.17,
-      "total": 69.03465579938818,
+      "total": 69.9355538930847,
       "dynamic": [],
       "static": [],
       "zfight": [],
@@ -128,7 +128,7 @@
           "maxX": -3830,
           "minY": 12,
           "maxY": 2140,
-          "minZ": 284,
+          "minZ": 290,
           "maxZ": 1831
         }
       },
@@ -150,12 +150,12 @@
         "part": "rotor"
       },
       "ok": true,
-      "meshes": 576,
-      "moving": 162,
-      "joints": 59,
-      "samples": 404,
+      "meshes": 671,
+      "moving": 182,
+      "joints": 71,
+      "samples": 409,
       "dt": 0.17,
-      "total": 68.59999999999995,
+      "total": 69.49999999999996,
       "dynamic": [],
       "static": [],
       "zfight": [],
@@ -165,7 +165,7 @@
           "maxX": -3830,
           "minY": 12,
           "maxY": 2140,
-          "minZ": 328,
+          "minZ": 343,
           "maxZ": 1831
         }
       },

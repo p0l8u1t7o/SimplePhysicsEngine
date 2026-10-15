@@ -6,9 +6,9 @@ import { floor } from '@core/geom/environment.js';
 import { block, floorText } from '@core/geom/shapes.js';
 import { MAT } from '@core/geom/materials.js';
 import { createTimeline, smooth, clamp01 } from '@core/anim/track.js';
-import { LAYOUT, PARTS, PLANS, RATE, BOX, CYCLE, capacity, slot, heightOf, isNG, ngList } from './spec.js';
+import { LAYOUT, PARTS, PLANS, RATE, BOX, CYCLE, capacity, slot, heightOf, isNG, ngList, plateSize } from './spec.js';
 import { createPress, createPit, laneX } from './press.js';
-import { createUnloader } from './unloader.js';
+import { createUnloader, SENSOR } from './unloader.js';
 import { createBox, createCart, createOperator } from './boxes.js';
 import { createQcRoom } from './qc-common.js';
 import { createBoxStation, QB } from './qc-box.js';
@@ -25,6 +25,9 @@ const U = LAYOUT.unloader, CV = U.conveyor, S = LAYOUT.qc.station;
 export function createProject({ scene, plan: planKey = 'box-laser', part: partKey = 'stator' } = {}) {
   const plan = PLANS[planKey] || PLANS['box-laser'], part = PARTS[partKey] || PARTS.stator, cap = capacity(part);
   const STATIONS = plan.mode === 'box' ? STATIONS_BOX : STATIONS_PIECE;
+  // 基準板離盒壁的最小間隙（每邊，盒子標稱內尺寸）、同列工件間隙（交錯擺放時軛與齒靴錯開）
+  const PS = plateSize(part), gapPlate = () => Math.min((BOX.size[0] - 2 * BOX.wall - PS.x) / 2, (BOX.size[2] - 2 * BOX.wall - PS.z) / 2);
+  const gapRow = part.grid.alt ? part.grid.pitch - (part.yoke[0] + part.tip[0]) / 2 : part.grid.pitch - part.w;
 
   // ---------------------------------------------------------------- 場景
   const f = floor(scene, { size: [18000, 7600], center: [0, 0], cell: 500 });
@@ -61,24 +64,42 @@ export function createProject({ scene, plan: planKey = 'box-laser', part: partKe
   const ubase = un.arm.root.position.clone(), uTravel = 1070, home0 = { j1: 0, j2: 0, d3: 0, j4: 0 };
   const tp0 = n => .5 + n * C;
   const XS = tp0(11) + 1.6, XE = XS + 4.2;                          // 換盒（滿盒送出、空盒補入）
-  const tp = n => n < 12 ? tp0(n) : XE + .3 + (n - 12) * C;
+  const XM0 = XE + .1;                                               // 換盒後：手臂側裝雷射伸進空盒量內壁（修正擺盒原點）
+  let XM1 = XM0;
+  const tp = n => n < 12 ? tp0(n) : XM1 + .2 + (n - 12) * C;
   const laneOf = n => n % LAYOUT.lane.n;
   const fillSlot = n => n < 12 ? { box: 'B', i: START_FILL + n } : { box: 'C', i: n - 12 };
   const boxFill = U.slots[U.fill];
   const uCache = new Map();
-  let prevRef = home0;
+  let mWall = null;
   function uCycle(n) {
     if (uCache.has(n)) return uCache.get(n);
-    const k = laneOf(n), pc = press.pickPoint(k), ref = n === 0 ? home0 : uCycle(n - 1).ref;
+    const k = laneOf(n), pc = press.pickPoint(k), ref = n === 0 ? home0 : n === 12 ? mWall.ref : uCycle(n - 1).ref;
     const pick = solve(ubase, padAt(part, V(pc.x, LAYOUT.lane.y, pc.z), 0), 0, ref);
-    const from = n === 0 ? atHeight(pick, ubase, uTravel) : uCycle(n - 1).last;
-    const s = slot(part, fillSlot(n).i), c = V(boxFill + s.x, CV.top + BOX.bottom, CV.z + s.z);
+    const from = n === 0 ? atHeight(pick, ubase, uTravel) : n === 12 ? mWall.last : uCycle(n - 1).last;
+    // 放在格位上方 1 mm 釋放（吸盤浮動緩衝，不壓到盒底）
+    const s = slot(part, fillSlot(n).i), c = V(boxFill + s.x, CV.top + BOX.bottom + 1, CV.z + s.z);
     const place = solve(ubase, padAt(part, c, s.rot), s.rot, pick);
     const pp = pickPlace({ from, pick, place, travel: uTravel, base: ubase, T: { move: T.move, down: T.down, grip: T.grip } });
     const out = { ...pp, ref: place, t: tp(n) };
     uCache.set(n, out); return out;
   }
-  for (let n = 0; n < 40; n++) uCycle(n);   // 預先算好（排程與檢查都只取樣）
+  for (let n = 0; n < 12; n++) uCycle(n);
+  // 量盒內壁：西壁兩點（盒子轉角）、南壁一點；感測器出光面在工具本地 +x，吸盤高度 872（法蘭下限）
+  mWall = (() => {
+    const yPad = 872, pts = [[-120, -60, Math.PI], [-120, 60, Math.PI], [60, 40, -Math.PI / 2]].map(([dx, dz, yaw]) => ({ p: V(boxFill + dx, yPad, CV.z + dz), yaw }));
+    let ref = uCycle(11).ref, t = 0; const segs = [], beams = [];
+    const qs = pts.map(o => (ref = solve(ubase, o.p, o.yaw, ref)));
+    const up = q => atHeight(q, ubase, uTravel), seg = (dur, a, b) => { segs.push({ t0: t, t1: t + dur, a, b }); t += dur; };
+    seg(.45, uCycle(11).last, up(qs[0])); seg(.25, up(qs[0]), qs[0]);
+    const meas = q => { beams.push({ t0: t, t1: t + .2 }); seg(.2, q, q); };
+    const inner = { w: BOX.size[0] / 2 - BOX.wall, d: BOX.size[2] / 2 - BOX.wall };
+    meas(qs[0]); seg(.25, qs[0], qs[1]); meas(qs[1]); seg(.4, qs[1], qs[2]); meas(qs[2]); seg(.25, qs[2], up(qs[2]));
+    beams[0].len = beams[1].len = inner.w - 120 - SENSOR.x; beams[2].len = inner.d - 40 - SENSOR.x;
+    XM1 = XM0 + t;
+    return { segs, beams, dur: t, last: up(qs[2]), ref: qs[2] };
+  })();
+  for (let n = 12; n < 40; n++) uCycle(n);   // 預先算好（排程與檢查都只取樣）
   const lastPick = t => { let n = -1; while (n + 1 < 40 && tp(n + 1) <= t) n++; return n; };
 
   // ---------------------------------------------------------------- 時間軸（作業員、鐵盒、推車、量測站）
@@ -86,7 +107,9 @@ export function createProject({ scene, plan: planKey = 'box-laser', part: partKe
   const info = tl.track('info', {});
   const mark = (at, action, station, sub = '') => info.add(.01, {}, { at, action, station, sub });
   mark(tp(0), 'SCARA 從滑道末端吸起工件、交錯 180° 擺進鐵盒', 0, `沖壓機 6 列出料、每 ${C.toFixed(2)} s 一顆`);
-  mark(XS, '鐵盒擺滿：滿盒往東送出、空盒補進擺盒位', 1, '輸送線兩格空盒＋兩格滿盒緩衝，約 23 分鐘換一次人');
+  mark(tp(0) + uCycle(0).marks.lifted + .05, '散料經收斂導正段排成單列，擋銷分料送進定位座、側推靠基準壁', 0, '到位／方向光纖＋上方相機確認位置與方向（雙重保險）');
+  mark(XS, '鐵盒擺滿：滿盒往東送出、空盒補進擺盒位', 1, `輸送線兩格空盒＋兩格滿盒緩衝，約 ${Math.round(4 * cap * C / 60)} 分鐘換一次人`);
+  mark(XM0, '空盒推靠擋塊與南側導板定位，手臂側裝雷射量盒內壁、修正擺盒原點', 1, '同列間隙 1.5 mm ＞ 定位後殘差；由遠往近、離底 1 mm 釋放');
 
   // 作業員與推車（世界座標）
   const opT = tl.track('op', { x: -4300, z: 1950, yaw: Math.PI, walk: 0, hands: 'idle' });
@@ -167,8 +190,10 @@ export function createProject({ scene, plan: planKey = 'box-laser', part: partKe
     const pr = tl.track('parts', { loc: 'box', removed: 0 });
     const bq = tl.track('boxQ', { mode: 'nest' });
     const gt = tl.track('gantry', { x: QB.gantry.park, y: -560, zt: 1220, ext: 0, carry: 0, laser: 0, flash: 0 });
-    const rw = tl.track('rows', { row: -1, lift: 0, back: 0, done: -1 });
-    fl.add(1.2, { pl: 0 }, { at: t0, action: '基準板座下降：研磨基準板壓到工件頂面', station: 3, sub: '浮動壓板讓每顆頂面都貼平' });
+    const rw = tl.track('rows', { row: -1, lift: 0, back: 0, done: -1, wall: 0 });
+    rw.add(0, { wall: 1 }, { at: t0, action: '雷射量盒壁位置：確認基準板與盒壁的間隙，超差就警報退盒', station: 3, sub: `基準板每邊離盒壁 ≥ ${Math.floor(gapPlate())} mm，四周導角＋浮動單元` });
+    rw.add(.8, {}); rw.add(0, { wall: 0 });
+    fl.add(1.2, { pl: 0 }, { at: rw.t + .1, action: '基準板座下降：研磨基準板壓到工件頂面', station: 3, sub: '浮動壓板讓每顆頂面都貼平' });
     fl.add(.6, { cl: 1 }, { action: '側夾夾緊鐵盒' }); bq.add(0, { mode: 'clamped' }, { at: fl.t - .6 });
     const f1 = fl.add(3, { th: 1 }, { action: '整盒翻轉 180°：工件頂面朝下落在基準板上', station: 3, sub: '伺服＋減速機，慢速 S 曲線' });
     fl.add(.4, { latch: 0 }, { action: '基準板座落在花崗岩定位座、解鎖', station: 3 });
@@ -225,6 +250,10 @@ export function createProject({ scene, plan: planKey = 'box-laser', part: partKe
   // 逐顆：前 5 顆真實速度，其餘快轉
   function schedulePiece(t0) {
     const cyc = CYCLE.piece[plan.sensor], K = 5, FF = 18;
+    const pw = tl.track('pwall', { wall: 0 });
+    pw.add(0, { wall: 1 }, { at: t0, action: '雷射量入料盒、出料盒的實際位置（修正取放座標）', station: 3 });
+    pw.add(.8, {}); pw.add(0, { wall: 0 });
+    t0 = pw.t + .1;
     const rate = (cap * cyc - K * cyc) / FF, t1 = t0 + K * cyc, tEnd = t1 + FF;
     pieceT = { t0, t1, tEnd, cyc, rate };
     tl.track('piece', {}).add(tEnd - t0, {}, { at: t0 });
@@ -282,18 +311,31 @@ export function createProject({ scene, plan: planKey = 'box-laser', part: partKe
     press.set(t);
     // ---- 下料 SCARA
     const n = lastPick(t);
-    let q = n < 0 ? atHeight(uCycle(0).segs[0].a, ubase, uTravel) : null, hold = false;
+    let q = n < 0 ? atHeight(uCycle(0).segs[0].a, ubase, uTravel) : null, hold = false, beam = 0;
     if (n >= 0) { const c = uCycle(n); ({ q, hold } = evalSegs(c.segs, t - c.t, { q: c.segs[0].a, hold: false })); }
-    un.arm.setJoints(q); un.tool.set({ hold });
-    // 滑道：每列已取走的顆數與往前推進量
-    for (let k = 0; k < LAYOUT.lane.n; k++) {
-      let picked = 0, adv = 0;
-      for (let m = k; m <= n; m += LAYOUT.lane.n) {
-        const c = uCycle(m); if (t >= c.t + c.marks.grip) picked++;
-        adv += smooth(clamp01((t - (c.t + c.marks.lifted)) / .8));
-      }
-      press.setLane(k, picked, adv);
+    if (n === 11 && t >= XM0) {
+      ({ q } = evalSegs(mWall.segs, t - XM0, { q: mWall.segs[0].a, hold: false }));
+      const b = mWall.beams.find(b => t - XM0 >= b.t0 && t - XM0 < b.t1); beam = b ? b.len : 0;
     }
+    un.arm.setJoints(q); un.tool.set({ hold, beam });
+    // 滑道與整列單元：每列已取走的顆數、已送進定位座的顆數（取走後擋銷放下、下一顆滑進定位座、側推缸夾靠）
+    const AL = press.aligner; let flash = false;
+    for (let k = 0; k < LAYOUT.lane.n; k++) {
+      let picked = 0, fed = 1, pinDown = false, release = false;
+      for (let m = k; m <= n; m += LAYOUT.lane.n) {
+        const c = uCycle(m), tg = c.t + c.marks.grip, tf = c.t + c.marks.lifted + .05;
+        if (t >= tg) picked++;
+        fed += smooth(clamp01((t - tf) / .4));
+        if (t >= tf - .05 && t < tf + .45) pinDown = true;
+        if (t >= tg - .15 && t < tf + .55) release = true;
+        if (t >= tf + .45 && t < tf + .6) flash = true;
+      }
+      press.setLane(k, picked, fed);
+      AL.pins[k].position.y = LAYOUT.lane.y + (pinDown ? -12 : 9);
+      const P = AL.pushers[k]; P.pad.position.x = P.x0 + (release ? 6 : -6 + (part.channel - part.w) / 2);
+      AL.leds[k].material.emissiveIntensity = release ? .05 : .9;
+    }
+    AL.cam.set(flash ? 1 : 0); AL.bar.set({ light: flash ? 1 : .35 });
     // 下料區鐵盒：擺盒數量與輸送位置
     let placedB = START_FILL, placedC = 0;
     for (let m = 0; m <= n; m++) { const c = uCycle(m); if (t >= c.t + c.marks.release) { if (fillSlot(m).box === 'B') placedB++; else placedC++; } }
@@ -305,6 +347,7 @@ export function createProject({ scene, plan: planKey = 'box-laser', part: partKe
     un.conv.set({ s: roll * pitch });
     const stopDown = t > XS && t < XS + 3.8 ? 0 : 1;
     un.stops.forEach((s, i) => s.set(i < 2 ? stopDown : 1));
+    un.pusher.set({ ext: t > XS - .3 && t < XE ? 0 : t >= XE && t < XE + .3 ? (t - XE) / .3 : 1 });
     // ---- 作業員、推車、盒 A
     const O = smp.op, cs = smp.cart.s, cp = along(cs);
     cart.root.position.copy(cp.p); cart.root.rotation.y = cp.yaw - Math.PI / 2;
@@ -357,7 +400,8 @@ export function createProject({ scene, plan: planKey = 'box-laser', part: partKe
       boxes.A.load.set({ to: cap, hide: removed });
     }
     // 頂升銷、背光
-    R.pins.forEach((c, r) => c.set({ ext: r === Rw.row ? Rw.lift : 0 }));
+    R.pins.forEach((c, r) => { const L = r === Rw.row ? Rw.lift : 0; c.set({ ext: (22 * Math.min(1, 3 * L) + QB.rowLift * L) / (QB.rowLift + 22) }); });
+    R.wallBeams.forEach(b => { b.visible = Rw.wall > .5; });
     if (R.back) { R.back.position.set(0, 976 + 140 * Rw.back, -160); }
     // 龍門
     const G = smp.gantry;
@@ -399,6 +443,7 @@ export function createProject({ scene, plan: planKey = 'box-laser', part: partKe
       R.beams.forEach(b => { const len = b.top ? QP.heads.y - (QP.anvil.top + part.h) : QP.heads.y - QP.anvil.top; b.m.scale.y = Math.max(1, len); b.m.position.y = QP.heads.y - len / 2; b.m.visible = measuring && e >= 1 - 1e-6; });
     }
     R.cams.forEach(c => c.set(measuring ? 1 : 0));
+    R.wallBeams.forEach(b => { b.visible = smp.pwall.wall > .5; });
     // 出料盒 E
     const E = smp.boxE; if (E) placeBox(boxes.E, poseOf(E));
   }
@@ -424,6 +469,9 @@ export function createProject({ scene, plan: planKey = 'box-laser', part: partKe
       { group: '量測', name: '品檢站離沖壓機 ≥ 8 m、不在廢料坑上', ok: dist >= 8000 && qcOffPit, value: `${(dist / 1000).toFixed(1)} m` },
       { group: '量測', name: '量測產能 ≥ 18 顆／分', ok: rate >= RATE.perMin, value: `${rate.toFixed(1)} 顆／分（每盒 ${(cycleQc / 60).toFixed(1)} 分）` },
       { group: '量測', name: 'NG 全部被剔除', ok: true, value: `${ngs.length} 顆` },
+      { group: '整列', name: '相機架立柱在手臂掃過範圍外（> 650＋工具半徑）', ok: Math.hypot(press.aligner.post.x, U.scara.z - press.aligner.post.z) > 690, value: `${Math.hypot(press.aligner.post.x, U.scara.z - press.aligner.post.z).toFixed(0)} mm` },
+      { group: '擺盒', name: '同列間隙 ≥ 1.5 mm（大於盒子定位後的殘差）', ok: gapRow >= 1.5 - 1e-6, value: `${gapRow.toFixed(1)} mm` },
+      { group: '翻盒', name: '基準板離盒壁 ≥ 13 mm（折板盒公差 ±3＋浮動）', ok: gapPlate() >= 13, value: `${gapPlate().toFixed(1)} mm／邊` },
     ];
   }
 
@@ -433,9 +481,9 @@ export function createProject({ scene, plan: planKey = 'box-laser', part: partKe
       const smp = tl.sample(t), d = smp.rows.done, cols = part.grid.cols, act = tl.tracks.gantry.active(t);
       const scanning = act && /掃描|側拍|^$/.test(act.action) && (smp.gantry.laser > .5 || smp.gantry.flash > .5);
       const row = d + 1, u = scanning ? clamp01((t - act.start) / act.dur) : 0;
-      const k = scanning ? Math.min(cols, Math.floor(u * cols)) : 0, col = c => (row % 2 ? cols - 1 - c : c);
+      const k = scanning ? Math.min(cols, Math.floor(u * cols)) : 0, col = c => (row % 2 ? c : cols - 1 - c);
       const cur = scanning && k < cols ? row * cols + col(k) : -1;
-      const has = i => { const r = Math.floor(i / cols), c = i % cols; return r <= d || (scanning && r === row && (row % 2 ? cols - 1 - c : c) < k); };
+      const has = i => { const r = Math.floor(i / cols), c = i % cols; return r <= d || (scanning && r === row && (row % 2 ? c : cols - 1 - c) < k); };
       return { count: (d + 1) * cols + k, current: cur, row: scanning ? row : -1, has };
     }
     const tt = tau(t); if (tt < 0) return { count: 0, current: -1, has: () => false };

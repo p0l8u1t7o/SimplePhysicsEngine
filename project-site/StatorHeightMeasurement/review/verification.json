@@ -4,44 +4,44 @@
     {
       "plan": "box-laser",
       "part": "stator",
-      "total": 73,
-      "qcPerBox": 0.69,
-      "rate": 203.4,
+      "total": 76.1,
+      "qcPerBox": 0.74,
+      "rate": 194.6,
       "ng": 2,
       "placeErr": 0
     },
     {
       "plan": "box-laser",
       "part": "rotor",
-      "total": 68.6,
-      "qcPerBox": 0.61,
-      "rate": 73.2,
+      "total": 69.5,
+      "qcPerBox": 0.63,
+      "rate": 63.5,
       "ng": 2,
       "placeErr": 0
     },
     {
       "plan": "box-vision",
       "part": "stator",
-      "total": 82.3,
-      "qcPerBox": 0.84,
-      "rate": 166,
+      "total": 86.8,
+      "qcPerBox": 0.92,
+      "rate": 156.8,
       "ng": 2,
       "placeErr": 0
     },
     {
       "plan": "box-vision",
       "part": "rotor",
-      "total": 75.1,
-      "qcPerBox": 0.72,
-      "rate": 62.2,
+      "total": 76,
+      "qcPerBox": 0.74,
+      "rate": 54.2,
       "ng": 2,
       "placeErr": 0
     },
     {
       "plan": "piece-laser",
       "part": "stator",
-      "total": 70,
-      "qcPerBox": 6.07,
+      "total": 70.9,
+      "qcPerBox": 6.24,
       "rate": 23.1,
       "ng": 2,
       "placeErr": 0
@@ -49,8 +49,8 @@
     {
       "plan": "piece-laser",
       "part": "rotor",
-      "total": 70,
-      "qcPerBox": 1.95,
+      "total": 70.9,
+      "qcPerBox": 1.73,
       "rate": 23.1,
       "ng": 2,
       "placeErr": 0
@@ -58,8 +58,8 @@
     {
       "plan": "piece-vision",
       "part": "stator",
-      "total": 69,
-      "qcPerBox": 5.6,
+      "total": 69.9,
+      "qcPerBox": 5.76,
       "rate": 25,
       "ng": 2,
       "placeErr": 0
@@ -67,8 +67,8 @@
     {
       "plan": "piece-vision",
       "part": "rotor",
-      "total": 69,
-      "qcPerBox": 1.8,
+      "total": 69.9,
+      "qcPerBox": 1.6,
       "rate": 25,
       "ng": 2,
       "placeErr": 0

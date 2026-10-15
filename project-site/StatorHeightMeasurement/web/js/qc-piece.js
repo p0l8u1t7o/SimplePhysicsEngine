@@ -8,7 +8,7 @@ import { MAT } from '@core/geom/materials.js';
 import { createHSR065 } from '@core/models/robots/denso-hsr065.js';
 import { tagPart } from '@core/models/parts.js';
 import { visionCamera } from '@core/models/vision.js';
-import { LAYOUT } from './spec.js';
+import { LAYOUT, BOX } from './spec.js';
 import { partMesh } from './parts.js';
 import { createSuctionTool } from './unloader.js';
 import { createBase, createEnclosure } from './qc-common.js';
@@ -16,7 +16,7 @@ import { createBase, createEnclosure } from './qc-common.js';
 export const QP = {
   // 取放點都在 SCARA 半徑 330～620 mm 的環帶內（J2 不進 >120° 的本體干涉區）
   scara: { x: 0, y: 960, z: -400 },
-  inBox: { x: -422, z: -300 }, outBox: { x: 422, z: -300 }, boxYaw: Math.PI / 2, nestTop: 920,
+  inBox: { x: -450, z: -340 }, outBox: { x: 450, z: -340 }, boxYaw: Math.PI / 2, nestTop: 920,
   anvil: { x: -110, z: 30, top: 940 }, ng: { x: 120, z: 30, y: 1040 },
   table: [-760, 760, -740, 700], granite: { x0: -640, x1: 640, z0: -600, z1: 380 },
   heads: { measure: 330, park: 560, arm: 300, y: 1036, wait: 1125 },   // 量測頭滑台：滑座 z（量測／退回），臂長，頭底面高度
@@ -36,8 +36,19 @@ export function createPieceStation(scene, part, plan) {
     block(root, [320, 20, 480], [b.x, G + 10, b.z], MAT.steelDark);
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) block(root, [40, 36, 16], [b.x + sx * 130, QP.nestTop + 18, b.z + sz * 232], MAT.yellow);
   }
-  decal(root, 120, 40, [QP.inBox.x, G + 21, QP.inBox.z + 260], [-Math.PI / 2, 0, 0], ['IN'], { color: '#1d2a36', bg: '#f2c230', center: true, bold: true });
-  decal(root, 120, 40, [QP.outBox.x, G + 21, QP.outBox.z + 260], [-Math.PI / 2, 0, 0], ['OK OUT'], { color: '#e8eef3', bg: '#2a8a4a', center: true, bold: true });
+  // 盒壁量測：每個盒座外側、南側各一支雷射位移計，量盒子實際位置（取放座標以此修正）
+  const wallBeams = [], beamMat = new THREE.MeshBasicMaterial({ color: 0xff3030, transparent: true, opacity: .85 });
+  for (const b of [QP.inBox, QP.outBox]) {
+    const sx = Math.sign(b.x), y = QP.nestTop + 15;
+    for (const [x, z, ax, to] of [[b.x + sx * (BOX.size[2] / 2 + 35), b.z, 'x', b.x + sx * BOX.size[2] / 2], [b.x, b.z + BOX.size[0] / 2 + 35, 'z', b.z + BOX.size[0] / 2]]) {
+      block(root, ax === 'x' ? [30, 20, 40] : [40, 20, 30], [x, y, z], MAT.black).name = 'box wall sensor';
+      const from = ax === 'x' ? x - sx * 15 : z - 15, len = Math.abs(from - to);
+      const bm = cylinder(root, .8, len, ax === 'x' ? [(from + to) / 2, y, z] : [x, y, (from + to) / 2], beamMat, ax);
+      bm.userData.fx = true; bm.name = 'wall sensor beam'; bm.visible = false; wallBeams.push(bm);
+    }
+  }
+  decal(root, 120, 40, [QP.inBox.x, G + 21, QP.inBox.z + 300], [-Math.PI / 2, 0, 0], ['IN'], { color: '#1d2a36', bg: '#f2c230', center: true, bold: true });
+  decal(root, 120, 40, [QP.outBox.x, G + 21, QP.outBox.z + 300], [-Math.PI / 2, 0, 0], ['OK OUT'], { color: '#e8eef3', bg: '#2a8a4a', center: true, bold: true });
   // ---- 量測砧（研磨碳化鎢）
   block(root, [120, 20, 120], [QP.anvil.x, G + 10, QP.anvil.z], steel);
   block(root, [100, QP.anvil.top - G - 20, 100], [QP.anvil.x, G + 20 + (QP.anvil.top - G - 20) / 2, QP.anvil.z], carbide).name = 'anvil';
@@ -83,9 +94,9 @@ export function createPieceStation(scene, part, plan) {
   } else {
     const C = QP.cam, ax = QP.anvil;
     // A：從西側看（光軸 +x），背光在東側；B：從南側看（光軸 −z），背光在北側
-    const camA = visionCamera.create({ axis: '+z', bodyW: 50, bodyD: 50, bodyL: 60, lensR: 38, lensL: 220, ringR: 0, fov: 12, bands: { ats: [-30, -170], r: 40, length: 8 } });
+    const camA = visionCamera.create({ spot: false, axis: '+z', bodyW: 50, bodyD: 50, bodyL: 60, lensR: 38, lensL: 220, ringR: 0, fov: 12, bands: { ats: [-30, -170], r: 40, length: 8 } });
     camA.root.position.set(ax.x - 21 - C.wd, C.y, ax.z); camA.root.rotation.y = Math.PI / 2; root.add(camA.root);
-    const camB = visionCamera.create({ axis: '+z', bodyW: 50, bodyD: 50, bodyL: 60, lensR: 38, lensL: 220, ringR: 0, fov: 12, bands: { ats: [-30, -170], r: 40, length: 8 } });
+    const camB = visionCamera.create({ spot: false, axis: '+z', bodyW: 50, bodyD: 50, bodyL: 60, lensR: 38, lensL: 220, ringR: 0, fov: 12, bands: { ats: [-30, -170], r: 40, length: 8 } });
     camB.root.position.set(ax.x, C.y, ax.z + 21 + C.wd); camB.root.rotation.y = Math.PI; root.add(camB.root);
     cams = [camA, camB];
     for (const [x, z, w] of [[ax.x - 21 - C.wd - 160, ax.z, 'x'], [ax.x, ax.z + 21 + C.wd + 160, 'z']]) block(root, w === 'x' ? [120, C.y - 38 - G, 60] : [60, C.y - 38 - G, 120], [x, G + (C.y - 38 - G) / 2, z], MAT.steelDark);
@@ -98,5 +109,5 @@ export function createPieceStation(scene, part, plan) {
     lights = [la, lb];
   }
   const enc = createEnclosure(root, { x0: QP.table[0] - 20, x1: QP.table[1] + 20, z0: QP.table[2] - 20, z1: QP.table[3] + 20, sides: false });
-  return { root, arm, tool, onAnvil, heads, beams, cams, lights, binParts, enc, slabs };
+  return { root, wallBeams, arm, tool, onAnvil, heads, beams, cams, lights, binParts, enc, slabs };
 }

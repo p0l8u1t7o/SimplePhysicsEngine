@@ -7,12 +7,12 @@
 //   5. NG 由龍門吸盤剔到不良品盒；鐵盒翻回罩住工件、基準板座上鎖、整組翻回，工件落回盒底，基準板座上升。
 // 站本地座標：原點在站中心地面；入料位在 +z（作業員側），量測區在 −z，翻轉軸沿 X、在 z=0。
 import * as THREE from 'three';
-import { block, cylinder, decal } from '@core/geom/shapes.js';
+import { block, cylinder, decal, bevelBox } from '@core/geom/shapes.js';
 import { MAT } from '@core/geom/materials.js';
 import { tagPart } from '@core/models/parts.js';
 import { linearAxis, airCylinder, suctionCup } from '@core/models/motion.js';
 import { laserProfiler, visionCamera } from '@core/models/vision.js';
-import { LAYOUT, BOX, slot } from './spec.js';
+import { LAYOUT, BOX, slot, plateSize } from './spec.js';
 import { createLoad, partMesh } from './parts.js';
 import { createBase, createEnclosure } from './qc-common.js';
 
@@ -40,6 +40,16 @@ export function createBoxStation(scene, part, plan) {
   block(root, [300, 250, 200], [0, 700 + 125, QB.nest.z], flipMat);
   block(root, [460, 30, 300], [0, QB.nest.top - 15, QB.nest.z], MAT.steelDark);
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) block(root, [16, 24, 40], [sx * 232, QB.nest.top + 12, QB.nest.z + sz * 130], MAT.yellow);
+  // 盒壁量測：東側、南側各一支雷射位移計量盒子外壁（板厚固定 → 推算內框），確認基準板有足夠間隙才下降，超差就警報退盒
+  const wallBeams = [];
+  const beamMat = new THREE.MeshBasicMaterial({ color: 0xff3030, transparent: true, opacity: .85 });
+  for (const [x, z, ax, to] of [[262, QB.nest.z, 'x', BOX.size[0] / 2], [0, QB.nest.z + BOX.size[2] / 2 + 35, 'z', QB.nest.z + BOX.size[2] / 2]]) {
+    block(root, ax === 'x' ? [30, 20, 40] : [40, 20, 30], [x, 995, z], MAT.black).name = 'box wall sensor';
+    block(root, [20, 995 - 10 - 700, 20], ax === 'x' ? [x + 5, 700 + (995 - 10 - 700) / 2, z + 30] : [x + 30, 700 + (995 - 10 - 700) / 2, z + 5], MAT.steelDark);
+    const from = ax === 'x' ? x - 15 : z - 15, len = from - to;
+    const bm = cylinder(root, .8, len, ax === 'x' ? [from - len / 2, 995, z] : [x, 995, from - len / 2], beamMat, ax);
+    bm.userData.fx = true; bm.name = 'wall sensor beam'; bm.visible = false; wallBeams.push(bm);
+  }
 
   // ---- 翻轉軸：兩側立柱、軸承座、伺服＋減速機
   for (const s of [-1, 1]) {
@@ -70,21 +80,28 @@ export function createBoxStation(scene, part, plan) {
     const pad = new THREE.Group(); pad.name = 'clamp pad'; boxCarrier.add(pad);
     block(pad, [10, 50, 120], [0, 0, 0], MAT.black); pads.push({ g: pad, s });
   }
-  // 基準板座（holder；pl：沿臂上移量。latch 時跟著翻轉臂，否則留在花崗岩上）
+  // 基準板座（holder；pl：沿臂上移量。latch 時跟著翻轉臂，否則留在花崗岩上）。
+  // 基準板只蓋工件區（每邊大 6 mm），離盒壁至少約 17 mm；四周倒角導入，支柱下有浮動單元（XY 可偏擺幾 mm），折板盒的公差由它吃掉。
   const holder = new THREE.Group(); holder.name = 'reference holder'; root.add(holder);
-  const rails = [];
+  const PS = plateSize(part), rails = [];
+  let floatY = 25;
   if (vision) {
     // 一列一條研磨軌（可單獨頂起），下面兩支橫樑承托
     for (let r = 0; r < part.grid.rows; r++) {
       const rg = new THREE.Group(); rg.name = `reference rail ${r + 1}`; rg.position.z = slot(part, r * part.grid.cols).z; holder.add(rg);
-      block(rg, [424, 25, part.grid.rowPitch - 6], [0, 12.5, 0], lapped); rails.push(rg);
+      const m = bevelBox(PS.x, 25, part.grid.rowPitch - 6, lapped, 2); m.position.y = 12.5; rg.add(m); rails.push(rg);
     }
-    for (const s of [-1, 1]) block(holder, [30, 20, 264], [s * 170, 35, 0], MAT.steelDark);
+    for (const s of [-1, 1]) block(holder, [30, 20, PS.z], [s * (PS.x / 2 - 40), 35, 0], MAT.steelDark);
+    floatY = 45;
   } else {
-    const p = block(holder, [424, 25, 264], [0, 12.5, 0], lapped); p.name = 'reference plate';
+    const p = bevelBox(PS.x, 25, PS.z, lapped, 4); p.position.y = 12.5; p.name = 'reference plate'; holder.add(p);
   }
-  const neck0 = vision ? 45 : 25;
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) block(holder, [40, 78 - neck0, 40], [sx * 190, (neck0 + 78) / 2, sz * 115], MAT.steelDark);
+  const nx = PS.x / 2 - 30, nz = PS.z / 2 - 30;
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    cylinder(holder, 18, 8, [sx * nx, floatY + 4, sz * nz], MAT.black, 'y', 20).name = 'float unit';      // 浮動單元（橡膠＋球面墊）
+    block(holder, [40, 78 - floatY - 8, 40], [sx * nx, (floatY + 8 + 78) / 2, sz * nz], MAT.steelDark);
+  }
+  for (const sx of [-1, 1]) block(holder, [30, 30, 260], [sx * nx, 93, 0], flipMat);
   for (const sz of [-1, 1]) block(holder, [600, 30, 20], [0, 93, sz * 140], flipMat);
   for (const sx of [-1, 1]) {
     block(holder, [20, 30, 260], [sx * 290, 93, 0], flipMat);
@@ -109,7 +126,7 @@ export function createBoxStation(scene, part, plan) {
   let laser = null, cam = null;
   if (vision) {
     block(tool, [50, 120, 30], [0, 100, -60], MAT.steelDark);
-    cam = visionCamera.create({ axis: '+z', bodyW: 56, bodyD: 56, bodyL: 70, lensR: 45, lensL: 250, ringR: 0, fov: 10, bands: { ats: [-40, -200], r: 47, length: 8 } });
+    cam = visionCamera.create({ spot: false, axis: '+z', bodyW: 56, bodyD: 56, bodyL: 70, lensR: 45, lensL: 250, ringR: 0, fov: 10, bands: { ats: [-40, -200], r: 47, length: 8 } });
     cam.root.position.set(0, 0, 0); tool.add(cam.root);
   } else {
     block(tool, [50, 60, 30], [0, 140, -44], MAT.steelDark);
@@ -134,7 +151,8 @@ export function createBoxStation(scene, part, plan) {
     block(back, [40, 180, 30], [0, -140, 20], MAT.steelDark);
     back.userData.slide = bl;
     for (let r = 0; r < part.grid.rows; r++) {
-      const c = airCylinder.create({ axis: 'y', w: 30, h: 50, d: 30, stroke: QB.rowLift, rodL: 36, rodR: 6 });
+      // 縮回時桿頂 966（低於翻轉中基準板座掃過的範圍），伸出 102 mm＝空行程 22＋頂升 80
+      const c = airCylinder.create({ axis: 'y', w: 30, h: 50, d: 30, stroke: QB.rowLift + 22, rodL: 16, rodR: 6 });
       c.root.position.set(0, 925, QB.meas - slot(part, r * part.grid.cols).z); root.add(c.root); pins.push(c);
     }
   }
@@ -146,5 +164,5 @@ export function createBoxStation(scene, part, plan) {
   const binParts = [0, 1, 2].map(k => { const m = partMesh(part, 'ng bin part'); m.rotation.z = Math.PI / 2; m.position.set(QB.bin.x - 40 + k * 40, QB.bin.top - 146 + 11, QB.bin.z); m.visible = false; binG.add(m); return m; });
 
   const enc = createEnclosure(root, { x0: QB.table[0] - 20, x1: QB.table[1] + 20, z0: QB.table[2] - 20, z1: QB.table[3] + 20 });
-  return { root, flip, boxCarrier, pads, holder, holderLoad, rails, xAxis, col, yCar, zCar, tool, pick, ngPart, laser, cam, back, pins, binParts, enc, slabs };
+  return { root, wallBeams, flip, boxCarrier, pads, holder, holderLoad, rails, xAxis, col, yCar, zCar, tool, pick, ngPart, laser, cam, back, pins, binParts, enc, slabs };
 }

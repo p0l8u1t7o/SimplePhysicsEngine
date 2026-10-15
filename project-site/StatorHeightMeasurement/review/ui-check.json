@@ -16,7 +16,7 @@
       },
       "views": {
         "ok": true,
-        "info": 6
+        "info": 7
       },
       "panels": {
         "ok": true
@@ -24,7 +24,7 @@
       "labels": {
         "ok": true,
         "info": {
-          "visible": 6,
+          "visible": 7,
           "outside": 0,
           "overlaps": 0
         }
@@ -52,7 +52,7 @@
       },
       "views": {
         "ok": true,
-        "info": 6
+        "info": 7
       },
       "panels": {
         "ok": true
@@ -87,7 +87,7 @@
       },
       "views": {
         "ok": true,
-        "info": 6
+        "info": 7
       },
       "panels": {
         "ok": true
@@ -122,7 +122,7 @@
       },
       "views": {
         "ok": true,
-        "info": 6
+        "info": 7
       },
       "panels": {
         "ok": true

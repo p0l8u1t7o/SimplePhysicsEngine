@@ -79,7 +79,8 @@ export function createLoad(p, { inverted = false, name = 'load', ngMark = false 
   }
   let key = '';
   function set({ from = 0, to = g.rows * g.cols, hide = null, lift = null, ng = null } = {}) {
-    const k = `${from}|${to}|${hide ? [...hide].join(',') : ''}|${lift ? lift.map(v => v.toFixed(2)).join(',') : ''}|${ng ? [...ng].join(',') : ''}`;
+    rows.forEach((rg, r) => { rg.position.y = lift?.[r] ?? 0; });          // 頂升量每次直接設定（不進快取鍵，倒播才一致）
+    const k = `${from}|${to}|${hide ? [...hide].join(',') : ''}|${ng ? [...ng].join(',') : ''}`;
     if (k === key) return; key = k;
     rows.forEach((rg, r) => {
       const inst = rg.children[0]; let n = 0;
@@ -90,7 +91,6 @@ export function createLoad(p, { inverted = false, name = 'load', ngMark = false 
       }
       inst.instanceMatrix.needsUpdate = true;
       if (marks[r]) { marks[r].count = n; marks[r].instanceMatrix.needsUpdate = true; }
-      rg.position.y = lift?.[r] ?? 0;
     });
   }
   set();

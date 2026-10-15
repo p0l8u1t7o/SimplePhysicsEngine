@@ -40,6 +40,7 @@ const VIEWS = {
   qc: [[S.x + 2700, 2900, S.z - 2700], [S.x, 1000, S.z]],
   measure: plan.mode === 'box' ? [[S.x + 1600, 1800, S.z + 500], [S.x, 1030, S.z - 250]] : [[S.x + 1250, 1850, S.z - 700], [S.x - 80, 960, S.z + 120]],
   scara: [[-6300, 1800, 2100], [-5200, 950, 900]],
+  aligner: [[-5950, 1300, 650], [-5180, 955, 420]],
   top: [[0, 17000, 300], [0, 0, 0]],
 };
 function setView(name, instant = false) {
@@ -53,7 +54,9 @@ document.querySelectorAll('.views [data-view]').forEach(b => b.onclick = () => s
 // ---------------------------------------------------------------- 3D 標籤
 const label = (html, pos, priority = 0) => stage.addLabel(html, pos, '', { anchor: 'above', priority });
 label('沖壓機（既有）', V(LAYOUT.press.x, LAYOUT.press.h + 100, LAYOUT.press.z + 600), 1);
-label('6 列出料滑道', V(LAYOUT.press.x - 300, LAYOUT.lane.y + 60, 0), 2);
+label('6 列出料滑道（散料）', V(LAYOUT.press.x - 300, LAYOUT.lane.y + 60, 0), 2);
+label('整列單元：導正＋擋銷分料＋定位座', V(LAYOUT.press.x + 260, LAYOUT.lane.y + 80, LAYOUT.lane.z1 - 40), 3);
+label('定位座相機（雙重保險）', V(LAYOUT.press.x, 1900, 520), 2);
 label('SCARA 下料擺盒', V(U.scara.x, 1700, U.scara.z), 4);
 label('空盒 → 擺盒 → 滿盒', V(U.slots[1], 1000, U.conveyor.z + 200), 2);
 label('廢料坑蓋板（可掀）', V(-6600, 80, 1800), 1);
@@ -162,8 +165,14 @@ const player = createPlayer({
 });
 
 // 相機視窗：量測畫面（格位圖＋目前量值）
+// 相機視窗：定位座相機（下料：確認工件位置與方向）／量測結果格位圖；「自動」時品檢開始前看定位座相機
+let source = 'auto';
+workspace.setSources([{ id: 'nest', label: '定位座相機（下料）' }, { id: 'grid', label: '量測結果' }], { onChange: v => { source = v; } });
+const nestCam = project.press.aligner.cam.camera;
 function render() {
-  workspace.renderImage({ draw: (ctx, w, h) => drawGrid(ctx, w, h, player.T, true), title: `${plan.name}・量測結果`, result: ui.action.textContent, aspect: 1.6, time: player.T });
+  const show = source === 'auto' ? (player.T < project.t0 ? 'nest' : 'grid') : source;
+  if (show === 'nest') workspace.renderCamera({ renderer, scene, camera: nestCam, title: '定位座相機：確認 6 個定位座的位置與方向', result: '偏差回饋給手臂；光纖到位＋方向感測為主、相機為輔', aspect: 2.4, marks: { time: player.T } });
+  else workspace.renderImage({ draw: (ctx, w, h) => drawGrid(ctx, w, h, player.T, true), title: `${plan.name}・量測結果`, result: ui.action.textContent, aspect: 1.6, time: player.T });
   workspace.renderOverview(renderer, scene);
 }
 

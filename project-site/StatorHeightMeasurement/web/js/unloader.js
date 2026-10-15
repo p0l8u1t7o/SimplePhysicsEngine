@@ -18,8 +18,10 @@ const U = LAYOUT.unloader, F = U.frame, CV = U.conveyor;
 export const TOOL = 100;                                   // 法蘭面到吸盤唇的距離
 export const padOffset = part => part.key === 'rotor' ? 12.5 : 1.5;   // 吸盤中心在工件本地 +z 的偏移（避開鉚接點與孔）
 
-// 真空吸盤工具：裝在法蘭底下（法蘭本地 −y 朝下）；carried 是吸住的工件（顯示與否由 set 決定）
-export function createSuctionTool(flange, part, name = 'suction tool') {
+// 真空吸盤工具：裝在法蘭底下（法蘭本地 −y 朝下）；carried 是吸住的工件（顯示與否由 set 決定）。
+// wallSensor：側裝雷射位移感測器（光束沿工具本地 +x），擺盒前伸進空盒量盒內壁的實際位置。
+export const SENSOR = { x: 34, y: -74 };                     // 感測器出光面（工具本地）
+export function createSuctionTool(flange, part, name = 'suction tool', { wallSensor = false } = {}) {
   const g = new THREE.Group(); g.name = name; flange.add(g);
   block(g, [72, 12, 72], [0, -16, 0], MAT.alu);                              // 轉接板（法蘭盤下方）
   block(g, [34, 40, 34], [0, -42, 0], MAT.steelDark);                       // 緩衝導套
@@ -28,7 +30,20 @@ export function createSuctionTool(flange, part, name = 'suction tool') {
   const cup = suctionCup.create({ r: part.key === 'rotor' ? 7 : 4.5, h: 6, topR: 4 }); cup.root.position.y = -TOOL + 3; g.add(cup.root);
   const carried = partMesh(part, `${name} part`);
   carried.position.set(0, -TOOL - part.h, -padOffset(part)); g.add(carried);
-  return { root: g, carried, set({ hold }) { carried.visible = !!hold; } };
+  let beam = null;
+  if (wallSensor) {
+    block(g, [20, 24, 30], [SENSOR.x - 10, SENSOR.y, 0], MAT.black).name = 'wall sensor';
+    block(g, [6, 64, 20], [20, -46, 0], MAT.alu);                              // 感測器支架
+    beam = cylinder(g, .8, 1, [SENSOR.x, SENSOR.y, 0], new THREE.MeshBasicMaterial({ color: 0xff3030, transparent: true, opacity: .85 }), 'x');
+    beam.name = 'wall sensor beam'; beam.userData.fx = true; beam.visible = false;
+  }
+  return {
+    root: g, carried, beam,
+    set({ hold, beam: len = 0 }) {
+      carried.visible = !!hold;
+      if (beam) { beam.visible = len > 0; if (len > 0) { beam.scale.y = len; beam.position.x = SENSOR.x + len / 2; } }
+    },
+  };
 }
 
 export function createUnloader(scene, part) {
@@ -64,7 +79,7 @@ export function createUnloader(scene, part) {
   block(root, [300, S.y - F.top - 20, 300], [S.x, F.top + (S.y - F.top - 20) / 2, S.z], paint);
   block(root, [340, 20, 340], [S.x, S.y - 10, S.z], MAT.steelDark);
   const arm = createHSR065(); arm.root.position.set(S.x, S.y, S.z); root.add(arm.root); tagPart(arm.root, 'P-00205');
-  const tool = createSuctionTool(arm.flange, part, 'unloader tool');
+  const tool = createSuctionTool(arm.flange, part, 'unloader tool', { wallSensor: true });
 
   // ---- 鐵盒輸送：滾筒輸送線（腳改成立在底座頂板上的短座）
   const conv = createConveyor({ length: CV.x1 - CV.x0, width: BOX.size[2] + 30, height: CV.top, pitch: 90, roller: 25, legs: false, brackets: {} });
@@ -78,15 +93,16 @@ export function createUnloader(scene, part) {
     const st = stopper.create({ blade: { size: [10, 24, 120] } });
     st.root.position.set(U.slots[i] + BOX.size[0] / 2 + 10, CV.top - 25, CV.z); root.add(st.root); return st;
   });
-  // 擺盒位的側推定位缸（把盒子推靠南側導板）
-  const pusher = airCylinder.create({ axis: 'z', w: 40, h: 40, d: 80, stroke: 6, rodL: 30 });
-  pusher.root.position.set(U.slots[U.fill], CV.top + 30, CV.z - BOX.size[2] / 2 - 70); root.add(pusher.root);
+  // 擺盒位的定位：輸送線把盒子送到擋塊（x 基準），北側側推缸把盒子推靠南側導板（z 基準）
+  const pusher = airCylinder.create({ axis: 'z', w: 40, h: 40, d: 80, stroke: 10, rodL: 30 });
+  pusher.root.position.set(U.slots[U.fill], CV.top + 30, CV.z - BOX.size[2] / 2 - 80); root.add(pusher.root);
 
   // ---- 圍籬（手臂區兩側）與南側光柵；北側是滑道
   // 每側：北段整片網、輸送線上方的隧道頂網（盒子從底下穿過）、南端立柱；頂部橫桿
   const fenceMat = MAT.mesh, fx = [U.scara.x - 780, U.scara.x + 780];
   for (const x of fx) {
-    for (const z of [560, 1080, 1640]) block(root, [40, 1500, 40], [x, F.top + 750, z], MAT.yellow);
+    block(root, [40, F.top + 1500 - 12, 40], [x, 12 + (F.top + 1500 - 12) / 2, 560], MAT.yellow);   // 北端立柱在底座外，直接立在蓋板上
+    for (const z of [1080, 1640]) block(root, [40, 1500, 40], [x, F.top + 750, z], MAT.yellow);
     block(root, [10, 1300, 480], [x, F.top + 850, 820], fenceMat);
     block(root, [10, 1040, 520], [x, 1620, 1360], fenceMat);
     block(root, [40, 40, 1040], [x, F.top + 1480, 1100], MAT.yellow);

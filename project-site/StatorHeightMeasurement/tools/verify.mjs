@@ -12,7 +12,7 @@ const W = o => o.getWorldPosition(new THREE.Vector3());
 for (const plan of ['box-laser', 'box-vision', 'piece-laser', 'piece-vision']) for (const partKey of ['stator', 'rotor']) {
   const scene = new THREE.Scene(), p = createProject({ scene, plan, part: partKey }), part = p.part, tag = `${plan}/${partKey}`;
   const fail = m => failures.push(`${tag}：${m}`);
-  // 1. 下料：每顆取放 ≤ 沖壓節拍；放下那一刻吸住的工件中心＝鐵盒格位（±1 mm）
+  // 1. 下料：每顆取放 ≤ 沖壓節拍；放下那一刻吸住的工件中心＝鐵盒格位上方 1 mm（±0.1 mm）
   const un = p.unloader, U = LAYOUT.unloader;
   let maxErr = 0;
   for (let n = 1; n < 12; n++) {
@@ -20,10 +20,14 @@ for (const plan of ['box-laser', 'box-vision', 'piece-laser', 'piece-vision']) f
     const t = .5 + n * RATE.cycle + 1.30 + .04;
     p.apply(t); scene.updateMatrixWorld(true);
     if (!un.tool.carried.visible) { fail(`第 ${n} 顆放下時吸盤沒有吸住工件`); continue; }
-    const s = slot(part, capacity(part) - 12 + n), want = new THREE.Vector3(U.slots[U.fill] + s.x, U.conveyor.top + BOX.bottom, U.conveyor.z + s.z);
+    // 放下那一刻：水平位置＝格位，離盒底 1 mm（吸盤浮動、離底釋放）
+    const s = slot(part, capacity(part) - 12 + n), want = new THREE.Vector3(U.slots[U.fill] + s.x, U.conveyor.top + BOX.bottom + 1, U.conveyor.z + s.z);
     maxErr = Math.max(maxErr, W(un.tool.carried).distanceTo(want));
   }
-  if (maxErr > 1) fail(`下料放置誤差 ${maxErr.toFixed(2)} mm`);
+  if (maxErr > .1) fail(`下料放置誤差 ${maxErr.toFixed(2)} mm`);
+  // 1b. 整列單元：手臂取料點＝定位座中心
+  const pk = p.press.pickPoint(0);
+  if (Math.abs(pk.z - p.press.aligner.pickZ) > .01) fail('取料點不在定位座中心');
   // 2. 量測產能 ≥ 沖壓產出
   const rate = 60 / (p.cycleQc / p.cap);
   if (rate < RATE.perMin) fail(`量測產能 ${rate.toFixed(1)} 顆／分 < ${RATE.perMin}`);

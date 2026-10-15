@@ -5,7 +5,7 @@
       "variant": "預設",
       "params": {},
       "ok": true,
-      "objects": 767,
+      "objects": 880,
       "samples": 40,
       "failures": []
     },
@@ -15,7 +15,7 @@
         "plan": "box-vision"
       },
       "ok": true,
-      "objects": 831,
+      "objects": 949,
       "samples": 40,
       "failures": []
     },
@@ -25,7 +25,7 @@
         "plan": "piece-laser"
       },
       "ok": true,
-      "objects": 795,
+      "objects": 903,
       "samples": 40,
       "failures": []
     },
@@ -35,7 +35,7 @@
         "plan": "piece-vision"
       },
       "ok": true,
-      "objects": 813,
+      "objects": 917,
       "samples": 40,
       "failures": []
     },
@@ -46,7 +46,7 @@
         "part": "rotor"
       },
       "ok": true,
-      "objects": 745,
+      "objects": 847,
       "samples": 40,
       "failures": []
     }

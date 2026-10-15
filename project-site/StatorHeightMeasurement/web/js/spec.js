@@ -11,22 +11,28 @@ export const PARTS = {
   stator: {
     key: 'stator', name: '分割式定子（31XX）', h: 45.5, tolP: .6, tolN: .4,
     yoke: [22, 5], stem: [9, 13], tip: [17, 4], len: 22, mass: .075,
-    grid: { rows: 7, cols: 20, pitch: 20, rowPitch: 30, alt: true },   // 交錯 180° 擺放：軛與齒靴錯開、同列間隙 0.5 mm
-    lanePitch: 22.5, fingerGap: 22, open: 34,
+    // 交錯 180° 擺放：軛與齒靴錯開，同列間隙 1.5 mm（大於盒子定位後的殘差）、列間 8 mm；8 × 18＝144 顆
+    grid: { rows: 8, cols: 18, pitch: 21, rowPitch: 30, alt: true },
+    w: 22, lanePitch: 22.5, channel: 23.5,
   },
   rotor: {
     key: 'rotor', name: '轉子（Ø42）', h: 45.8, tolP: .3, tolN: .3, d: 42, bore: 15, mass: .42,
-    grid: { rows: 5, cols: 9, pitch: 46, rowPitch: 46, alt: false },
-    lanePitch: 42.5, fingerGap: 42, open: 54,
+    grid: { rows: 5, cols: 8, pitch: 46, rowPitch: 46, alt: false },
+    w: 42, len: 42, lanePitch: 42.5, channel: 43.5,
   },
 };
 export const capacity = p => p.grid.rows * p.grid.cols;
 
 // 擺盒格位（鐵盒內底面中心為原點；列沿 X、各列沿 Z 排）：{ r, c, x, z, rot }
+// 編號從定位角開始：第 1 列在南側（+z，盒子推靠的導板側、離下料手臂最遠），每列從東側（+x，擋塊側）往西擺，
+// 由遠往近、貼著已放好的工件依序擺，手臂與工件都不會經過已放好的工件上方。
 export function slot(p, i) {
   const g = p.grid, r = Math.floor(i / g.cols), c = i % g.cols;
-  return { r, c, x: (c - (g.cols - 1) / 2) * g.pitch, z: (r - (g.rows - 1) / 2) * g.rowPitch, rot: g.alt && c % 2 ? Math.PI : 0 };
+  return { r, c, x: ((g.cols - 1) / 2 - c) * g.pitch, z: ((g.rows - 1) / 2 - r) * g.rowPitch, rot: g.alt && c % 2 ? Math.PI : 0 };
 }
+// 工件外框（擺滿時）與基準板尺寸：基準板只蓋工件區、每邊大 6 mm，離盒壁至少約 17 mm（容許折板盒的公差）
+export const envelope = p => ({ x: (p.grid.cols - 1) * p.grid.pitch + p.w, z: (p.grid.rows - 1) * p.grid.rowPitch + p.len });
+export const plateSize = p => { const e = envelope(p); return { x: e.x + 12, z: e.z + 12 }; };
 
 // 量測值（示意）：每顆的高度由編號決定；固定幾顆超出公差當 NG 示範
 const NG = { stator: { 37: .68, 102: -.47 }, rotor: { 12: .41, 31: -.36 } };
@@ -64,19 +70,21 @@ export const PLANS = {
 };
 
 // ---------------------------------------------------------------- 鐵盒（沿用現有不鏽鋼盒；尺寸依照片估計，待現場量測）
-export const BOX = { size: [440, 110, 280], wall: 1.2, bottom: 1.5 };
+// 折板盒公差大：內尺寸、盒壁外翻與放在輸送線上的位置都會偏，擺盒前與放基準板前都先量盒壁
+export const BOX = { size: [440, 110, 280], wall: 1.2, bottom: 1.5, tol: 3 };
 
 // ---------------------------------------------------------------- 配置
 export const LAYOUT = {
   // 沖壓區（現場既有）：沖壓機正面朝南，6 列出料滑道往南伸出
   press: { x: -5200, z: -1400, w: 2800, d: 2000, front: -400, bed: 900, h: 4300 },
-  lane: { n: 6, pitch: 80, y: 950, z0: -400, z1: 500, wall: 35 },
+  // 出料滑道末端加「整列單元」：散料區（z0～guide[0]）→ 收斂導正段（guide）→ 窄通道＋分料擋銷 → 定位座（擋塊面在 z1）
+  lane: { n: 6, pitch: 80, y: 950, z0: -400, z1: 500, wall: 35, guide: [250, 400] },
   // 廢料坑：沖壓機前方地板下的空洞，上面是可掀的鋼蓋板（接縫下有支撐樑）與一塊落料網格
   pit: { x0: -7200, x1: -3200, z0: -400, z1: 2400, joints: [300, 1000, 1700], seams: [-6200, -5200, -4200], grate: [-6900, -6300, -100, 250] },
   // 自動下料機：可移動底座（腳輪＋調整腳）跨在蓋板支撐樑上，掀蓋清廢料時整台推開
   unloader: {
-    scara: { x: -5200, y: 900, z: 900 },
-    frame: { x0: -6460, x1: -3940, z0: 780, z1: 1780, top: 640, feetZ: [1000, 1700] },
+    scara: { x: -5200, y: 900, z: 880 },
+    frame: { x0: -6460, x1: -3940, z0: 700, z1: 1780, top: 640, feetZ: [1000, 1700] },
     conveyor: { z: 1330, top: 848.5, x0: -6420, x1: -3980 },
     slots: [-6160, -5680, -5200, -4720, -4240],       // 空盒 W2、W1、擺盒位、滿盒 E1、E2
     fill: 2,
