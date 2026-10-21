@@ -84,8 +84,8 @@ export function createProject({ scene, headless = false, sku: wanted } = {}) {
   // 手臂是否到位（曝光、力值顯示的條件；與 main.js 播放時的判斷相同）
   function arrived(current) { const e = robot.error(); return e.position < (current.step.contact ? 1 : 2) && e.angle < 3 && e.rail < 2; }
   // 取像光源、雷射、ROI 框、接縫雷射線、力覺色環、三色燈：依目前步驟與「是否到位」決定
-  function effects(current, { arrived: ok = arrived(current), capture = false, result = 'OK', fault = '' } = {}) {
-    const s = current.state, illuminated = ok || capture;
+  function effects(current, { arrived: ok = arrived(current), result = 'OK', fault = '' } = {}) {
+    const s = current.state, illuminated = ok;
     robot.setFlash(s.flashTool > 0 && illuminated); robot.setLaser(s.laserTool > 0 && illuminated);
     cell.topFlash.intensity = s.flashTop * 2000; cell.snFlash.intensity = s.flashSn * 800;
     const activeDoor = nb.doors.find(d => s.action.startsWith(d.def.id + ' '));

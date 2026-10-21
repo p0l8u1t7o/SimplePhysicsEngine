@@ -66,7 +66,6 @@ stage.addLabel('力覺末端', () => robot.getTcpWorld('cam').add(new THREE.Vect
 const ui=Object.fromEntries(['action','substep','forceBar','forceVal','zoneDot','zoneTxt','checklist','chkCount','playBtn','speed','showZone','showPath','progBar','sku','signals','poseError','phase','result','exportBtn','showGuards','showLabels','cycleTime'].map(id=>[id,document.getElementById(id)]));
 // T 由播放列（player）推進；S／current 為目前取樣結果
 let S,T=0,current,curStation=-1,ready=false,quiet=false;
-const CAPTURE=qp.has('capture');
 // 時間 → 場景一律經由 project：apply（跳播，手臂直接到位）或 sample（播放，手臂由 robot.update 追上）
 function go(c){current=c;S=c.state;return c;}
 const total=project.total,stationStart=sequence.stationStart;
@@ -136,7 +135,7 @@ signals.forEach(([name])=>{const row=document.createElement('div');row.innerHTML
 function drawHud(){
   const e=robot.error(),arrived=project.arrived(current),playing=player.playing;
   // 光源、雷射、ROI 框、接縫雷射線、力覺色環、三色燈與 apply(t) 用同一段程式
-  project.effects(current,{arrived,capture:CAPTURE,result:ui.result.value,fault:gate.fault});
+  project.effects(current,{arrived,result:ui.result.value,fault:gate.fault});
   const force=arrived?S.force:0;
   cell.occluders.visible=ui.showGuards.checked;
   zoneSlow.visible=zoneSlowE.visible=zoneKeep.visible=ui.showZone.checked;trail.visible=ui.showPath.checked;
@@ -192,7 +191,7 @@ const player=createPlayer({total,qp,
   advance:gate.advance,
   apply(t,{seek}){
     T=t;
-    if(seek){gate.reset();trailCount=0;trailGeo.setDrawRange(0,0);return go(project.apply(t,{capture:CAPTURE}));}
+    if(seek){gate.reset();trailCount=0;trailGeo.setDrawRange(0,0);return go(project.apply(t));}
     return current;
   },
   // 跳播後重繪（連續播放由 stage.loop 每格繪製；錄影取樣時不重繪）
@@ -205,7 +204,7 @@ function frameTick(dt){
   if(player.playing&&ui.showPath.checked)pushTrail(robot.getTcpWorld(robot.goal.tcp));
   const d=nb.doors.find(d=>S.action.startsWith(d.def.id+' '));if(selectedView==='door'&&d&&d.def.id!==viewDoorId)setView('door');
 }
-// 錄影（?capture、?movie）依絕對時間取樣，不重繪（錄影程式自己呼叫 render）
+// 錄影（?movie）依絕對時間取樣，不重繪（錄影程式自己呼叫 render）
 function sampleQuiet(t){quiet=true;try{player.seekTo(t);}finally{quiet=false;}}
 setView('iso',true);stage.resize();
 const sim=exposeSim({jump(st,view,off=0){seekTo((stationStart[THREE.MathUtils.clamp(Math.trunc(st)||0,0,4)]||0)+off);if(view)setView(view,true);},seekTo,pause:()=>player.pause(),play,get state(){return S;},get T(){return T;},setView,views:[...Object.keys(views),'sensor'],project,robot,total,stationStart,steps:sequence.steps,events:sequence.events,player});
@@ -213,17 +212,11 @@ if(qp.has('st'))sim.jump(+qp.get('st'),qp.get('view'),+(qp.get('t')||0));else if
 if(qp.has('step')){player.pause();seekTo(sequence.steps[THREE.MathUtils.clamp(+qp.get('step')||0,0,sequence.steps.length-1)].start);if(qp.has('view'))setView(qp.get('view'),true);}
 if(qp.has('cam')){const a=qp.get('cam').split(',').map(Number);if(a.length===6&&a.every(Number.isFinite))stage.goTo(a.slice(0,3),a.slice(3),true);}
 document.getElementById('loading').classList.add('hide');ready=true;render();
-// ?capture=1 由 video.js 逐格繪製，不跑互動迴圈；?movie 時 stage 也不啟動迴圈（交給 installMovie）
-if(!CAPTURE)stage.loop(frameTick,{render});
-// Capture uses the same absolute mechanical sequence as interactive playback.
-if(CAPTURE){
-  const {installVideo}=await import('./video.js');
-  ui.showGuards.checked=false;ui.showLabels.checked=false;
-  window.capture=installVideo({steps:sequence.steps,renderer,camera,controls,render,nb,getState:()=>S,sample:sampleQuiet});
-}
+// ?movie 時 stage 不啟動迴圈（交給 installMovie）
+stage.loop(frameTick,{render});
 
 // ---------------------------------------------------------------- 展示影片（?movie）：依絕對時間逐格取樣，與 project.apply 同一路徑
-if(qp.has('movie')&&!CAPTURE){
+if(qp.has('movie')){
   player.pause();
   const {installMovie}=await import('@core/movie/movie.js');
   installMovie({project:'MilitaryGradePC',scene,renderer,camera,controls,render,setView,total,steps:sequence.steps,

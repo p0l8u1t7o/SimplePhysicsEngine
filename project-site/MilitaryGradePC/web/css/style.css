@@ -81,23 +81,6 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:
 
 .views select{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--fg);padding:6px 6px;border-radius:6px;font:12px var(--font);margin-left:6px;max-width:150px}
 
-/* 離線錄製用分鏡字幕列 */
-#capbar{position:absolute;left:14px;right:330px;bottom:14px;background:var(--panel);border:1px solid var(--line);
-  border-radius:12px;padding:12px 16px 14px;z-index:6;backdrop-filter:blur(8px)}
-#capbar .tag{display:inline-block;font-size:11.5px;font-weight:700;letter-spacing:.5px;color:#04121f;
-  background:var(--accent);padding:2px 9px;border-radius:5px;margin-bottom:7px}
-#capbar .txt{font-size:16px;font-weight:600;line-height:1.4;color:var(--fg)}
-#capbar .bar{margin-top:10px;height:4px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden}
-#capbar .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--ok))}
-
-/* 錄製模式：關閉 backdrop-filter（軟體算圖下成本極高），改用不透明底 */
-body.capture .card,
-body.capture #capbar,
-body.capture #topbar{backdrop-filter:none !important}
-body.capture .card,
-body.capture #capbar{background:rgba(14,20,29,.94)}
-body.capture #topbar{background:rgba(11,15,21,.94)}
-
 /* Keep the machine viewport clear of the controls at normal desktop widths. */
 #c{top:124px;left:0;right:auto;bottom:auto;width:calc(100% - 332px);height:calc(100% - 272px)}
 #topbar{height:116px;display:grid;grid-template-columns:1fr auto;grid-template-rows:54px 42px;gap:0 16px;overflow:visible;background:#111923;padding:8px 20px}
@@ -125,7 +108,6 @@ button,select{font-family:var(--font)}select,button{color:var(--fg);background:#
 #cycleTime{font-size:10px;color:#819bad;white-space:nowrap}#timeline{grid-column:1;width:100%;accent-color:#69c8d0;cursor:pointer}.progress{display:none}.clock{grid-column:2;grid-row:3}
 .checklist{max-height:none}.checklist li{font-size:11px;line-height:1.65;align-items:flex-start}
 .checklist li .box{margin-top:3px}.label3d{font-size:10px;background:#10202be0;border-color:#49616d}
-body.capture #c{height:calc(100% - 132px)}body.capture #bottombar{display:none}
 /* 900～1100 px 的非觸控視窗仍走桌面版面（較窄的兩列頂欄）；≤900 px 與觸控平板由 core 的精簡版面接手 */
 @media(max-width:1100px){#topbar{grid-template-columns:1fr;height:150px;grid-template-rows:48px 40px 42px}#stations{grid-row:2}.views{grid-row:3}.brand .title{font-size:17px}#side{top:160px;width:280px}#c{top:156px;width:calc(100% - 300px);height:calc(100% - 305px)}#bottombar{right:312px}#cycleTime{display:none}.views{gap:4px}.views button{padding:6px 9px}}
 #movie{position:fixed;inset:0;z-index:100;background:#080f18;display:flex;align-items:center;justify-content:center}#movieCanvas{width:100%;height:100%;object-fit:contain}#movieControls{position:absolute;left:20px;bottom:8px;display:flex;gap:18px;align-items:center;font:12px var(--font);color:#b8d3e0;background:#0b1629e8;padding:8px 14px;border-radius:6px}#movieControls button{font-size:12px}
