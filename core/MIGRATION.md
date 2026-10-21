@@ -1,18 +1,6 @@
-# TestCode 3D 動畫統一框架：遷移計畫與進度
+# core 改版紀錄
 
-## 2026-10-14：ParkingEMS 寫實渲染第二輪（本站外觀變更）
-
-以 `daa9fdf` 獨立 worktree 為基準，本站新增封裝的 PBR／HDRI 素材、高低畫質管線、接觸遮蔽與亮部擴散，加密車體／輪胎、薄葉簇與立體窗框，降低充電視角。素材來源與授權在本站 `web/assets/`，core 執行碼與 API 均未改，不升版。
-
-七站 91 張基準回歸超過門檻 0 張；本站 31 張事件畫面與三場型高低畫質／深度模式逐圖檢視，外觀變更為預期。CCTV／LPR 子畫面及缺檔降級另有瀏覽器檢查。量測、圖檔位置與限制見 `project-site/ParkingEMS/review/cinematic-render.md`。
-
-## 2026-10-14：ParkingEMS 實物感與操作時序（本站外觀變更）
-
-使用者批准三場型完整修正，延長客戶操作段並保留 EMS 規則。本站改用曲面車體、可開前門、固定骨長人物、跟隨槍線、戶外材質與日夜反射，補鋼構／光電模組／排水／櫃體／植栽。施工線槽與集水管改為屋面就位後出現；沒有新增干涉 allow。都會型全景與能源區、住商型入口重新取景，避免前景建物遮蔽。
-
-基準為 `e19d07f` 的獨立 worktree；原有 7 站 91 張桌面回歸圖，超過門檻 0 張（像素容差 24、差異面積 0.2%）。ParkingEMS 的刻意差異逐圖檢視：三場型各 10 張（全景、入口、設備、夜間、開門、取槍、插槍、連接後、退槍、施工），旗艦型另 1 張車棚，共 31 張。修正了首次檢視發現的夜間入口偏暗、能源區數值牌遮蔽與都會型相機進入建物問題；詳細數字及限制見 `project-site/ParkingEMS/review/render-realism.md`。
-
-此輪僅改本站執行碼與共用紀錄；core API／渲染執行碼未變，不升 core 版本。基準與回歸圖片在本機 `TEMP/shots-pems-realism-base/`、`TEMP/shots-pems-realism-regression/`，本站修改前後畫面在 `TEMP/pems-realism-audit/`，均不進版控。
+`core/` 的改版紀錄（版本對照在最後的「版本」表）。前半是 2026-10-03 起把原庫 `TestCode/` 各站統一到單一 `core/` 的遷移計畫（P0～P7）與之後各輪的進度，依日期記錄；本庫在 2026-10 從原庫獨立出來，2026-10-03 那幾輪的 8 碼提交編號（例如 `d1392707`）在原庫、本庫查不到，「7 站」「91 張」等數字也是當時的狀態。待辦一律記在根目錄 `PENDING.md`，core 的功能需求登記在 `core/REQUESTS.md`。
 
 2026-10-03 拍板（選項對話）：
 - 單一 `core/` 直接引用（importmap `@core/`），不再複製同步；
@@ -26,11 +14,11 @@
 |---|---|---|
 | `/` | 由 `core/tools/site.mjs` 產生 | 展示首頁 |
 | `/core/…` | `core/` | 共用模組與 three.js（只發佈一份） |
-| `/<專案>/…` | `<專案>/web/…` | 各專案頁面 |
+| `/<專案>/…` | `project-site/<專案>/web/…`（1.3.0 起；之前在庫根目錄） | 各專案頁面 |
 
 各專案 `index.html` 的 importmap 一律寫成：
 `three` → `../core/vendor/three.module.js`、`three/addons/` → `../core/vendor/addons/`、`@core/` → `../core/`。
-Node 端由 `core/tools/loader.mjs` 解析相同的三種名稱，檢查程式直接載入網頁用的同一份模組。
+Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs` 註冊）解析相同的三種名稱，檢查程式直接載入網頁用的同一份模組。
 
 ## 階段
 
@@ -63,13 +51,13 @@ Node 端由 `core/tools/loader.mjs` 解析相同的三種名稱，檢查程式�
   - 檢查規則修正：`bodyOf` 為 null 時「同一剛體」誤放行（固定件之間、頂層移動件對固定件），修正後各專案抓到大量真問題並全部處理；另加曲面／開孔擠出件頂點複核、線材端點與小型配線五金規則、自轉件歸屬、快取（MGPC 由 2 小時以上降到 90 秒）。
   - 部署前快速檢查加入 scene（干涉＋閃爍）。
   - 已知待實機確認：PCB S1／S3 相機與 S2 Y 軌間隙 1.75 mm；MGPC 週期 329.75 → 347.75 s。
-  - 待延伸：各專案的 3D 標籤、視角轉場仍是自己的寫法（行為與 stage 版略有不同）；兩套基本形狀（primitives／parts）並存。
+  - 待延伸：各專案的 3D 標籤、視角轉場仍是自己的寫法（行為與 stage 版略有不同）；兩套基本形狀（primitives／parts）並存。→ 第二輪統一已完成（`shapes.js`＋`materials.js`、`stage.addLabel`／`goTo`）。
 - 2026-10-03 第二輪統一（使用者選：四項全做、允許小幅外觀改變、一次做完）：
   - 形狀：`shapes.js`＋`materials.js` 取代 parts／primitives（codemod-shapes.py 自動轉換，91 張截圖不變）。
   - 排程：`createStepSequence`（SSD、快門、MGPC、WPM、滴定手臂）與 `createTimeline`（化學桶、PCB、滴定轉盤與滴定頭）；統一事件格式 `{time,dur,label,sub,station}`。各站排程結果與改寫前逐位元／1e-7 相同。
   - 介面：7 站播放列改用 `createPlayer`，標籤 `stage.addLabel`，視角 `stage.goTo`；化學桶相機視窗改用 viewer-workspace，`view-controls.js` 刪除。WPM 的 2D 模擬相機維持專案自有。
   - 材質：常見材質改用 MAT，框架、儀表盤等外觀略有變化（各站截圖差異已逐張檢視）。
-  - 代理回報的 core 補強建議（尚未做）：標籤自動加畫布偏移（6 站各自補正）、player 的到位閘門／loop／speed getter／select 速度、步驟逐鍵緩動與 latch／retime／rollback、stage 取消轉場與 shiftView、Track.at(T)、MAT.frame（0x6b7480）／chrome／帶細紋材質、viewer-workspace 的 focusOffset 函式與 startFollowing、2D 影像來源、verify-cables 改讀 tr.steps 後移除 PCB 的 segs 別名。
+  - 代理回報的 core 補強建議（當時尚未做，精進輪已全部完成，見下一條）：標籤自動加畫布偏移（6 站各自補正）、player 的到位閘門／loop／speed getter／select 速度、步驟逐鍵緩動與 latch／retime／rollback、stage 取消轉場與 shiftView、Track.at(T)、MAT.frame（0x6b7480）／chrome／帶細紋材質、viewer-workspace 的 focusOffset 函式與 startFollowing、2D 影像來源、verify-cables 改讀 tr.steps 後移除 PCB 的 segs 別名。
 - 2026-10-03 精進輪（使用者選：四項全做、做完更新 Pages）：
   - core（07b00ea1）：player 的 `advance`／`loop`／`<select>` 速度／`speed`；標籤自動加畫布偏移與 `anchor`；`stage.cancelTween`／`shiftView`；`createStepSequence` 的 `latch`、逐鍵緩動、`peek`、`mark`／`rollback`、`retime`、`nested`；`Track.at(T)`；`MAT.frame`／`chrome`／`finished()`；viewer-workspace 的 `renderImage`／`setSources`／`startFollowing`／focusOffset 函式。
   - 7 站改用（ced15a38 化學桶、3dfc1a3a PCB、318e5f8a WPM、5d72ca9f 快門、ab2db938 滴定、864a053d 軍規、6592d70c SSD）：各站排程指紋、review JSON、專案檢查與改前相同；外觀差異只在改用 MAT.frame／chrome／finished 的框架、銷、鋁件。
@@ -226,6 +214,20 @@ Node 端由 `core/tools/loader.mjs` 解析相同的三種名稱，檢查程式�
     - 燈光只比位置與目標點，不比旋轉（RectAreaLight 例外）——閃光燈掛在 `lookAt` 過的相機 root 裡時照射方向不變。
     - `--ignore-names` 也不比燈光與虛擬相機的名稱（`visionCamera` 的虛擬相機預設叫 `camera view`）。修正前換用的站在 `view` 傳了 `name: ''` 維持不命名，留著無妨。
     - 正規化在比對時做，傾印檔格式不變，舊的傾印可以直接再比。
+
+## 2026-10-14：ParkingEMS 實物感與操作時序（本站外觀變更）
+
+使用者批准三場型完整修正，延長客戶操作段並保留 EMS 規則。本站改用曲面車體、可開前門、固定骨長人物、跟隨槍線、戶外材質與日夜反射，補鋼構／光電模組／排水／櫃體／植栽。施工線槽與集水管改為屋面就位後出現；沒有新增干涉 allow。都會型全景與能源區、住商型入口重新取景，避免前景建物遮蔽。
+
+基準為 `e19d07f` 的獨立 worktree；原有 7 站 91 張桌面回歸圖，超過門檻 0 張（像素容差 24、差異面積 0.2%）。ParkingEMS 的刻意差異逐圖檢視：三場型各 10 張（全景、入口、設備、夜間、開門、取槍、插槍、連接後、退槍、施工），旗艦型另 1 張車棚，共 31 張。修正了首次檢視發現的夜間入口偏暗、能源區數值牌遮蔽與都會型相機進入建物問題；詳細數字及限制見 `project-site/ParkingEMS/review/render-realism.md`。
+
+此輪僅改本站執行碼與共用紀錄；core API／渲染執行碼未變，不升 core 版本。基準與回歸圖片在本機 `TEMP/shots-pems-realism-base/`、`TEMP/shots-pems-realism-regression/`，本站修改前後畫面在 `TEMP/pems-realism-audit/`，均不進版控。
+
+## 2026-10-14：ParkingEMS 寫實渲染第二輪（本站外觀變更）
+
+以 `daa9fdf` 獨立 worktree 為基準，本站新增封裝的 PBR／HDRI 素材、高低畫質管線、接觸遮蔽與亮部擴散，加密車體／輪胎、薄葉簇與立體窗框，降低充電視角。素材來源與授權在本站 `web/assets/`，core 執行碼與 API 均未改，不升版。
+
+七站 91 張基準回歸超過門檻 0 張；本站 31 張事件畫面與三場型高低畫質／深度模式逐圖檢視，外觀變更為預期。CCTV／LPR 子畫面及缺檔降級另有瀏覽器檢查。量測、圖檔位置與限制見 `project-site/ParkingEMS/review/cinematic-render.md`。
 
 ## 版本
 

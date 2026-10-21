@@ -1,6 +1,6 @@
 # 輪框吊掛線手臂下掛
 
-FANUC 手臂＋手臂搭載雙眼立體視覺：追蹤 4 cm/s 吊掛線、抗反光辨識輪框、下掛疊放棧板
+FANUC R-2000iC/165F＋手臂搭載雙眼立體視覺：追蹤 4 cm/s 吊掛線、抗反光辨識輪框、下掛疊放棧板
 
 由 `node core/tools/new-project.mjs` 從 `core/template` 建立。框架說明見 [core/README.md](../../core/README.md)。
 
@@ -54,6 +54,6 @@ node ../../core/tools/check.mjs "WheelHangingAutomaticLine" --quick  # 部署前
 | `web/js/optical-effects.js` | 輪面投影點、入射與正反射解說箭頭 |
 | `web/js/electrical.js` | 中空控制櫃、電控元件、固定配線與腕部服務圈 |
 | `web/js/operator.js` | 圍籬外 HMI 操作員姿勢示意 |
-| `tools/verify.mjs` | 本專案的製程規則檢查 |
+| `tools/verify.mjs` | 本專案的製程規則檢查（追蹤與直線精度、換手、拉出淨空、疊圖與盲區推算、光源同步、線束幾何、倒序一致；結果在 `review/verification.json`） |
 | `AGENTS.md`／`CLAUDE.md` | 本站規則：範圍、規格摘要、已拍板事項（`CLAUDE.md` 以 `@AGENTS.md` 引用） |
 | `.claude/settings.json` | 寫檔關卡：從本資料夾啟動的 Claude Code 只能改本站 |

@@ -22,7 +22,7 @@
 
 ## 檢查與修正
 
-`node core/tools/check.mjs --only electrical` 同時檢查五站共用程式一致性、外露線路取樣碰撞與拖鏈運動。新增的 `check-feedthroughs.mjs` 使用實際網格射線檢查孔中心及邊側暢通、孔旁仍有板材，並確認每個接頭上、中、下三個高度都有線材穿過，包含線徑淨空。另以射線檢查背板固定柱的末端確實接觸櫃壁。
+`node core/tools/check.mjs --only electrical` 同時檢查外露線路取樣碰撞與拖鏈運動。穿板孔檢查（現為 `core/verify/feedthroughs.mjs`）使用實際網格射線檢查孔中心及邊側暢通、孔旁仍有板材，並確認每個接頭上、中、下三個高度都有線材穿過，包含線徑淨空。另以射線檢查背板固定柱的末端確實接觸櫃壁。
 
 本次修正滴定站兩條線在桌板下方太早彎曲、碰到下鎖帽的情況。軍規站新增電盤亦移至相鄰立柱之間，縮為 460 mm 寬並落地；其機構檢查新增對 24 個輸送線立柱及腳座的淨空檢查，最小間距為 10 mm。
 
@@ -32,8 +32,8 @@
 
 ## 檢視截圖
 
-- [滴定站](../../AutomaticAcid-BaseTitration/review/electrical-routing.png)
-- [軍規站](../../MilitaryGradePC/review/electrical-routing.png)
-- [PCB 站](../../PCB-CopperAssembly/review/electrical-routing.png)
-- [SSD 站](../../RobotArmPressSSD/review/electrical-routing.png)
-- [快門站](../../shutter%20assembly/review/electrical-routing.png)
+- [滴定站](../../project-site/AutomaticAcid-BaseTitration/review/electrical-routing.png)
+- [軍規站](../../project-site/MilitaryGradePC/review/electrical-routing.png)
+- [PCB 站](../../project-site/PCB-CopperAssembly/review/electrical-routing.png)
+- [SSD 站](../../project-site/RobotArmPressSSD/review/electrical-routing.png)
+- [快門站](../../project-site/shutter%20assembly/review/electrical-routing.png)

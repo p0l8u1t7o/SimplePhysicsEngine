@@ -29,7 +29,7 @@ jobs:
         with:
           node-version: 22
 
-      # imports、determinism、layout、scene（干涉＋閃爍）、core 模型、各專案 checks.quick
+      # imports、structure、names、determinism、layout、scene（干涉＋閃爍）、electrical、physics、bom、core 檢查、各專案 checks.quick
       - name: Quick checks
         run: node core/tools/check.mjs --quick
 

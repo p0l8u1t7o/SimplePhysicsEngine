@@ -12,7 +12,9 @@ DENSO VM-60B1：匯入 CAD 自動產生產品檔（A/B 面、遮罩、視角、�
 node ../../core/tools/serve.mjs "PlumbingFixtureInspection"
 ```
 
-開啟 http://127.0.0.1:8770/PlumbingFixtureInspection/。網址參數：`?pause&t=5&view=pick`、`?shadow=0`、`?cam=x,y,z,tx,ty,tz`。
+開啟 http://127.0.0.1:8770/PlumbingFixtureInspection/。網址參數：`?product=gooseneck`（情境：鵝頸出水管）、`?pause&t=40&view=optics`、`?shadow=0`、`?cam=x,y,z,tx,ty,tz`。
+
+視角：`iso`（全景）、`front`、`load`（上料窗）、`scanner`（3D 快掃）、`optics`（光學艙）、`closeup`（特寫）、`twin`（數位空間）、`electrical`（電盤配線）、`rework`（重工站）、`top`。
 
 手機、平板與橫向手機自動改用精簡版面（☰ 製程與視角、⚙ 播放設定、工具列 ◨ 開側欄、▣ 相機視窗、◎ 追隨工件），由 `createViewerWorkspace` 處理；`css/style.css` 只寫桌面版面。
 
@@ -28,6 +30,7 @@ node ../../core/tools/check.mjs "PlumbingFixtureInspection" --quick  # 部署前
 | 檔案 | 用途 |
 |---|---|
 | `project.json` | 標題、首頁說明、檢查清單、情境（鵝頸出水管） |
+| `web/index.html`、`web/css/style.css` | 標準版面骨架與桌面版面（窄螢幕規則由 `core/ui/viewer-workspace.css` 負責） |
 | `web/js/layout.js` | 配置與尺寸：機台、手臂、光學艙（甜蜜點、條紋屏、相機選型與 `core/optics` 計算）、掃描位、上料抽屜、轉接頭 |
 | `web/js/planner.js`、`raster.js` | 產品檔自動規劃：A/B 面、遮罩、視角集合覆蓋、拍攝順序（Node 與網頁共用） |
 | `web/js/products/*.js` | 產品模組（`tools/import-cad.mjs` 產生，勿手改）：網格＋產品檔 |
@@ -37,8 +40,12 @@ node ../../core/tools/check.mjs "PlumbingFixtureInspection" --quick  # 部署前
 | `web/js/robot.js`、`poses.js` | VM-60B1＋快換器＋轉接頭、逆解選解；產品在各處的姿態 |
 | `web/js/sequence.js` | 8 站排程 |
 | `web/js/twin.js` | 數位空間 |
+| `web/js/effects.js` | 結構光條紋、掃描相機燈、硬體觸發與穩定燈號（全部由主時間 `t` 驅動） |
+| `web/js/capture-overlay.js` | 取像後主相機視窗的相位圖 → 曲率圖 → 候選紅圈示意疊圖 |
+| `web/js/operator.js` | 作業員上下料姿勢示意（`userData.operatorProxy`，不列入干涉檢查） |
+| `web/js/electrical.js` | 下層機櫃電控、抽屜拖鏈與配線（electrical 檢查） |
 | `web/js/project.js`、`main.js` | 專案介面、網頁 |
 | `tools/import-cad.mjs`、`parametric.mjs` | 匯入 CAD 產生產品檔；參數化示範件 |
-| `tools/verify.mjs` | 本站檢查 |
-
-網址參數：`?product=gooseneck`（鵝頸出水管）、`?pause&t=40&view=optics`。
+| `tools/verify.mjs` | 本站檢查（兩種產品；結果在 `review/verification.json`） |
+| `AGENTS.md`／`CLAUDE.md` | 本站規則：範圍、規格摘要、已拍板事項、產品檔重產指令（`CLAUDE.md` 以 `@AGENTS.md` 引用） |
+| `.claude/settings.json` | 寫檔關卡：從本資料夾啟動的 Claude Code 只能改本站 |

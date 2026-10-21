@@ -18,14 +18,14 @@
 
 ## 查看
 
-各專案用原本 `serve.py --no-open` 啟動後，使用以下畫面。點右上「標記 開／關」切換原圖與標記；SSD、銅片可用「放大」看清細節。
+在庫根目錄執行 `node core/tools/serve.mjs`（或 `scripts\start.cmd -Site`）啟動本機網站後，使用以下畫面。點右上「標記 開／關」切換原圖與標記；SSD、銅片可用「放大」看清細節。
 
-- [SSD 銀腳 NG 範例](http://127.0.0.1:8767/?pause&step=21&t=0.1&view=inspect&cameraSize=large)
-- [銅片供料](http://127.0.0.1:8768/?pause&t=3.382373&view=s2&pip=feedA&cameraSize=large)
-- [銅片仰視](http://127.0.0.1:8768/?pause&t=1.098526&view=s2&pip=upA&cameraSize=large)
-- [S3 植入檢查](http://127.0.0.1:8768/?pause&t=3.382373&view=s2&pip=s3&cameraSize=large)
-- [軍規接口](http://127.0.0.1:8765/?pause&step=48&view=sensor)
-- [滴定液面](http://127.0.0.1:8769/?pause&t=300&view=meniscus)
+- [SSD 銀腳 NG 範例](http://127.0.0.1:8770/RobotArmPressSSD/?pause&step=21&t=0.1&view=inspect&cameraSize=large)
+- [銅片供料](http://127.0.0.1:8770/PCB-CopperAssembly/?pause&t=3.382373&view=s2&pip=feedA&cameraSize=large)
+- [銅片仰視](http://127.0.0.1:8770/PCB-CopperAssembly/?pause&t=1.098526&view=s2&pip=upA&cameraSize=large)
+- [S3 植入檢查](http://127.0.0.1:8770/PCB-CopperAssembly/?pause&t=3.382373&view=s2&pip=s3&cameraSize=large)
+- [軍規接口](http://127.0.0.1:8770/MilitaryGradePC/?pause&step=48&view=sensor)
+- [滴定液面](http://127.0.0.1:8770/AutomaticAcid-BaseTitration/?pause&t=300&view=meniscus)
 
 ## 驗證
 

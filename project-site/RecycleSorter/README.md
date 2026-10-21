@@ -57,8 +57,8 @@
 | 混合料流加權平均 | **1.57 s／瓶 · 約 1944 瓶/小時** |
 | 對應的目標物平均間距 | ≥ 315 mm（同類連抓時 280 mm） |
 
-動畫第 9 段用 280 mm 間距的滿載同類料流驗證 1.40 s，第 10 段把加權平均與承諾產能標示出來；
-第 9 件目標因間距只有 240 mm 排不進手臂的空檔，流到末端觸發漏抓警報。
+倒數第二段（後段連續運轉節拍）用 280 mm 間距的滿載同類料流驗證 1.40 s，最後一段把加權平均與承諾產能標示出來；
+滿載段的最後一件目標因間距只有 240 mm 排不進手臂的空檔，流到末端觸發漏抓警報。
 
 ## 手臂路徑
 
@@ -109,11 +109,11 @@ node ../../core/tools/serve.mjs "RecycleSorter"
 ## 檢查
 
 ```powershell
-node ../../core/tools/check.mjs "RecycleSorter"          # 完整：import 路徑、倒序一致、空間檢核、全場干涉與閃爍、電控與配線、四種尺寸的介面測試（ui）、本專案檢查
+node ../../core/tools/check.mjs "RecycleSorter"          # 完整：內建項目（imports、structure、names、determinism、layout、scene、electrical、physics、bom、ui）＋本專案檢查
 node ../../core/tools/check.mjs "RecycleSorter" --quick  # 部署前快速檢查
 ```
 
-快速檢查包含電控、穿板孔與 401 個時間點的配線取樣（障礙物含搬運中的工件）。`tools/verify-segment2.mjs` 另驗證雙眼投影（前段、後段）、取像凍結、倒序還原及安全功能連線；完整檢查另含 ui 四種尺寸。
+快速檢查是完整檢查去掉 ui，包含電控、穿板孔與 401 個時間點的配線取樣（障礙物含搬運中的工件）、物理烘焙（physics）與 BOM 對照（bom，只警告）。`tools/verify-segment2.mjs` 另驗證雙眼投影（前段、後段）、取像凍結、倒序還原及安全功能連線；完整檢查另含 ui 四種尺寸。
 
 `tools/verify.mjs` 的前段檢查：ABB 每趟抓取瞬間吸嘴口對在工件頂面、位置在窗口內、食品／非食品落對側；抓取間隔不小於單趟時間；
 放料後落在對的那一段分類帶上；每件放行都是真的來不及；一件工件只會被一支手臂抓；結束時抓走的工件都在帶尾的收料箱裡。後段分流帶尾端到收料箱是物理模擬（`core/physics`，2026-10-06）：工件到帶尾前 0.5 秒交給物理，翻落、堆積都由模擬決定；`physics` 檢查確認再烘焙一次結果相同、靜止接觸穿透在門檻內。空間檢核（`layoutChecks`）另有十項前段的檢核。
@@ -138,12 +138,14 @@ node ../../core/tools/check.mjs "RecycleSorter" --quick  # 部署前快速檢查
 | `web/js/items.js` | 模型庫 12 款，全部排入料流；食品／非食品 HDPE、PET、鐵罐、薄膜、壓扁件、紙盒與瓶身材質 |
 | `web/js/appearance.js` | 瓶身包裝與低對比帶面貼圖、金屬表面、批次固定細節及取像照明亮斑 |
 | `web/js/electrical-spec.js` | 已拍板電盤尺寸、背板分列與元件清單 |
+| `web/js/electrical-details.js` | 第二段的安裝外觀細節（標牌、線號、端子編號、接地銅排、散熱構造；示意，不改元件表），由 `electrical.js` 引用 |
 | `web/js/electrical.js` | DENSO 系統盤（裝在既有電控櫃的側板上）、RC8A、補充功能連線、地面主幹與固定配線、相機安裝、HMI 與光幕示意 |
 | `web/js/vision.js` | 最近一次取像、左右眼來源、SIM 疊圖與繪製後還原 |
 | `web/js/schedule.js` | 敘事段落、播放速率（慢動作與凍結）、製程時間換算、帶上工件清單（含排給前段 ABB 的目標）、料流通道（兩段導料）、兩支手臂的子動作與軸速上限、整合流程 |
 | `web/js/project.js` | 建立場景（地面用 `floor()`、整條既有皮帶與後段機台）、前段 ABB 的排程、後段取放工單與手臂路徑、`apply(t)`、空間檢核、全場檢查設定 |
 | `web/js/main.js` | 舞台（`look`／`extent`）、`createViewerWorkspace`、視角、站別按鈕、3D 標籤、播放列、面板、`exposeSim` |
 | `tools/verify.mjs` | 本專案的製程規則檢查（節拍、類別與目的地、落料位置、導料板開口、漏抓警報、前段 ABB 的抓取與放行） |
+| `tools/verify-segment2.mjs` | 第二段檢查：雙眼投影（前段、後段）、取像凍結、倒序還原與安全功能連線；結果在 `review/segment2-data.json`、`segment2-fingerprint.json` |
 | `tools/physics-flow.mjs` | 後段混合料流的物理版分析（core/physics）：前段放行的工件照排程放上主帶，算皮帶上的密度、相鄰間隙、碰在一起的比例與到抓取窗口時可以吸的比例，和拍板的混合料流節拍對照；結果在 `review/physics-flow.json`（2026-10-06：2.18 件／m、最小間隙 40 mm、13／13 可以吸） |
 | `tools/render-audit.mjs`、`tools/render-b-audit.mjs` | 兩輪渲染補強的守門工具（狀態／動件回歸、配置比對、幾何預算、實例展開干涉檢查）；基準是補上前段之前的版本 |
 | `tools/build_vision_items.py` | 產生本機的 `docs/vision-items.xlsx`（只負責機器視覺時的採購品項表，分前段、後段、兩站共用的數量）；與成本表重複的品項單價取自平台上本站的成本表（`node studio/vs3d.mjs parts bom @RecycleSorter --json`）；需要 Python 與 openpyxl |

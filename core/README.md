@@ -7,21 +7,21 @@
 | 路徑 | 內容 |
 |---|---|
 | `vendor/` | three.js r160（`three.module.js`）與 addons，全站只有這一份；`rapier/`：Rapier 決定性版 0.21（剛體動力學，WebAssembly 內嵌，只由 `physics/` 引用） |
-| `geom/` | `shapes.js`（統一形狀：block／blockBetween／cylinder／rod／tube／pipe／profile／rounded／bevelBox／screw／decal／plate／floorText）、`materials.js`（共用材質表 MAT）、`hardware.js`（倒角外殼、螺栓、腳座、馬達、感測器…）、`finish.js`、`surfaces.js`、`perforated.js` |
+| `geom/` | `shapes.js`（統一形狀：block／blockBetween／cylinder／rod／tube／pipe／profile／rounded／bevelBox／screw／decal／plate／floorText）、`materials.js`（共用材質表 MAT）、`hardware.js`（倒角外殼、螺栓、腳座、馬達、感測器…）、`environment.js`（地面 `floor()`）、`finish.js`、`surfaces.js`、`perforated.js` |
 | `robot/` | `kinematics.js`：6 軸阻尼最小平方 IK（參數可調）；`reach.js`：手臂可達檢查（IK 或工作空間包絡，回傳 layoutChecks 的列） |
 | `models/` | 共用模型庫：每個模型有 `meta`（名稱、分類、可調參數、可動狀態、用法）與 `create(params) → { root, set(state) }`，在 `models/index.js` 登記；`models/parts.js`：`fromPart(元件編號)` 用元件庫的模型與參數建立並標 `partRef`、`tagPart`；目錄頁 `/core/catalog/` 可預覽、調參與搜尋。共 81 個，清單見下方「共用模型」 |
 | `migrations/` | 各版共用模型的換用對照（各站把自己畫的零件換成共用模型時照著改）：`1.10.0-vision.md`、`1.10.0-motion.md`、`1.10.0-equipment.md`、`1.10.0-transport.md`；1.9.0 的對照表在 `MIGRATION.md` |
 | `catalog/` | 模型目錄頁（發布在 Pages） |
 | `anim/` | `sampling.js`：取樣時間（網頁與檢查共用，不依賴 three）；`cycle.js`：節拍分析（各站佔用、稼動率、瓶頸）；`track.js`：時間軌與時間軸（`createTimeline`、`Track`、`smooth`），狀態只由時間決定；`sequence.js`：單一手臂的步驟序列；`arrival.js`：手臂到位閘門（播放時等手臂到位、逾時故障） |
-| `electrical/` | 線材、拖鏈、電盤、電控元件（`component()` 元件表）與檢視器 |
+| `electrical/` | `cable-routing.js`（線材 `cable`、拖鏈 `carrier`、`solidMeshes`）、`electrical-cabinet.js`（電盤櫃、背板、穿板接頭）、`electrical-components.js`（電控元件、`component()` 元件表、`robotController`）、`electrical-inspector.js`／`.css`（電控檢視器） |
 | `examples/` | `segment2/`：第二段（電控、電盤、配線、相機子畫面、視覺疊圖）的完整範例與說明，跟著 core 一起檢查；新專案照 `examples/segment2/README.md` 做。`physics/`：剛體動力學四種用途（物料流、掉落與滑槽、料箱堆積、夾取穩定）的範例頁與檢查 |
 | `optics/` | 機器視覺的光學計算（純函式：L1 視野、倍率、每像素、最小缺陷、景深、運動模糊、行頻、像圈、接口、頻寬、打光；L2 `lighting.js` 明暗場、缺陷對比、遮擋、近似模擬影像）與 3D 配置檢視頁 `optics/view.html`；studio 的光學工作台、`vs3d optics eval`、相機模型共用，說明在 `optics/README.md` |
 | `physics/` | 剛體動力學（Rapier 決定性版）：`physics.js` 預先烘焙軌跡（輸送帶、投料、移除區、治具、吸附、力控制兩指夾爪），`apply(t)` 只取樣、可以倒著拖；`analysis.js` 物料流、靜止時間、落點、料箱堆積與可抓取件、夾取滑移。範例 `/core/examples/physics/`，說明在 `physics/README.md` |
 | `movie/` | 錄影程式（4K 取樣 1080p、絕對時間取樣、追焦運鏡），各專案以 `?movie` 呼叫 |
-| `ui/` | `stage.js`（renderer／場景／相機／燈光／3D 標籤／視角轉場／畫面迴圈／`exposeSim`）、`player.js`（標準播放列）、`viewer-workspace`（相機視窗與焦點追隨，所有專案共用）、`vision-overlay` |
-| `verify/` | 統一檢查：`scene.mjs`（全場干涉＋重合面閃爍）、`electrical.mjs`（電控配置）、`cables.mjs`（配線動態取樣）、`feedthroughs.mjs`（穿板孔）、`clearance.mjs`（有向包圍盒間距）、`determinism.mjs`（倒序一致）、`fingerprint.mjs`／`fingerprint-compare.mjs`（排程指紋，渲染補強前後比對）、`run.mjs`（執行入口）、`dom-stub.mjs` |
+| `ui/` | `stage.js`（renderer／場景／相機／燈光／3D 標籤／視角轉場／畫面迴圈／`exposeSim`）、`player.js`（標準播放列）、`viewer-workspace.js`／`.css`（相機視窗、焦點追隨與精簡版面，所有專案共用）、`vision-overlay.js`（視覺疊圖） |
+| `verify/` | 統一檢查：`scene.mjs`（全場干涉＋重合面閃爍）、`electrical.mjs`（電控配置）、`cables.mjs`（配線動態取樣）、`feedthroughs.mjs`（穿板孔）、`clearance.mjs`（有向包圍盒間距）、`determinism.mjs`（倒序一致）、`physics.mjs`（站的物理烘焙）、`bom.mjs`（場景 ↔ 平台 BOM）、`models.mjs`（共用模型檢查）、`fingerprint.mjs`／`fingerprint-compare.mjs`（排程指紋，渲染補強前後比對）、`run.mjs`（執行入口）、`dom-stub.mjs` |
 | `template/` | 新專案範本（`tools/new-project.mjs` 複製） |
-| `tools/` | 伺服器、檢查執行器、截圖比對、場景傾印與比對（`scene-dump.mjs`）、效能量測（`perf-check.mjs`）、Pages 建置、成品匯出（`export.mjs`：網站壓縮檔、單一 HTML、MP4）、建立新專案、範圍檢查（`check-scope.mjs`、`scope-guard.mjs`、`install-hooks.mjs`）、用戶名稱檢查（`check-names.mjs`）、結構檢查（`check-structure.mjs`）（不發布） |
+| `tools/` | 伺服器（`serve.mjs`）、檢查執行器（`check.mjs`、`run.mjs`）、Node 端模組解析（`register.mjs`＋`loader.mjs`）、import 路徑檢查（`check-imports.mjs`）、標準互動測試（`ui-check.mjs`）、截圖比對（`shots.mjs`）、場景傾印與比對（`scene-dump.mjs`）、效能量測（`perf-check.mjs`）、Pages 建置、成品匯出（`export.mjs`：網站壓縮檔、單一 HTML、MP4）、建立新專案、範圍檢查（`check-scope.mjs`、`scope-guard.mjs`、`install-hooks.mjs`）、用戶名稱檢查（`check-names.mjs`）、結構檢查（`check-structure.mjs`）（不發布） |
 | `VERSION`、`REQUESTS.md` | core 版本號（語意化版本，改版紀錄在 `MIGRATION.md`）；子專案提出的 core 需求登記 |
 
 ## 新專案
@@ -68,7 +68,7 @@ node core/tools/serve.mjs                 # http://127.0.0.1:8770/  首頁
 node core/tools/serve.mjs Chemical        # 直接開某專案（名稱可只打開頭）
 ```
 
-根目錄的 `scripts\start.ps1`（`-Station <名稱>` 直接開某一站）也是用它，停止用 `scripts\stop.ps1`。
+根目錄的 `scripts\start.cmd -Site`（展示網站）、`-Station <名稱>`（直接開某一站）也是用它；不帶參數的 `scripts\start.cmd` 開的是 studio 的 vs3d 介面（8780）。停止用 `scripts\stop.cmd`。
 
 ## project.json
 
@@ -80,9 +80,17 @@ node core/tools/serve.mjs Chemical        # 直接開某專案（名稱可只打
   "coreVersion": "1.0.0",
   "checks": { "quick": ["tools/verify.mjs"], "full": ["tools/verify-gripper.mjs"] },
   "core": { "skip": [], "quick": [] },
-  "shots": { "views": ["iso", "robot"], "skip": ["follow"] }
+  "variants": [{ "name": "NG", "params": { "ng": "A1" } }],
+  "shots": { "views": ["iso", "robot"], "skip": ["follow"] },
+  "ui": { "skip": ["labels"], "params": "&shadow=0" }
 }
 ```
+
+- 必填：`title`、`summary`、`coreVersion`（最後一次驗證通過的 core 版本，不能超過 `core/VERSION`；`structure` 檢查會看）。`order` 是首頁排序。
+- `checks.quick`／`checks.full`：專案自有檢查（快速檢查只跑 `quick`）。
+- `core.skip`：不跑的內建檢查；`core.quick`：本來只在完整檢查跑、但這站要放進快速檢查的內建項目。
+- `variants`：預設情境之外另外跑一次的情境（`params` 傳給 `createProject`），檢查與場景傾印都會跑。
+- `shots`：`shots.mjs` 要拍的視角（預設從 `main.js` 的 `VIEWS` 讀）與跳過的視角；`ui`：`ui-check.mjs` 跳過的項目（`load`、`play`、`labels`…）與接在 `?pause` 後面的網址參數。
 
 ## 專案介面：`web/js/project.js`
 
@@ -196,7 +204,6 @@ node core/tools/check.mjs --only scene     # 只跑某項
 |---|---|---|
 | `models`（core） | ✓ | 每個共用模型以預設參數建立，狀態走完全範圍，做干涉與重合面檢查（`core/review/models.json`） |
 | `examples`（core） | ✓ | 第二段範例（`examples/segment2`）的電控與配線檢查 |
-| `bom` | ✓ | 場景的共用模型（`userData.coreModel`，優先用 `partRef` 編號）對照平台的 BOM：場景有但沒列進成本、成本表有模型但場景沒畫（標 `noScene` 的除外）；標 `noBom` 的現場既有設備不算。只警告；本機沒有平台資料庫（例如 CI）或站沒有成本表就略過。結果寫入 `review/bom-checks.json` |
 | `physics`（core） | ✓ | 剛體動力學範例（`examples/physics`）四個情境在 Node 烘焙兩次相同、無頭 Chrome 的雜湊和 Node 相同、分析數字合理 |
 | `structure` | ✓ | 開發架構（不管專案是哪個工具做的）：`project.json` 合法且有 `title`、`summary`、`coreVersion`（語意化版本、不超過 `core/VERSION`）；`AGENTS.md`、`CLAUDE.md`（引用 `@AGENTS.md`）；本庫的站有 `.claude/settings.json` 寫檔關卡；`docs/` 被 git 忽略；`web/` 每個 HTML 連 `../core/favicon.svg`、importmap 的 `@core/` 指到 `../core/`。跑全部專案時另查 `project-site/` 底下沒有 `web/index.html` 的資料夾（`core · structure`）。pre-commit 也會檢查這次提交到的站 |
 | `names` | ✓ | 專案資料夾（不含 `docs/`、`TEMP/`）不得出現用戶名稱；名單只放本機 `.private/client-names.txt`（studio 工作區是 `.studio/client-names.txt`），沒有名單就略過。pre-commit 也會掃要提交的內容 |
@@ -206,6 +213,7 @@ node core/tools/check.mjs --only scene     # 只跑某項
 | `scene` | ✓ | 動態干涉、靜態架設相撞、重合面閃爍；結果寫入 `review/scene-verification.json/.txt` |
 | `physics` | ✓ | 用 `core/physics` 的站（`project.physics`）：再烘焙一次雜湊相同、靜止接觸穿透 ≤ 8 mm、烘焙時間 ≤ 10 s（`verify.physics` 可改）；結果寫入 `review/physics-checks.json`；沒有用物理就略過 |
 | `electrical` | ✓ | 場景有電控元件或電盤時：元件在櫃內、編號不重複、機身不重疊、櫃內連線不穿元件、穿板孔與接頭；`verify.cables` 有宣告時另做配線動態取樣（線路與拖鏈對障礙物）。結果寫入 `review/electrical-checks.json`；沒有電控就略過 |
+| `bom` | ✓ | 場景的共用模型（`userData.coreModel`，優先用 `partRef` 編號）對照平台的 BOM：場景有但沒列進成本、成本表有模型但場景沒畫（標 `noScene` 的除外）；標 `noBom` 的現場既有設備不算。只警告；本機沒有平台資料庫（例如 CI）或站沒有成本表就略過。結果寫入 `review/bom-checks.json` |
 | `ui` |  | 標準互動測試（`core/tools/ui-check.mjs`）：桌面、手機直向、手機橫向、觸控平板四種尺寸，檢查載入與主控台錯誤、版面不溢出、畫布面積、播放／暫停、上一步／下一步／步驟選單、視角按鈕與選單收合、側欄、標籤在畫布內且（精簡版面）不重疊、點按目標 ≥ 30 px、`?movie`；結果寫入 `review/ui-check.json`，`--shots 資料夾` 另存截圖；`project.json` 的 `ui.skip`／`ui.params` 可設定 |
 | 專案自有 | 依 `checks` | `project.json` 的 `checks.quick`／`checks.full` |
 
@@ -242,7 +250,7 @@ node core/tools/shots.mjs --out TEMP/shots-new --compare TEMP/shots-base # 改�
 python core/tools/compare-review.py TEMP/review-base                     # review JSON 結果比對
 ```
 
-截圖在同一台機器重拍差異為 0，超過門檻（預設 0.2% 像素）的會另存 `.diff.png`。
+截圖在同一台機器重拍差異為 0，超過門檻（預設 0.2% 像素，`--max` 可改；像素容差 `--tol` 預設 24）的會另存 `.diff.png`。工作目錄已經有改動時，基準改在 `git worktree add <暫存資料夾> HEAD` 開的 worktree 裡拍，用完 `git worktree remove`（根目錄 `AGENTS.md`「檢查與回歸的做法」）。
 
 ## GitHub Pages
 

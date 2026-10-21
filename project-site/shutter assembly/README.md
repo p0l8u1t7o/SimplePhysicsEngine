@@ -7,10 +7,10 @@
 - **雙抽屜吸塑盤**：每個抽屜一套 24 顆的料（本體／成品、上蓋、小葉片、大葉片），一個供料時另一個可以拉出換盤；成品放回本體盤原格。
 - 規劃循環約 **23.8 秒／顆**（人員約 30 秒／顆）。所有 Three.js 依賴在 `core/vendor`，可離線執行。
 
-文件：
+文件（本機 `docs/`）：
 - [自動化方案規劃](docs/automation-plan.md)：現況分析、設備配置、末端工具、治具、節拍、精度預算、選型、風險與待確認。
-- [成本估算](docs/cost-estimate.md)（[試算表](docs/cost-estimate.xlsx)）。
-- 用戶提供的工程圖、照片與影片在 `docs/`。
+- 成本表在 3D工作室平台維護（見下方「成本表」）；[成本估算](docs/cost-estimate.md)（[試算表](docs/cost-estimate.xlsx)）是轉進平台前的原檔，以平台為準。
+- 使用者提供的工程圖、照片與影片在 `docs/`。
 
 ![設備全景](review/overview.png)
 
@@ -46,99 +46,90 @@ node ../../core/tools/serve.mjs "shutter assembly" --no-open
 
 開啟 [本地模擬](http://127.0.0.1:8770/shutter%20assembly/)，也可在根目錄執行 `scripts\start.cmd -Station "shutter assembly"`（`scripts\start.cmd -Site` 只開展示網站，`-All` 連 vs3d 介面一起開；所有專案共用 `core/tools/serve.mjs`，首頁 http://127.0.0.1:8770/ 列出全部專案）。ES module 需要 HTTP，不能直接用 `file://` 開 HTML。
 
+線上版：推送到 `main` 時由根目錄 `.github/workflows/pages.yml` 跑快速檢查，通過後自動建置並發布全部站（[發布說明](../../tools/github-pages/README.md)）。
+
 ## 操作
 
-- 站別按鈕跳到 S0～S5（直接停在該站第一次取像）；下拉選單可選任一步驟（前面是步驟起始時間），搭配前後步與時間滑桿；速度 0.25～4×。
-- 視角：全景、手臂、組裝特寫、產品近看（跟著本體移動）、上視相機、料盤、俯視；滑鼠可自由旋轉縮放。
+- 站別按鈕跳到 S0～S5（直接停在該站第一次取像）；下拉選單可選任一步驟（前面是步驟起始時間），搭配前後步與時間滑桿；速度滑桿 0.05～3×。
+- 視角：全景、線材配置、電盤配線、手臂、組裝特寫、產品近看（跟著本體移動）、上視相機、料盤、俯視；滑鼠可自由旋轉縮放。
 - **左下子畫面**是相機實際看到的畫面：零件停在上視相機上方時顯示上視遠心相機（黑色葉片對白色背景板的剪影），其他時間顯示手臂下視相機。標記框與偏移量是模擬值，可用「標記 開／關」切換；「放大」保持完整感光元件比例。
 - 右側「零件狀態」顯示本體、4 片葉片與上蓋目前在料盤、夾持中、已對位、已放置或檢查 OK。
 - 「匯出紀錄」產生 JSON：情境、各零件狀態與示意偏移量、取像事件。**沒有實拍影像、沒有實測力值、未接 MES。**
 
 網址參數：
 - `?result=NG`：疊片剔除情境。
-- `?pause&st=2&view=upcam`：直接看小葉片上視對位。
+- `?pause&st=2&view=upcam`：直接看小葉片上視對位（`st` 搭配 `t` 是該站起點再加秒數）；`?step=<編號>` 跳到某一步。
 - `?pause&time=20.1&view=nest`：壓合瞬間；`time` 為流程秒數。
-- `?cameraSize=large`、`?shadow=0`、`cam=x,y,z,tx,ty,tz`。
+- `?cameraSize=large`、`?shadow=0`、`?cam=x,y,z,tx,ty,tz`。
 
 主控台：`window.sim.seekTo(sec)`、`pause()`、`play()`、`setView(name)`、`views`（視角名稱）、`total`、`T`、`steps`、`events`、`stationStart`。
 
 ## 建模
 
-### 干涉與物理可行性修正
-
-已修正手臂穿過後罩、導線與葉片超出料格、上蓋卡勾穿入側壁、壓頭過行程穿入上蓋，以及夾取／鬆夾時本體跳位。上視光路改為真正中空，NG 葉片加入落入盒底的過程。外罩占地調整為 1440 × 1120 mm。
-
-正常與 NG 流程以最長 20 ms 間隔、包含步驟端點，共檢查 2,786 個姿態；取樣範圍內手臂距後罩最小約 78.29 mm，壓合時彈簧最大壓縮 0.30 mm。另檢查料格容納空間、201 個上蓋接近／卡扣位置與實際上視光路。結果無檢出的干涉；這是離散模型驗證，並非實機安全或公差認證。
-
-詳見[物理檢查紀錄](review/physical-review.md)與[檢查數據](review/physics.json)。導線預成形、卡勾避讓槽及彈性行程屬於本次模型的設計假設，需依實物／供應商 CAD 確認；15 N 力值為示意。
-
-```powershell
-node --import ../../core/tools/register.mjs tools/verify-physics.mjs
-```
-
-### 2026-09-26 實物細節更新
-
-已比對 docs 的工程圖、組裝示意、6 張零件照片與約 66 秒影片的連續抽幀。照片中的薄片弧形邊缘、上蓋長孔／小孔、兩端銅線圈和金屬框層次用於改善外觀；既有 18 × 17 × 4.05 mm 本體、0.06 mm 葉片、0.20 mm 上蓋與定位銷基準維持原設定。無標註的外形、線圈與表面粗糙度仍是依照片建立的示意，非量測 CAD。
-
-- 本體增加兩端內凹線圈腔、銅繞組細紋、轉子環、導線焊接點與端子開口。
-- 葉片改成帶弧線的沖切輪廓；機器視覺描邊使用相同曲線。上蓋增加真正貫穿的沖孔與金屬切邊；黑色塗層和金屬表面增加低幅度微紋理。
-- T1 的粗套環移至背景板上方，細真空管藏在葉片吸附區內；背景板擴大至直徑 32 mm，完整覆蓋 24 × 20 mm 相機視野。
-- T2 四個真空墊避開上蓋沖孔；均壓背板仍保持離上蓋 2 mm 的間隙。工具接觸高度與運動序列不變。
-- 產品局部陰影跟隨本體移動，縮小陰影範圍以呈現薄片接觸層次；治具增加固定螺絲，機櫃增加門縫、把手與散熱縫。
-
-新增 `tools/verify-product-detail.mjs`：檢查貫穿孔、324 個上蓋吸附面取樣、葉片吸附面、線圈與最低葉片 0.135 mm 的垂直淨空，以及正常／NG 流程 1,287 條上視相機光線的輪廓遮擋。結果在 `review/product-detail.json`。既有 `tools/verify.mjs` 的兩種完整流程與 576 個料格高度可達性檢查也通過；以上均為模型驗證。
-
-```powershell
-node --import ../../core/tools/register.mjs tools/verify-product-detail.mjs
-```
-
-GitHub Pages：推送到 `main` 時由根目錄 `.github/workflows/pages.yml` 跑快速檢查，通過後自動建置並發布全部站（[發布說明](../../tools/github-pages/README.md)）。
+座標單位 mm。產品依 docs 的工程圖、組裝示意、6 張零件照片與約 66 秒影片的抽幀建立；沒有標註的外形、線圈與表面粗糙度是依照片做的示意，不是量測 CAD。
 
 ![葉片套在樞軸銷上](review/blades.png)
 
-- **產品**：本體 18 × 17 × 4.05 mm（照片量測＋工程圖 A）、光圈 9.4 × 8.4 mm、四角孔、側面 M1.6 螺孔、轉子座、φ0.80 樞軸銷與撥桿銷、線圈座與紅黑導線、白色端子。葉片依照片描繪成 C 形，一端有圓孔與長孔；小葉片灰色、大葉片黑色，厚度以 0.06 mm 表示。上蓋 0.20 mm（工程圖 O）含 4 個卡勾。
-- **手臂**：HSR065 動作範圍 650 mm、Z 行程 200 mm。臂長分配 350＋300 mm、J1 座高、關節範圍與速度（假設型錄值的 50%）需以 DENSO 型錄與 CAD 核對。解析逆解，依流程順序選離前一點最近的肘部解，J4 取最接近的等價角。
+- **產品**：本體 18 × 17 × 4.05（照片量測＋工程圖 A）、光圈 9.4 × 8.4、四角孔、側面 M1.6 螺孔、轉子座與轉子環、φ0.80 樞軸銷與撥桿銷、兩端內凹線圈腔與銅繞組、紅黑導線（本體左側預成形 U 彎）與白色端子。葉片是帶弧線的 C 形沖切輪廓，一端有圓孔與長孔（機器視覺描邊用同一條曲線）；小葉片灰色、大葉片黑色，厚 0.06。上蓋 0.20（工程圖 O），有貫穿沖孔與 4 個卡勾，本體有對應的卡勾避讓與扣合槽。
+- **手臂**：HSR065（core 的 `denso-hsr065.js`）動作範圍 650、Z 行程 200。臂長 350＋300、J1 座高、關節範圍與速度（假設型錄值的 50%）待以 DENSO 型錄與 CAD 核對。解析逆解在 core，本站依流程順序選離前一點最近的肘部解，J4 取最接近的等價角。
+- **工具**：T1 背景板直徑 32，完整蓋住 24 × 20 的相機視野，細真空管藏在葉片吸附區內；T2 四個真空墊避開上蓋沖孔，均壓板、吸附墊與背架一起浮動，壓合過行程由四根彈簧吸收（最大壓縮 0.30），顯示的力值依壓縮量變化。
 - **運動**：自由移位走關節插值（PTP），時間依關節角度差自動算；下降、接近、上升走直線，最後 2 mm 減速到 30 mm/s，壓合 8 mm/s。
-- **零件歸屬**：零件在料盤、工具上（跟著實際 TCP 移動）、治具、本體上或 NG 盒；吸取、放開的瞬間才換歸屬，所以動畫位置連續。放在本體上的葉片與上蓋會跟著本體一起被夾回料盤。
-- **上視補正**：每片料在格內有示意偏移（例如小葉片 A：Δx +0.05、Δz −0.03 mm、θ +1.1°），吸嘴對準格中心吸取，上視相機量得偏移後修正放料位置與 J4 角度。
+- **零件歸屬**：零件在料盤、工具上（跟著實際 TCP 移動）、治具、本體上或 NG 盒；吸取、放開的瞬間才換歸屬，所以動畫位置連續。夾爪閉合期間逐步校正示意偏移，治具鬆開後本體留在已定位的位置。放在本體上的葉片與上蓋會跟著本體一起被夾回料盤。NG 葉片從吸嘴自由落下（約 0.109 s，重力加速度 9,810 mm/s²）停在盒底。
+- **上視補正**：每片料在格內有示意偏移（例如小葉片 A：Δx +0.05、Δz −0.03 mm、θ +1.1°），吸嘴對準格中心吸取，上視相機量得偏移後修正放料位置與 J4 角度。台板、ESD 墊、環形光與鏡筒都有同軸開孔，上視光路是通的。
+- **外罩**：占地 1440 × 1120。
+
+導線預成形、卡勾避讓槽與 0.20 張開行程、浮動壓頭的彈簧行程都是模型的設計假設，要依實物或供應商 CAD 確認；壓合 15 N 是示意值。干涉與物理檢查的範圍見[物理檢查紀錄](review/physical-review.md)。
 
 ## 檔案
 
 | 檔案 | 用途 |
 |---|---|
 | `web/js/product.js` | 本體、葉片、上蓋、成品幾何；樞軸銷與葉片安裝位置 |
-| `web/js/cell.js` | 機台、雙抽屜與 4 種吸塑盤、組裝治具、上視相機、離子風嘴、NG 盒、外罩；料格座標。鋁擠型框架用 `MAT.frame`，治具座與抽屜用 `finished(MAT.alu, 'metal')`，台面板用 `finished(MAT.steel, 'metal')`（較深，維持與吸塑盤的對比）。地面用 core 的 `floor()`（`@core/geom/environment.js`：9 × 6 m 深色地坪＋200 mm 格線） |
-| `web/js/robot.js` | HSR065、三工具頭、下視相機、解析逆解與關節規劃 |
+| `web/js/cell.js` | 機台、雙抽屜與 4 種吸塑盤、組裝治具、上視相機、離子風嘴、NG 盒、外罩；料格座標。市購品用 core 模型：上視相機 `visionCamera`（`@core/models/vision.js`）、離子風嘴 `ionizer`（`equipment.js`）、治具夾緊氣缸 `airCylinder`、抽屜滑軌 `drawerSlide`、門互鎖開關 `doorSwitch`（`motion.js`）、三色燈／HMI／急停（`indicators.js`）。鋁擠型框架用 `MAT.frame`，治具座與抽屜用 `finished(MAT.alu, 'metal')`，台面板用 `finished(MAT.steel, 'metal')`（較深，維持與吸塑盤的對比）。地面用 core 的 `floor()`（`@core/geom/environment.js`：9 × 6 m 深色地坪＋200 mm 格線） |
+| `web/js/robot.js` | 手臂本體與解析逆解用 core 的 `createHSR065`（`@core/models/robots/denso-hsr065.js`）；本檔裝三工具頭（氣動滑台 `slideTable`、T2 荷重元 `loadCell`、T3 夾爪 `parallelGripper`，都在 `motion.js`）、下視相機（`visionCamera`）、TCP、作業姿態追蹤與手臂安裝高度 |
 | `web/js/sequence.js` | 單顆組裝流程、料件偏移與補正。排程本體是 core 的 `createStepSequence`（快照、插值、`stationStart`、`total`、`events`；零件歸屬 `loc` 用 `latch` 在步驟完成才換，NG 落下步驟以 `easeKeys: { drop: linear }` 讓 `drop` 隨時間線性）；本檔只做取放料拆解、PTP 時間依關節速度延長、NG 疊片剔除，取樣時補上 SCARA 姿態（PTP 關節插值／直線段） |
 | `web/js/station.js` | 組裝整站、依歸屬擺放零件（畫面與驗證共用） |
-| `web/js/project.js` | 專案介面 `createProject({ scene })`：建立整站與流程，`apply(t)` 把整個場景放到時間 t；網頁與 core 統一檢查共用（`?result=NG` 對應 `ng: true`） |
-| `web/js/main.js` | renderer、場景、相機、軌道控制、環境光與主要燈光由共用舞台 `createStage`（`core/ui/stage.js`）建立：外觀用 `look: 'cell'`（曝光、背景、半球光與太陽／補光的顏色強度），本檔只傳差異（RoomEnvironment 點光 220、太陽與補光位置、陰影範圍與 bias、霧、縮放距離）；`extent` 推算的燈位、陰影範圍與 bias 都和原本不同，所以燈位與陰影照舊明確寫；作業區局部光（跟隨本體、細緻陰影）在本檔。畫面迴圈用 `stage.loop`（自訂繪製：HUD＋主畫面＋相機子畫面）；3D 標籤用 `stage.addLabel`／`updateLabels`（畫布偏移由 stage 處理；小螢幕重疊時依 `priority` 先留手臂，其次治具與上視相機），視角轉場用 `stage.goTo`（手機直向等窄畫布由 stage 自動拉遠；橫向手機畫布寬高比 > 2 時，上視相機視角整體下移 30 mm，環形光才不會落在畫布底邊，桌面不變），追隨鏡頭接手時 `stage.cancelTween()`，產品近看跟著本體用 `stage.shiftView`（轉場中也跟）；播放列用 `createPlayer`（`core/ui/player.js`，事件選單取排程的 `events`）：跳播走 `apply(T, { seek: true })`（`project.apply`，手臂直接到位），連續播放走 `advance(T, dt)`：以 5 ms 細分、手臂以實際限速追蹤，步驟結束（含最後一步）或接近／接觸中偏離時等到位才前進，等超過 5 秒回傳 `null` 讓播放列停住並報逾時，再按播放時手臂先重新到位。UI、紀錄匯出；設備與時間軸取自 `project.js`；`window.sim` 由 `exposeSim` 提供。網址 `?movie` 時不跑畫面迴圈，改由 `core/movie/movie.js` 的 `installMovie` 依絕對時間逐格錄影（取樣走 `project.apply`，鏡頭跟著手上的零件） |
-| `web/css/style.css` | 版面與面板樣式。≤900 px、觸控平板與橫向手機由 core 的精簡版面（`createViewerWorkspace`）接手，本檔只留 900～1100 px 桌面窄視窗的規則；精簡版面中產品近看／組裝特寫的說明貼齊畫布頂端（`--viewer-top`），不壓在產品上 |
+| `web/js/project.js` | 專案介面 `createProject({ scene })`：建立整站與流程，`apply(t)` 把整個場景放到時間 t；網頁與 core 統一檢查共用（`?result=NG` 對應 `ng: true`）；`verify` 的允許規則與配線情境 `verify.cables` 也在這裡 |
+| `web/js/main.js` | renderer、場景、相機、軌道控制、環境光與主要燈光由共用舞台 `createStage`（`core/ui/stage.js`）建立：外觀用 `look: 'cell'`，本檔只傳差異（RoomEnvironment 點光 220、太陽與補光位置、陰影範圍與 bias、霧、縮放距離）；燈位與陰影照原本手調值明確寫，不用 `extent` 推算；作業區局部光（跟隨本體、細緻陰影）在本檔。畫面迴圈用 `stage.loop`（自訂繪製：HUD＋主畫面＋相機子畫面）；3D 標籤用 `stage.addLabel`／`updateLabels`（小螢幕重疊時依 `priority` 先留手臂，其次治具與上視相機），視角轉場用 `stage.goTo`（窄畫布由 stage 自動拉遠；橫向手機畫布寬高比 > 2 時，上視相機視角整體下移 30 mm，環形光才不會落在畫布底邊，桌面不變），追隨鏡頭接手時 `stage.cancelTween()`，產品近看跟著本體用 `stage.shiftView`（轉場中也跟）。播放列用 `createPlayer`（`core/ui/player.js`，事件選單取排程的 `events`）：跳播走 `apply(T, { seek: true })`（手臂直接到位），連續播放走 `advance(T, dt)`：以 5 ms 細分、手臂以實際限速追蹤，步驟結束（含最後一步）或接近／接觸中偏離時等到位才前進，等超過 5 秒回傳 `null` 讓播放列停住並報逾時，再按播放時手臂先重新到位。`window.sim` 由 `exposeSim` 提供。網址 `?movie` 時不跑畫面迴圈，改由 `core/movie/movie.js` 的 `installMovie` 依絕對時間逐格錄影（取樣走 `project.apply`，鏡頭跟著手上的零件） |
+| `web/js/camera-view.js` | 相機子畫面的繪製 |
 | `web/js/vision-results.js` | 相機標記（孔位、疊片、銷位、成品） |
-| `tools/verify.mjs`、`verify-physics.mjs`、`verify-product-detail.mjs` | 專案自有驗證（流程、物理、產品細節） |
+| `web/css/style.css` | 版面與面板樣式。≤900 px、觸控平板與橫向手機由 core 的精簡版面（`createViewerWorkspace`）接手，本檔只留 900～1100 px 桌面窄視窗的規則；精簡版面中產品近看／組裝特寫的說明貼齊畫布頂端（`--viewer-top`），不壓在產品上 |
+| `tools/verify.mjs`、`verify-physics.mjs`、`verify-product-detail.mjs` | 專案自有驗證（流程、物理可行性、產品細節） |
 
-成本表 2026-10-06 起在 3D工作室平台上維護：本站頁面的「成本表」分頁可以看、改、存快照、匯出 xlsx（命令列 `node studio/vs3d.mjs parts bom "@shutter assembly"`）；本機 `docs/cost-estimate.xlsx` 是轉換前的原檔，原本的產生器 `tools/build_cost_estimate.py` 已退役。
+## 成本表
+
+成本表在 3D工作室平台上維護：本站頁面的「成本表」分頁可以看、改、存快照、匯出 xlsx（命令列 `node studio/vs3d.mjs parts bom "@shutter assembly"`）。本機 `docs/cost-estimate.xlsx` 是轉進平台前的原檔。core 的 `bom` 檢查把場景用到的 core 模型對照平台的 BOM，落差（只警告）在 `review/bom-checks.json`。
 
 ## 驗證
 
-需要 Node.js 22 以上，不需 npm 套件。全部檢查（import 路徑、倒序一致、全場干涉與重合面，加上 `project.json` 列的專案驗證）：
+需要 Node.js 22 以上，不需 npm 套件。統一檢查：
 
 ```powershell
-node ../../core/tools/check.mjs shutter          # 在本資料夾；在庫根目錄則為 node core/tools/check.mjs shutter
-node --import ../../core/tools/register.mjs tools/verify.mjs   # 只跑流程驗證
+node ../../core/tools/check.mjs shutter            # 在本資料夾；在庫根目錄則為 node core/tools/check.mjs shutter
+node ../../core/tools/check.mjs shutter --quick    # 快速檢查（部署前跑的那一組）
 ```
 
-全場檢查結果在 `review/scene-verification.txt`。目前只剩產品內部（本體各層、0.06 mm 葉片疊片、0.2 mm 上蓋）的重合面：core 的 0.6 mm 重合面與 2 mm 穿插門檻是設備尺度，不適用這些零件的實際間隙（0.02～0.3 mm）；產品配合由下列專案驗證以 0.005 mm 檢查。
+- core 內建：`imports`、`structure`、`names`、`determinism`（倒序／跳播一致）、`layout`、`scene`（全場動態／靜態干涉與重合面閃爍，結果在 `review/scene-verification.json`）、`electrical`（配線與電盤，結果在 `review/electrical-checks.json`）、`physics`（本站沒有用 core 的剛體動力學，略過）、`bom`（只警告）；完整檢查另跑 `ui`（四種尺寸的標準互動測試，結果在 `review/ui-check.json`，平行執行時用 `UI_PORT` 指定 port）。
+- `project.json` 的 `variants` 另外檢查疊片 NG 情境（`ng: true`）；正常與 NG 兩種情境的 `scene` 都是 0 筆干涉、0 筆重合面。產品內部的薄片配合（0.02～0.3 mm）小於 core 的設備尺度門檻（重合面 0.6 mm、穿插 2 mm），由下面的專案驗證以 0.005 mm 檢查。
+- 專案自有：快速檢查跑 `tools/verify.mjs`；完整檢查再跑 `tools/verify-physics.mjs`、`tools/verify-product-detail.mjs`。單獨執行：
 
-正常與疊片 NG 兩種情境都檢查：
+```powershell
+node --import ../../core/tools/register.mjs tools/verify.mjs                  # 流程，結果在 review/verification.json
+node --import ../../core/tools/register.mjs tools/verify-physics.mjs          # 物理可行性，結果在 review/physics.json
+node --import ../../core/tools/register.mjs tools/verify-product-detail.mjs   # 產品細節，結果在 review/product-detail.json
+```
+
+`tools/verify.mjs`（正常與疊片 NG 兩種情境）：
 - 全部步驟代表時刻的 TCP 可達性（PTP 步驟檢查終點）與關節限位；兩個抽屜 576 個取料位置（每格取料高度＋移動高度）全部搆得到，最小關節餘裕 7.6（° 或 mm）。
 - 任意倒退／跳站後狀態與 TCP 目標一致。
 - 工具頭對治具槽壁、推塊、上視環形光、離子風嘴、NG 盒、抽屜、手臂基座與外罩的碰撞（接近與接觸步驟只允許吸盤、吸嘴桿與夾指進入產品與料盤包絡）；夾持中的零件在移動段不得碰撞。
 - 放料瞬間，零件實際位置對目標位姿的誤差 ≤ 0.005 mm（以未補正 0.02 mm 偏移做反向測試，確認這項檢查抓得到）；結束時 4 片葉片的圓孔與長孔都對準銷、疊放順序正確、上蓋壓到底並對正、成品回到原格。
 - 9 次（NG 10 次）取像時，被拍物完整在相機視野內。
-- 連續播放（實際限速＋到位等待，每 0.25 秒做一次碰撞檢查）。
+- 連續播放（實際限速＋到位等待，每 0.25 秒做一次碰撞檢查）。規劃節拍正常 23.76 s、NG 26.61 s。
 
-最近一次結果在 `review/verification.json`。模擬中的放料誤差是補正計算的誤差，**不是設備精度**，設備精度看[規劃文件第 7 節](docs/automation-plan.md#7-精度預算)。
+`tools/verify-physics.mjs`：正常 1,315、NG 1,471 個姿態（最長 20 ms 間隔，含步驟端點），工具與固定障礙、手臂、料盤壁與底，手臂與外罩；手臂距後罩最小 78.29 mm，壓合時彈簧最大壓縮 0.30 mm；另檢查料格容納、201 個上蓋接近／卡扣位置與上視光路。`tools/verify-product-detail.mjs`：9 個上蓋貫穿孔、324 個上蓋吸附面取樣、葉片吸附面、線圈與最低葉片 0.135 mm 的淨空，以及正常／NG 流程 1,287 條上視相機光線的輪廓遮擋。
+
+以上都是離散取樣的模型檢查，不是實機安全或公差認證。模擬中的放料誤差是補正計算的誤差，**不是設備精度**，設備精度看[規劃文件第 7 節](docs/automation-plan.md#7-精度預算)。
 
 ## 畫面
 
@@ -148,17 +139,13 @@ node --import ../../core/tools/register.mjs tools/verify.mjs   # 只跑流程驗
 | ![壓合](review/press.png) 上蓋壓合 15 N | ![成品回盤](review/finished.png) 成品放回原格 |
 | ![料盤](review/trays.png) 抽屜 A 的 4 種吸塑盤 | |
 
+## 線材配置
 
-## 線材配置與防干涉
-
-網頁新增「線材配置」視角與配色說明，包含主要外露線束、固定夾、分隔線槽與適用的活動拖鏈。
-
-SCARA 兩臂固定護套、R25 mm Z 軸拖鏈、旋轉入口與末端氣管；相機與治具線路沿固定支架及機櫃整理。
+「線材配置」視角與配色說明顯示主要外露線束、固定夾、分隔線槽與活動拖鏈：SCARA 兩臂固定護套、R25 mm Z 軸拖鏈、旋轉入口與末端氣管；相機與治具線路沿固定支架及機櫃整理。
 
 [配線研究與實機確認項目](../../tools/docs/cable-routing-review.md)｜[本機 docs 配線紀錄](docs/cable-management.md)｜[配線與電盤檢查結果](review/electrical-checks.json)｜[配線畫面](review/cables.png)
 
-配線與電盤檢查由 core 的 `electrical` 執行（快速檢查就會跑；情境與障礙物宣告在 `web/js/project.js` 的 `verify.cables`）：`node ../../core/tools/check.mjs "shutter assembly" --only electrical`，結果在 `review/electrical-checks.json`。docs 依現有忽略規則僅留在本機；根目錄研究文件隨原始碼保存。
-
+配線與電盤檢查由 core 的 `electrical` 執行（快速檢查就會跑；情境與障礙物宣告在 `web/js/project.js` 的 `verify.cables`）：`node ../../core/tools/check.mjs "shutter assembly" --only electrical`。
 
 ## 視窗操作與產品焦點
 
@@ -172,4 +159,4 @@ SCARA 兩臂固定護套、R25 mm Z 軸拖鏈、旋轉入口與末端氣管；�
 
 ## 電路圖
 
-[圖紙索引與設計說明](docs/circuit-diagrams.md) · [A3 PDF 圖冊](docs/circuit-diagrams.pdf)。可編輯 SVG 與圖面資料位於 `docs/electrical/`。
+[圖紙索引與設計說明](docs/circuit-diagrams.md) · [A3 PDF 圖冊](docs/circuit-diagrams.pdf)。可編輯 SVG 與圖面資料在本機 `docs/electrical/`。

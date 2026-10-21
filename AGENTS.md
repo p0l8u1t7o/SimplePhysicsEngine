@@ -28,14 +28,14 @@
 |---|---|
 | `core/` | 共用框架（以 importmap `@core/` 引用）：geom（形狀、材質、五金、地面）、models（81 個參數化模型＋目錄頁：市購品一律放這裡——手臂、輸送與搬運、相機與視覺、氣動與運動、夾爪、指示與感測小件、實驗室與製程設備；各站換用的對照在 `core/migrations/`）、anim 的 sampling（取樣時間）、examples（第二段範例：電控、配線、相機；剛體動力學四種用途）、optics（光學計算 L1、打光與模擬影像 L2）、physics（剛體動力學，Rapier 決定性版）、robot（IK、手臂可達檢查）、anim（時間軸、步驟序列、到位閘門）、ui（stage、player、viewer-workspace）、electrical、movie、verify、template、tools；版本號在 `core/VERSION`，core 需求登記在 `core/REQUESTS.md` |
 | `project-site/<專案>/` | 所有展示專案（之後新增的也放這裡）。`web/`（網站；`web/js/project.js` 是網頁與檢查共用的場景）、`project.json`（首頁說明、`coreVersion`、`checks.quick`／`checks.full`、`variants`、`ui`）、`tools/`（專案自有檢查）、`review/`（檢查結果，進版控）、`docs/`（只留本機）、`AGENTS.md`／`CLAUDE.md`（該站規則）、`.claude/settings.json`（寫檔關卡） |
-| `tools/` | 跨專案工具：干涉回歸、跨站視覺檢查（`verify-vision.mjs`）、電路圖、錄影輸出（配線與電盤檢查已移到 core 的 `electrical`）；`bin/` 是各站共用的 ffmpeg／ffprobe（`setup.ps1 -Ffmpeg` 下載，不進版控） |
+| `tools/` | 跨專案工具：干涉回歸、跨站視覺檢查（`verify-vision.mjs`）、電路圖、錄影稽核與驗證（`movie-export`；MP4 輸出是 core 的 `export.mjs --mp4`；配線與電盤檢查已移到 core 的 `electrical`）；`bin/` 是各站共用的 ffmpeg／ffprobe（`setup.ps1 -Ffmpeg` 下載，不進版控） |
 | `scripts/` | 腳本：`setup.ps1`（環境設定）、`start`／`stop`（`.ps1`＋可點兩下的 `.cmd`，網頁啟動與停止，PID 與輸出在 `logs/`）、`migrate/`（搬庫腳本） |
 | `studio/` | 3D 動畫生成應用程式（從本庫啟動介面時也能對 `project-site/` 的站下指令：本庫模式，只提交該站路徑、每次開本機分支）：命令列 `node studio/vs3d.mjs`＋網頁介面 `vs3d ui`（第一段、第二段、審查補強、評估平台；說明見 `studio/README.md`，測試 `node --test "studio/test/*.test.mjs"`）；計畫書在本機 `TEMP/3d-app-plan.md`；元件資料庫（介面「元件庫」、`vs3d parts`，SQLite 檔 `studio/data/studio.db` 只留本機） |
 | `.githooks/` | pre-commit 範圍檢查 |
 | `.github/workflows/` | `pages.yml`：PR 跑快速檢查；推送到 `main` 時快速檢查、建置、發布 Pages（只改 `studio/` 時不跑）。`scope.yml`：PR 範圍檢查 |
 | `PENDING.md` | 待辦事項 |
 
-12 個專案（都在 `project-site/`）：AutomaticAcid-BaseTitration（酸鹼滴定）、ChemicalTankWashing（200L 化學桶清洗線）、MilitaryGradePC（軍規筆電 QC 線）、PCB-CopperAssembly（散熱銅片植入）、RobotArmPressSSD（USB 接頭壓合）、shutter assembly（快門葉片組裝，資料夾名稱有空白）、WorkpieceMeasurement（杯體 AOI＋共焦量測）、RecycleSorter（回收物分揀，vs3d 產生後匯入）、SolarDismantling（太陽能板拆框機器人上下料）、PlumbingFixtureInspection（水五金外觀 AOI）、WheelHangingAutomaticLine（輪框吊掛線手臂下掛）、ParkingEMS（停車場光儲充能源服務，三種場型）。
+13 個專案（都在 `project-site/`）：AutomaticAcid-BaseTitration（酸鹼滴定）、ChemicalTankWashing（200L 化學桶清洗線）、MilitaryGradePC（軍規筆電 QC 線）、PCB-CopperAssembly（散熱銅片植入）、RobotArmPressSSD（USB 接頭壓合）、shutter assembly（快門葉片組裝，資料夾名稱有空白）、WorkpieceMeasurement（杯體 AOI＋共焦量測）、RecycleSorter（回收物分揀，vs3d 產生後匯入）、SolarDismantling（太陽能板拆框機器人上下料）、PlumbingFixtureInspection（水五金外觀 AOI）、WheelHangingAutomaticLine（輪框吊掛線手臂下掛）、ParkingEMS（停車場光儲充能源服務，三種場型）、StatorHeightMeasurement（定子轉子下料與高度檢測，四種量測方案）。
 
 **新專案一律放在 `project-site/<專案>/`**（`new-project.mjs` 會自動放在這裡）。專案裡的 Node 工具往庫根目錄要寫 `../../core`、`../../tools`；網頁的 importmap 是網址相對路徑（`../core/`），不用改。
 

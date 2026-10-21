@@ -151,7 +151,7 @@ export function Settings({ info, user }) {
       <AgentCli isAdmin={isAdmin} />
       {isAdmin && <ApiKeys />}
       <section className="card"><h3>角色與模型（這個工作區的預設）</h3>
-        <p className="mute hint">選「（預設）」代表用 app 預設：規劃、開發、修正、審查用 Claude opus，補強用 Codex gpt-6-astra 高推理。專案建立時指定的 CLI／模型、或專案的 studio.json 會優先。模型清單來自各 CLI（Codex 另外讀 ~/.codex/config.toml）。</p>
+        <p className="mute hint">選「（預設）」代表用 app 預設：規劃、開發、修正、審查、光學用 Claude opus，元件補全用 Claude sonnet，補強用 Codex gpt-6-astra 高推理（第二段的開發與修正也是）。專案建立時指定的 CLI／模型、或專案的 studio.json 會優先。模型清單來自各 CLI（Codex 另外讀 ~/.codex/config.toml）。</p>
         <div className="bar"><label className="inline">預設 CLI <CliSelect value={defaultCli} onChange={v => { setMsg(''); setDefaultCli(v); }} /></label></div>
         <div className="scroll"><table className="roles"><thead><tr><th>角色</th><th>CLI</th><th>模型</th><th>推理強度</th><th>目前實際指派</th></tr></thead><tbody>
           {Object.keys(ROLE).map(r => { const cli = roles[r]?.cli, eff = cli || data?.resolved?.[r]?.cli; return <tr key={r}><td><b>{ROLE[r]}</b></td>

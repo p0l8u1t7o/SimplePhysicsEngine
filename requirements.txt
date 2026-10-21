@@ -1,14 +1,14 @@
 # 選用的 Python 工具依賴（3D 專案本身只需要 Node.js，不需要 Python）
-# 安裝：powershell -ExecutionPolicy Bypass -File setup.ps1 -Python
+# 安裝：powershell -ExecutionPolicy Bypass -File scripts\setup.ps1 -Python
 #      （或手動：py -3.12 -m venv .venv ; .venv\Scripts\python -m pip install -r requirements.txt）
 # 測試環境：Python 3.12.10（Windows 11）
 #
 # 誰會用到：
-#   pillow、numpy   tools/movie-export（audit、verify）、MilitaryGradePC/tools/verify_video.py、tools/circuit-drawings/verify.py
-#   openpyxl        shutter assembly/tools/build_cost_estimate.py、RecycleSorter/tools/build_integration_cost.py（成本估算表）
+#   pillow、numpy   tools/movie-export（audit、verify）、tools/circuit-drawings/verify.py
+#   openpyxl        RecycleSorter/tools/build_vision_items.py（視覺採購品項表）
 #   reportlab       tools/circuit-drawings（電路圖 PDF；中文字型見 REQUIREMENTS.md）
 #   pypdf           tools/circuit-drawings/verify.py
-# core/tools/compare-review.py、core/tools/codemod-shapes.py 只用標準函式庫。
+# core/tools/compare-review.py 只用標準函式庫。
 pillow==12.3.0
 numpy==2.5.1
 openpyxl==3.1.5

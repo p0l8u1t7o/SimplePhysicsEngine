@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// vs3d：3D 設備動畫生成應用程式的命令列原型（P1）。不需要 npm 套件。
+// vs3d：3D 設備動畫生成應用程式（3D工作室）的命令列。不需要 npm 套件。
 //   node studio/vs3d.mjs doctor                                   檢查 Claude Code／Codex 是否已安裝、已登入
 //   node studio/vs3d.mjs init [--refresh-core]                    建立工作區（複製 core、寫入共通規則）；--refresh-core 換成本庫目前的 core
 //   node studio/vs3d.mjs new <名稱> --prompt "<需求>" [--files 檔案…] [--title 標題] [--cli claude|codex] [--private "用戶名稱,…"]

@@ -1,6 +1,6 @@
 # 輪框吊掛線手臂下掛（`WheelHangingAutomaticLine`）
 
-FANUC 手臂＋手臂搭載雙眼立體視覺：追蹤 4 cm/s 吊掛線、抗反光辨識輪框、下掛疊放棧板
+FANUC R-2000iC/165F＋手臂搭載雙眼立體視覺：追蹤 4 cm/s 吊掛線、抗反光辨識輪框、下掛疊放棧板
 
 本檔是這個子專案的規則；全庫共通的規則在根目錄 `AGENTS.md`，從這個資料夾啟動 Claude Code 或 Codex 時會一併載入。
 
