@@ -16,10 +16,17 @@ import { SKUS } from './notebook.js';
 import { LAYOUT } from './cell.js';
 import { createProject, DEFAULT_SKU } from './project.js';
 import { ARRIVAL } from './sequence.js';
+import { createTwinBinding } from './twin-binding.js';
+import { connectTwinView, twinUrl } from '@core/twin/view.js';
 
 // ---------------------------------------------------------------- SKU（由網址參數或選單決定；換 SKU 重建整條時間軸）
 const qp = new URLSearchParams(location.search);
 const SKU = qp.get('sku') && SKUS[qp.get('sku')] ? qp.get('sku') : DEFAULT_SKU;
+// 孿生觀看模式（?twin=<SSE 位址或埠號>）：不跑時間軸，畫面跟著孿生 server（core/tools/twin.mjs --sse）的工作階段；一般模式不受影響
+const TWIN = twinUrl(qp.get('twin'));
+let twinStatus = '', twinView = null;
+// 孿生觀看時設備訊號改看 DI（PLC 看到的位準）；MD 沒有對應 DI 的訊號（升降到位、所有門關閉、工具到位）不亮
+const TWIN_SIGNALS = [di => di['io-S0-PALLET'] || di['io-S1-PALLET'] || di['io-S4-PALLET'], di => di['io-S2-CLAMPED'], di => di['io-S3-GRIP-CLOSED'], null, di => di['io-S1-HEAD-OUT'], null, null];
 
 // ---------------------------------------------------------------- 場景（共用舞台 core/ui/stage.js）
 // 本站場景約 7 m、近裁切面 10 mm，維持一般深度緩衝（logDepth: false；?movie 時 stage 一律開啟對數深度）
@@ -135,17 +142,17 @@ signals.forEach(([name])=>{const row=document.createElement('div');row.innerHTML
 function drawHud(){
   const e=robot.error(),arrived=project.arrived(current),playing=player.playing;
   // 光源、雷射、ROI 框、接縫雷射線、力覺色環、三色燈與 apply(t) 用同一段程式
-  project.effects(current,{arrived,result:ui.result.value,fault:gate.fault});
+  if(!TWIN)project.effects(current,{arrived,result:ui.result.value,fault:gate.fault});
   const force=arrived?S.force:0;
   cell.occluders.visible=ui.showGuards.checked;
   zoneSlow.visible=zoneSlowE.visible=zoneKeep.visible=ui.showZone.checked;trail.visible=ui.showPath.checked;
   ui.action.textContent=S.action;ui.substep.textContent=S.sub;
-  ui.phase.textContent=gate.fault|| (T>=total?'COMPLETE · 本台完成':gate.waiting>0?'等待手臂到位':playing?'AUTO · 執行中':'HOLD · 暫停');ui.phase.classList.toggle('fault',!!gate.fault);
+  ui.phase.textContent=TWIN?twinStatus:gate.fault|| (T>=total?'COMPLETE · 本台完成':gate.waiting>0?'等待手臂到位':playing?'AUTO · 執行中':'HOLD · 暫停');ui.phase.classList.toggle('fault',!!gate.fault);
   ui.forceBar.style.width=(force/12*100)+'%';ui.forceVal.textContent=force.toFixed(1)+' N';
   ui.zoneTxt.textContent=S.zone==='contact'?'接觸動作 · 模擬力值':S.zone==='slow'?'減速接近 · ≤50 mm/s':'自由移動 / 工位保持';
   ui.zoneDot.className='dot '+(S.zone==='contact'?'contact':S.zone==='slow'?'slow':'');
   ui.poseError.textContent=`TCP ${e.position.toFixed(2)} mm · ${e.angle.toFixed(1)}° · 軸 ${robot.q.rail.toFixed(0)} mm`;
-  [...ui.signals.children].forEach((el,i)=>el.classList.toggle('on',signals[i][1]()));
+  [...ui.signals.children].forEach((el,i)=>el.classList.toggle('on',TWIN?!!TWIN_SIGNALS[i]?.(twinView?.di||{}):signals[i][1]()));
   if(curStation!==S.station){curStation=S.station;ui.checklist.innerHTML='';checklist[curStation].forEach(([id,txt])=>{const li=document.createElement('li');li.dataset.id=id;li.innerHTML=`<span class="box"></span><span>${txt}</span>`;ui.checklist.appendChild(li);});}
   let done=0;for(const li of ui.checklist.children){const ok=current.completed.has(li.dataset.id);li.classList.toggle('done',ok);li.querySelector('.box').textContent=ok?'✓':'';if(ok)done++;}
   ui.chkCount.textContent=done+' / '+checklist[S.station].length;
@@ -212,6 +219,12 @@ if(qp.has('st'))sim.jump(+qp.get('st'),qp.get('view'),+(qp.get('t')||0));else if
 if(qp.has('step')){player.pause();seekTo(sequence.steps[THREE.MathUtils.clamp(+qp.get('step')||0,0,sequence.steps.length-1)].start);if(qp.has('view'))setView(qp.get('view'),true);}
 if(qp.has('cam')){const a=qp.get('cam').split(',').map(Number);if(a.length===6&&a.every(Number.isFinite))stage.goTo(a.slice(0,3),a.slice(3),true);}
 document.getElementById('loading').classList.add('hide');ready=true;render();
+// 孿生觀看：播放列停住，view 由 SSE 推來後交給本站的孿生描述（twin-binding.js）套到場景
+if(TWIN){
+  player.pause();
+  const twin=createTwinBinding(project,scene);
+  connectTwinView({url:TWIN,apply:v=>{twinView=v;twin.apply(v);},onStatus:s=>{twinStatus=s.state==='open'?`TWIN · 孿生觀看${s.timeUs!=null?` · ${(s.timeUs/1e6).toFixed(2)} s`:''}`:`TWIN · ${s.state==='connecting'?'連線中':'重新連線中'}`;}});
+}
 // ?movie 時 stage 不啟動迴圈（交給 installMovie）
 stage.loop(frameTick,{render});
 

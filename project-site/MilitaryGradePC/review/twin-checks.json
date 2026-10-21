@@ -1,0 +1,120 @@
+{
+  "checks": {
+    "bindings": {
+      "ok": true,
+      "axes": 7,
+      "actuators": 8,
+      "sensors": 16,
+      "robots": 1,
+      "devices": [
+        "dev-CAM02"
+      ],
+      "unbound": [
+        "act-S3-PCLAMP"
+      ],
+      "bindings": 33
+    },
+    "mdHash": {
+      "ok": true,
+      "mdHash": "sha256:389d9e049c89cd732a29a58f9fa179faebff9b7d234e8239d1b4c6c0c9d019b6",
+      "recorded": "sha256:389d9e049c89cd732a29a58f9fa179faebff9b7d234e8239d1b4c6c0c9d019b6",
+      "mdValid": true
+    },
+    "applyState": {
+      "ok": true,
+      "samples": 40,
+      "maxMatrixDiff": 2.274e-13,
+      "at": 44.58333333333331
+    },
+    "photoEye": {
+      "ok": true,
+      "rows": [
+        {
+          "pos": -1450,
+          "di": {
+            "io-S0-PALLET": true,
+            "io-S1-PALLET": false,
+            "io-S4-PALLET": false
+          },
+          "ok": true
+        },
+        {
+          "pos": -1000,
+          "di": {
+            "io-S0-PALLET": false,
+            "io-S1-PALLET": true,
+            "io-S4-PALLET": false
+          },
+          "ok": true
+        },
+        {
+          "pos": 1450,
+          "di": {
+            "io-S0-PALLET": false,
+            "io-S1-PALLET": false,
+            "io-S4-PALLET": true
+          },
+          "ok": true
+        },
+        {
+          "pos": -1700,
+          "di": {
+            "io-S0-PALLET": false,
+            "io-S1-PALLET": false,
+            "io-S4-PALLET": false
+          },
+          "ok": true
+        },
+        {
+          "pos": 0,
+          "di": {
+            "io-S0-PALLET": false,
+            "io-S1-PALLET": false,
+            "io-S4-PALLET": false
+          },
+          "ok": true
+        },
+        {
+          "pos": -1700,
+          "workpiece": true,
+          "di": {
+            "io-S0-PALLET": false,
+            "io-S1-PALLET": false,
+            "io-S4-PALLET": false
+          },
+          "ok": true
+        }
+      ]
+    },
+    "robotPose": {
+      "ok": true,
+      "step": "側面定位：左側",
+      "jointTravel": 5.508,
+      "sessionTravel": 5.508,
+      "tcpError": 0,
+      "angleError": 0,
+      "unreachable": "BAD_ARGS"
+    },
+    "collision": {
+      "ok": true,
+      "into": 4,
+      "first": {
+        "a": "robotRail/VM-60B1/J5",
+        "b": "cell/S3 左立柱",
+        "depth": 7.967,
+        "time": 3.84
+      },
+      "resolvable": true,
+      "repeatable": true,
+      "s2ClampEvents": 0
+    },
+    "workpieceTransfer": {
+      "ok": true,
+      "transfers": [
+        "cell/cradle",
+        "cell/pallet"
+      ]
+    }
+  },
+  "failures": []
+}

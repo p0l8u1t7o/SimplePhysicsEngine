@@ -76,8 +76,11 @@ node ../../core/tools/serve.mjs MilitaryGradePC --no-open
 | `web/js/sequence.js` | 第一階段逐步流程。通用排程（起訖快照、插值、護蓋開度的巢狀插值 `nested`、`stationStart`、`total`、`events`）用 core 的 `createStepSequence`，每步由 core 的 `apply` 套用終點狀態並算出終點位姿；本檔只加手臂位姿層（每步起訖位姿、PTP／直線、偏軸 TCP 轉向、先用 `peek` 預覽終點再決定是否低位先退離）與力值曲線；另匯出手臂到位規則 `ARRIVAL`（門檻、逾時 12 s、子步 25 ms），`main.js` 與 `tools/verify.mjs` 共用 |
 | `web/js/project.js` | 專案介面 `createProject`：建立全部設備、產品與動作序列，`apply(t)` 把場景放到時間 t，並提供 core 檢查的設定（`verify`，含配線情境 `verify.cables`）；網頁與 core 統一檢查共用 |
 | `web/js/main.js` | 控制、紀錄匯出、手臂鏡頭子畫面、`?movie` 錄影掛勾（場景物件由 `project.js` 建立）。renderer、相機、軌道控制、環境光與燈光、畫面迴圈、3D 標籤（`stage.addLabel`，畫布位移由 stage 處理）與視角轉場（`stage.goTo`／`cancelTween`）用共用舞台 `core/ui/stage.js`。光源用 `look: 'cell'` 提供配色，本站另外寫明曝光 1.0、環境光 240、天空光 .55、主光 1.6，以及主光／補光位置、陰影範圍與霧 7～14 m；沒有給 `extent`，避免改變桌面畫面。跟隨載具的特寫陰影光放在 `extraLights`。手機直向的拉遠由 stage 的 `narrowFit` 處理，俯視另外用 `fit` 改變方向；標籤用 `priority` 指定避讓順序。播放、重播、速度、時間軸、時鐘、步驟選單與前後步用 `core/ui/player.js` 的 `createPlayer`（事件取自 `sequence.events`），`advance` 交給 core 的到位閘門 `createArrivalGate`（`core/anim/arrival.js`，規則 `ARRIVAL`：子步推進、步驟終點等手臂到位、到位逾時停止），本檔只加 NG 停在 S4 的故障判斷與 `apply(T, { seek })`（跳播時手臂直接到位並清除等待與故障）；`window.sim` 由 `exposeSim` 提供 |
+| `web/js/twin-binding.js` | 數位孿生描述（`core/twin` 的綁定表、孿生 server 與網頁觀看模式共用）：MD 邏輯路徑 → 本站物件與狀態鍵、photoEye 偵測的類別（主載具）、止擋與三色燈的 setter、手臂位姿指令的逆運動學、與假 SPE 相同的設定值 |
+| `twin/MilitaryGradePC.md.json`、`twin/SOURCE.md` | 孿生用的機台描述檔（Automation-Schema `v2.0.0-preview.3` 範例的原樣複本，不得手改）與來源紀錄 |
 | `web/js/vision-results.js` | 相機畫面的檢測框、中心標記與模擬結果（`core/ui/vision-overlay.js`） |
 | `tools/verify.mjs` | 狀態／幾何／運動驗證（連續播放用與網頁相同的到位閘門與 `ARRIVAL`） |
+| `tools/verify-twin.mjs` | 孿生檢查：綁定解析（33 個實體、unbound `act-S3-PCLAMP`）、mdHash、applyState 等價、photoEye、手臂位姿指令（`review/twin-checks.json`） |
 | `tools/verify-camera.mjs` | 手臂相機光軸與接口取景 |
 | `tools/verify-clearance.mjs` | 護蓋與接口間隙、電控櫃落地與輸送線支撐 |
 | `tools/verify-self-clearance.mjs` | 末端工具對手臂、光學機殼對筆電、工具對翻轉治具的淨空，寫入 `review/self-clearance.json` |
@@ -92,7 +95,7 @@ node ../../core/tools/check.mjs MilitaryGradePC           # 完整檢查（scene
 node --import ../../core/tools/register.mjs tools/verify.mjs   # 只跑本站排程與運動驗證
 ```
 
-core 內建檢查：`imports`、`structure`、`names`、`determinism`（倒序／跳播一致）、`layout`、`scene`（全場干涉＋重合面閃爍）、`electrical`（配線與電盤）、`physics`（本站沒用，略過）、`bom`（只警告），完整檢查另跑 `ui`（四種尺寸互動測試，`review/ui-check.json`，port 用環境變數 `UI_PORT` 指定）。`project.json` 的本站檢查：快速 `tools/verify.mjs`；完整另加 `tools/verify-camera.mjs`、`tools/verify-clearance.mjs`、`tools/verify-self-clearance.mjs`。
+core 內建檢查：`imports`、`structure`、`names`、`determinism`（倒序／跳播一致）、`layout`、`scene`（全場干涉＋重合面閃爍）、`electrical`（配線與電盤）、`physics`（本站沒用，略過）、`bom`（只警告），完整檢查另跑 `ui`（四種尺寸互動測試，`review/ui-check.json`，port 用環境變數 `UI_PORT` 指定）。`project.json` 的本站檢查：快速 `tools/verify.mjs`、`tools/verify-twin.mjs`；完整另加 `tools/verify-camera.mjs`、`tools/verify-clearance.mjs`、`tools/verify-self-clearance.mjs`。
 
 統一檢查讀取 `web/js/project.js`（預設 SKU `V110-STND`）。最近一次結果：
 
@@ -102,8 +105,23 @@ core 內建檢查：`imports`、`structure`、`names`、`determinism`（倒序�
 - `tools/verify-clearance.mjs`：16 個護蓋閉合、接口與護蓋最小間隙 0.25 mm；電控櫃落地、24 處輸送線支撐最小間隙 10 mm。
 - `tools/verify-self-clearance.mjs`（`review/self-clearance.json`）：每 SKU 7196 個取樣（步驟端點＋50 ms 以內），工具最近 25.4 mm（J2 對輪廓儀）、光學機殼對筆電 53.6 mm、工具對翻轉治具 93 mm。
 - `electrical`：19 個元件、20 條連線、2 個電控櫃（`review/electrical-checks.json`）。
+- `tools/verify-twin.mjs`（`review/twin-checks.json`）：綁定 7 軸、8 致動器、16 感測器、1 機器人、1 設備，共 33；40 個時間點 applyState 與 apply(t) 的實體網格世界矩陣差 2e-13；輸送在 −1450／−1000／1450 時對應的 photoEye 各自 ON；手臂以位姿指令移到 S1 取像位，TCP 誤差 0 mm。
 
 跨站的干涉回歸與視覺檢查見 [檢查工具](../../tools/README.md)；干涉修正內容見 [干涉修正紀錄](../../tools/docs/interference-review.md)。
+
+## 數位孿生（AutoSequence Twin Hub）
+
+本站是 SPE 數位孿生的示範站：AutoSequence 的序列程式不改，Twin Hub 以 TCP 連進來驅動虛擬機台，SPE 回報 DI。SPE 端的說明、決定性規則與測試在 [`core/twin/README.md`](../../core/twin/README.md)。交付標籤一律 **Simulation Validated**（手臂連桿與關節零點是估計值）。
+
+```powershell
+node core/tools/twin.mjs MilitaryGradePC --port 7600 --sse 8776   # 在庫根目錄；需要相鄰的 Automation-Schema（版本見 core/twin/automation-schema.lock.json）
+# AutoSequence 端：asq-sim run tests/Fixtures/Twin/mgpc-s2-clamp.scenario.json --spe 127.0.0.1:7600
+# 觀看：http://127.0.0.1:8770/MilitaryGradePC/?twin=8776（不跑時間軸，畫面跟著工作階段；關掉頁面不影響 Hub）
+```
+
+- 綁定：MD 的邏輯路徑（例如 `cell/stackerIn/forks`）在 `web/js/twin-binding.js` 對照到本站物件；站狀態 = 時間軸 t = 0 的狀態，再寫入 MD 實體的值（`applyState`），MD 沒有的鍵（`pushOut`、護蓋…）維持初始值。
+- 感測器：磁簧看致動器端點、極限開關看軸位置、三個 photoEye 是對主載具的射線（`core/twin/geometry.js`）；氣壓正常 ON、堆料滿位 OFF。
+- 時間軸模式不受影響：孿生路徑不經過 `apply(t)`；改動前後的場景傾印（2 個情境、18 個時間點）完全相同。
 
 ## 近拍與手臂取景
 

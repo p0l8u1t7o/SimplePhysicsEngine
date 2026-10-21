@@ -1,0 +1,465 @@
+{
+  "$schema": "../schemas/machine-description/v2/machine-description.schema.json",
+  "schema": "zqs.machine-description/2.0",
+  "machine": {
+    "id": "mc-MilitaryGradePC",
+    "name": "MilitaryGradePC",
+    "title": { "zh-Hant": "軍規電腦外觀檢測線", "en": "Military-grade notebook visual QC cell" },
+    "units": ["U-HANDLING", "U-INSPECT"],
+    "tagPathRule": "<Unit>.<Device>.<Signal>"
+  },
+  "units": [
+    {
+      "id": "U-HANDLING",
+      "name": { "zh-Hant": "進出料與輸送", "en": "Feeding, discharge and transport" },
+      "productionGroup": true,
+      "stations": ["S0", "S4"],
+      "description": { "zh-Hant": "S0 進料堆料架、S4 出料堆料架、五站輸送、S1 止擋、氣壓與三色燈。" }
+    },
+    {
+      "id": "U-INSPECT",
+      "name": { "zh-Hant": "外觀檢測", "en": "Inspection" },
+      "productionGroup": true,
+      "stations": ["S1", "S2", "S3"],
+      "description": { "zh-Hant": "VM-60B1 手臂與第七軸、S1 取像頭、S2 載具夾緊、S3 翻轉治具。" }
+    }
+  ],
+  "devices": [
+    {
+      "id": "dev-PLC1",
+      "name": { "zh-Hant": "設備 PLC", "en": "Machine PLC" },
+      "category": "Plc",
+      "capabilities": ["word_memory", "digital_io"],
+      "vendor": "KEYENCE",
+      "model": "KV-X",
+      "driverHint": "keyence_hostlink",
+      "connection": { "host": "192.168.10.10", "port": 8501 },
+      "description": { "zh-Hant": "管理站序、到位互鎖與配方交握（SPE 電控規劃 PLC1，KV-X 系列規劃平台）。" }
+    },
+    {
+      "id": "dev-IO1",
+      "name": { "zh-Hant": "分散式 I/O", "en": "Remote I/O" },
+      "category": "Other",
+      "capabilities": [],
+      "attachedTo": "dev-PLC1",
+      "description": { "zh-Hant": "接收止擋、夾緊、到位與壓力訊號，輸出電磁閥及指示燈；IO 點經 PLC1 存取，所以 io[].device 填 dev-PLC1。" }
+    },
+    {
+      "id": "dev-EC1",
+      "name": { "zh-Hant": "周邊運動交握", "en": "Peripheral motion controller" },
+      "category": "Motion",
+      "capabilities": ["axis"],
+      "driverHint": null,
+      "description": { "zh-Hant": "同步滑軌、堆料升降、取像頭、翻轉與輸送（D1–D6 周邊驅動）；運動總線待選。" }
+    },
+    {
+      "id": "dev-RC1",
+      "name": { "zh-Hant": "手臂控制器", "en": "Robot controller" },
+      "category": "Robot",
+      "capabilities": ["robot", "robot_motion"],
+      "vendor": "DENSO",
+      "model": "RC8A",
+      "driverHint": "denso_bcap",
+      "connection": { "host": "192.168.10.20", "port": 5007 }
+    },
+    {
+      "id": "dev-IPC1",
+      "name": { "zh-Hant": "視覺工業電腦", "en": "Vision IPC" },
+      "category": "Vision",
+      "capabilities": ["vision_station", "barcode_reader"],
+      "driverHint": "visionsequence",
+      "description": { "zh-Hant": "相機取像、配方辨識、補正與結果紀錄；與 PLC 交換 Ready／Busy／OK／NG。S0 的 SN 讀碼由 CAM01 經本機執行。" }
+    },
+    {
+      "id": "dev-LC1",
+      "name": { "zh-Hant": "頻閃光源控制器", "en": "Strobe light controller" },
+      "category": "Light",
+      "capabilities": ["light"],
+      "driverHint": null,
+      "description": { "zh-Hant": "L01～L03 光源；由 IO1 觸發，配合相機觸發時序。" }
+    },
+    {
+      "id": "dev-CAM01",
+      "name": { "zh-Hant": "S0 底視讀碼相機", "en": "S0 bottom SN camera" },
+      "category": "Camera",
+      "capabilities": [],
+      "vendor": "IDS",
+      "attachedTo": "dev-IPC1"
+    },
+    {
+      "id": "dev-CAM02",
+      "name": { "zh-Hant": "S1 頂視相機", "en": "S1 top camera" },
+      "category": "Camera",
+      "capabilities": [],
+      "vendor": "IDS",
+      "attachedTo": "dev-IPC1",
+      "scene": { "object": "cell/S1 頂視相機" }
+    },
+    {
+      "id": "dev-CAM03",
+      "name": { "zh-Hant": "手臂末端相機", "en": "Robot tool camera" },
+      "category": "Camera",
+      "capabilities": [],
+      "vendor": "IDS",
+      "attachedTo": "dev-IPC1"
+    },
+    {
+      "id": "dev-LAS1",
+      "name": { "zh-Hant": "線雷射輪廓感測器", "en": "Line laser profiler" },
+      "category": "Sensor",
+      "capabilities": [],
+      "vendor": "LMI",
+      "model": "Gocator 2520",
+      "attachedTo": "dev-IPC1"
+    },
+    {
+      "id": "dev-FTS1",
+      "name": { "zh-Hant": "末端力覺感測器", "en": "Tool F/T sensor" },
+      "category": "Sensor",
+      "capabilities": [],
+      "attachedTo": "dev-RC1",
+      "description": { "zh-Hant": "經 FT1 力覺介面接到 RC1 力控；PLC 只監控結果。" }
+    }
+  ],
+  "axes": [
+    {
+      "id": "ax-RAIL",
+      "name": { "zh-Hant": "手臂第七軸滑軌", "en": "Robot 7th-axis rail" },
+      "device": "dev-EC1",
+      "index": 0,
+      "unit": "U-INSPECT",
+      "kind": "linear",
+      "posUnit": "mm",
+      "travel": [-1100, 1100],
+      "vMax": 400,
+      "aMax": 1000,
+      "home": "neg_limit",
+      "scene": { "object": "robot", "stateKey": "q.rail" },
+      "description": { "zh-Hant": "SPE 電控規劃 D1；軌道長 2800 mm、可用行程 ±1100 mm。" }
+    },
+    {
+      "id": "ax-S0-LIFT",
+      "name": { "zh-Hant": "S0 進料升降", "en": "S0 infeed lift" },
+      "device": "dev-EC1",
+      "index": 1,
+      "unit": "U-HANDLING",
+      "kind": "linear",
+      "posUnit": "mm",
+      "travel": [0, 110],
+      "vMax": 200,
+      "aMax": 1000,
+      "home": "neg_limit",
+      "scene": { "object": "cell/stackerIn/lift", "stateKey": "inLift" },
+      "description": { "zh-Hant": "SPE 電控規劃 D2；行程一個堆疊節距 110 mm。" }
+    },
+    {
+      "id": "ax-S4-LIFT",
+      "name": { "zh-Hant": "S4 出料升降", "en": "S4 outfeed lift" },
+      "device": "dev-EC1",
+      "index": 2,
+      "unit": "U-HANDLING",
+      "kind": "linear",
+      "posUnit": "mm",
+      "travel": [0, 110],
+      "vMax": 200,
+      "aMax": 1000,
+      "home": "neg_limit",
+      "scene": { "object": "cell/stackerOut/lift", "stateKey": "outLift" },
+      "description": { "zh-Hant": "SPE 電控規劃 D3。" }
+    },
+    {
+      "id": "ax-S1-HEAD",
+      "name": { "zh-Hant": "S1 取像頭", "en": "S1 camera head" },
+      "device": "dev-EC1",
+      "index": 3,
+      "unit": "U-INSPECT",
+      "kind": "linear",
+      "posUnit": "mm",
+      "travel": [0, 780],
+      "vMax": 800,
+      "aMax": 2000,
+      "home": "neg_limit",
+      "scene": { "object": "cell/S1/head", "stateKey": "s1Head", "scale": 0.001282051282051282 },
+      "description": { "zh-Hant": "SPE 電控規劃 D4；沿懸臂 Z 向滑軌移入／退出 780 mm。0 = 退出，780 = 產品正上方（SPE 狀態 s1Head 0..1）。" }
+    },
+    {
+      "id": "ax-S3-FLIP",
+      "name": { "zh-Hant": "S3 翻轉", "en": "S3 flip" },
+      "device": "dev-EC1",
+      "index": 4,
+      "unit": "U-INSPECT",
+      "kind": "rotary",
+      "posUnit": "deg",
+      "travel": [0, 180],
+      "vMax": 120,
+      "aMax": 240,
+      "home": "home_switch",
+      "scene": { "object": "cell/cradle/rot", "stateKey": "flip", "scale": 0.005555555555555556 },
+      "description": { "zh-Hant": "SPE 電控規劃 D5；繞輸送 X 軸翻轉 180°（SPE 狀態 flip 0..1）。" }
+    },
+    {
+      "id": "ax-CONV",
+      "name": { "zh-Hant": "輸送", "en": "Conveyor" },
+      "device": "dev-EC1",
+      "index": 5,
+      "unit": "U-HANDLING",
+      "kind": "linear",
+      "posUnit": "mm",
+      "travel": [-2000, 2000],
+      "vMax": 600,
+      "aMax": 1500,
+      "home": "none",
+      "scene": { "object": "cell/pallet", "stateKey": "palletX" },
+      "description": { "zh-Hant": "SPE 電控規劃 D6。孿生 v1 以「載具 X 位置」的定位軸近似雙帶輸送（持有權運動學模型），站位 x = -2000、-1000、0、1150、2000 mm。" }
+    },
+    {
+      "id": "ax-S3-LIFT",
+      "name": { "zh-Hant": "S3 翻轉治具升降", "en": "S3 cradle lift" },
+      "device": "dev-EC1",
+      "index": 6,
+      "unit": "U-INSPECT",
+      "kind": "linear",
+      "posUnit": "mm",
+      "travel": [0, 210],
+      "vMax": 200,
+      "aMax": 800,
+      "home": "neg_limit",
+      "scene": { "object": "cell/cradle/lift", "stateKey": "cradleLift" },
+      "description": { "zh-Hant": "0 = 夾持高度，100 = 待命，210 = 翻轉抬升高度（SPE 狀態 cradleLift）。" }
+    }
+  ],
+  "io": [
+    { "id": "io-S0-PALLET", "device": "dev-PLC1", "dir": "DI", "address": "R000", "unit": "U-HANDLING", "signalCode": "DI00", "terminal": "XDI:01", "wire": "W-DI00", "function": { "zh-Hant": "S0 載具到位", "en": "S0 pallet present" } },
+    { "id": "io-S0-FORK-EXT", "device": "dev-PLC1", "dir": "DI", "address": "R001", "unit": "U-HANDLING", "signalCode": "DI01", "terminal": "XDI:02", "wire": "W-DI01", "function": { "zh-Hant": "S0 托叉伸出", "en": "S0 fork extended" } },
+    { "id": "io-S0-FORK-RET", "device": "dev-PLC1", "dir": "DI", "address": "R002", "unit": "U-HANDLING", "signalCode": "DI02", "terminal": "XDI:03", "wire": "W-DI02", "function": { "zh-Hant": "S0 托叉縮回", "en": "S0 fork retracted" } },
+    { "id": "io-S0-PUSH-RET", "device": "dev-PLC1", "dir": "DI", "address": "R003", "unit": "U-HANDLING", "signalCode": "DI03", "terminal": "XDI:04", "wire": "W-DI03", "function": { "zh-Hant": "S0 推桿退回", "en": "S0 pusher retracted" } },
+    { "id": "io-S1-PALLET", "device": "dev-PLC1", "dir": "DI", "address": "R004", "unit": "U-HANDLING", "signalCode": "DI04", "terminal": "XDI:05", "wire": "W-DI04", "function": { "zh-Hant": "S1 載具到位", "en": "S1 pallet present" } },
+    { "id": "io-S1-HEAD-OUT", "device": "dev-PLC1", "dir": "DI", "address": "R005", "unit": "U-INSPECT", "signalCode": "DI05", "terminal": "XDI:06", "wire": "W-DI05", "function": { "zh-Hant": "S1 取像頭退出", "en": "S1 camera head retracted" } },
+    { "id": "io-S2-CLAMPED", "device": "dev-PLC1", "dir": "DI", "address": "R006", "unit": "U-INSPECT", "signalCode": "DI06", "terminal": "XDI:07", "wire": "W-DI06", "function": { "zh-Hant": "S2 載具夾緊", "en": "S2 pallet clamped" } },
+    { "id": "io-S2-RELEASED", "device": "dev-PLC1", "dir": "DI", "address": "R007", "unit": "U-INSPECT", "signalCode": "DI07", "terminal": "XDI:08", "wire": "W-DI07", "function": { "zh-Hant": "S2 載具鬆開", "en": "S2 pallet released" } },
+    { "id": "io-S3-GRIP-CLOSED", "device": "dev-PLC1", "dir": "DI", "address": "R008", "unit": "U-INSPECT", "signalCode": "DI08", "terminal": "XDI:09", "wire": "W-DI08", "function": { "zh-Hant": "S3 翻轉夾爪閉合", "en": "S3 cradle gripper closed" } },
+    { "id": "io-S3-PCLAMPED", "device": "dev-PLC1", "dir": "DI", "address": "R009", "unit": "U-INSPECT", "signalCode": "DI09", "terminal": "XDI:10", "wire": "W-DI09", "function": { "zh-Hant": "S3 載具夾緊", "en": "S3 pallet clamped" } },
+    { "id": "io-S3-FLIP-HOME", "device": "dev-PLC1", "dir": "DI", "address": "R010", "unit": "U-INSPECT", "signalCode": "DI10", "terminal": "XDI:11", "wire": "W-DI10", "function": { "zh-Hant": "S3 翻轉原位", "en": "S3 flip at home" } },
+    { "id": "io-S4-PALLET", "device": "dev-PLC1", "dir": "DI", "address": "R011", "unit": "U-HANDLING", "signalCode": "DI11", "terminal": "XDI:12", "wire": "W-DI11", "function": { "zh-Hant": "S4 載具到位", "en": "S4 pallet present" } },
+    { "id": "io-S4-FORK-EXT", "device": "dev-PLC1", "dir": "DI", "address": "R012", "unit": "U-HANDLING", "signalCode": "DI12", "terminal": "XDI:13", "wire": "W-DI12", "function": { "zh-Hant": "S4 托叉伸出", "en": "S4 fork extended" } },
+    { "id": "io-S4-FORK-RET", "device": "dev-PLC1", "dir": "DI", "address": "R013", "unit": "U-HANDLING", "signalCode": "DI13", "terminal": "XDI:14", "wire": "W-DI13", "function": { "zh-Hant": "S4 托叉縮回", "en": "S4 fork retracted" } },
+    { "id": "io-AIR-OK", "device": "dev-PLC1", "dir": "DI", "address": "R014", "unit": "U-HANDLING", "signalCode": "DI14", "terminal": "XDI:15", "wire": "W-DI14", "function": { "zh-Hant": "氣壓正常", "en": "Air pressure OK" } },
+    { "id": "io-STACK-FULL", "device": "dev-PLC1", "dir": "DI", "address": "R015", "unit": "U-HANDLING", "signalCode": "DI15", "terminal": "XDI:16", "wire": "W-DI15", "function": { "zh-Hant": "堆料滿位", "en": "Outfeed stack full" } },
+    { "id": "io-S0-FORK-V", "device": "dev-PLC1", "dir": "DO", "address": "R500", "unit": "U-HANDLING", "signalCode": "DO00", "terminal": "XDO:01", "wire": "W-DO00", "function": { "zh-Hant": "S0 托叉閥", "en": "S0 fork valve" }, "drives": { "actuator": "act-S0-FORK", "action": "extend" } },
+    { "id": "io-S0-PUSH-V", "device": "dev-PLC1", "dir": "DO", "address": "R501", "unit": "U-HANDLING", "signalCode": "DO01", "terminal": "XDO:02", "wire": "W-DO01", "function": { "zh-Hant": "S0 推桿閥", "en": "S0 pusher valve" }, "drives": { "actuator": "act-S0-PUSH", "action": "extend" } },
+    { "id": "io-S1-STOP-V", "device": "dev-PLC1", "dir": "DO", "address": "R502", "unit": "U-HANDLING", "signalCode": "DO02", "terminal": "XDO:03", "wire": "W-DO02", "function": { "zh-Hant": "S1 止擋閥", "en": "S1 stopper valve" }, "drives": { "actuator": "act-S1-STOP", "action": "lower" } },
+    { "id": "io-S2-CLAMP-V", "device": "dev-PLC1", "dir": "DO", "address": "R503", "unit": "U-INSPECT", "signalCode": "DO03", "terminal": "XDO:04", "wire": "W-DO03", "function": { "zh-Hant": "S2 夾緊閥", "en": "S2 clamp valve" }, "drives": { "actuator": "act-S2-CLAMP", "action": "clamp" } },
+    { "id": "io-S3-GRIP-V", "device": "dev-PLC1", "dir": "DO", "address": "R504", "unit": "U-INSPECT", "signalCode": "DO04", "terminal": "XDO:05", "wire": "W-DO04", "function": { "zh-Hant": "S3 翻轉夾緊閥", "en": "S3 cradle clamp valve" }, "drives": { "actuator": "act-S3-GRIP", "action": "clamp" } },
+    { "id": "io-S3-PCLAMP-V", "device": "dev-PLC1", "dir": "DO", "address": "R505", "unit": "U-INSPECT", "signalCode": "DO05", "terminal": "XDO:06", "wire": "W-DO05", "function": { "zh-Hant": "S3 載具夾緊閥", "en": "S3 pallet clamp valve" }, "drives": { "actuator": "act-S3-PCLAMP", "action": "clamp" } },
+    { "id": "io-S4-FORK-V", "device": "dev-PLC1", "dir": "DO", "address": "R506", "unit": "U-HANDLING", "signalCode": "DO06", "terminal": "XDO:07", "wire": "W-DO06", "function": { "zh-Hant": "S4 托叉閥", "en": "S4 fork valve" }, "drives": { "actuator": "act-S4-FORK", "action": "extend" } },
+    { "id": "io-LAMP-GREEN", "device": "dev-PLC1", "dir": "DO", "address": "R507", "unit": "U-HANDLING", "signalCode": "DO07", "terminal": "XDO:08", "wire": "W-DO07", "function": { "zh-Hant": "狀態綠燈", "en": "Status lamp green" }, "drives": { "actuator": "act-LAMP-GREEN", "action": "on" } },
+    { "id": "io-LAMP-RED", "device": "dev-PLC1", "dir": "DO", "address": "R508", "unit": "U-HANDLING", "signalCode": "DO08", "terminal": "XDO:09", "wire": "W-DO08", "function": { "zh-Hant": "異常紅燈／蜂鳴器", "en": "Alarm lamp red / buzzer" }, "drives": { "actuator": "act-LAMP-RED", "action": "on" } }
+  ],
+  "actuators": [
+    {
+      "id": "act-S0-FORK",
+      "name": { "zh-Hant": "S0 托叉", "en": "S0 stack fork" },
+      "type": "airCylinder",
+      "unit": "U-HANDLING",
+      "solenoid": "single",
+      "stroke": 85,
+      "travelTime": { "extend": 0.45, "retract": 0.45 },
+      "scene": { "object": "cell/stackerIn/forks", "stateKey": "inFork" }
+    },
+    {
+      "id": "act-S0-PUSH",
+      "name": { "zh-Hant": "S0 推料氣缸", "en": "S0 pusher" },
+      "type": "airCylinder",
+      "unit": "U-HANDLING",
+      "solenoid": "single",
+      "stroke": 550,
+      "travelTime": { "extend": 2.8, "retract": 1.6 },
+      "scene": { "object": "cell/stackerIn/pusher", "stateKey": "pushIn", "scale": 550 }
+    },
+    {
+      "id": "act-S1-STOP",
+      "name": { "zh-Hant": "S1 止擋", "en": "S1 stopper" },
+      "type": "stopper",
+      "unit": "U-HANDLING",
+      "solenoid": "single",
+      "actions": ["lower", "raise"],
+      "states": ["raised", "lowered"],
+      "travelTime": { "lower": 0.2, "raise": 0.2 },
+      "scene": { "object": "cell/stops/S1" }
+    },
+    {
+      "id": "act-S2-CLAMP",
+      "name": { "zh-Hant": "載具四角側夾（S2）", "en": "Pallet corner clamps (S2)" },
+      "type": "gripper",
+      "unit": "U-INSPECT",
+      "solenoid": "single",
+      "actions": ["clamp", "release"],
+      "states": ["released", "clamped"],
+      "stroke": 25,
+      "travelTime": { "clamp": 0.7, "release": 0.7 },
+      "scene": { "object": "cell/pallet", "stateKey": "clamp" }
+    },
+    {
+      "id": "act-S3-GRIP",
+      "name": { "zh-Hant": "S3 翻轉夾臂", "en": "S3 cradle clamp arms" },
+      "type": "gripper",
+      "unit": "U-INSPECT",
+      "solenoid": "single",
+      "actions": ["clamp", "release"],
+      "states": ["released", "clamped"],
+      "stroke": 30.5,
+      "travelTime": { "clamp": 0.85, "release": 0.85 },
+      "scene": { "object": "cell/cradle", "stateKey": "cradleClamp" }
+    },
+    {
+      "id": "act-S3-PCLAMP",
+      "name": { "zh-Hant": "S3 載具夾緊", "en": "S3 pallet clamp" },
+      "type": "gripper",
+      "unit": "U-INSPECT",
+      "solenoid": "single",
+      "actions": ["clamp", "release"],
+      "states": ["released", "clamped"],
+      "travelTime": { "clamp": 0.7, "release": 0.7 }
+    },
+    {
+      "id": "act-S4-FORK",
+      "name": { "zh-Hant": "S4 托叉", "en": "S4 stack fork" },
+      "type": "airCylinder",
+      "unit": "U-HANDLING",
+      "solenoid": "single",
+      "stroke": 85,
+      "travelTime": { "extend": 0.45, "retract": 0.45 },
+      "scene": { "object": "cell/stackerOut/forks", "stateKey": "outFork" }
+    },
+    {
+      "id": "act-LAMP-GREEN",
+      "name": { "zh-Hant": "三色燈 綠", "en": "Tower lamp green" },
+      "type": "indicator",
+      "unit": "U-HANDLING",
+      "solenoid": "none",
+      "scene": { "object": "cell/tower/green" }
+    },
+    {
+      "id": "act-LAMP-RED",
+      "name": { "zh-Hant": "三色燈 紅／蜂鳴器", "en": "Tower lamp red / buzzer" },
+      "type": "indicator",
+      "unit": "U-HANDLING",
+      "solenoid": "none",
+      "scene": { "object": "cell/tower/red" }
+    }
+  ],
+  "sensors": [
+    {
+      "id": "sen-S0-PALLET",
+      "type": "photoEye",
+      "io": "io-S0-PALLET",
+      "scene": { "frame": "world", "origin": [-1450, 780, 250], "dir": [0, 0, -1], "range": 500, "detects": ["pallet"] }
+    },
+    { "id": "sen-S0-FORK-EXT", "type": "reed", "io": "io-S0-FORK-EXT", "actuator": "act-S0-FORK", "at": "extended" },
+    { "id": "sen-S0-FORK-RET", "type": "reed", "io": "io-S0-FORK-RET", "actuator": "act-S0-FORK", "at": "retracted" },
+    { "id": "sen-S0-PUSH-RET", "type": "reed", "io": "io-S0-PUSH-RET", "actuator": "act-S0-PUSH", "at": "retracted" },
+    {
+      "id": "sen-S1-PALLET",
+      "type": "photoEye",
+      "io": "io-S1-PALLET",
+      "scene": { "frame": "world", "origin": [-1000, 780, 250], "dir": [0, 0, -1], "range": 500, "detects": ["pallet"] }
+    },
+    { "id": "sen-S1-HEAD-OUT", "type": "limitSwitch", "io": "io-S1-HEAD-OUT", "axis": "ax-S1-HEAD", "axisWindow": [0, 2] },
+    { "id": "sen-S2-CLAMPED", "type": "reed", "io": "io-S2-CLAMPED", "actuator": "act-S2-CLAMP", "at": "clamped" },
+    { "id": "sen-S2-RELEASED", "type": "reed", "io": "io-S2-RELEASED", "actuator": "act-S2-CLAMP", "at": "released" },
+    { "id": "sen-S3-GRIP-CLOSED", "type": "reed", "io": "io-S3-GRIP-CLOSED", "actuator": "act-S3-GRIP", "at": "clamped" },
+    { "id": "sen-S3-PCLAMPED", "type": "reed", "io": "io-S3-PCLAMPED", "actuator": "act-S3-PCLAMP", "at": "clamped" },
+    { "id": "sen-S3-FLIP-HOME", "type": "limitSwitch", "io": "io-S3-FLIP-HOME", "axis": "ax-S3-FLIP", "axisWindow": [-0.5, 0.5] },
+    {
+      "id": "sen-S4-PALLET",
+      "type": "photoEye",
+      "io": "io-S4-PALLET",
+      "scene": { "frame": "world", "origin": [1450, 780, 250], "dir": [0, 0, -1], "range": 500, "detects": ["pallet"] }
+    },
+    { "id": "sen-S4-FORK-EXT", "type": "reed", "io": "io-S4-FORK-EXT", "actuator": "act-S4-FORK", "at": "extended" },
+    { "id": "sen-S4-FORK-RET", "type": "reed", "io": "io-S4-FORK-RET", "actuator": "act-S4-FORK", "at": "retracted" },
+    { "id": "sen-AIR-OK", "type": "pressureSwitch", "io": "io-AIR-OK" },
+    { "id": "sen-STACK-FULL", "type": "levelSwitch", "io": "io-STACK-FULL" }
+  ],
+  "robots": [
+    {
+      "id": "rb-VM60",
+      "name": { "zh-Hant": "六軸手臂", "en": "6-axis robot" },
+      "device": "dev-RC1",
+      "vendor": "DENSO",
+      "model": "VM-60B1",
+      "unit": "U-INSPECT",
+      "joints": [
+        { "name": "J1", "range": [-170, 170], "vMax": 103.13 },
+        { "name": "J2", "range": [-90, 135], "vMax": 103.13 },
+        { "name": "J3", "range": [-80, 168], "vMax": 103.13 },
+        { "name": "J4", "range": [-185, 185], "vMax": 103.13 },
+        { "name": "J5", "range": [-120, 120], "vMax": 103.13 },
+        { "name": "J6", "range": [-360, 360], "vMax": 103.13 }
+      ],
+      "railAxis": "ax-RAIL",
+      "tools": [
+        { "name": "cam", "title": { "zh-Hant": "末端相機" } },
+        { "name": "hook", "title": { "zh-Hant": "鉤爪" } },
+        { "name": "press", "title": { "zh-Hant": "PU 壓頭" } },
+        { "name": "laser", "title": { "zh-Hant": "線雷射" } }
+      ],
+      "tasks": [
+        { "name": "S1_SIDES", "title": { "zh-Hant": "S1 四側取像與接縫掃描" } },
+        { "name": "S2_DOORS", "title": { "zh-Hant": "S2 護蓋開閉與連接器取像" } },
+        { "name": "S3_BOTTOM", "title": { "zh-Hant": "S3 底面取像" } },
+        { "name": "PARK", "title": { "zh-Hant": "回待命位" } }
+      ],
+      "scene": { "object": "robot", "stateKey": "q" }
+    }
+  ],
+  "provenance": {
+    "createdBy": "manual",
+    "createdAt": "2026-10-17T22:00:00+08:00",
+    "speProject": "MilitaryGradePC",
+    "speRevision": "4211f2a; circuit-data P02 (2026-09-27)",
+    "sources": [
+      "SimplePhysicsEngine/project-site/MilitaryGradePC/AGENTS.md",
+      "SimplePhysicsEngine/project-site/MilitaryGradePC/README.md",
+      "SimplePhysicsEngine/project-site/MilitaryGradePC/docs/electrical/circuit-data.json",
+      "SimplePhysicsEngine/project-site/MilitaryGradePC/docs/electrical-plan.md",
+      "SimplePhysicsEngine/project-site/MilitaryGradePC/docs/phase1-scope.md",
+      "SimplePhysicsEngine/project-site/MilitaryGradePC/web/js/project.js",
+      "SimplePhysicsEngine/project-site/MilitaryGradePC/web/js/cell.js",
+      "SimplePhysicsEngine/project-site/MilitaryGradePC/web/js/sequence.js",
+      "SimplePhysicsEngine/project-site/MilitaryGradePC/web/js/robot.js"
+    ],
+    "editedBy": ["manual"],
+    "assumptions": [
+      { "entity": "U-HANDLING", "fields": ["stations"], "note": { "zh-Hant": "Unit 切分（兩個 Unit）是範例假設；SPE 只有站別 S0–S4，沒有 Unit 概念。" } },
+      { "entity": "U-INSPECT", "fields": ["stations"], "note": { "zh-Hant": "同上。" } },
+      { "entity": "dev-PLC1", "fields": ["connection"], "note": { "zh-Hant": "IP 為假設值；8501 是 KV 系列上位鏈路的常用埠號，待 KV-X 型錄與現場網路規劃確認。" } },
+      { "entity": "dev-RC1", "fields": ["connection"], "note": { "zh-Hant": "IP 為假設值；5007 是 b-CAP 的常用埠號，待 RC8A 設定確認。" } },
+      { "entity": "dev-EC1", "fields": ["capabilities", "driverHint"], "note": { "zh-Hant": "電控資料只說 EC1 與主 PLC 交握、運動總線待選。範例假設 AutoSequence 以 axis 能力直接控制 EC1；若改為經 PLC 交握下指令，軸的建模方式要調整。" } },
+      { "entity": "dev-IPC1", "fields": ["capabilities"], "note": { "zh-Hant": "假設 S0 的 SN 讀碼（CAM01 底視讀碼器）由視覺電腦提供 barcode_reader 能力。" } },
+      { "entity": "dev-LAS1", "fields": ["vendor", "model"], "note": { "zh-Hant": "SPE README 寫依 Gocator 2520 取 TCP，正式選型未定。" } },
+      { "entity": "ax-RAIL", "fields": ["index", "aMax", "home"], "note": { "zh-Hant": "vMax 400 mm/s 取自 SPE robot.js 的 RAIL_SPEED；加速度與原點方式為假設；SPE 待確認第七軸是由 EC1 還是 RC8A 控制。" } },
+      { "entity": "ax-S0-LIFT", "fields": ["index", "vMax", "aMax", "home"], "note": { "zh-Hant": "由 SPE 步驟時間（110 mm 約 0.8–1.4 s）反推的假設值。" } },
+      { "entity": "ax-S4-LIFT", "fields": ["index", "vMax", "aMax", "home"], "note": { "zh-Hant": "同 ax-S0-LIFT。" } },
+      { "entity": "ax-S1-HEAD", "fields": ["index", "vMax", "aMax", "home"], "note": { "zh-Hant": "由 SPE 步驟時間（780 mm、1.6 s）反推的假設值。" } },
+      { "entity": "ax-S3-FLIP", "fields": ["index", "vMax", "aMax", "home"], "note": { "zh-Hant": "由 SPE 步驟時間（180°、2.8 s、S 曲線）反推的假設值。" } },
+      { "entity": "ax-CONV", "fields": ["index", "kind", "travel", "vMax", "aMax", "home"], "note": { "zh-Hant": "實機是雙帶輸送加止擋，不是定位軸；孿生 v1 以載具 X 位置近似。速度與加速度為假設值。" } },
+      { "entity": "ax-S3-LIFT", "fields": ["device", "index", "vMax", "aMax", "home"], "note": { "zh-Hant": "SPE 電控資料只有 D1–D6，翻轉治具升降（cradleLift 0–210 mm）沒有對應驅動；暫列為 EC1 第 7 軸，待電控確認是伺服軸還是氣缸。" } },
+      { "entity": "io-S0-PALLET", "fields": ["address"], "note": { "zh-Hant": "所有 IO 位址（DI → R000–R015、DO → R500–R508）都是假設的 KV 繼電器位址，IO1 的實際分配待電控確認；circuit-data 的點序與端子是規劃代號。" } },
+      { "entity": "act-S0-FORK", "fields": ["solenoid", "travelTime"], "note": { "zh-Hant": "單線圈與「DO ON = 伸出」為假設；行程時間取自 SPE 步驟時間（0.45 s）。" } },
+      { "entity": "act-S0-PUSH", "fields": ["solenoid", "travelTime"], "note": { "zh-Hant": "行程時間取自 SPE 步驟時間（推出 2.8 s、復歸 1.6 s）。" } },
+      { "entity": "act-S1-STOP", "fields": ["solenoid", "actions", "states", "travelTime"], "note": { "zh-Hant": "假設彈簧上升、DO ON 下降；沒有到位感測器；行程時間為假設值。" } },
+      { "entity": "act-S2-CLAMP", "fields": ["solenoid", "travelTime"], "note": { "zh-Hant": "SPE 場景中 S0、S2、S3、S4 共用載具的 clamp 狀態；S2 夾緊閥綁定到該狀態。" } },
+      { "entity": "act-S3-PCLAMP", "fields": ["solenoid", "travelTime"], "note": { "zh-Hant": "SPE 場景沒有獨立的 S3 載具夾緊狀態鍵（與 S2 共用 clamp），所以不做場景綁定，孿生時列在 unbound。" } },
+      { "entity": "act-S3-GRIP", "fields": ["solenoid"], "note": { "zh-Hant": "單線圈為假設；行程時間取自 SPE 步驟時間 0.85 s。" } },
+      { "entity": "act-S4-FORK", "fields": ["solenoid", "travelTime"], "note": { "zh-Hant": "同 act-S0-FORK。" } },
+      { "entity": "sen-S0-PALLET", "fields": ["type", "scene"], "note": { "zh-Hant": "感測器種類與射線位置是假設值（站位 x、輸送面上方 20 mm、由前側往後照）。" } },
+      { "entity": "sen-S1-PALLET", "fields": ["type", "scene"], "note": { "zh-Hant": "同 sen-S0-PALLET。" } },
+      { "entity": "sen-S4-PALLET", "fields": ["type", "scene"], "note": { "zh-Hant": "同 sen-S0-PALLET。" } },
+      { "entity": "sen-S1-HEAD-OUT", "fields": ["type", "axisWindow"], "note": { "zh-Hant": "以軸位置 0–2 mm 判定退出，為假設值。" } },
+      { "entity": "sen-S3-FLIP-HOME", "fields": ["type", "axisWindow"], "note": { "zh-Hant": "以 ±0.5° 判定原位，為假設值。" } },
+      { "entity": "rb-VM60", "fields": ["joints", "tasks"], "note": { "zh-Hant": "關節限位取自 SPE 依 DENSO 型錄的建模；vMax 103.13 deg/s 是 SPE 的模型限速 1.8 rad/s，不是型錄值；零點方向待 DENSO CAD 核對。任務名稱為假設值。" } },
+      { "entity": "act-LAMP-RED", "fields": ["type"], "note": { "zh-Hant": "電控資料把紅燈與蜂鳴器接在同一個 DO08，範例視為一個指示器。" } }
+    ]
+  }
+}

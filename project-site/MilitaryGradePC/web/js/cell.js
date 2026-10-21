@@ -283,7 +283,12 @@ export function createCell(scene) {
   panelFeed(g,'CTRL / S1 to panel',[[s1x,400,335],[s1x,660,335],[-850,660,335],[-850,660,200],[-850,540,200],[-850,505,-100],panel.ports[3]],{radius:6});
   panelFeed(g,'CTRL / rail power to panel',[[0,400,300],[-140,400,320],[-140,660,320],[-550,660,200],[-550,540,200],[-550,505,-100],panel.ports[9]],{radius:8,color:CABLE.power});
   // keepout：手臂不得進入的固定結構（S1 懸臂與取像頭、S3 龍門），供驗證做碰撞檢查
-  return { group:g,occluders:occ,pallet:palletApi,stackerIn,stackerOut,cradle,topFlash,snFlash,tower,stops,setHead,keepout:[...keepout,...cradle.keepout,...cabinet.solids,...motionCabinet.solids],
-    updateTransport(x,located){conv.set({s:x});for(const s of stops){const hit=Math.abs(x-s.x)<2;s.stop.set(hit&&located?1:0);s.led.material.emissiveIntensity=hit?1.4:0;}},
+  const setConveyor=x=>conv.set({s:x}),setStop=(i,v)=>stops[i].stop.set(v),setStopLed=(i,on)=>{stops[i].led.material.emissiveIntensity=on?1.4:0;};
+  return { group:g,occluders:occ,pallet:palletApi,stackerIn,stackerOut,cradle,topFlash,snFlash,tower,stops,setHead,head,keepout:[...keepout,...cradle.keepout,...cabinet.solids,...motionCabinet.solids],
+    // 輸送位置、止擋（0 降下、1 升起）、到位燈三個 setter：孿生模式各自由 MD 實體驅動，時間軸模式由 updateTransport 一次呼叫三者
+    setConveyor,setStop,setStopLed,
+    updateTransport(x,located){setConveyor(x);stops.forEach((s,i)=>{const hit=Math.abs(x-s.x)<2;setStop(i,hit&&located?1:0);setStopLed(i,hit);});},
+    // 三色燈個別點亮（孿生模式的紅、綠燈是兩個獨立 DO；共用模型的 tower.set 一次只亮一節，多燈 API 已登記 core/REQUESTS.md）
+    setLamp(key,on){tower.lamps[key].material.emissiveIntensity=on?tower.params.on:tower.params.off;},
     get topCamPos(){return topCam.root.getWorldPosition(new THREE.Vector3());},snReaderPos:snReader.position.clone() };
 }

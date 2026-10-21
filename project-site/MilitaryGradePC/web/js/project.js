@@ -96,6 +96,8 @@ export function createProject({ scene, headless = false, sku: wanted } = {}) {
     seamLaser.material.opacity = s.seamLaser >= 0 && illuminated ? .7 : 0;
     seamLaser.position.set(s.palletX - 125 + 250 * smooth(current.t), top + NB.H + 1, -94);
   }
+  // 序列 t = 0 的機構狀態複本（孿生模式的初始狀態；twin-binding.js 以它為底、再寫入 MD 實體的值後交給 applyState）
+  function initialState() { return structuredClone(sequence.sample(0).state); }
   // 只取樣序列（設定機構狀態與手臂目標，手臂不跳到位）：播放時由 robot.update 逐步追上
   function sample(t) { return sequence.sample(t); }
   // 跳到時間 t：機構狀態、手臂直接到位、光源與輔助線；只依 t 決定
@@ -146,7 +148,7 @@ export function createProject({ scene, headless = false, sku: wanted } = {}) {
     total: sequence.total, sku, sequence, layoutChecks, cell, nb, notebook, carrier, robot, stackIn, stackOut,
     zones: [zoneSlow, zoneSlowE, zoneKeep], roiBox, seamLaser, trail, trailGeo, trailPos, trailN,
     top, get state() { return S; },
-    sample, apply, effects, arrived,
+    sample, apply, effects, arrived, applyState, initialState,
     verify: {
       // 防撞區、雷射平面等半透明效果不是實體
       skip: o => helpers.has(o) || (o.isMesh && o.material?.transparent && o.material.depthWrite === false),

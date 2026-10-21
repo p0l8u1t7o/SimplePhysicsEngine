@@ -226,7 +226,7 @@ export function createRobot() {
   function setFlash(on) { cam.set(!!on); }     // 閃光燈 360／0，環形光亮度 .65／.05
   function setLaser(on) { prof.set(!!on); }    // 雷射面不透明度 .35／0，雷射窗亮度 3／1.5
 
-  return { root,q,home,goal,cur,update,apply,getTcpWorld,setForceColor,setFlash,setLaser,tool,tcpCam,tcpHook,tcpPress,tcpLaser,inspectionCam,snap,error,poseFor,setPose,reach,plan,
+  return { root,q,home,goal,cur,update,apply,getTcpWorld,setForceColor,setFlash,setLaser,tool,tcpCam,tcpHook,tcpPress,tcpLaser,inspectionCam,snap,error,poseFor,setPose,reach,plan,solveJoints,
     arm,L,limits,
     clearanceParts: { arm: armParts, tool: toolParts, optics: [camBody,lens,lensGlass,ringLight,profiler,profWin] } };
 }
