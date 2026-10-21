@@ -98,9 +98,3 @@
 - 暫代：MGPC 用 Automation-Schema 的範例 MD 原樣複本（`project-site/MilitaryGradePC/twin/`）
 - 期望介面：`core/twin/md-export.mjs`：從站產生 MD v2（設備、軸、IO、致動器、感測器、機器人、場景綁定），只寫 SPE 擁有的欄位、AutoSequence 擁有的欄位讀入時保留，ID 穩定、輸出決定性；IO 表的版控來源要先決定（MGPC 的電控資料只在本機 `docs/`）
 - 影響：之後接孿生的站；驗收 SPE-AC-24
-
-### 三色燈可以同時點亮多節
-- 提出：MilitaryGradePC（2026-10-22，孿生的紅、綠燈是兩個獨立 DO）
-- 暫代：`project-site/MilitaryGradePC/web/js/cell.js` 的 `setLamp(key, on)` 直接改 `tower.lamps[key]` 的材質亮度
-- 期望介面：`signalTower` 加 `setLamps({ red: true, green: false, … })`（`set(k)` 維持一次只亮一節）
-- 影響：所有接孿生、或要同時亮紅燈與蜂鳴器的站

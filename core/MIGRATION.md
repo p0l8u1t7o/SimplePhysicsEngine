@@ -239,13 +239,14 @@ Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs
 - MilitaryGradePC 是示範站：`twin/`（範例 MD 原樣複本與來源紀錄）、`web/js/twin-binding.js`、`tools/verify-twin.mjs`（列入快速檢查）、網頁 `?twin=<埠>` 觀看模式；`cell.js` 把 `updateTransport` 拆成三個 setter、加 `setLamp`，`project.js` 匯出 `applyState`、`initialState`，`robot.js` 匯出 `solveJoints`（時間軸模式的呼叫不變）。
 - 驗收（開發計畫的 SPE-AC）：範例 transcript 重播後以 preview.3 的 `validate.py session` 驗證 0 error（SPE-AC-04）；兩個工作階段、兩個 Node 行程輸出逐位元相同（SPE-AC-09）；MGPC 綁定 33 個實體、unbound 只有 `act-S3-PCLAMP`（SPE-AC-15）；applyState 與 apply(t) 40 個時間點差 2e-13（SPE-AC-16）；photoEye（SPE-AC-18）、手臂撞 S3 左立柱的干涉事件與 S2 夾持情境 0 則（SPE-AC-22）、S3 的工件轉移（SPE-AC-23）。速度：MGPC 120 s 虛擬時間（dt 1 ms）約 8.5 s。
 - 回歸：改動前以目前的 HEAD 拍基準；13 站 154 張桌面截圖 0 張超過門檻；MGPC 的場景傾印 2 個情境、18 個時間點完全相同；8 個舊站的快速檢查與介面測試通過後 `coreVersion` 改為 1.14.0（同一天的文件整理），MGPC 改為 1.15.0。
-- 尚未做：由站產生 MD（S4，第二階段）與三色燈多燈 API，登記在 `REQUESTS.md`；與 AutoSequence 的聯調 A1～A8 等 Hub 升到 preview.3（`PENDING.md` 第 4 節）。
+- 三色燈 `signalTower` 加 `setLamps({ red, green, … })`（多節同時亮；`set(k)` 照舊一次一節），MGPC 的孿生紅、綠燈改用它。
+- 尚未做：由站產生 MD（S4，第二階段），登記在 `REQUESTS.md`；與 AutoSequence 的聯調 A1～A8 等 Hub 升到 preview.3（`PENDING.md` 第 4 節）。
 
 ## 版本
 
 | 版本 | 日期 | 內容 |
 |---|---|---|
-| 1.15.0 | 2026-10-22 | 數位孿生 `core/twin/`（Twin Protocol v2 server：握手、鎖步、cmd、故障、感測器、即時干涉、工件持有權、SSE 觀看）與 `tools/twin*.mjs`；Automation-Schema 版本鎖 `twin/automation-schema.lock.json`；新 core 檢查 `twin`、`names`。示範站 MilitaryGradePC。其他站畫面與檢查結果不變 |
+| 1.15.0 | 2026-10-22 | 數位孿生 `core/twin/`（Twin Protocol v2 server：握手、鎖步、cmd、故障、感測器、即時干涉、工件持有權、SSE 觀看）與 `tools/twin*.mjs`；Automation-Schema 版本鎖 `twin/automation-schema.lock.json`；新 core 檢查 `twin`、`names`；三色燈 `setLamps`。示範站 MilitaryGradePC。其他站畫面與檢查結果不變 |
 | 1.14.0 | 2026-10-07 | 新共用模型 FANUC M-710iC/45M（`models/robots/fanuc-m710ic.js`，介面與 R-2000iC 相同，另匯出型錄負載能力 `RATING`；臂長為推估值待型錄核對），共 81 個。其他站畫面與檢查結果不變。來源：SolarDismantling 手臂改選 45 kg 級 |
 | 1.13.0 | 2026-10-06 | 剛體動力學：Rapier 決定性版 0.21 放 `vendor/rapier/`；`physics/physics.js`（烘焙：固定物、輸送帶、投料、移除區、治具、吸附、力控制兩指夾爪；取樣、`createPhysicsView`）、`physics/analysis.js`；範例 `examples/physics/`（四種用途）；新檢查：站的 `physics`（用了才檢查）、core 的 `physics`；全場干涉對 `userData.physics` 的網格把穿插門檻放寬到 8 mm。一致性工具（Q9）：`robot/reach.js`（手臂可達：IK／工作空間包絡）、`anim/cycle.js`（節拍分析，`run.mjs cycle`）、`models/parts.js`（`fromPart`／`tagPart`，模型根帶 `partRef`）、新檢查 `bom`（場景 ↔ 平台 BOM，只警告；`noBom` 排除現場既有設備）。回收物分揀的分流帶尾端到收料箱改用物理（`createProject` 改成 async，出料視角有一張截圖改變，屬刻意）；其他站畫面與檢查結果不變。評估平台 Q8、Q9 |
 | 1.12.0 | 2026-10-06 | 光學 L2 `optics/lighting.js`：幾何打光（明場／暗場、穹頂的相機孔、照度均勻度、遮擋與陰影）、缺陷對比（刮傷、凹痕、髒污、缺件）、近似模擬影像（整個視野＋原解析度特寫，景深與運動模糊、雜訊，決定性）；`evaluate()` 在方案有工件材質時加上 L2 結果（`scene.defectKinds` 列的缺陷才判定符合與否）；`optics/view.html` 貼明暗場分布、標缺陷位置、「模擬影像」面板。各站沒有引用 L2，畫面不變。評估平台 Q7 |

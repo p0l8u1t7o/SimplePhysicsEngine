@@ -288,7 +288,7 @@ export function createCell(scene) {
     // 輸送位置、止擋（0 降下、1 升起）、到位燈三個 setter：孿生模式各自由 MD 實體驅動，時間軸模式由 updateTransport 一次呼叫三者
     setConveyor,setStop,setStopLed,
     updateTransport(x,located){setConveyor(x);stops.forEach((s,i)=>{const hit=Math.abs(x-s.x)<2;setStop(i,hit&&located?1:0);setStopLed(i,hit);});},
-    // 三色燈個別點亮（孿生模式的紅、綠燈是兩個獨立 DO；共用模型的 tower.set 一次只亮一節，多燈 API 已登記 core/REQUESTS.md）
-    setLamp(key,on){tower.lamps[key].material.emissiveIntensity=on?tower.params.on:tower.params.off;},
+    // 三色燈個別點亮（孿生模式的紅、綠燈是兩個獨立 DO）
+    setLamp(key,on){tower.setLamps({[key]:on});},
     get topCamPos(){return topCam.root.getWorldPosition(new THREE.Vector3());},snReaderPos:snReader.position.clone() };
 }

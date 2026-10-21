@@ -37,7 +37,7 @@ export const signalTower = {
       shadow: 'true／false 或 { lamps, pole }（預設都投影）',
       name: 'root 的名稱（預設 signal-tower）',
     },
-    usage: "import { signalTower } from '@core/models/indicators.js';\nconst tower = signalTower.create({ poleH: 300 }); tower.root.position.set(x, y, z); scene.add(tower.root);\ntower.set('green');   // 鍵名、編號（1 起算，由上而下）或 null（全滅）；tower.lamps.red、tower.lampList、tower.pole 是網格",
+    usage: "import { signalTower } from '@core/models/indicators.js';\nconst tower = signalTower.create({ poleH: 300 }); tower.root.position.set(x, y, z); scene.add(tower.root);\ntower.set('green');   // 鍵名、編號（1 起算，由上而下）或 null（全滅）；tower.setLamps({ red: true, green: true }) 多節同時亮；tower.lamps.red、tower.lampList、tower.pole 是網格",
   },
   create(p = {}) {
     const P = { ...defaults(signalTower.meta), lamps: ['red', 'yellow', 'green'], segments: 20, on: 1.6, off: .08, ...p };
@@ -82,7 +82,12 @@ export const signalTower = {
       lit = k ?? null;
       for (const key of keys) lamps[key].material.emissiveIntensity = key === lit ? P.on : P.off;
     }
-    return { root, params: P, lamps, lampList, pole, keys, set, get lit() { return lit; } };
+    // 多節同時亮（例如紅燈與綠燈是兩個獨立的輸出）：{ red: true, green: false, … }，沒列的燈節不變；lit 記第一個亮的鍵
+    function setLamps(states = {}) {
+      for (const [key, on] of Object.entries(states)) if (lamps[key]) lamps[key].material.emissiveIntensity = on ? P.on : P.off;
+      lit = keys.find(key => lamps[key].material.emissiveIntensity === P.on) ?? null;
+    }
+    return { root, params: P, lamps, lampList, pole, keys, set, setLamps, get lit() { return lit; } };
   },
 };
 
