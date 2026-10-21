@@ -8,7 +8,8 @@
 //     "full":  ["tools/verify-detail.mjs", …]             // 只在完整檢查跑
 //   }
 // core 本身（不指定專案時才跑）：names（core、tools、scripts、studio 與根目錄文件）、models（core/models 每個模型走完狀態範圍的干涉與重合面，快速）、examples（core/examples/segment2 第二段範例的電控與配線檢查，快速）、
-//   physics（core/examples/physics 四個情境：Node 與瀏覽器烘焙逐位元相同、分析數字合理，快速）。
+//   physics（core/examples/physics 四個情境：Node 與瀏覽器烘焙逐位元相同、分析數字合理，快速）、
+//   twin（core/twin 的 Twin Protocol 引擎測試：分框、握手、鎖步、cmd、故障、決定性、Automation-Schema 版本檢查，快速）。
 // core 內建檢查（每個專案都跑；後三項需要 web/js/project.js）：
 //   imports      靜態 import 路徑（快速）
 //   determinism  倒序／跳播一致（快速）
@@ -22,6 +23,7 @@
 //   ui           標準互動測試：桌面／手機直向／手機橫向／觸控平板的播放列、選單、側欄、標籤與版面（ui-check.mjs，只在完整檢查）
 // project.json 的 "core" 可覆寫：{ "skip": ["scene"], "quick": ["scene"] }
 import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { pickProjects, REPO, CORE, WORKSPACE } from './projects.mjs';
 import { runScript } from './run.mjs';
@@ -82,6 +84,17 @@ if (!argv.some(a => !a.startsWith('--')) && (!only || only.includes('examples'))
   results.push({ project: 'core', check: 'examples', ok: r.code === 0, note: lines.find(l => /^[✓✗]/.test(l))?.slice(2) || `exit ${r.code}`, seconds: +sec.toFixed(1) });
   console.log(`${r.code === 0 ? '✓' : '✗'} core · examples  ${results.at(-1).note}  (${sec.toFixed(1)} s)`);
   if (r.code) for (const l of lines.slice(1)) console.log('     ' + l);
+}
+// core 本身：Twin Protocol 引擎（core/twin 的 node:test，含決定性與禁止呼叫的靜態檢查）；
+// 需要 Automation-Schema 的項目在找不到相鄰 checkout 時略過，並在說明裡寫出略過幾項（不算通過，Q-22）
+if (!WORKSPACE && !argv.some(a => !a.startsWith('--')) && (!only || only.includes('twin'))) {
+  const t0 = Date.now();
+  const r = spawnSync(process.execPath, ['--test', '--test-timeout=60000', 'core/twin/test/*.test.mjs'], { cwd: REPO, encoding: 'utf8' });
+  const out = (r.stdout || '') + (r.stderr || ''), num = k => +(new RegExp(`ℹ ${k} (\\d+)`).exec(out)?.[1] ?? 0), sec = (Date.now() - t0) / 1000;
+  const pass = num('pass'), fail = num('fail'), skip = num('skipped');
+  results.push({ project: 'core', check: 'twin', ok: r.status === 0 && fail === 0, note: `${pass}/${pass + fail + skip} 項${skip ? `（略過 ${skip} 項：找不到 Automation-Schema）` : ''}`, seconds: +sec.toFixed(1) });
+  console.log(`${results.at(-1).ok ? '✓' : '✗'} core · twin  ${results.at(-1).note}  (${sec.toFixed(1)} s)`);
+  if (!results.at(-1).ok) for (const l of out.split('\n').filter(l => /^✖|Error/.test(l)).slice(0, 20)) console.log('     ' + l);
 }
 // 專案根目錄底下沒有 web/index.html 的資料夾：check、首頁、studio 都看不到（例如別的工具手動建的站）；指定專案時略過
 if (!argv.some(a => !a.startsWith('--')) && (!only || only.includes('structure'))) {

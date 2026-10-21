@@ -1,0 +1,59 @@
+{
+  "schema": "zqs.machine-description/2.1",
+  "machine": { "id": "mc-TwinFixture", "name": "TwinFixture", "units": ["U-MAIN"] },
+  "units": [{ "id": "U-MAIN", "name": { "zh-Hant": "測試單元" } }],
+  "devices": [
+    { "id": "dev-PLC1", "name": { "zh-Hant": "PLC" }, "category": "Plc", "capabilities": ["digital_io", "analog_io"] },
+    { "id": "dev-EC1", "name": { "zh-Hant": "運動控制" }, "category": "Motion", "capabilities": ["axis"] },
+    { "id": "dev-RC1", "name": { "zh-Hant": "手臂控制器" }, "category": "Robot", "capabilities": ["robot", "robot_motion"] },
+    { "id": "dev-IPC1", "name": { "zh-Hant": "視覺" }, "category": "Vision", "capabilities": ["vision_station", "barcode_reader"] },
+    { "id": "dev-LC1", "name": { "zh-Hant": "光源" }, "category": "Light", "capabilities": ["light"] },
+    { "id": "dev-CAM1", "name": { "zh-Hant": "相機" }, "category": "Camera", "capabilities": [], "attachedTo": "dev-IPC1", "scene": { "object": "cell/cam" } },
+    { "id": "dev-CAM2", "name": { "zh-Hant": "沒有場景的相機" }, "category": "Camera", "capabilities": [], "attachedTo": "dev-IPC1", "scene": { "object": "cell/missing" } }
+  ],
+  "axes": [
+    { "id": "ax-X", "name": { "zh-Hant": "X 軸" }, "device": "dev-EC1", "index": 0, "unit": "U-MAIN", "kind": "linear", "posUnit": "mm", "travel": [0, 1000], "vMax": 500, "aMax": 2000, "home": "neg_limit", "followingErrorLimit": 2, "scene": { "object": "cell/x", "stateKey": "x" } },
+    { "id": "ax-R", "name": { "zh-Hant": "旋轉" }, "device": "dev-EC1", "index": 1, "unit": "U-MAIN", "kind": "rotary", "posUnit": "deg", "travel": [0, 180], "vMax": 90, "aMax": 180, "home": "home_switch", "scene": { "object": "cell/r", "stateKey": "rot", "scale": 0.005555555555555556 } },
+    { "id": "ax-RAIL", "name": { "zh-Hant": "第七軸" }, "device": "dev-EC1", "index": 2, "unit": "U-MAIN", "kind": "linear", "posUnit": "mm", "travel": [-500, 500], "vMax": 400, "aMax": 1000, "home": "none", "scene": { "object": "robot", "stateKey": "q.rail" } }
+  ],
+  "io": [
+    { "id": "io-CYL-EXT", "device": "dev-PLC1", "dir": "DI", "address": "R000", "unit": "U-MAIN", "function": { "zh-Hant": "氣缸伸出" } },
+    { "id": "io-CYL-RET", "device": "dev-PLC1", "dir": "DI", "address": "R001", "unit": "U-MAIN", "function": { "zh-Hant": "氣缸縮回" }, "logic": "inverted" },
+    { "id": "io-X-HOME", "device": "dev-PLC1", "dir": "DI", "address": "R002", "unit": "U-MAIN", "function": { "zh-Hant": "X 原點" } },
+    { "id": "io-PART", "device": "dev-PLC1", "dir": "DI", "address": "R003", "unit": "U-MAIN", "function": { "zh-Hant": "工件到位" } },
+    { "id": "io-AIR", "device": "dev-PLC1", "dir": "DI", "address": "R004", "unit": "U-MAIN", "function": { "zh-Hant": "氣壓" } },
+    { "id": "io-FULL", "device": "dev-PLC1", "dir": "DI", "address": "R005", "unit": "U-MAIN", "function": { "zh-Hant": "滿料" } },
+    { "id": "io-GRIP-CLOSED", "device": "dev-PLC1", "dir": "DI", "address": "R006", "unit": "U-MAIN", "function": { "zh-Hant": "夾爪閉合" } },
+    { "id": "io-CYL-V", "device": "dev-PLC1", "dir": "DO", "address": "R500", "unit": "U-MAIN", "function": { "zh-Hant": "氣缸閥" }, "drives": { "actuator": "act-CYL", "action": "extend" } },
+    { "id": "io-GRIP-CLOSE", "device": "dev-PLC1", "dir": "DO", "address": "R501", "unit": "U-MAIN", "function": { "zh-Hant": "夾爪閉" }, "drives": { "actuator": "act-GRIP", "action": "close" } },
+    { "id": "io-GRIP-OPEN", "device": "dev-PLC1", "dir": "DO", "address": "R502", "unit": "U-MAIN", "function": { "zh-Hant": "夾爪開" }, "drives": { "actuator": "act-GRIP", "action": "open" } },
+    { "id": "io-LAMP", "device": "dev-PLC1", "dir": "DO", "address": "R503", "unit": "U-MAIN", "function": { "zh-Hant": "指示燈" }, "drives": { "actuator": "act-LAMP", "action": "on" } },
+    { "id": "io-LOOSE-V", "device": "dev-PLC1", "dir": "DO", "address": "R504", "unit": "U-MAIN", "function": { "zh-Hant": "沒有場景的閥" }, "drives": { "actuator": "act-LOOSE", "action": "extend" } },
+    { "id": "io-AO", "device": "dev-PLC1", "dir": "AO", "address": "DM0", "unit": "U-MAIN", "function": { "zh-Hant": "類比輸出" }, "analog": { "range": [0, 10], "engUnit": "V" } }
+  ],
+  "actuators": [
+    { "id": "act-CYL", "name": { "zh-Hant": "氣缸" }, "type": "airCylinder", "unit": "U-MAIN", "solenoid": "single", "stroke": 100, "travelTime": { "extend": 0.5, "retract": 0.25 }, "scene": { "object": "cell/cyl", "stateKey": "cyl", "scale": 100 } },
+    { "id": "act-GRIP", "name": { "zh-Hant": "雙線圈夾爪" }, "type": "gripper", "unit": "U-MAIN", "solenoid": "double", "travelTime": { "close": 0.2, "open": 0.2 }, "scene": { "object": "cell/grip", "stateKey": "grip" } },
+    { "id": "act-LAMP", "name": { "zh-Hant": "指示燈" }, "type": "indicator", "unit": "U-MAIN", "solenoid": "none", "scene": { "object": "cell/lamp" } },
+    { "id": "act-LOOSE", "name": { "zh-Hant": "沒有場景的氣缸" }, "type": "airCylinder", "unit": "U-MAIN", "solenoid": "single", "travelTime": { "extend": 0.3, "retract": 0.3 } }
+  ],
+  "sensors": [
+    { "id": "sen-CYL-EXT", "type": "reed", "io": "io-CYL-EXT", "actuator": "act-CYL", "at": "extended" },
+    { "id": "sen-CYL-RET", "type": "reed", "io": "io-CYL-RET", "actuator": "act-CYL", "at": "retracted" },
+    { "id": "sen-X-HOME", "type": "limitSwitch", "io": "io-X-HOME", "axis": "ax-X", "axisWindow": [0, 1] },
+    { "id": "sen-PART", "type": "photoEye", "io": "io-PART", "scene": { "frame": "world", "origin": [500, 100, 200], "dir": [0, 0, -1], "range": 400, "detects": ["part"] } },
+    { "id": "sen-AIR", "type": "pressureSwitch", "io": "io-AIR" },
+    { "id": "sen-FULL", "type": "levelSwitch", "io": "io-FULL" },
+    { "id": "sen-GRIP-CLOSED", "type": "reed", "io": "io-GRIP-CLOSED", "actuator": "act-GRIP", "at": "closed" }
+  ],
+  "robots": [
+    {
+      "id": "rb-ARM", "name": { "zh-Hant": "手臂" }, "device": "dev-RC1", "model": "TEST-2AX", "unit": "U-MAIN",
+      "joints": [{ "name": "J1", "range": [-170, 170], "vMax": 90 }, { "name": "J2", "range": [-90, 90], "vMax": 45 }],
+      "railAxis": "ax-RAIL",
+      "tasks": [{ "name": "PICK" }, { "name": "PARK" }],
+      "scene": { "object": "robot", "stateKey": "q" }
+    }
+  ],
+  "provenance": { "createdBy": "manual", "editedBy": ["manual"] }
+}

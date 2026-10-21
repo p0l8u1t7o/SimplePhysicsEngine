@@ -1,0 +1,13 @@
+{
+  "note": "SPE 要求的 Automation-Schema 版本（只放版本與雜湊，不放產生碼）。tag／commit 由主 session 在 Automation-Schema 發版後以 node core/tools/twin-schema.mjs --write-lock <tag> 填入；未填時 twin.mjs 拒絕啟動（開發期可用 --schema-unlocked）。",
+  "tag": "v2.0.0-preview.3",
+  "commit": "3b112ccf080d96caee9d80f09b398b727ec4ca34",
+  "files": {
+    "constants.mjs": "079efdb3a0834dee4c8744ae38c856046515d31374798bc798c0ae4bbadcdeae",
+    "index.mjs": "3f76347f3269da4aa7d4a8292adf832f3f545bfaad59675ab1c230422242863e",
+    "mdhash.mjs": "4d054632939a273d3dd534d5bdb45a36a9750894d06e931bc1b95614ccdf64e0",
+    "schemas.mjs": "2fb890e5757e0cf2bbba99370bb110d7581b0fefb13f8ec90318f646f32fcc43",
+    "types.d.ts": "c2406918b309adb11073ed9a6e34dc8df1701dabf27a4f307707a9fa87022473",
+    "validate.mjs": "99294fc894ce796c17b2d7befbd91d7f2f4eb35fff0b8c1e33377d6a41ed5fdb"
+  }
+}
