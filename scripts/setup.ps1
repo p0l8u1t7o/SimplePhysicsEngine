@@ -59,6 +59,18 @@ if ($node -and -not ($problems -contains 'Git')) {
   if ($LASTEXITCODE -ne 0) { $problems += 'git hook'; Warn '安裝 git hook 失敗，請看上方訊息。' } else { Ok '.githooks' }
 }
 
+# ---------------------------------------------------------------- Automation-Schema（選用，數位孿生 core/twin）
+# 只檢查並提示，不自動 clone（私有 repo 要認證）；要求的 tag 在 core/twin/automation-schema.lock.json
+Step 'Automation-Schema（數位孿生用，相鄰 checkout）'
+$lock = Get-Content (Join-Path $Root 'core\twin\automation-schema.lock.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+$asDir = if ($env:SPE_AUTOMATION_SCHEMA) { $env:SPE_AUTOMATION_SCHEMA } else { Join-Path (Split-Path $Root -Parent) 'Automation-Schema' }
+if (-not (Test-Path (Join-Path $asDir 'generated\js\index.mjs'))) {
+  Warn "找不到 $asDir（只有孿生 server 需要）。準備方式：git clone <Automation-Schema> `"$asDir`"; git -C `"$asDir`" checkout $($lock.tag)"
+} else {
+  & node (Join-Path $Root 'core\tools\twin-schema.mjs') 2>&1 | ForEach-Object { Write-Host "  $_" }
+  if ($LASTEXITCODE -eq 0) { Ok "Automation-Schema $($lock.tag)" } else { Warn "版本與 lock 檔不符：git -C `"$asDir`" fetch --tags; git -C `"$asDir`" checkout $($lock.tag)" }
+}
+
 # ---------------------------------------------------------------- Python（選用）
 if ($Python) {
   Step 'Python 環境（.venv）'

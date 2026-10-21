@@ -35,6 +35,7 @@ node core/tools/new-project.mjs <名稱> "<標題>"  # 由範本建立新專案
 - [GitHub Pages 部署](tools/github-pages/README.md)：`.github/workflows/pages.yml`，PR 只跑快速檢查；推送到 `main` 時先跑快速檢查，通過才發布；首頁依各專案 `project.json` 自動產生。
 - `TEMP/`、`LOGS/`（不分大小寫）、`*.log` 與快取不納入版控。成品匯出（`core/tools/export.mjs`：網站壓縮檔、單一 HTML、MP4）預設放在 `TEMP/exports/`，不隨網站發布。
 - 3D 專案只需 Node.js 22 以上與 Chrome／Edge，不需 npm 套件；選用工具的 Python 套件與 ffmpeg 等見 [REQUIREMENTS.md](REQUIREMENTS.md)。
+- [數位孿生](core/twin/README.md)：AutoSequence 的 Twin Hub 以 TCP 連進 SPE 驅動虛擬機台（`node core/tools/twin.mjs MilitaryGradePC --port 7600 --sse 8776`，網頁 `?twin=8776` 觀看）；需要相鄰 checkout 的 Automation-Schema。
 - [AGENTS.md](AGENTS.md)：給 Claude Code 與 Codex 的共通規則（合作方式、範圍、框架慣例、檢查流程、踩坑紀錄）；[CLAUDE.md](CLAUDE.md) 以 `@AGENTS.md` 引用。各站規則與拍板紀錄在各站的 `AGENTS.md`，待辦事項在 [PENDING.md](PENDING.md)。
 - 範圍檢查：從子專案資料夾啟動的代理只能改該站（pre-commit、PR 的 `scope.yml`、各站 `.claude/settings.json` 寫檔關卡）；clone 後執行 `scripts\setup.ps1` 或 `node core/tools/install-hooks.mjs` 安裝 hook。
 - [studio](studio/README.md)：3D工作室（`vs3d` 命令列＋網頁介面）：由代理產生 3D 設備動畫，兼自動化專案評估平台（元件庫、可行性、BOM 與成本表、光學與 AOI）。網頁介面的 npm 套件只放在 `studio/ui/`。

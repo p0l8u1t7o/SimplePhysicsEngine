@@ -25,6 +25,7 @@ vs3d 網頁介面（`studio/ui/`，React＋Vite）是唯一用到 npm 套件的�
 |---|---|---|
 | Python 3.12＋`requirements.txt` | 錄影稽核與驗證（`tools/movie-export`）、電路圖（`tools/circuit-drawings`）、回收物分揀的視覺品項表（`project-site/RecycleSorter/tools/build_vision_items.py`）、`core/tools/compare-review.py` | `setup.ps1 -Python`（建立 `.venv` 並安裝） |
 | ffmpeg／ffprobe（支援 NVENC 的 Windows 版） | MP4 錄影輸出（`core/tools/export-mp4.mjs`、影片驗證） | `setup.ps1 -Ffmpeg` 下載到共用的 `tools/bin/`（不進版控）；也可用 `-FfmpegZip <本機 zip>` |
+| Automation-Schema（相鄰 checkout，指定 tag） | 數位孿生 server（`core/tools/twin.mjs`）與它的檢查：協定驗證、mdHash；SPE 不複製它的任何檔案 | 在 SPE 旁邊 `git clone <Automation-Schema> ..\Automation-Schema`，再 `git -C ..\Automation-Schema checkout <tag>`（tag 見 `core/twin/automation-schema.lock.json`）；`setup.ps1` 會檢查並提示。驗證工具 `validate.py` 另需 uv |
 | 中文 TrueType 字型 | 電路圖 PDF（reportlab） | 預設 `C:/Windows/Fonts/msjh.ttc`（微軟正黑體）；其他字型設 `CIRCUIT_FONT` |
 | poppler `pdftoppm` | 電路圖驗證時把 PDF 轉成 PNG（`tools/circuit-drawings/verify.py --render`） | 安裝 poppler 後設 `PDFTOPPM` 指向 `pdftoppm.exe` |
 
@@ -36,6 +37,7 @@ vs3d 網頁介面（`studio/ui/`，React＋Vite）是唯一用到 npm 套件的�
 | `FFMPEG_PATH` | 指定 ffmpeg 執行檔（MP4 錄影輸出、studio、影片驗證） | 共用的 `tools/bin/ffmpeg.exe`，再找 PATH |
 | `CLIENT_NAMES` | 補充用戶名稱名單（逗號分隔，`check-names.mjs` 與 `names` 檢查會合併） | （無；名單本體在 `.private/client-names.txt`） |
 | `UI_PORT` | `check.mjs` 內建 `ui` 檢查用的 port（平行跑檢查時錯開） | 8771 |
+| `SPE_AUTOMATION_SCHEMA` | Automation-Schema 的位置（孿生 server、`twin` 檢查） | SPE 根目錄的上一層 `..\Automation-Schema` |
 | `CIRCUIT_FONT` | 電路圖字型 | `C:/Windows/Fonts/msjh.ttc` |
 | `PDFTOPPM` | poppler 的 pdftoppm | （無，需要時指定） |
 
@@ -50,6 +52,8 @@ vs3d 網頁介面（`studio/ui/`，React＋Vite）是唯一用到 npm 套件的�
 | 5173 | `npm --prefix studio/ui run dev`（vs3d 介面開發模式，`/api` 轉給 8780） |
 | 8810～8819 | `core/tools/export-mp4.mjs` 錄影接收端 |
 | 8795 | `core/tools/perf-check.mjs` 預設（`--port` 可改） |
+| 7600 | `core/tools/twin.mjs` 孿生 server（TCP，AutoSequence Twin Hub 連入；`--port` 可改） |
+| 8776 | `core/tools/twin.mjs --sse 8776` 孿生觀看（SSE；網頁 `?twin=8776`） |
 
 ## 不進版控的東西
 

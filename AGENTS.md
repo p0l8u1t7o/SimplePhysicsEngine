@@ -21,12 +21,13 @@
 - Python 3.12 ＋ `requirements.txt` 只給選用工具用（錄影稽核、電路圖、視覺採購品項表）；成本表已改在 3D工作室平台維護與匯出。
 - Node 端跑 core 模組要加 `--import ./core/tools/register.mjs`（解析 `three` 與 `@core/`）。`core/tools/run.mjs` 會自動加上。
 - Shell 是 Windows 上的 Git Bash 或 PowerShell 5.1。
+- **與 AutoSequence 同機開發時，整機 CPU 不得超過 80%**（使用者 2026-10-21 要求）：完整檢查、`shots.mjs`、`scene-dump.mjs`、`ui-check.mjs`、長時間的鎖步聯調經 `powershell -NoProfile -File "D:\Working Space\AutoSequence\temp\cpu-cap.ps1" -Percent 50 -Command "<指令>"` 執行（所有包裝行程共用一個上限；`-Command` 一次只放一個指令，不要用 `;` 串接），重工作一次只跑一個。找不到 `cpu-cap.ps1` 時先問，不要改寫 AutoSequence 的檔案。
 
 ## 結構
 
 | 位置 | 內容 |
 |---|---|
-| `core/` | 共用框架（以 importmap `@core/` 引用）：geom（形狀、材質、五金、地面）、models（81 個參數化模型＋目錄頁：市購品一律放這裡——手臂、輸送與搬運、相機與視覺、氣動與運動、夾爪、指示與感測小件、實驗室與製程設備；各站換用的對照在 `core/migrations/`）、anim 的 sampling（取樣時間）、examples（第二段範例：電控、配線、相機；剛體動力學四種用途）、optics（光學計算 L1、打光與模擬影像 L2）、physics（剛體動力學，Rapier 決定性版）、robot（IK、手臂可達檢查）、anim（時間軸、步驟序列、到位閘門）、ui（stage、player、viewer-workspace）、electrical、movie、verify、template、tools；版本號在 `core/VERSION`，core 需求登記在 `core/REQUESTS.md` |
+| `core/` | 共用框架（以 importmap `@core/` 引用）：geom（形狀、材質、五金、地面）、models（81 個參數化模型＋目錄頁：市購品一律放這裡——手臂、輸送與搬運、相機與視覺、氣動與運動、夾爪、指示與感測小件、實驗室與製程設備；各站換用的對照在 `core/migrations/`）、anim 的 sampling（取樣時間）、examples（第二段範例：電控、配線、相機；剛體動力學四種用途）、optics（光學計算 L1、打光與模擬影像 L2）、physics（剛體動力學，Rapier 決定性版）、twin（AutoSequence 數位孿生的 SPE 端：Twin Protocol v2 server，說明在 `core/twin/README.md`）、robot（IK、手臂可達檢查）、anim（時間軸、步驟序列、到位閘門）、ui（stage、player、viewer-workspace）、electrical、movie、verify、template、tools；版本號在 `core/VERSION`，core 需求登記在 `core/REQUESTS.md` |
 | `project-site/<專案>/` | 所有展示專案（之後新增的也放這裡）。`web/`（網站；`web/js/project.js` 是網頁與檢查共用的場景）、`project.json`（首頁說明、`coreVersion`、`checks.quick`／`checks.full`、`variants`、`ui`）、`tools/`（專案自有檢查）、`review/`（檢查結果，進版控）、`docs/`（只留本機）、`AGENTS.md`／`CLAUDE.md`（該站規則）、`.claude/settings.json`（寫檔關卡） |
 | `tools/` | 跨專案工具：干涉回歸、跨站視覺檢查（`verify-vision.mjs`）、電路圖、錄影稽核與驗證（`movie-export`；MP4 輸出是 core 的 `export.mjs --mp4`；配線與電盤檢查已移到 core 的 `electrical`）；`bin/` 是各站共用的 ffmpeg／ffprobe（`setup.ps1 -Ffmpeg` 下載，不進版控） |
 | `scripts/` | 腳本：`setup.ps1`（環境設定）、`start`／`stop`（`.ps1`＋可點兩下的 `.cmd`，網頁啟動與停止，PID 與輸出在 `logs/`）、`migrate/`（搬庫腳本） |
@@ -49,6 +50,7 @@ node core/tools/shots.mjs [專案…] --out TEMP/<新> --compare TEMP/<基準> -
 python core/tools/compare-review.py TEMP/<review 基準>   # review JSON 比對（忽略時間與雜湊）
 node core/tools/new-project.mjs <資料夾> "<標題>" ["一句說明"]   # 由範本建立新專案（含規則檔與寫檔關卡）
 node core/tools/export.mjs <專案> [--zip] [--html] [--mp4]   # 成品匯出到 TEMP/exports/：網站壓縮檔（雙擊離線開）、單一 HTML、MP4（全自動）
+node core/tools/twin.mjs <專案> --port 7600 --sse 8776      # 數位孿生 server（AutoSequence Twin Hub 連入；網頁 ?twin=8776 觀看）；需要相鄰的 Automation-Schema（版本鎖在 core/twin/automation-schema.lock.json）
 node core/tools/scene-dump.mjs <專案> --out TEMP/<檔>.json      # 場景傾印（每個網格、燈光、走線五金）；--diff <前> <後> 比對，換用 core 模型或改 core 前後各傾印一次
 node core/tools/install-hooks.mjs                 # 安裝 pre-commit 範圍檢查（clone 後一次）
 node core/tools/check-scope.mjs --scope <範圍> <路徑…>   # 手動檢查路徑是否在範圍內
@@ -152,4 +154,9 @@ node --import ./core/tools/register.mjs tools/verify-interference.mjs   # 四站
   - 元件分類樹由使用者自訂（不限層，介面最多 4 層，子分類繼承欄位範本）；關聯件（組成、配件、替代、相容）與模組元件。附件上限依類型在系統設定調整（一般 20 MB、CAD 300 MB）。成本表 xlsx 用純 Node 產生。
   - 光學模擬第一版做 L1 計算＋L2 幾何打光與近似模擬影像（`core/optics/`）；AI 補全元件資料的 `enrich` 角色是唯一可以上網的角色，結果逐欄審核。
   - core 加入剛體動力學：Rapier 決定性版放 `core/vendor/`，預先模擬、烘焙成軌跡，`apply(t)` 只取樣；用途是物料流、掉落與投料、料箱堆積、夾取穩定，現有站不強制改用。
+- AutoSequence 數位孿生（2026-10-21／22，開發計畫在本機 `TEMP/AutoSequence孿生_SPE開發計畫_v0.2.md`）：
+  - SPE 是 Twin Protocol v2 的 server（`core/twin`＋`core/tools/twin.mjs`），時間主控只有 AutoSequence 的 Hub；鎖步只依 tick 推進、不讀掛鐘，孿生路徑不經過時間軸的 `apply(t)`。示範站是 MilitaryGradePC。
+  - Automation-Schema 執行時讀相鄰的 repo，**不複製進 SPE**（專有授權；特別是會發布的 `core/vendor/`）；要求的版本鎖在 `core/twin/automation-schema.lock.json`，不符就拒絕啟動。CI 沒有它時，需要它的檢查明確印「略過」（不算通過）；換機器時 `setup.ps1` 只檢查並提示、不自動 clone。
+  - 範例 MD 可以進 SPE 版控（`project-site/MilitaryGradePC/twin/`，從 tag 原樣取出、記 `SOURCE.md`，不得手改）；場景綁定用 MD 的邏輯路徑，由站的 `web/js/twin-binding.js` 對照。
+  - 協定的 6 項釐清（error 位置、bye 回應、bindings 計數、sensorStuck 對 io-、followingError 門檻、commLoss 對 PLC 設備）照 preview.3；其餘待決事項採計畫書的建議。交付標籤一律 Simulation Validated。
 - 各站的拍板紀錄在各站的 `AGENTS.md`。
