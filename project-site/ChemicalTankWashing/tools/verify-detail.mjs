@@ -38,7 +38,7 @@ for (let i=0; i<=54; i++) {
     }
   }
 }
-check('頂升秤台全 27mm 行程避開滾輪',scaleGap>=-.01,{mm:scaleGap});
+check('頂升秤台的全 27mm 行程避開滾輪',scaleGap>=-.01,{mm:scaleGap});
 const padTop=Math.max(...m.weigher.children.filter(c=>c.material===MAT.pu).map(c=>box(c).max.y));
 check('秤重托桶離開輸送面 12mm',Math.abs(padTop-UPRIGHT.top-WEIGH.lift)<.01,{mm:padTop-UPRIGHT.top});
 

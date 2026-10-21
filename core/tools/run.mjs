@@ -1,6 +1,6 @@
 // 在專案資料夾內以統一 loader 執行 Node 腳本（不必記 --import 路徑）。
 //   node core/tools/run.mjs <專案> <腳本> [參數…]
-//   例：node core/tools/run.mjs Chemical tools/verify-scene.mjs --dt=0.5
+//   例：node core/tools/run.mjs Chemical tools/verify-detail.mjs
 import { spawn } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { join } from 'node:path';

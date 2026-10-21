@@ -2,7 +2,7 @@
 //   three          → core/vendor/three.module.js
 //   three/addons/* → core/vendor/addons/*
 //   @core/*        → core/*
-// 用法：node --import <TestCode>/core/tools/register.mjs tools/verify.mjs
+// 用法：node --import <本庫>/core/tools/register.mjs tools/verify.mjs
 const CORE = new URL('../', import.meta.url);
 const MAP = [
   ['three', new URL('vendor/three.module.js', CORE).href, true],

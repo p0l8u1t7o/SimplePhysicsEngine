@@ -5,9 +5,9 @@
 // project.json：
 //   "checks": {
 //     "quick": ["tools/verify.mjs"],                      // 快速＋完整都跑
-//     "full":  ["tools/verify-scene.mjs --dt=0.5", …]     // 只在完整檢查跑
+//     "full":  ["tools/verify-detail.mjs", …]             // 只在完整檢查跑
 //   }
-// core 本身：models（core/models 每個模型走完狀態範圍的干涉與重合面，快速）、examples（core/examples/segment2 第二段範例的電控與配線檢查，快速）、
+// core 本身（不指定專案時才跑）：names（core、tools、scripts、studio 與根目錄文件）、models（core/models 每個模型走完狀態範圍的干涉與重合面，快速）、examples（core/examples/segment2 第二段範例的電控與配線檢查，快速）、
 //   physics（core/examples/physics 四個情境：Node 與瀏覽器烘焙逐位元相同、分析數字合理，快速）。
 // core 內建檢查（每個專案都跑；後三項需要 web/js/project.js）：
 //   imports      靜態 import 路徑（快速）
@@ -89,6 +89,16 @@ if (!argv.some(a => !a.startsWith('--')) && (!only || only.includes('structure')
   results.push({ project: 'core', check: 'structure', ok: !stray.length, note: stray.length ? `${stray.length} 個資料夾不是專案` : '通過', seconds: 0 });
   console.log(`${stray.length ? '✗' : '✓'} core · structure  ${results.at(-1).note}`);
   for (const n of stray) console.log(`     ${n}：沒有 web/index.html，用 new-project.mjs 建立`);
+}
+// 站以外的檔案（core、tools、scripts、studio、根目錄文件）也不得出現用戶名稱；studio/data、node_modules 不掃
+if (!WORKSPACE && !argv.some(a => !a.startsWith('--')) && (!only || only.includes('names'))) {
+  const n = clientNames();
+  const dirs = ['core', 'tools', 'scripts', '.github', '.githooks', 'studio/lib', 'studio/ui/src', 'studio/templates', 'studio/test',
+    'AGENTS.md', 'CLAUDE.md', 'GEMINI.md', 'README.md', 'REQUIREMENTS.md', 'PENDING.md', 'requirements.txt', 'studio/README.md', 'studio/vs3d.mjs'].map(d => join(REPO, d));
+  const h = n.length ? scanDirs(dirs, n) : [];
+  results.push({ project: 'core', check: 'names', ok: !h.length, note: !n.length ? '沒有名單，略過' : h.length ? `${h.length} 處出現用戶名稱` : `通過（名單 ${n.length} 個）`, seconds: 0 });
+  console.log(`${h.length ? '✗' : '✓'} core · names  ${results.at(-1).note}`);
+  for (const x of h.slice(0, 20)) console.log(`     ${x.file.slice(REPO.length + 1)}${x.line ? ':' + x.line : '（檔名）'}：改成中性描述`);
 }
 for (const p of projects) {
   const scripts = [...(p.checks?.quick || []), ...(quick ? [] : p.checks?.full || [])];
