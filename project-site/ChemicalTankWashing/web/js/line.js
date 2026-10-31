@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { PALLET_STATION, PALLET, GANTRY, LYING, LABEL, UPENDER, UPRIGHT, DECAP, DRUM, FENCE, FENCE_GATES, GANTRY_FENCE, GANTRY_GATE, WEIGH, FRAME, worldFootprints, CELL_FOOTPRINTS } from './layout.js';
 import { D2R, block, blockBetween, cylinder, plate, rod } from '@core/geom/shapes.js';
 import { MAT } from '@core/geom/materials.js';
-import { drumJaws } from './drum.js';
+import { narrowJaws } from './drum.js';
 import { bolts, foot, motor, sensor, cabinetDetails } from '@core/geom/hardware.js';
 import { signalTower, hmi as hmiModel } from '@core/models/indicators.js';
 import { lightCurtain } from '@core/models/sensors.js';
@@ -62,9 +62,13 @@ export function createLine(scene, { frames = true } = {}) {
   cylinder(z2, 140, 360, [0, -40, 0], MAT.black, 'z', 28);
   block(z2, [260, 120, 300], [0, 40, 0], MAT.steelDark);
   block(tilt, [420, 60, 760], [0, -100, 0], MAT.steelDark);
-  for (const s of [-1, 1]) block(tilt, [60, 250, 60], [0, -235, s * 360], MAT.steelDark);   // 吊板止於夾爪頂端之上 10 mm，夾爪全開時背板不會撞到
-  const jawFrame = new THREE.Group(); jawFrame.position.y = -g.hang; jawFrame.rotation.y = Math.PI / 2; tilt.add(jawFrame);   // 爪在 ±Z（局部 ±X）
-  const gJaws = drumJaws(jawFrame, null, g.jawOpen);
+  // 夾爪旋轉軸（繞翻轉台的局部 Y）：從 2×2 棧板夾桶時把窄爪轉到對角，避開同板相鄰的桶；夾起後轉回再翻桶
+  cylinder(tilt, 90, 50, [0, -155, 0], MAT.black, 'y', 24);
+  const jawRot = new THREE.Group(); tilt.add(jawRot);
+  block(jawRot, [200, 40, 760], [0, -200, 0], MAT.steelDark);
+  for (const s of [-1, 1]) block(jawRot, [60, 180, 60], [0, -300, s * 360], MAT.steelDark);   // 吊板止於夾爪頂端之上，夾爪全開時背板不會撞到
+  const jawFrame = new THREE.Group(); jawFrame.position.y = -g.hang; jawFrame.rotation.y = Math.PI / 2; jawRot.add(jawFrame);   // 爪在 ±Z（局部 ±X）
+  const gJaws = narrowJaws(jawFrame, g.jawOpen);
   const gantryPivot = new THREE.Object3D(); tilt.add(gantryPivot);
   // 拖鏈
   block(group, [p1[0] - p0[0], 80, 160], [(p0[0] + p1[0]) / 2, g.beamY + 420, p0[1] - 220], MAT.black);
@@ -307,13 +311,13 @@ export function createLine(scene, { frames = true } = {}) {
     },
     mechanical: { rotRollers, uprightRollers, tableRollers, turntable, weigher, cradle, actuator, piston, upClamp, dcClamp },
     group: root, front, cell, fences, fenceGroups: [fencesF, fencesC], labelCam, decapCam, gantryPivot, cradle, padLabel,
-    setGantry({ x, z, y, tilt: t, jaw }) {
+    setGantry({ x, z, y, tilt: t, jaw, rot = 0 }) {
       bridge.position.x = x; trolley.position.z = z;
       // 兩段伸縮：內管原點即翻轉軸；外管底端隨行程移動，兩端都保持與內管、台車重疊
       z2.position.y = y;
       // 外管下緣保持在翻轉台擺動範圍（半徑約 250）之上
       z1.position.y = Math.max(2050 + (y - g.placeY) * 250 / (g.safeY - g.placeY), y + 300);
-      tilt.rotation.z = t * Math.PI / 2;
+      tilt.rotation.z = t * Math.PI / 2; jawRot.rotation.y = rot * D2R;
       gJaws.set(jaw);
     },
     setLabeler({ pad: p, print, spin, flash }) {

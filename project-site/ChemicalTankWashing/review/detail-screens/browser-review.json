@@ -1,5 +1,5 @@
 {
-  "total": 750.6418115549207,
+  "total": 1287.7703963456777,
   "shots": [
     {
       "name": "overview",
@@ -7,69 +7,79 @@
       "view": "iso"
     },
     {
-      "name": "storage",
-      "time": 15.114761904761906,
-      "view": "storage"
+      "name": "road",
+      "time": 9,
+      "view": "road"
     },
     {
       "name": "gantry",
-      "time": 61.78761904761905,
+      "time": 61.112355570528536,
       "view": "gantry"
     },
     {
       "name": "label",
-      "time": 80.38761904761905,
+      "time": 82.24568890386186,
       "view": "label"
     },
     {
       "name": "upender",
-      "time": 93.56886904761906,
+      "time": 97.02693890386186,
       "view": "upender"
     },
     {
       "name": "decap",
-      "time": 109.81886904761906,
+      "time": 110.55360557052852,
       "view": "decap"
     },
     {
       "name": "robot",
-      "time": 136.6522023809524,
+      "time": 137.38693890386185,
       "view": "robot"
     },
     {
       "name": "spray",
-      "time": 149.25353181149745,
+      "time": 149.9882683344069,
       "view": "booth"
     },
     {
       "name": "pour",
-      "time": 167.78686514483078,
+      "time": 168.52160166774024,
       "view": "booth"
     },
     {
       "name": "dry",
-      "time": 246.95353181149744,
+      "time": 247.6882683344069,
       "view": "booth"
     },
     {
       "name": "waste",
-      "time": 226.35353181149745,
+      "time": 227.0882683344069,
       "view": "waste"
     },
     {
-      "name": "inbound",
-      "time": 185.76576162251376,
-      "view": "inbound"
+      "name": "toplabel",
+      "time": 305.3825473105889,
+      "view": "toplabel"
+    },
+    {
+      "name": "fill",
+      "time": 435.77421397725567,
+      "view": "line1"
+    },
+    {
+      "name": "stage",
+      "time": 690.107547310589,
+      "view": "stage"
     },
     {
       "name": "scale",
-      "time": 284.8811441210128,
+      "time": 285.61588064392225,
       "view": "weigh"
     }
   ],
   "checks": {
     "stateSamples": [],
-    "layout": "20 / 20 通過",
+    "layout": "24 / 24 通過",
     "pip": true
   },
   "logs": [],

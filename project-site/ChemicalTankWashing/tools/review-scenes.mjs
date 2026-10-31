@@ -15,9 +15,29 @@ export async function runReview(cdp, tab, out) {
   }
   report.checks.stateSamples=await evaluate(`(()=>{const bad=[];for(let t=0;t<=window.sim.total;t+=2){window.sim.seekTo(t);const s=window.sim.state;if(JSON.stringify(s.st).includes(':null'))bad.push({t,nan:true});if(s.robot.err?.position>1)bad.push({t,ik:s.robot.err});}return bad;})()`);
   report.checks.layout=await evaluate('document.getElementById("chkCount").textContent');
-  report.checks.pip=await evaluate(`window.sim.seekTo(${at('0001 讀碼',.3)});new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(!document.getElementById('pip').hidden))))`);
+  report.checks.pip=await evaluate(`window.sim.seekTo(${at('0001 讀碼',.3)});new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(!document.getElementById('pipFrame').hidden))))`);
   report.logs=await tab.dev.logs({levels:['error','warn'],limit:100});
   report.ok=report.checks.stateSamples.length===0&&report.checks.pip&&report.logs.every(l=>l.level!=='error');
   await evaluate('window.sim.seekTo(0);window.sim.setView("iso",true)');
   writeFileSync(join(out,'browser-review.json'),JSON.stringify(report,null,2));return report;
+}
+
+// 直接執行：node tools/review-scenes.mjs [--port 8770]，啟動 core 的本機伺服器與無頭瀏覽器，結果寫到 review/detail-screens/
+// core/tools/cdp.mjs 的 send 回傳整則訊息，這裡轉成 Browser 技能的形狀（result 就是 Runtime.evaluate 的結果）
+import { pathToFileURL, fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+  const { startServer } = await import('../../../core/tools/serve.mjs');
+  const { openBrowser } = await import('../../../core/tools/cdp.mjs');
+  const i = process.argv.indexOf('--port'), port = i > 0 ? +process.argv[i + 1] : 8770;
+  const server = await startServer({ port, quiet: true }), b = await openBrowser();
+  try {
+    if (!await b.goto(`http://127.0.0.1:${port}/ChemicalTankWashing/?pause`)) throw new Error('頁面未就緒 ' + b.errors.join(' | '));
+    const cdp = { send: async (m, p) => { const r = await b.send(m, p); return { ...r.result, exceptionDetails: r.result?.exceptionDetails }; } };
+    const tab = { screenshot: () => b.screenshot('png'), dev: { logs: async () => b.errors.map(text => ({ level: 'error', text })) } };
+    const report = await runReview(cdp, tab, join(root, 'review/detail-screens'));
+    console.log(report.ok ? `通過：${report.shots.length} 張站位畫面、倒退取樣與相機子畫面正常` : '未通過', JSON.stringify(report.checks));
+    process.exitCode = report.ok ? 0 : 1;
+  } finally { await b.close(); server.close(); }
 }

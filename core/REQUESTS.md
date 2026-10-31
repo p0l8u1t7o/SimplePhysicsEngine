@@ -93,6 +93,25 @@
 - 影響：之後的能源、停車、室外工地類展示
 
 
+### 作業員模型（站立、走動、手臂擺動）
+- 提出：ChemicalTankWashing（2026-10-31）
+- 暫代：`project-site/ChemicalTankWashing/web/js/filling.js` 的 `person()`（工作服、安全帽，兩臂各一個可轉的群組）；擦拭人員放在場景頂層的 `people` 群組，全場檢查會對所有設備檢查
+- 期望介面：`core/models/` 的 `operator.create({ color, helmet })`，`set({ walk, armL, armR })` 或 `pose('stand'|'wipe'|'press')`；身高、肩寬可參數化
+- 影響：需要表現人工作業的站（擦拭、上下料、目檢）；ParkingEMS 的人物、RecycleSorter 的作業員
+
+### `drumJaws` 加爪片寬度選項
+- 提出：ChemicalTankWashing（2026-10-31）
+- 現象：`core/models/drum-200l.js` 的 `drumJaws()` 每片爪約 80°（1.4 rad）。從 2×2 棧板夾桶時，不管轉到哪個方位，爪片邊緣都會掃到同板相鄰的桶（本站量到最多約 110 mm，被「桶整個放行」蓋住）。
+- 暫代：`project-site/ChemicalTankWashing/web/js/drum.js` 的 `narrowJaws(parent, stroke)`（每片 30°，`JAW_ARC`），夾爪轉 ±45° 對準對角；`tools/verify.mjs` 檢查夾爪對同板的桶
+- 期望介面：`drumJaws(parent, armTo, stroke, { arc })`，預設維持 1.4 rad（現有外觀不變）
+- 影響：用 `drumJaws` 從棧板夾桶的站
+
+### 桶裝填裝頭（灌裝槍＋鎖蓋頭換位）
+- 提出：ChemicalTankWashing（2026-10-31）
+- 暫代：`project-site/ChemicalTankWashing/web/js/filling.js` 的填裝頭（每位一組：換位橫樑、台車、灌裝槍升降、2"／3/4" 伺服鎖付頭，鎖付頭用 core 的 `nutrunner`）
+- 期望介面：`core/models/equipment-process.js` 的 `drumFillHead.create({ shift, bungR })`，`set({ e, sx, cy, spin })`（灌裝槍插入量、換位、鎖蓋頭下降、套筒轉數）
+- 影響：其他桶裝、IBC 填裝的站
+
 ### 孿生：由站產生 MD（S4，第二階段）
 - 提出：AutoSequence 孿生開發計畫 v0.2（2026-10-22，4.6 節；藍圖 §9 P3）
 - 暫代：MGPC 用 Automation-Schema 的範例 MD 原樣複本（`project-site/MilitaryGradePC/twin/`）

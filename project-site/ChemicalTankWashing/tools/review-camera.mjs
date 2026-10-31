@@ -44,13 +44,14 @@ export async function runCameraReview(cdp, tab, out) {
   }
   await click('#followProduct'); const stopped = await state(); await evaluate('sim.seekTo(150)');
   check('停止追隨後跳轉不移動相機', !stopped.focus && still((await state()).camera, stopped.camera));
-  await select('focusTarget', 'drum0'); await click('#followProduct');
+  // 新流程的桶最後都放在倉庫棧板上（不會消失）；「目前作業桶」在動畫結束時沒有作業中的桶，用它測離線
+  await select('focusTarget', 'auto'); await click('#followProduct');
   const beforeGone = await state(); await evaluate('sim.seekTo(sim.total)'); await settle();
   check('桶離線時保留視角並提示', still((await state()).camera, beforeGone.camera) && await evaluate('document.getElementById("focusStatus").textContent') === '目標已離開產線');
   await evaluate('sim.seekTo(140)'); check('倒退跳轉恢復追蹤', await evaluate('sim.controls.target.distanceTo(sim.focusPosition("drum0"))<.01'));
   await click('.views button[data-view="gripper"]'); await evaluate('sim.setView("gripper",true)');
   check('預設視角可退出追隨', !(await state()).focus);
-  await evaluate('sim.seekTo(sim.total);sim.setView("iso",true)'); await select('focusTarget', 'drum0');
+  await evaluate('sim.seekTo(sim.total);sim.setView("iso",true)'); await select('focusTarget', 'auto');
   const absentStart = await state(); await click('#focusNow');
   check('對準已離線目標不改變相機位置', still((await state()).camera, absentStart.camera));
   await click('#followProduct');

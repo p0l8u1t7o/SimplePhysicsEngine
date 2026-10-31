@@ -12,7 +12,7 @@ import { codeReader } from '@core/models/vision.js';
 import { nutrunner } from '@core/models/motion.js';
 import { signalTower } from '@core/models/indicators.js';
 import { pallet } from '@core/models/transport-handling.js';
-import { createDrum, drumJaws, addTopLabels } from './drum.js';
+import { createDrum, narrowJaws, addTopLabels } from './drum.js';
 
 const TOP = CONV.top, HALF = CONV.width / 2;
 // 2" 桶塞在世界 +Z（桶方位 270°），3/4" 在 −Z
@@ -169,7 +169,7 @@ export function createFilling(scene) {
   block(sZ, [130, 1500, 130], [0, 1250, 0], MAT.steel);
   block(sZ, [420, 60, 300], [0, DRUM.H / 2 + 120, 0], MAT.steelDark);
   for (const s of [-1, 1]) block(sZ, [60, 200, 60], [0, DRUM.H / 2 + 30, s * 120], MAT.steelDark);
-  const sJaws = drumJaws(sZ, null, 90);
+  const sJaws = narrowJaws(sZ, 90);   // 窄爪，夾爪方位由 rot 轉到對角
   plate(st, ['組板龍門 · 同液體同板'], 1100, 150, [(G.x0 + G.x1) / 2, G.beamY + 450, G.z0 - 110], Math.PI, { w: 640, h: 110 });
   // 組板位定位擋條與牌子
   for (const [k, x] of Object.entries(STAGING.pallets)) {

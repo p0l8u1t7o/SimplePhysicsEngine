@@ -9,6 +9,7 @@ import { layoutChecks, BOOTH, UPRIGHT, FENCE, GANTRY, GANTRY_GATE, AGV, PALLET, 
 import { createRobot, LIMITS, SPEED, JOINTS } from '../web/js/robot.js';
 import { createSequence, drumWorld, palletWorld, DRUM_KEYS } from '../web/js/sequence.js';
 import { createWashing } from '../web/js/washing.js';
+import { JAW_ARC } from '../web/js/drum.js';
 
 const D2R = Math.PI / 180, DT = .05;
 const robot = createRobot(), seq = createSequence({ robot });
@@ -50,6 +51,19 @@ for (const y of [-DRUM.H / 2, -180, 0, 180, DRUM.H / 2]) for (let i = 0; i < 32;
 drumPts.push(new THREE.Vector3(0, DRUM.H / 2, 0), new THREE.Vector3(0, -DRUM.H / 2, 0));
 const worldPts = w => drumPts.map(p => p.clone().applyQuaternion(w.q).add(w.pos));
 const inDrum = (p, w, margin) => { const l = p.clone().sub(w.pos).applyQuaternion(w.q.clone().invert()); return Math.abs(l.y) < DRUM.H / 2 - margin && Math.hypot(l.x, l.z) < DRUM.envelopeR - margin; };
+
+// 夾爪對同板相鄰的桶：龍門與組板龍門的窄爪（爪片與背板外緣取樣點，含張開行程）不得進入棧板上的其他桶
+// 爪片中心方向 dir（世界 XZ 單位向量），兩片對向；爪片高 ±200 mm（以夾爪中心為準）
+const jawPoints = (c, dir, open) => {
+  const pts = [], base = Math.atan2(dir[1], dir[0]);
+  for (const side of [0, Math.PI]) for (let a = -JAW_ARC / 2; a <= JAW_ARC / 2 + 1e-9; a += JAW_ARC / 6) for (const r of [DRUM.R + 12, DRUM.R + 32]) for (const y of [-200, 0, 200]) {
+    const t = base + side + a; pts.push(new THREE.Vector3(c.x + Math.cos(t) * (r + open), c.y + y, c.z + Math.sin(t) * (r + open)));
+  }
+  return pts;
+};
+// 暫存區已在組板的成品桶（靜態，不在 DRUM_KEYS）
+const stagedStatic = ['B', 'C', 'D'].flatMap(k => PALLET.slots.slice(0, STAGING.preload[k]).map(([sx, sz]) => ({ pos: new THREE.Vector3(STAGING.pallets[k] + sx, PALLET.H + DRUM.H / 2, STAGING.z + sz), q: new THREE.Quaternion() })));
+let minJawGap = Infinity;
 
 // ---------------------------------------------------------------- 2–6. 逐時取樣
 const maxErr = { position: 0, angle: 0 }, speedRatio = Object.fromEntries(JOINTS.map(n => [n, 0])), jump = { mm: 0, at: 0, drum: '' };
@@ -109,6 +123,20 @@ for (let t = 0; t <= seq.total + 1e-9; t += DT) {
       if (mode === 'robot') robot.links().forEach(([a, c, r], li) => { if (li < 4) { const n = Math.ceil(a.distanceTo(c) / 50); for (let i = 0; i <= n; i++) if (inDrum(a.clone().lerp(c, i / n), w, -r * .6)) { fail('drum-arm', `${t.toFixed(2)} s ${DRUM_KEYS[k]} 碰到手臂連桿 ${li}`); break; } } });
     }
   });
+  // 夾爪對同板相鄰的桶（清洗區龍門在翻桶前、組板龍門全程）
+  const onPallets = [...ws.filter((w, k) => !w.hidden && st[DRUM_KEYS[k]].mode === 'pallet'), ...stagedStatic];
+  const jawCheck = (who, c, dir, open) => {
+    const near = onPallets.filter(w => w.pos.distanceTo(c) > 50 && w.pos.distanceTo(c) < 1200);
+    for (const p of jawPoints(c, dir, open)) for (const w of near) {
+      const l = p.clone().sub(w.pos); if (Math.abs(l.y) < DRUM.H / 2) minJawGap = Math.min(minJawGap, Math.hypot(l.x, l.z) - DRUM.envelopeR);
+      if (inDrum(p, w, 3)) { fail('jaw-drum', `${t.toFixed(2)} s ${who}夾爪碰到同板的桶`); return; }
+    }
+  };
+  if (st.gantry.tilt < .01) {
+    const g = st.gantry, [cx, cz] = toWorld('front', g.x, g.z), r = (g.rot || 0) * D2R;
+    jawCheck('清洗區龍門', new THREE.Vector3(cx, g.y - GANTRY.hang, cz), [Math.sin(r), Math.cos(r)], (1 - g.jaw) * GANTRY.jawOpen);   // 爪在局部 ±Z
+  }
+  { const g = st.stg, r = g.rot * D2R; jawCheck('組板龍門', new THREE.Vector3(g.x, g.y, g.z), [Math.cos(r), -Math.sin(r)], (1 - g.jaw) * 90); }   // 爪在局部 ±X
   // 交接瞬間不得跳動
   const pos = ws.map(w => w.pos);
   if (prevPos) pos.forEach((p, k) => { if (ws[k].hidden || prevPos[k].y < -1000) return; const d = p.distanceTo(prevPos[k]) / (t - prevT) * DT; if (d > jump.mm) { jump.mm = d; jump.at = t; jump.drum = DRUM_KEYS[k]; } if (d > 150) fail('drum-jump', `${t.toFixed(2)} s ${DRUM_KEYS[k]} 一步移動 ${d.toFixed(0)} mm（${st[DRUM_KEYS[k]].mode}）`); });
@@ -129,7 +157,7 @@ const result = {
   ok: fails.length === 0, samples, dt: DT, total: +seq.total.toFixed(1), robotCycle: +((seq.events.filter(e => e.label.endsWith('放回輸送線')).at(-1).time - seq.events.filter(e => e.label.endsWith('放回輸送線')).at(-2).time)).toFixed(1),
   robotTrackingMax: { mm: +maxErr.position.toFixed(3), deg: +maxErr.angle.toFixed(3) },
   jointSpeedRatioMax: Object.fromEntries(Object.entries(speedRatio).map(([k, v]) => [k, +v.toFixed(2)])),
-  minRobotClearance: { mm: +minRobotClear.toFixed(0), at: minRobotClearAt }, maxDrumStep: { mm: +jump.mm.toFixed(1), at: +jump.at.toFixed(2), drum: jump.drum }, determinismMaxDiff: +maxDiff.toFixed(4),
+  minRobotClearance: { mm: +minRobotClear.toFixed(0), at: minRobotClearAt }, minJawToNeighbourDrum: { mm: +minJawGap.toFixed(0) }, maxDrumStep: { mm: +jump.mm.toFixed(1), at: +jump.at.toFixed(2), drum: jump.drum }, determinismMaxDiff: +maxDiff.toFixed(4),
   failCounts: notes, failures: fails,
   scope: '0.05 s 取樣；手臂連桿以線段＋半徑近似、桶以含滾箍的 162 個表面點近似，納入沖洗站局部剛性配管；AGV 以 2D 車身與棧板多邊形對牆、門框與設備外框檢查；未含軟管掃掠、所有緊固件與人員的動態干涉（人員與設備由全場 scene 檢查）。',
 };

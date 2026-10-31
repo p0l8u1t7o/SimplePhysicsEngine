@@ -45,7 +45,7 @@ export function createSequence({ robot }) {
   // 棧板：D 待洗棧板（動畫開始時在 AGV 上）、A 組板位 A
   const palD = track('palD', { mode: 'agv', at: '', x: 0, z: 0, yaw: 0 });
   const palA = track('palA', { mode: 'stage', at: 'A', x: 0, z: 0, yaw: 0 });
-  const gantry = track('gantry', { x: GANTRY.home.x, z: GANTRY.home.z, y: GANTRY.safeY, tilt: 0, jaw: 0 });
+  const gantry = track('gantry', { x: GANTRY.home.x, z: GANTRY.home.z, y: GANTRY.safeY, tilt: 0, jaw: 0, rot: 0 });
   const labeler = track('labeler', { pad: 0, print: 0, spin: 0, flash: false });
   const upender = track('upender', { tilt: 0, clamp: 0 });
   const decap = track('decap', { hx: 0, hz: 0, hy: DECAP.safeY, spinBig: 0, spinSmall: 0, flash: false, clamp: 0, table: 0, caps: 0, heldBig: false, heldSmall: false });
@@ -134,12 +134,15 @@ export function createSequence({ robot }) {
     const id = DRUM_IDS[k];
     // ---- S2 龍門：取桶 → 抬升 → 移出棧板範圍 → 等放料位空 → 邊移邊翻 90° → 放上 V 槽輥
     gantry.hold(tAgvOut + 1);
-    const g0 = gantry.add(Math.hypot(px - gantry.state.x, pz - gantry.state.z) / 600 + 1.2, { x: px, z: pz, y: gp.safeY, tilt: 0, jaw: 0 }, { action: `移至第 ${k + 1} 桶上方`, sub: id });
+    // 夾爪轉到棧板外側的對角（窄爪不碰同板相鄰的桶）；方位與組板龍門的 jawRot 同一規則（這裡的爪在局部 ±Z）
+    const jr = (sx > 0) === (sz > 0) ? 45 : -45;
+    const g0 = gantry.add(Math.hypot(px - gantry.state.x, pz - gantry.state.z) / 600 + 1.2, { x: px, z: pz, y: gp.safeY, tilt: 0, jaw: 0, rot: jr }, { action: `移至第 ${k + 1} 桶上方`, sub: `${id}；夾爪轉 ${jr}° 對準對角` });
     if (k === 0) ev(g0, 'gantry', '龍門開始上料');
-    gantry.add(2, { y: gp.pickY }, { action: '下降夾桶位', sub: '雙弧形 PU 爪由南北兩側包覆桶身上半部' });
+    gantry.add(2, { y: gp.pickY }, { action: '下降夾桶位', sub: '窄弧 PU 爪由對角兩側包覆桶身上半部，避開同板相鄰的桶' });
     gantry.add(1, { jaw: 1 }, { action: '夾爪夾緊', sub: '夾持確認後才抬升' });
-    d.add(0, { mode: 'gantry', state: '龍門夾持' }, { at: gantry.t });
+    d.add(0, { mode: 'gantry', yaw: d.state.yaw - jr, state: '龍門夾持' }, { at: gantry.t });   // 桶跟著夾爪轉：世界方位 = yaw + rot
     gantry.add(2, { y: gp.safeY }, { action: '抬升至安全高度', sub: `翻轉軸 ${gp.safeY} mm；桶底高於相鄰桶頂` });
+    gantry.add(1.2, { rot: 0 }, { action: '夾爪轉回', sub: '桶跟著轉，翻桶方向不變' });
     gantry.add(1.5, { x: 4900 }, { action: '沿 X 移出棧板範圍', sub: '先平移再翻轉，避免掃到相鄰桶' });
     tPickedClear = gantry.t;
     gantry.hold(prev.place != null ? prev.place + 3.2 : 0);
@@ -562,7 +565,7 @@ export function drumWorld(key, st, robotTcp, { logical = false } = {}) {
     case 'gantry': {
       const g = st.gantry, a = g.tilt * Math.PI / 2;
       pos.set(g.x + Math.sin(a) * GANTRY.hang, g.y - Math.cos(a) * GANTRY.hang, g.z);
-      q.setFromAxisAngle(Zax, a).multiply(_q.setFromAxisAngle(Yax, d.yaw * D2R)); return frame('front');
+      q.setFromAxisAngle(Zax, a).multiply(_q.setFromAxisAngle(Yax, (d.yaw + (g.rot || 0)) * D2R)); return frame('front');
     }
     case 'lying':
       pos.set(d.lx, LYING.y, LYING.z); q.setFromAxisAngle(Zax, Math.PI / 2).multiply(_q.setFromAxisAngle(Yax, d.yaw * D2R)); return frame('front');
