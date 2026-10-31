@@ -2,11 +2,11 @@
 import { AGV, FORK } from './layout.js';
 import { create } from '@core/models/agv-forklift.js';
 
-export function createAgv(scene) {
+export function createAgv(scene, name = 'agv') {
   const agv = create({
     rear: AGV.rear, halfW: AGV.halfW, mast: AGV.mast, mastLowered: AGV.mastLowered, backrest: AGV.backrest,
     forkStart: AGV.fork[0], forkEnd: AGV.fork[1], forkHalf: AGV.forkHalf, palletX: AGV.palletX, deck: FORK.deck,
   });
-  scene.add(agv.root);
+  agv.root.name = name; scene.add(agv.root);
   return agv;
 }

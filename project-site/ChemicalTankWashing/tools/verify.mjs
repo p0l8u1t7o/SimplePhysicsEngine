@@ -141,9 +141,16 @@ for (let t = 0; t <= seq.total + 1e-9; t += DT) {
   const pos = ws.map(w => w.pos);
   if (prevPos) pos.forEach((p, k) => { if (ws[k].hidden || prevPos[k].y < -1000) return; const d = p.distanceTo(prevPos[k]) / (t - prevT) * DT; if (d > jump.mm) { jump.mm = d; jump.at = t; jump.drum = DRUM_KEYS[k]; } if (d > 150) fail('drum-jump', `${t.toFixed(2)} s ${DRUM_KEYS[k]} 一步移動 ${d.toFixed(0)} mm（${st[DRUM_KEYS[k]].mode}）`); });
   prevPos = pos.map(p => p.clone()); prevT = t;
-  // AGV 車身與載物（世界座標）：叉著棧板時以棧板外框檢查，空叉時以貨叉外框檢查
-  const a = st.agv, loaded = ['palD', 'palA'].some(k => st[k].mode === 'agv');
-  for (const poly of agvPolygons(a.x, a.z, a.yaw, loaded)) for (const [n, r] of agvRects) if (polyRectOverlap(poly, r)) fail('agv-hit', `${t.toFixed(2)} s AGV（${loaded ? '載棧板' : '空叉'}）碰到${n}`);
+  // AGV 車身與載物（世界座標）：叉著棧板時以棧板外框檢查，空叉時以貨叉外框檢查；兩台 AGV 互不碰撞
+  const polys = {};
+  for (const [key, name] of [['agv', 'AGV-1'], ['agv2', 'AGV-2']]) {
+    const a = st[key], loaded = ['palD', 'palA'].some(k => st[k].mode === 'agv' && st[k].by === key);
+    polys[key] = agvPolygons(a.x, a.z, a.yaw, loaded);
+    for (const poly of polys[key]) for (const [n, r] of agvRects) if (polyRectOverlap(poly, r)) fail('agv-hit', `${t.toFixed(2)} s ${name}（${loaded ? '載棧板' : '空叉'}）碰到${n}`);
+  }
+  // 兩台互撞：以車身與前端多邊形的外接矩形做保守檢查，再用分離軸確認
+  const bb = poly => [Math.min(...poly.map(p => p[0])), Math.min(...poly.map(p => p[1])), Math.max(...poly.map(p => p[0])), Math.max(...poly.map(p => p[1]))];
+  for (const p1 of polys.agv) for (const p2 of polys.agv2) if (polyRectOverlap(p1, bb(p2)) && polyRectOverlap(p2, bb(p1))) { fail('agv-agv', `${t.toFixed(2)} s 兩台 AGV 碰撞`); break; }
 }
 
 // ---------------------------------------------------------------- 7. 倒退／跳轉一致性

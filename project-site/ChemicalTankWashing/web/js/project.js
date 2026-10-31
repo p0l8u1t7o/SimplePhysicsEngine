@@ -23,7 +23,7 @@ export function createProject({ scene }) {
       stationOf: m => { for (let p = m; p; p = p.parent) if (p.userData.station) return p.userData.station; return 'misc'; },
       allow: [
         { why: '桶由各站支撐、夾持或噴槍伸入，桶的干涉另由 verify.mjs 檢查', test: (a, b, c) => c.moduleOf(a) === 'drum' || c.moduleOf(b) === 'drum' },
-        { why: 'AGV 叉取棧板：貨叉插入棧板底樑之間屬正常；AGV 車身另以 2D 多邊形對牆與設備驗證（verify.mjs）', test: (a, b, c) => [a, b].some(m => c.moduleOf(m) === 'agv') && [a, b].some(m => c.moduleOf(m) === 'pallets') },
+        { why: 'AGV 叉取棧板：貨叉插入棧板底樑之間屬正常；AGV 車身另以 2D 多邊形對牆與設備驗證（verify.mjs）', test: (a, b, c) => [a, b].some(m => ['agv', 'agv2'].includes(c.moduleOf(m))) && [a, b].some(m => c.moduleOf(m) === 'pallets') },
         { why: '手臂本體與夾爪內部零件為廠商／夾爪模型，自身干涉另見 verify-gripper.mjs', test: (a, b, c) => c.moduleOf(a) === 'robot' && c.moduleOf(b) === 'robot' },
       ],
       envelope: ['robot'],

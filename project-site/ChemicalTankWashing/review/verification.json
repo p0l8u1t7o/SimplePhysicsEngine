@@ -1,8 +1,8 @@
 {
   "ok": true,
-  "samples": 25756,
+  "samples": 25790,
   "dt": 0.05,
-  "total": 1287.8,
+  "total": 1289.5,
   "robotCycle": 151.1,
   "robotTrackingMax": {
     "mm": 0.05,
@@ -25,7 +25,7 @@
   },
   "maxDrumStep": {
     "mm": 107.5,
-    "at": 1233.15,
+    "at": 1227.5,
     "drum": "drum0"
   },
   "determinismMaxDiff": 0,

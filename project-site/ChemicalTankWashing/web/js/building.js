@@ -140,7 +140,8 @@ export function createBuilding(scene) {
   rollerDoor(group, W.door[0], W.door[1], W.z0 - t / 2, 4200, 1);
   group.add(line([...whPoly, whPoly[0]].map(([x, z]) => [x, W.H, z]), 0x8fb6c8, .55));
   floorMesh(ceiling, whPoly, ceilMat, W.H);
-  { const c = agvCharger.create({ w: 600, h: 1400, d: 400 }); c.root.position.set(W.x0 + 250, 0, WH_ZONES.aisleZ); c.root.rotation.y = Math.PI / 2; group.add(c.root); }
+  // 充電櫃：在北牆，各自充電位車尾旁
+  for (const ch of AGV.chargers) { const c = agvCharger.create({ w: 600, h: 1400, d: 400 }); c.root.position.set(ch.x + 900, 0, W.z0 + 250); group.add(c.root); }
   // 倉儲棧板與桶（靜態，InstancedMesh）：待洗區、成品 A～D；動畫用的卸板位留空
   const store = createStaticStore(group);
 
@@ -172,7 +173,7 @@ export function createBuilding(scene) {
   for (const [k, r] of Object.entries(WH_ZONES.finished)) { zone(zones, r, 0x3dd68c, .08); floorText(zones, `成品 ${k}`, (r[0] + r[2]) / 2, 24600, 1800, 420, { fg: '#9ff0c6' }); }
   floorText(zones, ['待洗桶區', '田字型棧板 4 桶'], (WH_ZONES.dirty[0] + WH_ZONES.dirty[2]) / 2, 24600, 3600, 700, { fg: '#9fd0ff' });
   floorText(zones, ['倉庫（取代原倉儲區）', 'W 30 × L 20 × H 5 m'], 40000, 22500, 6000, 700, { fg: '#c7d1da' });
-  zone(group, [AGV.charger.x - 300, WH_ZONES.aisleZ - 550, AGV.charger.x + 1600, WH_ZONES.aisleZ + 550], 0x3dd68c, .25, 4);   // AGV 地面充電板（停車時朝西）
+  for (const c of AGV.chargers) zone(group, [c.x - 300, c.z - 550, c.x + 1600, c.z + 550], 0x3dd68c, .25, 4);   // AGV 地面充電板（停車時朝西）
   // 道路文字
   floorText(zones, '道路 3 m', 6000, ROAD3.zc + 900, 1600, 300, { fg: '#c9ced4' });
   floorText(zones, '道路 5 m（手稿：馬路）', ROAD5.xc, 6000, 3600, 360, { fg: '#c9ced4', rot: Math.PI / 2 });

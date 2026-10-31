@@ -16,7 +16,7 @@ import { drumWorld, palletWorld, DRUM_IDS, PRE_ID, DRUM_KEYS } from './sequence.
 
 export function buildPlant(scene) {
   const building = createBuilding(scene);
-  const agv = createAgv(scene);
+  const agv = createAgv(scene, 'agv'), agv2 = createAgv(scene, 'agv2');
   const line = createLine(scene);
   // 畫面上的清洗手臂：獨立一組（模組名 robot），放在 cell 框架
   const robotFrame = new THREE.Group(); robotFrame.name = 'robot'; scene.add(robotFrame);
@@ -31,14 +31,14 @@ export function buildPlant(scene) {
   const drums = [...DRUM_IDS, PRE_ID].map(id => { const d = createDrum(id); d.top = addTopLabels(d); scene.add(d.root); return d; });
   const held = { big: new THREE.Mesh(BIG_CAP, MAT.cap), small: new THREE.Mesh(SMALL_CAP, MAT.cap) };
   for (const k of ['big', 'small']) { held[k].position.y = 8; line.socket(k).add(held[k]); }
-  return { building, agv, line, robot, ikRobot, washing, filling, pal, drums, held };
+  return { building, agv, agv2, line, robot, ikRobot, washing, filling, pal, drums, held };
 }
 
 // 依取樣結果擺放所有設備與桶（不含 UI）
 export function applyPlant(p, sm, { playing = false } = {}) {
-  const st = sm.st, { agv, line, robot, ikRobot, drums, held, washing, filling, pal } = p;
-  agv.set({ ...st.agv, time: sm.time });
-  for (const k of ['D', 'A']) { const pw = palletWorld(st['pal' + k], st.agv); pal[k].position.copy(pw.pos); pal[k].rotation.y = pw.yaw * D2R; }
+  const st = sm.st, { agv, agv2, line, robot, ikRobot, drums, held, washing, filling, pal } = p;
+  agv.set({ ...st.agv, time: sm.time }); agv2.set({ ...st.agv2, time: sm.time });
+  for (const k of ['D', 'A']) { const pw = palletWorld(st['pal' + k], st); pal[k].position.copy(pw.pos); pal[k].rotation.y = pw.yaw * D2R; }
   line.setGantry(st.gantry); line.setLabeler(st.labeler); line.setUpender(st.upender); line.setDecap(st.decap);
   held.big.visible = st.decap.heldBig; held.small.visible = st.decap.heldSmall;
   // 手臂：排程用的 ikRobot 已在 seq.sample 設好關節角，畫面上的手臂照抄

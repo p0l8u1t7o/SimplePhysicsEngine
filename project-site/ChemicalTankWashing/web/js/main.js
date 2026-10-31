@@ -31,7 +31,7 @@ finishMaterials(renderer);
 // ---------------------------------------------------------------- 物件（與 core 統一檢查共用 project.js）
 const project = createProject({ scene });
 const { plant, seq } = project;
-const { building, agv, line, robot, washing, drums } = plant;
+const { building, agv, agv2, line, robot, washing, drums } = plant;
 const total = seq.total;
 
 // 相機取像事件（子畫面自動切換用）
@@ -53,7 +53,7 @@ const $ = id => document.getElementById(id);
 const ui = Object.fromEntries(['payload', 'speed', 'cycleTime', 'phase', 'equip', 'drums', 'tanks', 'checks', 'chkCount', 'showDims', 'showFence', 'showLabels', 'showCeiling', 'xray', 'stations', 'focusTarget', 'focusStatus'].map(id => [id, $(id)]));
 function focusPosition(key) {
   if (key === 'gripper') return robot.tool.localToWorld(new THREE.Vector3(0, 80, ROBOT.grip * .65));
-  if (key === 'agv') return agv.root.position.clone().add(new THREE.Vector3(0, 750, 0));
+  if (key === 'agv' || key === 'agv2') return plant[key].root.position.clone().add(new THREE.Vector3(0, 750, 0));
   if (key === 'gantry') return line.gantryPivot.getWorldPosition(new THREE.Vector3());
   if (key === 'stg') return plant.filling.group.getObjectByName('staging')?.getWorldPosition(new THREE.Vector3()).setY(S.st.stg.y) ?? null;
   if (key === 'auto') {
@@ -79,7 +79,7 @@ for (const s of STATIONS) {
   const b = document.createElement('button'); b.className = 'st'; b.dataset.st = s.id; b.innerHTML = `<span class="idx">${s.short}</span>${s.name}`;
   b.onclick = () => { player.seekTo(seq.stationStart[s.id]); setView(VIEW_OF[s.id]); }; ui.stations.appendChild(b);
 }
-const EQUIP = [['agv', 'AGV'], ['gantry', '龍門'], ['labeler', '側標讀碼'], ['upender', '翻桶機'], ['decap', '開蓋站'], ['robot', '清洗手臂'], ['booth', '沖洗站'], ['sump', '集液／泵'], ['scale', '秤重段'],
+const EQUIP = [['agv', 'AGV-1 進料'], ['agv2', 'AGV-2 出料'], ['gantry', '龍門'], ['labeler', '側標讀碼'], ['upender', '翻桶機'], ['decap', '開蓋站'], ['robot', '清洗手臂'], ['booth', '沖洗站'], ['sump', '集液／泵'], ['scale', '秤重段'],
   ['topLab', '頂面貼標'], ['readers', '讀碼／三碼比對'], ['h00', 'L1 第 1 位'], ['h01', 'L1 第 2 位'], ['h02', 'L1 第 3 位'], ['h10', 'L2 第 1 位'], ['wiper0', 'L1 擦拭人員'], ['wiper1', 'L2 擦拭人員'], ['stg', '組板龍門']];
 ui.equip.innerHTML = EQUIP.map(([k, n]) => `<div class="row" data-k="${k}"><span class="name"><i></i>${n}</span><span class="act"></span></div>`).join('');
 ui.drums.innerHTML = DRUM_IDS.map((id, k) => `<div class="d" data-k="${k}"><span class="id">${id} · 液體 ${LIQUID[k]}</span><span class="state"></span><span class="tags"></span></div>`).join('')
@@ -216,7 +216,8 @@ const Pw = (f, x, y, z) => { const [wx, wz] = toWorld(f, x, z); return P(wx, y, 
 label('<b>填裝區</b> 4 線 × 4 填裝位（原洗桶區）', P(6200, 3600, 3000));
 label('<b>清洗區</b> 自行規劃 13.5 × 15.52 m', P(19500, 4400, 900), 1);
 label('<b>倉庫</b> W 30 × L 20 × H 5 m', P(39000, 5600, 23000));
-label('<b>AGV</b> 平衡重式堆高', () => agv.root.position.clone().add(new THREE.Vector3(0, 2500, 0)), 1);
+label('<b>AGV-1</b> 進料', () => agv.root.position.clone().add(new THREE.Vector3(0, 2500, 0)), 1);
+label('<b>AGV-2</b> 出料', () => agv2.root.position.clone().add(new THREE.Vector3(0, 2500, 0)), 1);
 label('<b>S2</b> 棧板站＋龍門翻轉夾爪', Pw('front', 4800, 3600, 9050));
 label('<b>S3</b> 側標＋讀碼', Pw('front', LABEL.x, 2350, LYING.z + 500));
 label('<b>S4</b> 90° 翻桶機', Pw('front', 10500, 1700, 9500));
@@ -266,7 +267,7 @@ function drawHud() {
   document.querySelectorAll('#stations .st').forEach(b => b.classList.toggle('active', !!act[ACT_OF[b.dataset.st] || b.dataset.st]));
   const focusName = ui.focusTarget.selectedOptions[0].textContent, present = !!focusPosition(ui.focusTarget.value);
   ui.focusStatus.textContent = workspace.following ? (present ? '追蹤中 · ' + focusName : '目標已離開產線') : selectedView === 'focus' ? (present ? '焦點 · ' + focusName : '目標已離開產線') : '自由視角';
-  $('diagnostics').textContent = JSON.stringify({ T, total, playing: player.playing, view: selectedView, following: workspace.following, agv: st.agv, gantry: st.gantry, stg: st.stg, drums: DRUM_IDS.map((_, k) => st['drum' + k].state), robot: S.robot.err || null });
+  $('diagnostics').textContent = JSON.stringify({ T, total, playing: player.playing, view: selectedView, following: workspace.following, agv: st.agv, agv2: st.agv2, gantry: st.gantry, stg: st.stg, drums: DRUM_IDS.map((_, k) => st['drum' + k].state), robot: S.robot.err || null });
 }
 
 // ---------------------------------------------------------------- 繪製（stage.loop 只在有變化時呼叫）
@@ -351,7 +352,8 @@ if (qp.has('movie')) {
   function movieFocus() {
     const station = steps.findLast(s => s.start <= movieT)?.station ?? 'agv';
     // AGV 與入庫在貨架、懸臂吊旁：拉遠到約 7 m、高約 5.2 m，鏡頭在貨架頂層桶（約 3.75 m）與吊臂之上，不穿過貨架、桶與吊臂
-    if (station === 'agv' || (station === 'stage' && !drumIn('stg'))) return agv.root.position.clone().add(new THREE.Vector3(0, 750, 0));
+    if (station === 'agv') return agv.root.position.clone().add(new THREE.Vector3(0, 750, 0));
+    if (station === 'stage' && !drumIn('stg')) return agv2.root.position.clone().add(new THREE.Vector3(0, 750, 0));
     if (station === 'stage') return drumIn('stg');
     if (station === 'top' || station === 'fill' || station === 'wipe') return drumIn('route') ?? FIXED[station].clone();
     if (station === 'gantry') return drumIn('gantry') ?? line.gantryPivot.getWorldPosition(new THREE.Vector3());

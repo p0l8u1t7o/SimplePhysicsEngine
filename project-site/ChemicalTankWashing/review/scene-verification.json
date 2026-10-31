@@ -2,12 +2,12 @@
   "variant": "預設",
   "params": {},
   "ok": true,
-  "meshes": 4124,
-  "moving": 517,
-  "joints": 123,
-  "samples": 2576,
+  "meshes": 4171,
+  "moving": 550,
+  "joints": 128,
+  "samples": 2579,
   "dt": 0.5,
-  "total": 1287.7703963456772,
+  "total": 1289.4656344409157,
   "dynamic": [],
   "static": [],
   "zfight": [],
@@ -16,9 +16,9 @@
       "minX": 21329,
       "maxX": 24331,
       "minY": 0,
-      "maxY": 2408,
+      "maxY": 2406,
       "minZ": 7631,
-      "maxZ": 11529
+      "maxZ": 11530
     }
   },
   "allowances": [

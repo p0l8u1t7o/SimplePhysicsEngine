@@ -36,7 +36,7 @@ export async function runCameraReview(cdp, tab, out) {
   check('全景可單次對準並拉近目標', await evaluate('!sim.focus.enabled&&sim.controls.target.distanceTo(sim.focusPosition("agv"))<.01&&sim.camera.position.distanceTo(sim.controls.target)<6000'));
   await click('#followProduct');
   check('◎ 開始追隨焦點', (await state()).focus);
-  for (const key of ['agv', 'gantry', 'drum0', 'drum1', 'drum2', 'drum3', 'auto', 'gripper']) {
+  for (const key of ['agv', 'agv2', 'gantry', 'drum0', 'drum1', 'drum2', 'drum3', 'auto', 'gripper']) {
     await evaluate('sim.seekTo(140)'); await select('focusTarget', key);
     const before = await evaluate('sim.camera.position.clone().sub(sim.controls.target).toArray()');
     await evaluate('sim.seekTo(145)');

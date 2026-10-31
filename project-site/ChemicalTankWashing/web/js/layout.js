@@ -77,8 +77,11 @@ export const AGV = {
   rear: 1550, halfW: 500, mast: [220, 350], fork: [350, 1500], forkHalf: 350, palletX: 950,
   travel: 300, mastLowered: 2100, backrest: 1100,
   speed: 1200, slow: 300, turn: 35, lift: 250,
-  // 倉庫內充電位（地面接觸式充電板）
-  charger: { x: 26600, z: 23400, yaw: 0 },
+  // 2 台：AGV-1 進料（倉庫待洗棧板 → 清洗區、空棧板 → 填裝區）、AGV-2 出料（填裝區滿板 → 倉庫成品區）
+  // 倉庫內各一個充電位（地面接觸式充電板，主通道上，停車時車頭朝西）
+  // AGV-1 停在門西側、AGV-2 停在門東側；AGV-2 叉滿板在門內原地迴轉時（掃掠半徑 1.66 m）不碰到 AGV-1 車尾
+  chargers: [{ x: 25800, z: 23500, yaw: 180 }, { x: 33300, z: 23500, yaw: 180 }],
+  names: ['AGV-1 進料', 'AGV-2 出料'],
 };
 // 迴轉掃掠半徑：取車身後角與棧板前角的最大值
 export const agvSweep = loaded => Math.max(Math.hypot(AGV.rear, AGV.halfW), loaded ? Math.hypot(AGV.palletX + PALLET.W / 2, PALLET.W / 2) : Math.hypot(AGV.fork[1], AGV.forkHalf));
