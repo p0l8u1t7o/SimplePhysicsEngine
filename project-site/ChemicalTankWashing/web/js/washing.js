@@ -1,14 +1,22 @@
 // 沖洗站（PP 隔間、伸縮沖洗噴槍、集液漏斗、集液槽）與廢液回收系統（清水槽、回收沖洗水槽、廢液槽、泵、配管）。
+// 沖洗站在 cell 框架、廢液槽與泵在 util 框架（見 layout.js 檔頭）；兩者之間的配管、補水與清運管用世界座標。
+// frames: false 時（tools/verify.mjs、verify-detail.mjs）只在邏輯座標建立，跨框架配管不建立。
 import * as THREE from 'three';
-import { BOOTH, WASTE, ROOM } from './layout.js';
+import { BOOTH, WASTE, CLEAN, FRAME, PIPE_JOINT, toWorld } from './layout.js';
 import { block, blockBetween, cylinder, flowTexture, pipe, plate } from '@core/geom/shapes.js';
 import { MAT } from '@core/geom/materials.js';
 import { flange, gauge, bolts, motor } from '@core/geom/hardware.js';
 import { airKnife, sprayLance, hotAirBlower, vacuumPump, centrifugalPump, diaphragmPump, valve, transferCoupling } from '@core/models/equipment-process.js';
 import { linearAxis } from '@core/models/motion.js';
 
-export function createWashing(scene) {
-  const group = new THREE.Group(); group.name = 'washing'; scene.add(group);
+export function createWashing(scene, { frames = true } = {}) {
+  const root = new THREE.Group(); root.name = 'washing'; scene.add(root);
+  const cellG = new THREE.Group(), utilG = new THREE.Group(), worldG = new THREE.Group(); root.add(cellG, utilG, worldG);
+  if (frames) {
+    cellG.position.set(FRAME.cell.x, 0, FRAME.cell.z); cellG.rotation.y = Math.PI;
+    utilG.position.set(FRAME.util.x, 0, FRAME.util.z);
+  }
+  let group = cellG;
   const b = BOOTH, H = b.h, [ox0, ox1, oy0, oy1] = b.opening;
   // ---- 沖洗隔間：PP 板（半透明）＋不鏽鋼框 ----
   const walls = new THREE.Group(); group.add(walls);
@@ -81,9 +89,25 @@ export function createWashing(scene) {
   // ---- 倒液水柱（每幀由桶口位置更新）----
   const streamTex = flowTexture(0x7fcfff); streamTex.repeat.set(1, 6); streamTex.wrapT = THREE.RepeatWrapping;
   const streamMat = new THREE.MeshStandardMaterial({ color: 0x9fdcff, map: streamTex, transparent: true, opacity: .75, emissive: 0x1d5f8f, emissiveIntensity: .5, depthWrite: false });
-  const stream = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 12, 1, true), streamMat); stream.visible = false; stream.userData.fx = true; group.add(stream);
+  const stream = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 12, 1, true), streamMat); stream.visible = false; stream.userData.fx = true; worldG.add(stream);
 
-  // ---- 廢液回收（圍籬外西南側）：防溢堤＋三槽 ----
+  // ---- 沖洗站局部配管（cell）：給水由背面接點 PIPE_JOINT.supply 進來，集液由背面接點 PIPE_JOINT.sump 出去 ----
+  const [lj1x, lj1y, lj1z] = PIPE_JOINT.supply, [lj2x, lj2y, lj2z] = PIPE_JOINT.sump;
+  const cellPipes = {
+    supply: pipe(group, [[lj1x, lj1y, lj1z], [lx, 2800, lz - 300], [lx2, 2800, lz2 - 300], [lx2, H + 320, lz2 - 300], [lx2, H + 320, lz2]], 30, 0x4aa8ff),
+    supply2: pipe(group, [[lx, 2800, lz - 300], [lx, 2800, lz - 150], [lx, H + 1350, lz - 150], [lx, H + 1350, lz]], 26, 0x4aa8ff),
+    hot: pipe(group, [[9330, H + 340, 15150], [9330, H + 700, 15150], [lx2, H + 700, 15150], [lx2, H + 700, lz2 + 150], [lx2, H + 320, lz2 + 150], [lx2, H + 320, lz2 + 40]], 26, 0xff5a3c),
+    vac: pipe(group, [[lx, H + 1350, lz + 120], [lx, H + 1350, 15150], [9850, H + 1350, 15150], [9850, H + 380, 15150]], 26, 0xb07cff),
+    vacOut: pipe(group, [[10110, H + 100, 15150], [10150, H + 100, 15150], [10150, 120, 15150], [fx + 300, 120, 15150], [fx + 300, 120, fz + 300]], 30, 0xb07cff),
+    // 出西側板開孔後沿地面到隔間背面，再往上越過圍籬（圍籬高 2000）到接點
+    sump: pipe(group, [[fx - 300, 120, fz], [lj2x, 120, fz], [lj2x, 120, 15550], [lj2x, lj2y, 15550], [lj2x, lj2y, lj2z]], 36, 0xd88a3c),
+  };
+  // 排氣
+  cylinder(group, 140, CLEAN.H - H - 100, [8900, H + (CLEAN.H - H - 100) / 2, 15250], MAT.ppSolid, 'y', 20);
+  plate(group, ['排氣 → 廠務洗滌塔'], 900, 140, [9000, 3700, 14990], Math.PI, { w: 640, h: 100 });
+
+  // ---- 廢液回收（util，清洗區東北角）：防溢堤＋四槽 ----
+  group = utilG;
   const [bx0, bz0, bx1, bz1] = WASTE.bund;
   const bw = WASTE.wall;
   block(group, [bx1 - bx0 - 2 * bw, 40, bz1 - bz0 - 2 * bw], [(bx0 + bx1) / 2, 20, (bz0 + bz1) / 2], MAT.ppDark);   // 底板在堤牆內側
@@ -112,36 +136,42 @@ export function createWashing(scene) {
   const pump2 = diaphragmPump.create({ label: { lines: ['P-2 隔膜泵'] } }); pump2.root.position.set(p2x, 0, p2z); group.add(pump2.root);
   const tA = WASTE.tanks.WA, tB = WASTE.tanks.WB, tR = WASTE.tanks.R, tF = WASTE.tanks.F;
   const pipes = {
+    ...cellPipes,
     fromF: pipe(group, [[tF.x + tF.r, 150, tF.z], [p1x - 180, 150, tF.z], [p1x - 180, 150, p1z - 160], [p1x - 60, 300, p1z - 160]], 30, 0x8fd3ff),
     fromR: pipe(group, [[tR.x + tR.r, 150, tR.z], [p1x - 60, 150, tR.z], [p1x - 60, 300, p1z - 160]], 30, 0x58b6f2),
-    supply: pipe(group, [[p1x, 420, p1z - 160], [p1x, 2800, p1z - 160], [lx, 2800, p1z - 160], [lx, 2800, lz - 300], [lx2, 2800, lz2 - 300], [lx2, H + 320, lz2 - 300], [lx2, H + 320, lz2]], 30, 0x4aa8ff),
-    supply2: pipe(group, [[lx, 2800, lz - 300], [lx, 2800, lz - 150], [lx, H + 1350, lz - 150], [lx, H + 1350, lz]], 26, 0x4aa8ff),
-    hot: pipe(group, [[9330, H + 340, 15150], [9330, H + 700, 15150], [lx2, H + 700, 15150], [lx2, H + 700, lz2 + 150], [lx2, H + 320, lz2 + 150], [lx2, H + 320, lz2 + 40]], 26, 0xff5a3c),
-    vac: pipe(group, [[lx, H + 1350, lz + 120], [lx, H + 1350, 15150], [9850, H + 1350, 15150], [9850, H + 380, 15150]], 26, 0xb07cff),
-    vacOut: pipe(group, [[10110, H + 100, 15150], [10150, H + 100, 15150], [10150, 120, 15150], [fx + 300, 120, 15150], [fx + 300, 120, fz + 300]], 30, 0xb07cff),
-    sump: pipe(group, [[fx - 300, 120, fz], [b.x0 - 150, 120, fz], [b.x0 - 150, 120, p2z], [7200, 120, p2z], [7200, 2250, p2z], [p2x + 125, 2250, p2z], [p2x + 125, 420, p2z]], 36, 0xd88a3c),
     riser: pipe(group, [[p2x, 420, p2z], [p2x, 2100, p2z]], 34, 0xd88a3c),
     toWB: pipe(group, [[p2x, 2100, p2z], [tB.x, 2100, p2z], [tB.x, 2100, tB.z], [tB.x, 40 + tB.h, tB.z]], 34, 0xb07cff),
     toWA: pipe(group, [[p2x, 2100, p2z], [p2x, 2100, p2z + 200], [tA.x, 2100, p2z + 200], [tA.x, 2100, tA.z], [tA.x, 40 + tA.h, tA.z]], 34, 0xff7a45),
     toR: pipe(group, [[p2x, 2100, p2z], [p2x, 2100, tR.z], [tR.x, 2100, tR.z], [tR.x, 40 + tR.h, tR.z]], 34, 0x3dd68c),
-    city: pipe(group, [[tF.x, 2400, ROOM.D], [tF.x, 2400, tF.z], [tF.x, 40 + tF.h, tF.z]], 26, 0x8fd3ff),
-    outA: pipe(group, [[tA.x, 150, tA.z + tA.r], [tA.x, 150, bz1 - 100], [tA.x, 420, bz1 - 100], [tA.x, 420, ROOM.D - 60], [tA.x, 900, ROOM.D - 60]], 34, 0xff7a45),
-    outB: pipe(group, [[tB.x, 150, tB.z + tB.r], [tB.x, 150, bz1 - 100], [tB.x, 420, bz1 - 100], [tB.x, 420, ROOM.D - 60], [tB.x, 900, ROOM.D - 60]], 34, 0xb07cff),
   };
-  // 切換閥與清運接頭：core 的模型（目前是箱形示意），原點在中心
+  // 切換閥：core 的模型（目前是箱形示意），原點在中心
   const v3 = valve.create(); v3.root.position.set(p2x, 2100, p2z); group.add(v3.root);                         // V-3 三通切換閥
-  for (const t of [tA, tB]) { const c = transferCoupling.create(); c.root.position.set(t.x, 900, ROOM.D - 70); group.add(c.root); }   // 委外清運接頭（酸、鹼分開）
   const v4 = valve.create({ w: 160, h: 160, d: 160 }); v4.root.position.set(p2x, 2100, p2z + 200); group.add(v4.root);   // V-4 酸／鹼切換閥
-   // 排氣
-  cylinder(group, 140, ROOM.H - H - 100, [8900, H + (ROOM.H - H - 100) / 2, 15250], MAT.ppSolid, 'y', 20);
-  plate(group, ['排氣 → 廠務洗滌塔'], 900, 140, [9000, 3700, 14990], Math.PI, { w: 640, h: 100 });
+
+  // ---- 跨框架配管（世界座標）：P-1 → 沖洗站給水接點、集液接點 → P-2；廠務補水由東牆進 TK-F；酸、鹼清運管接到北牆清運接頭 ----
+  if (frames) {
+    group = worldG;
+    const W = (f, x, y, z) => { const [wx, wz] = toWorld(f, x, z); return [wx, y, wz]; };
+    const j1 = W('cell', lj1x, lj1y, lj1z), j2 = W('cell', lj2x, lj2y, lj2z), p1 = W('util', p1x, 420, p1z - 160), p2 = W('util', p2x + 125, 420, p2z);
+    const wF = W('util', tF.x, 0, tF.z), wA = W('util', tA.x, 0, tA.z), wB = W('util', tB.x, 0, tB.z);
+    Object.assign(pipes, {
+      supplyRun: pipe(group, [p1, [p1[0], 2800, p1[2]], [j1[0], 2800, p1[2]], j1], 30, 0x4aa8ff),
+      sumpRun: pipe(group, [j2, [p2[0], j2[1], j2[2]], [p2[0], j2[1], p2[2]], p2], 36, 0xd88a3c),
+      city: pipe(group, [[CLEAN.x1, 2400, wF[2]], [wF[0], 2400, wF[2]], [wF[0], 40 + tF.h, wF[2]]], 26, 0x8fd3ff),
+      // 在堤內先升高到 420，再越過防溢堤北牆（高 300）往北牆
+      outA: pipe(group, [[wA[0], 150, wA[2] - tA.r], [wA[0], 150, wA[2] - tA.r - 80], [wA[0], 420, wA[2] - tA.r - 80], [wA[0], 420, CLEAN.z0 + 60], [wA[0], 900, CLEAN.z0 + 60]], 34, 0xff7a45),
+      outB: pipe(group, [[wB[0], 150, wB[2] - tB.r], [wB[0], 150, wB[2] - tB.r - 80], [wB[0], 420, wB[2] - tB.r - 80], [wB[0], 420, CLEAN.z0 + 60], [wB[0], 900, CLEAN.z0 + 60]], 34, 0xb07cff),
+    });
+    for (const t of [wA, wB]) { const c = transferCoupling.create(); c.root.position.set(t[0], 900, CLEAN.z0 + 70); c.root.rotation.y = Math.PI; group.add(c.root); }   // 委外清運接頭（酸、鹼分開）
+  }
+  group = utilG;
 
   // 管線法蘭與泵壓表（屋頂機組的散熱片與百葉在熱風機、真空泵的模型裡）。
   for (const z of [p1z - 160, p2z]) flange(group, p1x, 600, z, 48);
   gauge(group, p1x - 75, 650, p1z - 180);
   const _a = new THREE.Vector3(), _b = new THREE.Vector3();
   return {
-    group, walls, pipes, tanks, lance, lance2, lanceTip: () => new THREE.Vector3(lx, lanceY(lance.userData.ext || 0), lz),
+    group: root, cell: cellG, util: utilG, walls, pipes, cellPipes, tanks, lance, lance2, lanceTip: () => new THREE.Vector3(lx, lanceY(lance.userData.ext || 0), lz),
     set({ knife = false, lance: ext = 0, lance2: ext2 = 0, spray: sp = false, pour = null, pool: pl = 0, sump = 0, tanks: lv = null, flows = {} }) {
       lance.position.set(lx, lanceY(ext), lz); lance.userData.ext = ext; lance2.position.set(lx2, lanceY(ext2), lz2);
       spray.visible = sp; jet.visible = sp; lamp.intensity = 500; for (const a of knives) a.visible = knife;
@@ -152,7 +182,7 @@ export function createWashing(scene) {
       pool.visible = pl > 0; pool.scale.setScalar(Math.max(.2, pl));
       sumpLevel.scale.y = Math.max(1, sump * 200); sumpLevel.position.y = 10 + sumpLevel.scale.y / 2;
       if (lv) for (const k of ['WA', 'WB', 'R', 'F']) { const { t, liquid, sight } = tanks[k], h = Math.max(1, (lv[k] / t.cap) * (t.h - 40)); liquid.scale.y = h; liquid.position.y = 50 + h / 2; sight.scale.y = Math.max(1, h - 40); sight.position.y = 80 + sight.scale.y / 2; }
-      for (const [k, p] of Object.entries(pipes)) p.setFlow(!!flows[k]);
+      for (const [k, p] of Object.entries(pipes)) p.setFlow(!!flows[k] || (k === 'supplyRun' && !!flows.supply) || (k === 'sumpRun' && !!flows.sump));
     },
     tick(time) { for (const p of Object.values(pipes)) p.tick(time); streamTex.offset.y = -time * 3; spray.rotation.y = time * 3; },
   };

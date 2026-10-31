@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>200L 化學桶自動清洗線 · 3D 規劃模擬</title>
+<title>200L 化學桶清洗＋填裝線 · 3D 規劃模擬</title>
 <link rel="icon" href="../core/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="css/style.css">
 <script type="importmap">
@@ -20,15 +20,17 @@
 
   <header id="topbar">
     <div class="brand">
-      <div class="title">200L 化學桶自動清洗線</div>
-      <div class="sub">洗桶區 12.56 × 15.52 m · 樓高 4.5 m · 散桶入庫 → 穿梭車密集架＋AGV → 龍門上料 → 貼標讀碼 → 翻桶 → 開蓋 → FANUC 手臂沖洗＋負壓抽乾 → 直送裝填區</div>
+      <div class="title">200L 化學桶清洗＋填裝線</div>
+      <div class="sub">倉庫 → AGV → 清洗區（龍門上料 → 側標 → 翻桶 → 開蓋 → FANUC 手臂沖洗＋抽乾 → 秤重 → 頂面貼標 3 張）→ 填裝區（三碼比對分線 → 4 線填裝鎖蓋 → 擦拭放行 → 組板）→ AGV 回倉庫</div>
     </div>
     <nav id="stations"></nav>
     <div class="views">
       <button data-view="iso">全景</button>
       <button data-view="top">俯視配置</button>
-      <button data-view="inbound">散桶入庫</button>
-      <button data-view="storage">倉儲 AGV</button>
+      <button data-view="clean">清洗區</button>
+      <button data-view="fill">填裝區</button>
+      <button data-view="road">道路 AGV</button>
+      <button data-view="warehouse">倉庫</button>
       <button data-view="gantry">龍門上料</button>
       <button data-view="label">貼標讀碼</button>
       <button data-view="upender">翻桶</button>
@@ -38,10 +40,13 @@
       <button data-view="booth">沖洗站</button>
       <button data-view="weigh">秤重</button>
       <button data-view="waste">廢液回收</button>
+      <button data-view="toplabel">頂面貼標</button>
+      <button data-view="line1">L1 填裝</button>
+      <button data-view="stage">暫存組板</button>
       <button data-view="follow" title="鏡頭跟隨第 1 桶">跟隨 #1</button>
     </div>
     <div class="focusbar" aria-label="焦點控制">
-      <label class="focus-choice">焦點 <select id="focusTarget" aria-label="焦點追蹤目標"><option value="gripper">清洗夾具</option><option value="auto">目前作業桶</option><option value="drum0">第 1 桶</option><option value="drum1">第 2 桶</option><option value="drum2">第 3 桶</option><option value="drum3">第 4 桶</option><option value="agv">AGV</option><option value="gantry">龍門夾爪</option></select></label>
+      <label class="focus-choice">焦點 <select id="focusTarget" aria-label="焦點追蹤目標"><option value="gripper">清洗夾具</option><option value="auto">目前作業桶</option><option value="drum0">第 1 桶</option><option value="drum1">第 2 桶</option><option value="drum2">第 3 桶</option><option value="drum3">第 4 桶</option><option value="agv">AGV</option><option value="gantry">龍門夾爪</option><option value="stg">組板龍門</option></select></label>
       <button id="focusNow">對準焦點</button><span class="hint">◎ 追隨此焦點</span><span id="focusStatus" role="status">自由視角</span>
     </div>
   </header>
@@ -49,9 +54,9 @@
   <aside id="side">
     <section class="card identity"><span class="eyebrow">ENGINEERING SIMULATION · 概念規劃</span><div id="phase">HOLD</div>
       <p id="cycleNote"></p>
-      <small>尺寸、型號與節拍為規劃階段假設；場地柱位、門位依圖面比例量測，需現場丈量。相機結果為模擬。</small></section>
+      <small>尺寸、型號與節拍為規劃階段假設；填裝區柱位、門位依圖面比例量測，清洗區、道路與倉庫依手稿推估（無廠域圖），需現場確認。相機、讀碼與扭力結果為模擬。</small></section>
     <section class="card"><h3>設備狀態 <span class="hint">目前動作</span></h3><div id="equip" class="equip"></div></section>
-    <section class="card"><h3>桶槽追蹤 <span class="hint">本棧板 4 桶</span></h3><div id="drums" class="drums"></div></section>
+    <section class="card"><h3>桶槽追蹤 <span class="hint">一板 4 桶＋組板 A 原有 1 桶</span></h3><div id="drums" class="drums"></div></section>
     <section class="card"><h3>手臂負載 <span class="hint">R-2000iC/165F 即時</span></h3><div id="payload" class="tanks">
       <div class="tank" data-k="kg"><span>總重（夾爪＋桶＋水）</span><span class="bar"><i></i></span><span class="v"></span></div>
       <div class="tank" data-k="j5"><span>J5 手腕力矩</span><span class="bar"><i></i></span><span class="v"></span></div>
@@ -67,7 +72,7 @@
       <label class="displayOption"><input id="showDims" type="checkbox">尺寸、AGV 迴轉圈、手臂伸展範圍</label>
       <label class="displayOption"><input id="showFence" type="checkbox" checked>圍籬與光柵</label>
       <label class="displayOption"><input id="showLabels" type="checkbox" checked>設備標籤</label>
-      <label class="displayOption"><input id="showCeiling" type="checkbox">天花板（4.5 m）</label>
+      <label class="displayOption"><input id="showCeiling" type="checkbox">天花板（廠房 4.5 m、倉庫 5 m）</label>
       <label class="displayOption"><input id="xray" type="checkbox">透視桶身（看桶內水量）</label>
       <label class="displayOption"><input id="showPip" type="checkbox" checked>相機子畫面</label>
     </section>

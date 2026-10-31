@@ -1,12 +1,12 @@
 {
   "ok": true,
-  "samples": 15062,
+  "samples": 25747,
   "dt": 0.05,
-  "total": 753.1,
+  "total": 1287.3,
   "robotCycle": 151.1,
   "robotTrackingMax": {
     "mm": 0.05,
-    "deg": 0.028
+    "deg": 0.029
   },
   "jointSpeedRatioMax": {
     "j1": 0.55,
@@ -18,15 +18,15 @@
   },
   "minRobotClearance": {
     "mm": 166,
-    "at": "232.20 s"
+    "at": "230.05 s"
   },
   "maxDrumStep": {
-    "mm": 92.5,
-    "at": 140.95,
+    "mm": 107.5,
+    "at": 1232.7,
     "drum": "drum0"
   },
   "determinismMaxDiff": 0,
   "failCounts": {},
   "failures": [],
-  "scope": "0.05 s 取樣；手臂連桿以線段＋半徑近似、桶以含滾箍的 162 個表面點近似，納入剛性配管；未含軟管掃掠、所有緊固件與 AGV 與人員的動態干涉。"
+  "scope": "0.05 s 取樣；手臂連桿以線段＋半徑近似、桶以含滾箍的 162 個表面點近似，納入沖洗站局部剛性配管；AGV 以 2D 車身與棧板多邊形對牆、門框與設備外框檢查；未含軟管掃掠、所有緊固件與人員的動態干涉（人員與設備由全場 scene 檢查）。"
 }

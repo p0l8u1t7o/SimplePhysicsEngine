@@ -2,84 +2,21 @@
   "variant": "預設",
   "params": {},
   "ok": true,
-  "count": 20,
+  "count": 24,
   "failures": [],
   "rows": [
     {
-      "group": "倉儲",
-      "name": "棧板位（第 1 道 3 深、扣空棧板道）",
+      "group": "配置",
+      "name": "設備都在牆內",
       "ok": true,
-      "value": "53 位 × 4 桶 = 212 桶 ≥ 200",
+      "value": "22 項（清洗區、填裝區）",
       "note": ""
     },
     {
-      "group": "倉儲",
-      "name": "第 3 層貨頂與樓高",
+      "group": "配置",
+      "name": "設備外框互不重疊（含結構柱）",
       "ok": true,
-      "value": "3935 mm，距樓板 565 mm（灑水頭 ≥ 450）",
-      "note": ""
-    },
-    {
-      "group": "倉儲",
-      "name": "層間淨空（含軌道 105）",
-      "ok": true,
-      "value": "100 mm ≥ 100",
-      "note": ""
-    },
-    {
-      "group": "AGV",
-      "name": "走道寬 vs 迴轉直徑",
-      "ok": true,
-      "value": "3600 ≥ 2×1662＋200",
-      "note": ""
-    },
-    {
-      "group": "AGV",
-      "name": "迴轉點 X 5590（第 2 道取料）",
-      "ok": true,
-      "value": "最近：龍門 88 mm",
-      "note": ""
-    },
-    {
-      "group": "AGV",
-      "name": "迴轉點 X 6950（第 3 道入庫）",
-      "ok": true,
-      "value": "最近：充電座 71 mm",
-      "note": ""
-    },
-    {
-      "group": "AGV",
-      "name": "迴轉點 X 3900（棧板站）",
-      "ok": true,
-      "value": "最近：龍門 88 mm",
-      "note": ""
-    },
-    {
-      "group": "AGV",
-      "name": "迴轉點 X 10810（空棧板道）",
-      "ok": true,
-      "value": "最近：牆 88 mm",
-      "note": ""
-    },
-    {
-      "group": "AGV",
-      "name": "迴轉點 X 9450（柱旁東道）",
-      "ok": true,
-      "value": "最近：柱 105 mm",
-      "note": ""
-    },
-    {
-      "group": "AGV",
-      "name": "入庫弧線 R2600（載棧板／空叉）",
-      "ok": true,
-      "value": "車身與棧板淨距 ≥ 50 mm",
-      "note": ""
-    },
-    {
-      "group": "AGV",
-      "name": "第 3 層取放門架高度",
-      "ok": true,
-      "value": "4090 mm",
+      "value": "通過",
       "note": ""
     },
     {
@@ -97,38 +34,122 @@
       "note": ""
     },
     {
-      "group": "動線",
-      "name": "人員通道（更衣室→產線）",
-      "ok": true,
-      "value": "寬 1130 mm；與 AGV 共用段設警示",
-      "note": ""
-    },
-    {
-      "group": "動線",
-      "name": "散桶入庫門（西牆）",
-      "ok": true,
-      "value": "寬 1700 mm（推車＋桶 ≥ 1500）",
-      "note": ""
-    },
-    {
       "group": "配置",
-      "name": "設備都在牆內",
-      "ok": true,
-      "value": "18 項",
-      "note": ""
-    },
-    {
-      "group": "配置",
-      "name": "設備外框互不重疊",
-      "ok": true,
-      "value": "通過",
-      "note": ""
-    },
-    {
-      "group": "配置",
-      "name": "龍門伸縮 Z 軸頂端",
+      "name": "清洗區龍門伸縮 Z 軸頂端",
       "ok": true,
       "value": "3750 mm（兩段伸縮）",
+      "note": ""
+    },
+    {
+      "group": "配置",
+      "name": "暫存區組板龍門頂端",
+      "ok": true,
+      "value": "3700 mm（樓高 4500）",
+      "note": ""
+    },
+    {
+      "group": "填裝",
+      "name": "相鄰兩線填裝架之間的走道",
+      "ok": true,
+      "value": "最窄 800 mm（擦拭人員巡迴 ≥ 800）",
+      "note": ""
+    },
+    {
+      "group": "填裝",
+      "name": "桶間擦拭站位",
+      "ok": true,
+      "value": "桶距 1450、桶間淨空 854 mm",
+      "note": ""
+    },
+    {
+      "group": "暫存",
+      "name": "組板位間距（AGV 叉取）",
+      "ok": true,
+      "value": "相鄰棧板淨距 300 mm",
+      "note": ""
+    },
+    {
+      "group": "暫存",
+      "name": "A 組板位 對準南牆捲門",
+      "ok": true,
+      "value": "填裝區南牆捲門（A～C 組板位）（4350 mm）",
+      "note": ""
+    },
+    {
+      "group": "暫存",
+      "name": "B 組板位 對準南牆捲門",
+      "ok": true,
+      "value": "填裝區南牆捲門（A～C 組板位）（4350 mm）",
+      "note": ""
+    },
+    {
+      "group": "暫存",
+      "name": "C 組板位 對準南牆捲門",
+      "ok": true,
+      "value": "填裝區南牆捲門（A～C 組板位）（4350 mm）",
+      "note": ""
+    },
+    {
+      "group": "暫存",
+      "name": "D 組板位 對準南牆捲門",
+      "ok": true,
+      "value": "填裝區南牆捲門（D 組板位、空棧板位）（2900 mm）",
+      "note": ""
+    },
+    {
+      "group": "暫存",
+      "name": "空棧板位 對準南牆捲門",
+      "ok": true,
+      "value": "填裝區南牆捲門（D 組板位、空棧板位）（2900 mm）",
+      "note": ""
+    },
+    {
+      "group": "AGV",
+      "name": "3 m 道路上原地迴轉",
+      "ok": true,
+      "value": "迴轉直徑 3324 mm，道路 3000 mm（路肩各外擴約 162 mm，無障礙物）",
+      "note": ""
+    },
+    {
+      "group": "AGV",
+      "name": "清洗區棧板站（載待洗棧板）",
+      "ok": true,
+      "value": "車身與棧板不碰牆、門框",
+      "note": ""
+    },
+    {
+      "group": "AGV",
+      "name": "填裝區 A 組板位（載滿板）",
+      "ok": true,
+      "value": "車身與棧板不碰牆、門框",
+      "note": ""
+    },
+    {
+      "group": "AGV",
+      "name": "填裝區空棧板位（載空板）",
+      "ok": true,
+      "value": "車身與棧板不碰牆、門框",
+      "note": ""
+    },
+    {
+      "group": "AGV",
+      "name": "倉庫門（載板）",
+      "ok": true,
+      "value": "車身與棧板不碰牆、門框",
+      "note": ""
+    },
+    {
+      "group": "AGV",
+      "name": "清洗區捲門寬 vs 棧板",
+      "ok": true,
+      "value": "門 3000 mm，棧板兩側各 500／1300 mm",
+      "note": ""
+    },
+    {
+      "group": "倉庫",
+      "name": "樓高與堆疊",
+      "ok": true,
+      "value": "W 30 × L 20 × H 5 m（600 m²）；滿桶棧板可疊 3 層（需確認桶與棧板承重）",
       "note": ""
     },
     {
@@ -136,6 +157,13 @@
       "name": "手臂取放點水平距離",
       "ok": true,
       "value": "最遠 2158 mm（型錄伸展 2655）",
+      "note": ""
+    },
+    {
+      "group": "清洗",
+      "name": "手臂伸展範圍在清洗區內",
+      "ok": true,
+      "value": "東側餘 265 mm（DCS 另限制在圍籬內）",
       "note": ""
     },
     {

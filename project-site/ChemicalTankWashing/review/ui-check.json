@@ -16,7 +16,7 @@
       },
       "views": {
         "ok": true,
-        "info": 14
+        "info": 19
       },
       "panels": {
         "ok": true
@@ -24,9 +24,9 @@
       "labels": {
         "ok": true,
         "info": {
-          "visible": 12,
+          "visible": 21,
           "outside": 0,
-          "overlaps": 2
+          "overlaps": 21
         }
       },
       "load": {
@@ -52,7 +52,7 @@
       },
       "views": {
         "ok": true,
-        "info": 14
+        "info": 19
       },
       "panels": {
         "ok": true
@@ -60,7 +60,7 @@
       "labels": {
         "ok": true,
         "info": {
-          "visible": 6,
+          "visible": 2,
           "outside": 0,
           "overlaps": 0
         }
@@ -87,7 +87,7 @@
       },
       "views": {
         "ok": true,
-        "info": 14
+        "info": 19
       },
       "panels": {
         "ok": true
@@ -122,7 +122,7 @@
       },
       "views": {
         "ok": true,
-        "info": 14
+        "info": 19
       },
       "panels": {
         "ok": true
@@ -130,7 +130,7 @@
       "labels": {
         "ok": true,
         "info": {
-          "visible": 9,
+          "visible": 8,
           "outside": 0,
           "overlaps": 0
         }

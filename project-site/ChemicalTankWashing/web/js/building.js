@@ -1,9 +1,13 @@
-// 洗桶區建築：地坪、牆、門窗、柱、分區標線、樓高與尺寸標註。
+// 建築與場區：填裝區（原洗桶區）、清洗區、道路、倉庫；地坪、牆、門窗、柱、捲門、分區標線、樓高與尺寸標註。
 import * as THREE from 'three';
-import { ROOM, OUTLINE, DOORS, COLUMN, AISLE, AGV, FOOTPRINTS, WALKWAYS, FILLING, SHUTTLE_BAY, WASTE, RACK, AGV_TURNS, agvSweep, pointInPolygon, doorSwing, ROBOT, rackBlocks, FENCE, INBOUND, INBOUND_AREA, inboundArcPoses } from './layout.js';
+import {
+  ROOM, OUTLINE, DOORS, COLUMN, CLEAN, CLEAN_OUTLINE, ROAD3, ROAD5, WAREHOUSE, WH_ZONES, OPENINGS, AGV, AGV_TURNS, agvSweep, doorSwing,
+  ROBOT, FENCE, GANTRY_FENCE, WASTE, FILL, STAGING, OUTFEED, PALLET, DRUM, pointInPolygon, toWorld, rectToWorld, warehouseStore,
+} from './layout.js';
 import { block, floorText, rod } from '@core/geom/shapes.js';
 import { MAT } from '@core/geom/materials.js';
-import { agvCharger } from '@core/models/transport-handling.js';
+import { agvCharger, pallet } from '@core/models/transport-handling.js';
+import { createDrumInstances } from './drum.js';
 
 const line = (pts, color, opacity = 1) => {
   const g = new THREE.BufferGeometry().setFromPoints(pts.map(p => new THREE.Vector3(...p)));
@@ -17,47 +21,90 @@ function zone(parent, [x0, z0, x1, z1], color, opacity = .14, y = 3) {
   parent.add(Object.assign(line([[x0, y + 1, z0], [x1, y + 1, z0], [x1, y + 1, z1], [x0, y + 1, z1], [x0, y + 1, z0]], color, .8), { renderOrder: zoneOrder++ }));
   return m;
 }
+function polyZone(parent, pts, color, opacity = .07, y = 3) {
+  const m = new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape(pts.map(([x, z]) => new THREE.Vector2(x, -z)))), new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -zoneOrder }));
+  m.rotation.x = -Math.PI / 2; m.position.y = y; m.renderOrder = zoneOrder++; parent.add(m); return m;
+}
 function ring(parent, x, z, r, color, opacity = .7, y = 8) {
   const m = new THREE.Mesh(new THREE.RingGeometry(r - 22, r + 22, 128), new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, side: THREE.DoubleSide }));
   m.rotation.x = -Math.PI / 2; m.position.set(x, y, z); m.renderOrder = 2; parent.add(m); return m;
 }
+const floorMesh = (parent, pts, mat, y = 0) => {
+  const m = new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape(pts.map(([x, z]) => new THREE.Vector2(x, -z)))), mat);
+  m.rotation.x = -Math.PI / 2; m.position.y = y; m.receiveShadow = true; parent.add(m); return m;
+};
+
+// 沿多邊形內牆輪廓外推建牆；gapsOf(邊) 回傳該邊的開口 [沿邊起點, 終點, 開口頂高]；skip(邊) 為 true 的邊不建（共用牆只建一次）
+function walls(group, poly, H, { gapsOf = () => [], skip = () => false } = {}) {
+  const t = ROOM.wall;
+  for (let i = 0; i < poly.length; i++) {
+    const [ax, az] = poly[i], [bx, bz] = poly[(i + 1) % poly.length];
+    if (skip([ax, az], [bx, bz])) continue;
+    const L = Math.hypot(bx - ax, bz - az), dx = (bx - ax) / L, dz = (bz - az) / L;
+    let nx = -dz, nz = dx; const mx = (ax + bx) / 2, mz = (az + bz) / 2;
+    if (pointInPolygon([mx + nx * 20, mz + nz * 20], poly)) { nx = -nx; nz = -nz; }
+    const yaw = Math.atan2(-dz, dx);
+    // 開口在沿邊距離上的區間
+    const gaps = gapsOf([ax, az], [bx, bz]).map(([p, q, top]) => { const s0 = (p[0] - ax) * dx + (p[1] - az) * dz, s1 = (q[0] - ax) * dx + (q[1] - az) * dz; return [Math.min(s0, s1), Math.max(s0, s1), top]; }).sort((u, v) => u[0] - v[0]);
+    const piece = (s0, s1, y0, y1, mat) => {
+      if (s1 - s0 < 1 || y1 - y0 < 1) return;
+      const c = (s0 + s1) / 2, ext = (s0 <= 0 ? t / 2 : 0) + (s1 >= L ? t / 2 : 0), off = (s1 >= L ? t / 4 : 0) - (s0 <= 0 ? t / 4 : 0);
+      const w = new THREE.Mesh(new THREE.BoxGeometry(s1 - s0 + ext, y1 - y0, t), mat);
+      w.position.set(ax + dx * (c + off) + nx * t / 2, (y0 + y1) / 2, az + dz * (c + off) + nz * t / 2); w.rotation.y = yaw; w.receiveShadow = true; group.add(w);
+    };
+    for (const [h, mat] of [[H, MAT.wall], [160, MAT.wallBase]]) {
+      let s = 0;
+      for (const [g0, g1, top] of gaps) {
+        piece(s, g0, 0, h, mat);
+        if (h === H) piece(g0, g1, top, H, mat);   // 門楣以上
+        s = g1;
+      }
+      piece(s, L, 0, h, mat);
+    }
+  }
+}
+// 捲門：兩側導軌（嵌在門邊牆內，不佔開口）＋門楣內側的捲門箱
+function rollerDoor(group, x0, x1, z, top, inward) {
+  for (const x of [x0 - 50, x1 + 50]) block(group, [120, top, 260], [x, top / 2, z], MAT.yellow);   // 凸出開口 10 mm，與牆端面不共面
+  block(group, [x1 - x0 + 240, 380, 300], [(x0 + x1) / 2, top + 200, z + inward * 160], MAT.steelDark);
+}
 
 export function createBuilding(scene) {
   const group = new THREE.Group(); group.name = 'building'; scene.add(group);
-  // 地坪
-  const outside = new THREE.Mesh(new THREE.PlaneGeometry(60000, 60000), MAT.floorOut);
-  outside.rotation.x = -Math.PI / 2; outside.position.set(5000, -2, 8000); outside.receiveShadow = true; group.add(outside);
-  const shape = new THREE.Shape(OUTLINE.map(([x, z]) => new THREE.Vector2(x, -z)));
-  const floor = new THREE.Mesh(new THREE.ShapeGeometry(shape), MAT.floor); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; group.add(floor);
-  // 更衣室地坪（區外，僅示意）
-  const lockerShape = new THREE.Shape([[-2050, 4700], [1770, 4700], [1770, 8520], [-2050, 8520]].map(([x, z]) => new THREE.Vector2(x, -z)));
-  const locker = new THREE.Mesh(new THREE.ShapeGeometry(lockerShape), new THREE.MeshStandardMaterial({ color: 0x59636c, roughness: .9 }));
-  locker.rotation.x = -Math.PI / 2; locker.position.y = -1; group.add(locker);
+  // 地坪（廠區外地）
+  const outside = new THREE.Mesh(new THREE.PlaneGeometry(76000, 58000), MAT.floorOut);
+  outside.rotation.x = -Math.PI / 2; outside.position.set(23000, -2, 19000); outside.receiveShadow = true; group.add(outside);
+  // 填裝區地坪、更衣室（區外，僅示意）
+  floorMesh(group, OUTLINE, MAT.floor);
+  floorMesh(group, [[-2050, 4700], [1770, 4700], [1770, 8520], [-2050, 8520]], new THREE.MeshStandardMaterial({ color: 0x59636c, roughness: .9 }), -1);
+  // 清洗區地坪
+  floorMesh(group, CLEAN_OUTLINE, MAT.floor);
 
-  // 牆：沿內牆輪廓外推 100 mm；半透明以便觀察
-  for (let i = 0; i < OUTLINE.length; i++) {
-    const [ax, az] = OUTLINE[i], [bx, bz] = OUTLINE[(i + 1) % OUTLINE.length];
-    const L = Math.hypot(bx - ax, bz - az), dx = (bx - ax) / L, dz = (bz - az) / L;
-    let nx = -dz, nz = dx; const mx = (ax + bx) / 2, mz = (az + bz) / 2;
-    if (pointInPolygon([mx + nx * 20, mz + nz * 20])) { nx = -nx; nz = -nz; }
-    const yaw = Math.atan2(-dz, dx);
-    for (const [h, mat, y] of [[ROOM.H, MAT.wall, ROOM.H / 2], [160, MAT.wallBase, 80]]) {
-      if (ax === 0 && bx === 0 && Math.min(az, bz) < INBOUND.door[0] && Math.max(az, bz) > INBOUND.door[1]) {
-        const low = Math.min(az, bz), high = Math.max(az, bz), [d0, d1] = INBOUND.door;
-        for (const [za, zb] of [[low, d0], [d1, high]]) block(group, [ROOM.wall, h, zb - za], [nx * ROOM.wall / 2, y, (za + zb) / 2], mat);
-        if (h === ROOM.H) block(group, [ROOM.wall, ROOM.H - 2600, d1 - d0], [nx * ROOM.wall / 2, (ROOM.H + 2600) / 2, (d0 + d1) / 2], mat);
-      } else {
-        const w = new THREE.Mesh(new THREE.BoxGeometry(L + ROOM.wall, h, ROOM.wall), mat);
-        w.position.set(mx + nx * ROOM.wall / 2, y, mz + nz * ROOM.wall / 2); w.rotation.y = yaw; w.receiveShadow = true; group.add(w);
-      }
-    }
-  }
-  // 更衣室西牆與南牆（輪廓以外）
-  block(group, [ROOM.wall, ROOM.H, 3820], [-2150, ROOM.H / 2, 6610], MAT.wall);
+  // ---- 牆 ----
+  const t = ROOM.wall, conv = OPENINGS.conveyor;
+  walls(group, OUTLINE, ROOM.H, {
+    gapsOf: ([ax, az], [bx, bz]) => {
+      if (az === ROOM.D && bz === ROOM.D) return Object.values(OPENINGS).filter(o => o.wall === 'fillS').map(o => [[o.x0, az], [o.x1, az], o.y1]);
+      if (ax === ROOM.W && bx === ROOM.W) return [[[ax, conv.z0], [ax, conv.z1], conv.y1]];
+      return [];
+    },
+  });
+  walls(group, CLEAN_OUTLINE, CLEAN.H, {
+    skip: ([ax], [bx]) => ax === CLEAN.x0 && bx === CLEAN.x0,   // 西牆就是填裝區東牆（共用）
+    gapsOf: ([, az], [, bz]) => az === CLEAN.z1 && bz === CLEAN.z1 ? [[[OPENINGS.clean.x0, az], [OPENINGS.clean.x1, az], OPENINGS.clean.y1]] : [],
+  });
+  // 更衣室西牆（輪廓以外）
+  block(group, [t, ROOM.H, 3820], [-2150, ROOM.H / 2, 6610], MAT.wall);
+  // 捲門（南牆三樘：填裝區兩樘、清洗區一樘）
+  for (const o of Object.values(OPENINGS)) if (o.wall !== 'shared') rollerDoor(group, o.x0, o.x1, ROOM.D + t / 2, o.y1, -1);
+  // 共用牆輸送口的框
+  for (const z of [conv.z0 + 40, conv.z1 - 40]) block(group, [t + 40, conv.y1, 80], [ROOM.W + t / 2, conv.y1 / 2, z], MAT.yellow);
   // 樓高輪廓線
   group.add(line([...OUTLINE, OUTLINE[0]].map(([x, z]) => [x, ROOM.H, z]), 0x8fb6c8, .55));
-  const ceiling = new THREE.Mesh(new THREE.ShapeGeometry(shape), new THREE.MeshBasicMaterial({ color: 0x9fc3d6, transparent: true, opacity: .07, side: THREE.DoubleSide, depthWrite: false }));
-  ceiling.rotation.x = -Math.PI / 2; ceiling.position.y = ROOM.H; ceiling.visible = false; group.add(ceiling);
+  group.add(line([...CLEAN_OUTLINE, CLEAN_OUTLINE[0]].map(([x, z]) => [x, CLEAN.H, z]), 0x8fb6c8, .55));
+  const ceilMat = new THREE.MeshBasicMaterial({ color: 0x9fc3d6, transparent: true, opacity: .07, side: THREE.DoubleSide, depthWrite: false });
+  const ceiling = new THREE.Group(); ceiling.visible = false; group.add(ceiling);
+  floorMesh(ceiling, OUTLINE, ceilMat, ROOM.H); floorMesh(ceiling, CLEAN_OUTLINE, ceilMat, CLEAN.H);
 
   // 門（門扇以 30° 半開示意）＋開啟範圍
   for (const d of DOORS) {
@@ -67,40 +114,70 @@ export function createBuilding(scene) {
     hinge.rotation.y = -d.dir * 30 * Math.PI / 180;
     const pts = []; for (let i = 0; i <= 24; i++) { const a = i / 24 * Math.PI / 2; pts.push([d.x0 + w * Math.cos(a), 6, d.z + d.dir * w * Math.sin(a)]); }
     group.add(line([[d.x0, 6, d.z], ...pts, [d.x0, 6, d.z]], 0xffd27a, .8));
-    const s = doorSwing(d); zone(group, s, 0xffd27a, .08, 2);
   }
-  // 窗（東牆一段、南牆五樘）
-  block(group, [30, 1500, 5400], [ROOM.W + 105, 1650, 7250], MAT.window);
-  for (const x of [-1600, 400, 2400, 7200, 9800]) block(group, [1700, 1500, 30], [x + 850, 1650, ROOM.D + 105], MAT.window);
+  // 窗（填裝區南牆剩兩樘；原東牆窗改為共用牆，不再保留）
+  for (const x of [7200, 9800]) block(group, [1700, 1500, 30], [x + 850, 1650, ROOM.D + 105], MAT.window);
   // 柱
   block(group, [COLUMN.size, ROOM.H, COLUMN.size], [COLUMN.x, ROOM.H / 2, COLUMN.z], MAT.column);
-  // 柱面 AGV 充電櫃
-  // core 的 AGV 充電櫃模型：原點在櫃體底面中心，指示燈朝 +Z（南面）
-  { const [x0, z0, x1, z1, h] = FOOTPRINTS.charger; const c = agvCharger.create({ w: x1 - x0, h, d: z1 - z0 }); c.root.position.set((x0 + x1) / 2, 0, (z0 + z1) / 2); group.add(c.root); }
 
-  // 分區
+  // ---- 道路 ----
+  const road = new THREE.MeshStandardMaterial({ color: 0x2c3238, roughness: .95 });
+  const roadPlane = (x0, z0, x1, z1, y = 1) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, z1 - z0), road); m.rotation.x = -Math.PI / 2; m.position.set((x0 + x1) / 2, y, (z0 + z1) / 2); m.receiveShadow = true; group.add(m); };
+  roadPlane(ROAD3.x0, ROAD3.z0, ROAD3.x1, ROAD3.z1);
+  roadPlane(ROAD5.x0, ROAD5.z0, ROAD5.x1, ROAD3.z0);
+  roadPlane(ROAD5.x0, ROAD3.z1, ROAD5.x1, ROAD5.z1);
+  const paint = new THREE.MeshBasicMaterial({ color: 0xe8e8e0 }), paintY = new THREE.MeshBasicMaterial({ color: 0xf2c230 });
+  const mark = (x0, z0, x1, z1, mat = paint) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, z1 - z0), mat); m.rotation.x = -Math.PI / 2; m.position.set((x0 + x1) / 2, 4, (z0 + z1) / 2); group.add(m); };
+  for (let x = ROAD3.x0 + 500; x < ROAD3.x1 - 1500; x += 3000) if (x + 1500 < ROAD5.x0 || x > ROAD5.x1) mark(x, ROAD3.zc - 60, x + 1500, ROAD3.zc + 60);
+  for (let z = ROAD5.z0 + 500; z < ROAD3.z0 - 1500; z += 3000) mark(ROAD5.xc - 60, z, ROAD5.xc + 60, z + 1500);
+  for (const z of [ROAD3.z0 + 80, ROAD3.z1 - 80]) for (const [a, b] of [[ROAD3.x0, ROAD5.x0], [ROAD5.x1, ROAD3.x1]]) mark(a, z - 50, b, z + 50, paintY);
+  for (const x of [ROAD5.x0 + 80, ROAD5.x1 - 80]) mark(x - 50, ROAD5.z0, x + 50, ROAD3.z0, paintY);
+
+  // ---- 倉庫 ----
+  const W = WAREHOUSE, whPoly = [[W.x0, W.z0], [W.x1, W.z0], [W.x1, W.z1], [W.x0, W.z1]];
+  floorMesh(group, whPoly, MAT.floor);
+  walls(group, whPoly, W.H, { gapsOf: ([, az], [, bz]) => az === W.z0 && bz === W.z0 ? [[[W.door[0], az], [W.door[1], az], 4200]] : [] });
+  rollerDoor(group, W.door[0], W.door[1], W.z0 - t / 2, 4200, 1);
+  group.add(line([...whPoly, whPoly[0]].map(([x, z]) => [x, W.H, z]), 0x8fb6c8, .55));
+  floorMesh(ceiling, whPoly, ceilMat, W.H);
+  { const c = agvCharger.create({ w: 600, h: 1400, d: 400 }); c.root.position.set(W.x0 + 250, 0, WH_ZONES.aisleZ); c.root.rotation.y = Math.PI / 2; group.add(c.root); }
+  // 倉儲棧板與桶（靜態，InstancedMesh）：待洗區、成品 A～D；動畫用的卸板位留空
+  const store = createStaticStore(group);
+
+  // ---- 分區 ----
   const zones = new THREE.Group(); group.add(zones);
-  zone(zones, [0, 0, ROOM.W, RACK.zFront], 0x4aa8ff, .06);
-  zone(zones, [1770, AISLE.z0, ROOM.W, AISLE.z1], 0xffc233, .1);
-  for (const w of WALKWAYS) zone(zones, w, 0x3dd68c, .12);
-  zone(zones, FILLING, 0x9aa7b3, .12);
-  zone(zones, INBOUND_AREA, 0xb07cff, .12);
-  zone(zones, SHUTTLE_BAY, 0x7d8b97, .12);
-  zone(zones, WASTE.bund, 0xff9f43, .12);
-  const cell = new THREE.Shape(FENCE.map(([x, z]) => new THREE.Vector2(x, -z)));
-  const cellFloor = new THREE.Mesh(new THREE.ShapeGeometry(cell), new THREE.MeshBasicMaterial({ color: 0x4fd1e8, transparent: true, opacity: .07, depthWrite: false }));
-  cellFloor.rotation.x = -Math.PI / 2; cellFloor.position.y = 3; zones.add(cellFloor);
-  floorText(zones, ['倉儲區 · 穿梭車密集架', '第 1 道 3 深，其餘 4 深 × 3 層'], 6300, 5050, 3000, 520);
-  floorText(zones, 'AGV 走道 3.6 m', 6000, 8600, 2200, 300, { fg: '#ffd56a' });
-  floorText(zones, '人車共用通道', 2335, 6900, 1800, 260, { fg: '#9ff0c6', rot: Math.PI / 2 });
-  floorText(zones, ['散桶入庫作業區', '台車推入 → 懸臂吊上棧板'], 1050, 4150, 1900, 420, { fg: '#d7bcff' });
-  floorText(zones, ['裝填區', '下一站・不在本案範圍'], 10700, 14900, 1300, 520, { fg: '#c7d1da', rot: Math.PI / 2 });
-  floorText(zones, ['預留區', '控制櫃・廢液槽西側'], 1000, 13300, 3000, 800, { fg: '#8796a3' });
-  floorText(zones, ['穿梭車', '充電／維修'], 7900, 2400, 1400, 600, { fg: '#c7d1da' });
+  // 填裝區
+  FILL.lines.forEach((x, i) => {
+    zone(zones, [x - FILL.frameHalf - 60, FILL.frame[0] - 60, x + FILL.frameHalf + 60, FILL.frame[1] + 60], 0x4aa8ff, .08);
+    floorText(zones, [`L${i + 1} 液體 ${FILL.liquids[i]}`], x, FILL.frame[1] + 420, 1000, 260, { fg: '#9fd0ff' });
+  });
+  zone(zones, [STAGING.gantry.x0, 12900, STAGING.gantry.x1, 15500], 0xffc233, .08);
+  floorText(zones, ['暫存區 · 同液體同板', '龍門夾桶上棧板（田字型 2×2）'], 1600, 13300, 3200, 600, { fg: '#ffd56a' });
+  zone(zones, FILL.ng.box, 0xff5a5a, .14);
+  zone(zones, [1770, 2100, 2350, 12050], 0x3dd68c, .1);
+  floorText(zones, '人員通道', 2060, 9800, 1200, 240, { fg: '#9ff0c6', rot: Math.PI / 2 });
+  floorText(zones, ['填裝區（原洗桶區）', '4 線 × 4 填裝位，各自獨立啟動'], 6200, 3200, 4600, 600, { fg: '#c7e3ff' });
   floorText(zones, '更衣室 106', -150, 6600, 2000, 300, { fg: '#c7d1da' });
-  floorText(zones, '清洗區（DCS＋圍籬）', 7900, 13300, 2300, 260, { fg: '#8fe5f2' });
+  // 清洗區
+  const cellPoly = FENCE.slice(0, -1).map(([x, z]) => toWorld('cell', x, z));
+  polyZone(zones, cellPoly, 0x4fd1e8, .07);
+  zone(zones, rectToWorld('front', GANTRY_FENCE[0].concat(GANTRY_FENCE[2])), 0x9b7cff, .06);
+  zone(zones, rectToWorld('util', WASTE.bund), 0xff9f43, .12);
+  zone(zones, [13300, 3000, 20200, 11300], 0x7d8b97, .06);
+  floorText(zones, ['清洗前暫存（預留）', '待洗棧板 2 位、維修空間'], 16750, 7000, 4200, 700, { fg: '#8796a3' });
+  floorText(zones, '手臂清洗區（DCS＋圍籬）', ...toWorld('cell', 8000, 13300), 2600, 260, { fg: '#8fe5f2' });
+  floorText(zones, ['清洗區', '翻桶 → 側標 → 翻正 → 開蓋 → 手臂清洗 → 秤重 → 頂面貼標'], 19300, 14650, 6200, 600, { fg: '#bff3ea' });
+  // 倉庫
+  zone(zones, WH_ZONES.dirty, 0x4aa8ff, .08);
+  for (const [k, r] of Object.entries(WH_ZONES.finished)) { zone(zones, r, 0x3dd68c, .08); floorText(zones, `成品 ${k}`, (r[0] + r[2]) / 2, 24600, 1800, 420, { fg: '#9ff0c6' }); }
+  floorText(zones, ['待洗桶區', '田字型棧板 4 桶'], (WH_ZONES.dirty[0] + WH_ZONES.dirty[2]) / 2, 24600, 3600, 700, { fg: '#9fd0ff' });
+  floorText(zones, ['倉庫（取代原倉儲區）', 'W 30 × L 20 × H 5 m'], 40000, 22500, 6000, 700, { fg: '#c7d1da' });
+  zone(group, [AGV.charger.x - 300, WH_ZONES.aisleZ - 550, AGV.charger.x + 1600, WH_ZONES.aisleZ + 550], 0x3dd68c, .25, 4);   // AGV 地面充電板（停車時朝西）
+  // 道路文字
+  floorText(zones, '道路 3 m', 6000, ROAD3.zc + 900, 1600, 300, { fg: '#c9ced4' });
+  floorText(zones, '道路 5 m（手稿：馬路）', ROAD5.xc, 6000, 3600, 360, { fg: '#c9ced4', rot: Math.PI / 2 });
 
-  // 尺寸與淨空標註（可切換）
+  // ---- 尺寸與淨空標註（可切換）----
   const dims = new THREE.Group(); dims.visible = false; group.add(dims);
   const dimLabels = [];
   // 尺寸線用細圓桿（WebGL 線寬固定 1 px，俯視全場時看不到）
@@ -112,25 +189,37 @@ export function createBuilding(scene) {
     for (const p of [a, b]) rod(dims, [p[0] - n.x, p[1], p[2] - n.z], [p[0] + n.x, p[1], p[2] + n.z], 14, m, 6);
     dimLabels.push({ text, pos: new THREE.Vector3(...a).add(new THREE.Vector3(...b)).multiplyScalar(.5) });
   };
-  dim([0, 30, -700], [ROOM.W, 30, -700], '12,560');
-  dim([ROOM.W + 700, 30, 0], [ROOM.W + 700, 30, ROOM.D], '15,520');
-  dim([2400, 30, 0], [2400, 30, RACK.zFront], '貨架深 5,400');
-  dim([2400, 30, AISLE.z0], [2400, 30, AISLE.z1], '走道 3,600');
-  dim([1770, 30, 8200], [2900, 30, 8200], '通道 1,130');
-  const [bw] = rackBlocks();
-  dim([bw[0] - 300, 0, RACK.zFront + 200], [bw[0] - 300, RACK.levels[2] + 150 + 935, RACK.zFront + 200], '貨頂 3,895', 0xffd27a);
-  dim([bw[0] - 600, 0, RACK.zFront + 200], [bw[0] - 600, ROOM.H, RACK.zFront + 200], '樓高 4,500', 0xffd27a);
-  dim([COLUMN.x - 400, 30, COLUMN.z + 900], [COLUMN.x + 400, 30, COLUMN.z + 900], '柱 800（圖面量測）', 0xff9f9f);
-  // AGV 地面充電板（齊平）
-  zone(group, [AGV.charger.x - 500, AGV.charger.z - 550, AGV.charger.x + 1300, AGV.charger.z + 550], 0x3dd68c, .25, 4);
-  // AGV 入庫弧線（中心線）
-  for (const p of inboundArcPoses(40)) { const m = new THREE.Mesh(new THREE.CircleGeometry(28, 10), new THREE.MeshBasicMaterial({ color: 0xd7bcff })); m.rotation.x = -Math.PI / 2; m.position.set(p.x, 9, p.z); dims.add(m); }
-  dimLabels.push({ text: `AGV 入庫弧線 R${INBOUND.arc}`, pos: new THREE.Vector3(INBOUND.arcStart[0] - 900, 40, INBOUND.arcEnd[1] + 1500) });
+  dim([0, 30, -900], [ROOM.W, 30, -900], '填裝區 12,560');
+  dim([-3300, 30, 0], [-3300, 30, ROOM.D], '15,520');
+  dim([CLEAN.x0, 30, -900], [CLEAN.x1, 30, -900], '清洗區 13,500（建議）');
+  dim([ROAD5.x0, 30, 2000], [ROAD5.x1, 30, 2000], '道路 5,000');
+  dim([-6000, 30, ROAD3.z0], [-6000, 30, ROAD3.z1], '道路 3,000');
+  dim([W.x0, 30, W.z1 + 900], [W.x1, 30, W.z1 + 900], '倉庫 30,000');
+  dim([W.x1 + 900, 30, W.z0], [W.x1 + 900, 30, W.z1], '20,000');
+  dim([W.x1 - 600, 0, W.z0 + 600], [W.x1 - 600, W.H, W.z0 + 600], '倉庫 H 5,000', 0xffd27a);
+  dim([-1500, 0, 600], [-1500, ROOM.H, 600], '樓高 4,500', 0xffd27a);
+  dim([COLUMN.x - 400, 30, COLUMN.z - 900], [COLUMN.x + 400, 30, COLUMN.z - 900], '柱 800（圖面量測）', 0xff9f9f);
+  dim([FILL.lines[0], 30, FILL.pos[1] + DRUM.envelopeR], [FILL.lines[0], 30, FILL.pos[0] - DRUM.envelopeR], `桶間 ${FILL.pos[0] - FILL.pos[1] - 2 * DRUM.envelopeR}`, 0xd7bcff);
+  // AGV 迴轉圈與手臂伸展範圍
   const agvRings = new THREE.Group(); dims.add(agvRings);
-  for (const t of AGV_TURNS) { ring(agvRings, t.x, t.z, agvSweep(t.loaded), 0xffc233, .8); }
-  dimLabels.push({ text: `AGV 迴轉 R${agvSweep(true).toFixed(0)}`, pos: new THREE.Vector3(AGV_TURNS[1].x, 40, AGV_TURNS[1].z - agvSweep(true)) });
-  ring(dims, ROBOT.x, ROBOT.z, 2655, 0x4fd1e8, .45);
-  dimLabels.push({ text: 'R-2000iC 最大伸展 R2655（DCS 限制在圍籬內）', pos: new THREE.Vector3(ROBOT.x - 1900, 40, ROBOT.z - 1850) });
+  for (const tn of AGV_TURNS) ring(agvRings, tn.x, tn.z, agvSweep(tn.loaded), 0xffc233, .8);
+  dimLabels.push({ text: `AGV 迴轉 R${agvSweep(true).toFixed(0)}（道路上原地迴轉）`, pos: new THREE.Vector3(AGV_TURNS[1].x, 40, AGV_TURNS[1].z + agvSweep(true) + 300) });
+  const [rx, rz] = toWorld('cell', ROBOT.x, ROBOT.z);
+  ring(dims, rx, rz, 2655, 0x4fd1e8, .45);
+  dimLabels.push({ text: 'R-2000iC 最大伸展 R2655（DCS 限制在圍籬內）', pos: new THREE.Vector3(rx - 1900, 40, rz + 1850) });
+  for (const d of DOORS) zone(dims, doorSwing(d), 0xffd27a, .08, 2);
 
-  return { group, zones, dims, dimLabels, ceiling };
+  return { group, zones, dims, dimLabels, ceiling, store };
+}
+
+// 倉庫靜態儲位：棧板（core 棧板模型的 InstancedMesh）＋桶（InstancedMesh）
+function createStaticStore(group) {
+  const slots = warehouseStore();
+  const many = pallet.instances(slots.map(({ x, z }) => [x, 0, z]), { size: PALLET.W, height: PALLET.H }); many.root.name = 'warehouse pallets'; group.add(many.root);
+  const drums = slots.flatMap(({ x, z, n }) => PALLET.slots.slice(0, n).map(([sx, sz]) => [x + sx, z + sz]));
+  const inst = createDrumInstances(drums.length), m = new THREE.Matrix4();
+  const q = new THREE.Quaternion(), Y = new THREE.Vector3(0, 1, 0), one = new THREE.Vector3(1, 1, 1);
+  drums.forEach(([x, z], i) => inst.add(m.compose(new THREE.Vector3(x, PALLET.H + DRUM.H / 2, z), q.setFromAxisAngle(Y, (i * 73) % 360 * Math.PI / 180), one)));
+  inst.done(); inst.group.name = 'warehouse drums'; group.add(inst.group);
+  return { pallets: slots.length, drums: drums.length };
 }

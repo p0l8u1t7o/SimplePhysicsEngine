@@ -1,25 +1,29 @@
 // 動畫排程：每台設備與每個桶各有一條時間軌，依站位占用（流水線阻塞）推算交接時刻。
 // 任一時刻的畫面完全由絕對時間決定，倒退、跳站與連續播放結果一致。
+// 清洗線（龍門～秤重）沿用邏輯座標（layout.js 的 front／cell 框架）；AGV、北段輸送、填裝區、暫存區與倉庫用世界座標。
 import * as THREE from 'three';
-import { RACK, PALLET, DRUM, AGV, FORK, AISLE, PALLET_STATION, GANTRY, LYING, LABEL, UPENDER, UPRIGHT, DECAP, BOOTH, WASTE, INBOUND, WEIGH, AIR_KNIFE } from './layout.js';
-import { jibPoint, jibTarget, DOLLY_H } from './inbound.js';
+import { PALLET, DIRTY_ORDER, DRUM, AGV, FORK, PALLET_STATION, GANTRY, LYING, LABEL, UPENDER, UPRIGHT, DECAP, BOOTH, WASTE, WEIGH, AIR_KNIFE,
+  FRAME, toWorld, CONV, OUTFEED, FILL, STAGING, ROAD3, ROAD5, WH_ZONES } from './layout.js';
 import { D2R } from '@core/geom/shapes.js';
 import { Track, smooth } from '@core/anim/track.js';
 import { JOINTS, SPEED } from './robot.js';
 
-
 export const STATIONS = [
-  { id: 'inbound', name: '散桶入庫', short: 'S0' }, { id: 'agv', name: '倉儲／AGV', short: 'S1' }, { id: 'gantry', name: '龍門上料', short: 'S2' },
-  { id: 'label', name: '貼標讀碼', short: 'S3' }, { id: 'upender', name: '90° 翻桶', short: 'S4' }, { id: 'decap', name: '自動開蓋', short: 'S5' },
+  { id: 'agv', name: 'AGV 送待洗棧板', short: 'S1' }, { id: 'gantry', name: '龍門上料', short: 'S2' },
+  { id: 'label', name: '側標讀碼', short: 'S3' }, { id: 'upender', name: '90° 翻桶', short: 'S4' }, { id: 'decap', name: '自動開蓋', short: 'S5' },
   { id: 'robot', name: '手臂清洗', short: 'S6' }, { id: 'waste', name: '廢液回收', short: 'S7' },
+  { id: 'top', name: '頂面貼標', short: 'S8' }, { id: 'fill', name: '分線填裝', short: 'S9' }, { id: 'wipe', name: '擦拭放行', short: 'S10' },
+  { id: 'stage', name: '組板入庫', short: 'S11' },
 ];
 export const DRUM_IDS = [1, 2, 3, 4].map(i => `CTW-2610-${String(i).padStart(4, '0')}`);
-export const IN_IDS = [101, 102, 103, 104].map(i => `CTW-2610-${String(i).padStart(4, '0')}`);
-// 時間軌名稱：產線 4 桶＋入庫 4 桶
-export const DRUM_KEYS = [...DRUM_IDS.map((_, k) => 'drum' + k), ...IN_IDS.map((_, k) => 'in' + k)];
-const YAW0 = [37, 151, 263, 312], YAW_IN = [12, 205, 98, 300];
-// 桶內原化學品（標籤讀碼後由 MES 帶出）：決定廢液進酸槽或鹼槽
+export const PRE_ID = 'CTW-2610-0080';   // 組板位 A 上已有的成品桶（先前生產）
+// 時間軌名稱：本棧板 4 桶＋組板位 A 的 1 桶
+export const DRUM_KEYS = [...DRUM_IDS.map((_, k) => 'drum' + k), 'preA'];
+const YAW0 = [217, 331, 83, 132];
+// 桶內原化學品（側標讀碼後由 MES 帶出）：決定廢液進酸槽或鹼槽
 export const CHEM = ['acid', 'alkali', 'acid', 'alkali'];
+// 本次要填裝的液體（由條碼決定線別）：A → L1、B → L2
+export const LIQUID = ['A', 'B', 'A', 'A'];
 const RESIDUAL_G = [46, 38, 57, 41];   // 模擬的秤重殘水量（g）
 const SLIP = [1.8, -2.4, .9, -1.3];     // 模擬翻桶與輸送時桶身轉動的角度（°），由開蓋站旋轉台微調
 const wrap = a => ((a % 360) + 540) % 360 - 180;
@@ -27,14 +31,20 @@ const TANK_NAME = { WA: 'TK-WA 酸性廢液槽', WB: 'TK-WB 鹼性廢液槽', R:
 // 每次沖洗時間：兩支噴槍同時進水（2" 旋轉噴頭＋3/4" 直噴）
 export const SPRAY_S = WASTE.rinseL / (BOOTH.flow.big + BOOTH.flow.small) * 60;
 export const SPRAY_SINGLE_S = WASTE.rinseL / BOOTH.flow.big * 60;
+// 填裝區靜態示意：L3 第 1、2 位與 L4 第 1 位生產中（灌裝槍插入）
+export const BUSY = [[2, 0], [2, 1], [3, 0]];
+// 世界座標輸送路線（drumWorld 的 route 模式用；createSequence 建立）
+export const ROUTES = {};
+const [STATION_WX, STATION_WZ] = toWorld('front', PALLET_STATION.x, PALLET_STATION.z);
 
 export function createSequence({ robot }) {
   const T = {};
   const track = (name, base) => (T[name] = new Track(name, base));
-  const agv = track('agv', { x: AGV.charger.x, z: AGV.charger.z, yaw: AGV.charger.yaw, fork: AGV.travel, moving: false });
-  const shuttle = track('shuttle', { pos: 1, lift: 0 });
-  const pallet = track('pallet', { mode: 'rack', pos: 0, lift: 0 });
-  const rackPal = [1, 2, 3].map(i => track('pal' + i, { pos: i, lift: 0 }));
+  const W = WH_ZONES.pickDirty;
+  const agv = track('agv', { x: W.x, z: W.z, yaw: 90, fork: FORK.lifted, moving: false });
+  // 棧板：D 待洗棧板（動畫開始時在 AGV 上）、A 組板位 A
+  const palD = track('palD', { mode: 'agv', at: '', x: 0, z: 0, yaw: 0 });
+  const palA = track('palA', { mode: 'stage', at: 'A', x: 0, z: 0, yaw: 0 });
   const gantry = track('gantry', { x: GANTRY.home.x, z: GANTRY.home.z, y: GANTRY.safeY, tilt: 0, jaw: 0 });
   const labeler = track('labeler', { pad: 0, print: 0, spin: 0, flash: false });
   const upender = track('upender', { tilt: 0, clamp: 0 });
@@ -46,56 +56,39 @@ export function createSequence({ robot }) {
   const sump = track('sump', { level: 0, pump: false, dest: 'WA' });
   const makeup = track('makeup', { on: false });   // TK-F 液位控制補水（廠務自來水／RO）
   const tanks = track('tanks', Object.fromEntries(Object.entries(WASTE.tanks).map(([k, t]) => [k, t.init])));
-  const jib = track('jib', { a: INBOUND.jib.park, r: 700, y: 2000, clamp: 0 });
-  const dolly = track('dolly', { x: INBOUND.dolly.x0 });
-  const drums = DRUM_IDS.map((id, k) => track('drum' + k, { mode: 'pallet', slot: k, yaw: YAW0[k], lx: LYING.place, uz: UPRIGHT.z0, water: 0, film: 0, weighG: -1, lift: 0, capBig: true, capSmall: true, label: false, labelAng: 0, read: false, rinse: 0, dry: false, state: '倉儲' }));
-  const inDrums = IN_IDS.map((id, k) => track('in' + k, { mode: 'hidden', slot: 0, yaw: YAW_IN[k], water: 0, capBig: true, capSmall: true, label: false, labelAng: 0, read: false, rinse: 0, dry: false, state: '廠外待入' }));
+  const topLab = track('topLab', { hx: 0, hz: 0, hy: 1, flash: false, label: false });
+  const readers = track('readers', { top: false, check: false });
+  // 填裝頭（每線每位一組）：e 灌裝槍插入量、sx 換位（0 灌裝、1 鎖蓋頭在桶塞上方）、cy 鎖蓋頭下降、spin 套筒轉數、btn 放行鈕
+  const heads = FILL.lines.map((_, li) => FILL.pos.map((_, pi) => track(`h${li}${pi}`, { e: BUSY.some(([a, b]) => a === li && b === pi) ? 1 : 0, sx: 0, cy: 0, spin: 0, btn: false })));
+  const wipers = FILL.lines.map((_, li) => track('wiper' + li, { x: FILL.wipers[li], z: FILL.pos[2], wipe: 0 }));
+  const stg = track('stg', { x: STAGING.gantry.x0 + 1000, z: STAGING.z, y: STAGING.gantry.safeY, jaw: 0, rot: 45 });
+  const drums = DRUM_IDS.map((id, k) => track('drum' + k, { mode: 'pallet', pal: 'D', slot: DIRTY_ORDER[k], yaw: YAW0[k], lx: LYING.place, uz: UPRIGHT.z0, route: '', s: 0, water: 0, film: 0, weighG: -1, lift: 0, capBig: true, capSmall: true, label: false, labelAng: 0, top: 0, read: false, rinse: 0, dry: false, torque: false, state: '倉庫：待洗棧板' }));
+  const preA = track('preA', { mode: 'pallet', pal: 'A', slot: 0, yaw: 270, lx: 0, uz: 0, route: '', s: 0, water: 200, film: 0, weighG: 0, lift: 0, capBig: true, capSmall: true, label: true, labelAng: 0, top: 3, read: true, rinse: 3, dry: true, torque: true, state: '組板位 A（先前生產）' });
   const events = [];
   // 事件：與 core 排程同樣的介面 { time, dur, label, sub, station }（播放列的事件選單、上一步／下一步）
   const ev = (s, station, label) => { events.push({ time: s.start, dur: s.dur, label: label || s.action, sub: s.sub || '', station }); return s; };
 
-  // ================================================================ S1 AGV 取料：第 2 道第 2 層前位
-  const laneX = RACK.lanes[RACK.demo.lane], rail = RACK.levels[RACK.demo.level], pivotRack = RACK.pos[0] + AGV.palletX, pivotStation = PALLET_STATION.z - AGV.palletX;
+  // ================================================================ S1 AGV：倉庫待洗棧板 → 道路 → 清洗區棧板站（由南側捲門駛入）
+  // 方位 yaw：前進方向 (cos, −sin)；90 朝北、180 朝西、270 朝南。轉向取最近的角度（不繞遠路）
   const move = (to, o) => { const s = agv.state, d = Math.hypot(to.x - s.x, to.z - s.z); return agv.add(o.dur ?? d / (o.speed ?? AGV.speed) + 1.2, { ...to, moving: true }, o); };
-  const turn = (yaw, extra = {}, o = {}) => agv.add(Math.abs(yaw - agv.state.yaw) / AGV.turn + .8, { yaw, moving: true, ...extra }, o);
+  const turn = (yaw, extra = {}, o = {}) => { const y = agv.state.yaw + wrap(yaw - agv.state.yaw); return agv.add(Math.abs(y - agv.state.yaw) / AGV.turn + .8, { yaw: y, moving: true, ...extra }, o); };
   const fork = (v, o = {}) => agv.add(Math.abs(v - agv.state.fork) / AGV.lift + .5, { fork: v, moving: false }, o);
-  // 入庫弧線：走道中心線（朝西）⇄ 西側入庫通道（朝北），以圓弧行駛；reverse 為倒車原路退出
-  const acx = INBOUND.arcStart[0], acz = INBOUND.arcEnd[1], AR = INBOUND.arc, arcDur = AR * Math.PI / 2 / AGV.slow * .9 + 1.5;
-  const arcPose = a => ({ x: acx - AR * Math.sin(a), z: acz + AR * Math.cos(a), yaw: 180 - a / D2R });
-  const arc = (reverse, o) => agv.add(arcDur, { moving: true }, { ...o, motion: e => arcPose((reverse ? 1 - e : e) * Math.PI / 2) });
-  agv.add(1, {}, { action: '待命：充電座', sub: '接到取料任務：第 2 道第 2 層' });
-  ev(move({ x: laneX, z: AISLE.zc }, { action: 'AGV 出發：行駛至第 2 道前', sub: '離開走道中心線上的地面充電板，直行往西' }), 'agv', 'AGV 出發取料');
-  turn(90, { fork: rail + FORK.entry }, { action: '原地轉向北＋貨叉升至第 2 層', sub: `迴轉半徑 ${Math.round(Math.hypot(AGV.palletX + 600, 600))} mm；叉面 ${rail + FORK.entry} mm` });
-  move({ x: laneX, z: pivotRack }, { speed: AGV.slow, action: '低速進入車道口', sub: '貨叉插入前位棧板底樑之間' });
-  agv.add(.4, { fork: rail + FORK.deck, moving: false }, { action: '貨叉接觸棧板' });
-  pallet.add(0, { mode: 'agv' }, { at: agv.t });
-  ev(agv.add(.6, { fork: rail + FORK.lifted }, { action: '抬起棧板', sub: '棧板離軌 60 mm' }), 'agv');
-  move({ x: laneX, z: AISLE.zc }, { speed: AGV.slow, action: '倒車退出車道' });
-  const tOutOfRack = agv.t;
-  fork(AGV.travel, { action: '貨叉降至行駛高度' });
-  turn(180, {}, { action: '原地轉向西' });
-  move({ x: PALLET_STATION.x, z: AISLE.zc }, { action: '行駛至棧板站前' });
-  turn(270, {}, { action: '原地轉向南', sub: '對準棧板站與龍門光柵入口' });
-  move({ x: PALLET_STATION.x, z: pivotStation }, { speed: AGV.slow, action: '低速駛入棧板站', sub: '光柵屏蔽（muting）開啟' });
+  const RZ = ROAD3.zc, RX = ROAD5.xc, pivotStation = STATION_WZ + AGV.palletX, nearDoor = 15900;
+  agv.add(1, {}, { action: '待命：倉庫待洗區', sub: '已叉起一板待洗桶（田字型 4 桶）' });
+  ev(move({ x: RX, z: RZ }, { action: 'AGV 出倉庫：沿 5 m 道路往北', sub: '倉庫北牆捲門 → 道路交叉口' }), 'agv', 'AGV 出倉庫送待洗棧板');
+  turn(180, {}, { action: '道路交叉口原地轉向西' });
+  move({ x: STATION_WX, z: RZ }, { action: '沿 3 m 道路往西', sub: '到清洗區南牆捲門前' });
+  turn(90, { fork: PALLET_STATION.stand + FORK.lifted }, { action: '原地轉向北＋貨叉升高', sub: '對準清洗區捲門與龍門光柵入口；棧板底高過棧板座' });
+  move({ x: STATION_WX, z: nearDoor }, { action: '駛入清洗區捲門' });
+  move({ x: STATION_WX, z: pivotStation }, { speed: AGV.slow, action: '低速駛入棧板站', sub: '光柵屏蔽（muting）開啟' });
   agv.add(.4, { fork: PALLET_STATION.stand + FORK.deck, moving: false }, { action: '棧板落座' });
-  pallet.add(0, { mode: 'station' }, { at: agv.t });
+  palD.add(0, { mode: 'station' }, { at: agv.t });
   ev(agv.add(.5, { fork: PALLET_STATION.stand + FORK.deck - 60 }, { action: '貨叉脫離棧板' }), 'agv', 'AGV 將棧板放上棧板站');
-  move({ x: PALLET_STATION.x, z: AISLE.zc }, { speed: AGV.slow, action: '倒車退出龍門區', sub: '退出後光柵恢復，龍門才允許動作' });
+  move({ x: STATION_WX, z: nearDoor }, { speed: AGV.slow, action: '倒車退出龍門區', sub: '退出後光柵恢復，龍門才允許動作' });
   const tAgvOut = agv.t;
-  agv.add(.5, { moving: false }, { action: '走道待命', sub: '等待龍門取完 4 桶，空棧板送往入庫站' });
-
-  // 穿梭車把同層後方棧板逐一往前補位
-  shuttle.hold(tOutOfRack + .5);
-  for (let i = 1; i <= 3; i++) {
-    const p = rackPal[i - 1];
-    if (shuttle.state.pos !== i) shuttle.add(Math.abs(shuttle.state.pos - i) * 1.3 / .6 + 1, { pos: i }, { action: `穿梭車回到第 ${i + 1} 位` });
-    p.hold(shuttle.t);
-    shuttle.add(1.2, { lift: 1 }, { action: '頂升棧板 40 mm' }); p.add(1.2, { lift: 1 }, { at: shuttle.t - 1.2 });
-    const s = shuttle.add(1.3 / .5 + 1, { pos: i - 1 }, { action: `第 ${i + 1} 位棧板前移一格` }); p.add(s.dur, { pos: i - 1 }, { at: s.start });
-    if (i === 1) ev(s, 'agv', '穿梭車補位');
-    shuttle.add(1.2, { lift: 0 }, { action: '放下棧板' }); p.add(1.2, { lift: 0 }, { at: shuttle.t - 1.2 });
-  }
-  shuttle.add(1.3 / .6 + 1, { pos: 3 }, { action: '穿梭車停回後端' });
+  move({ x: STATION_WX, z: RZ }, { action: '倒車到道路' });
+  fork(AGV.travel, { action: '貨叉降至行駛高度' });
+  agv.add(.5, { moving: false }, { action: '路邊待命', sub: '等待龍門取完 4 桶，空棧板送往填裝區' });
 
   // ================================================================ 流水線：逐桶推算
   const gp = GANTRY, hang = gp.hang, placePivot = LYING.place - hang;
@@ -137,7 +130,7 @@ export function createSequence({ robot }) {
   };
 
   for (let k = 0; k < 4; k++) {
-    const d = drums[k], [sx, sz] = PALLET.slots[k], px = PALLET_STATION.x - sx, pz = PALLET_STATION.z - sz, prev = dep[k - 1] || {};   // 棧板站上棧板轉了 180°
+    const d = drums[k], [sx, sz] = PALLET.slots[DIRTY_ORDER[k]], px = PALLET_STATION.x + sx, pz = PALLET_STATION.z + sz, prev = dep[k - 1] || {};   // 棧板朝向 0°
     const id = DRUM_IDS[k];
     // ---- S2 龍門：取桶 → 抬升 → 移出棧板範圍 → 等放料位空 → 邊移邊翻 90° → 放上 V 槽輥
     gantry.hold(tAgvOut + 1);
@@ -145,7 +138,7 @@ export function createSequence({ robot }) {
     if (k === 0) ev(g0, 'gantry', '龍門開始上料');
     gantry.add(2, { y: gp.pickY }, { action: '下降夾桶位', sub: '雙弧形 PU 爪由南北兩側包覆桶身上半部' });
     gantry.add(1, { jaw: 1 }, { action: '夾爪夾緊', sub: '夾持確認後才抬升' });
-    d.add(0, { mode: 'gantry', yaw: d.state.yaw + 180, state: '龍門夾持' }, { at: gantry.t });
+    d.add(0, { mode: 'gantry', state: '龍門夾持' }, { at: gantry.t });
     gantry.add(2, { y: gp.safeY }, { action: '抬升至安全高度', sub: `翻轉軸 ${gp.safeY} mm；桶底高於相鄰桶頂` });
     gantry.add(1.5, { x: 4900 }, { action: '沿 X 移出棧板範圍', sub: '先平移再翻轉，避免掃到相鄰桶' });
     tPickedClear = gantry.t;
@@ -191,8 +184,8 @@ export function createSequence({ robot }) {
     d.add(0, { read: true, chem: CHEM[k] }, { at: labeler.t });
     labeler.add(.2, { flash: false }, { action: '讀碼完成' });
     // 出站方位：轉到立起後 2" 桶塞朝北（yaw = 90°），開蓋站只需微調
-    const toExit = wrap(90 - d.state.yaw);
-    const ex = labeler.add(Math.abs(toExit) / LABEL.rotSpeed + .6, { spin: labeler.state.spin + toExit / 90 }, { action: '轉到出站方位', sub: '翻正後 2" 桶塞朝北，開蓋站只需微調' });
+    const toExit = wrap(-90 - d.state.yaw);
+    const ex = labeler.add(Math.abs(toExit) / LABEL.rotSpeed + .6, { spin: labeler.state.spin + toExit / 90 }, { action: '轉到出站方位', sub: '翻正後 2" 桶塞朝向開蓋站基準方位，開蓋站只需微調' });
     d.add(ex.dur, { yaw: d.state.yaw + toExit }, { at: ex.start });
     r.labelDone = labeler.t;
     // ---- 貼標站 → 緩衝位 → 翻桶機
@@ -208,7 +201,7 @@ export function createSequence({ robot }) {
     ev(upender.add(4, { tilt: 1 }, { action: '翻轉 90°', sub: '以桶底下緣為軸，桶口朝上' }), 'upender', `${id} 翻正`);
     upender.add(.6, { clamp: 0 }, { action: '側夾鬆開' });
     r.upender = Math.max(upender.t, prev.decap ?? 0);
-    d.add(0, { mode: 'upright', uz: UPRIGHT.z0, yaw: d.state.yaw, state: '立放輸送' }, { at: r.upender });
+    d.add(0, { mode: 'upright', uz: UPRIGHT.z0, yaw: d.state.yaw + 180, state: '立放輸送' }, { at: r.upender });
     d.add(travelUp(DECAP.z - UPRIGHT.z0), { uz: DECAP.z, yaw: d.state.yaw + SLIP[k] }, { at: r.upender });   // 翻桶與輸送讓桶身轉動數度
     upender.add(3.5, { tilt: 0 }, { at: r.upender + 2.5, action: '翻轉台復歸' });
     upFree = upender.t;
@@ -320,82 +313,177 @@ export function createSequence({ robot }) {
     const ld = scale.add(WEIGH.liftS, { on: false, lift: 0 }, { action: '秤台下降', sub: '桶回到滾筒上' });
     d.add(WEIGH.liftS, { lift: 0 }, { at: ld.start });
     d.add(0, { weighG: RESIDUAL_G[k], state: '秤重 OK' }, { at: scale.t });
-    d.add(travelUp(UPRIGHT.handoff - UPRIGHT.place), { uz: UPRIGHT.handoff, state: '送往裝填區' }, { at: scale.t });
+    d.add(travelUp(UPRIGHT.handoff - UPRIGHT.place), { uz: UPRIGHT.handoff, state: '送往頂面貼標' }, { at: scale.t });
     r.handoff = d.t;
-    d.add(2.5, { state: '交裝填區' });
-    d.add(0, { mode: 'gone' });
+    d.add(0, { mode: 'route', route: 'in' + k, s: 0, state: '北段輸送' }, { at: r.handoff });
     rAdd('ptp', P.wait, null, { action: '回到取桶等待點', vf: .7 });
     robotFree = rt;
     dep.push(r);
   }
 
-  // ================================================================ AGV：空棧板 → 入庫站；散桶上棧板；滿棧板入架
-  const ib = INBOUND, pivotInbound = ib.z + AGV.palletX, putX = RACK.lanes[RACK.putaway.lane], putRail = RACK.levels[RACK.putaway.level];
-  agv.hold(tPickedClear + 1);
-  ev(move({ x: PALLET_STATION.x, z: pivotStation }, { speed: AGV.slow, action: '駛入棧板站取空棧板', sub: '光柵屏蔽；龍門已離開棧板範圍' }), 'agv', 'AGV 取空棧板送入庫站');
-  agv.add(.4, { fork: PALLET_STATION.stand + FORK.deck, moving: false }, { action: '貨叉接觸空棧板' });
-  pallet.add(0, { mode: 'agv' }, { at: agv.t });
-  agv.add(.5, { fork: PALLET_STATION.stand + FORK.lifted }, { action: '抬起空棧板' });
-  move({ x: PALLET_STATION.x, z: AISLE.zc }, { speed: AGV.slow, action: '倒車退出龍門區' });
-  turn(180, {}, { action: '原地轉向西' });
-  move({ x: ib.arcStart[0], z: AISLE.zc }, { speed: AGV.slow, action: '倒車到入庫弧線起點', sub: '沿走道中心線往東倒退' });
-  arc(false, { action: '弧線右轉進入西側入庫通道', sub: `半徑 ${AR} mm；最西一道只做 3 深讓出轉彎空間` });
-  move({ x: ib.x, z: pivotInbound }, { speed: AGV.slow, action: '低速駛向入庫站' });
-  agv.add(.4, { fork: ib.stand + FORK.deck, moving: false }, { action: '空棧板落座' });
-  pallet.add(0, { mode: 'inbound' }, { at: agv.t });
-  const tPalletAtInbound = agv.t;
-  agv.add(.5, { fork: ib.stand + FORK.deck - 60 }, { action: '貨叉脫離' });
-  move({ x: ib.x, z: ib.arcEnd[1] }, { speed: AGV.slow, action: '倒車退出' });
-  arc(true, { action: '倒車沿弧線退回走道', sub: '讓出入庫作業區給作業員與懸臂吊' });
-  agv.add(.5, { moving: false }, { action: '走道待命', sub: '等待 4 個散桶上棧板' });
-
-  // ---- S0 散桶入庫：台車推入 → 懸臂吊夾桶 → 放上棧板（先放遠側兩格）
-  const dropAt = jibTarget(ib.dolly.x1, ib.dolly.z), dollyY = DOLLY_H + DRUM.H / 2, deckY = ib.stand + PALLET.H + DRUM.H / 2, carryY = deckY + DRUM.H + 100;   // 旋臂經過已放的桶上方
-  const order = [2, 3, 0, 1];
-  dolly.hold(Math.max(tPalletAtInbound - 6, 0)); jib.hold(agv.t);
-  IN_IDS.forEach((id, i) => {
-    const d = inDrums[i], slot = order[i], [sx, sz] = PALLET.slots[slot], to = jibTarget(ib.x + sx, ib.z + sz);
-    d.add(0, { mode: 'dolly', state: '台車推入' }, { at: dolly.t });
-    const dm = dolly.add((ib.dolly.x1 - ib.dolly.x0) / 500 + 1, { x: ib.dolly.x1 }, { action: `台車推入 ${id}`, sub: '作業員由西牆捲門推入（散桶，未開蓋）' });
-    if (i === 0) ev(dm, 'inbound', '散桶入庫：台車推入');
-    jib.hold(dolly.t);
-    jib.add(2.5, { a: dropAt.a, r: dropAt.r, y: dollyY + 300, clamp: 0 }, { action: '懸臂吊移到台車上方' });
-    jib.add(1.2, { y: dollyY }, { action: '夾具下降套住桶頂 L 環' });
-    jib.add(.8, { clamp: 1 }, { action: '夾具夾緊' });
-    d.add(0, { mode: 'jib', state: '懸臂吊搬運' }, { at: jib.t });
-    jib.add(1.5, { y: carryY }, { action: '吊起', sub: '桶底高過已放的桶 100 mm' });
-    dolly.hold(jib.t); dolly.add((ib.dolly.x1 - ib.dolly.x0) / 700 + 1, { x: ib.dolly.x0 }, { action: '台車回門外取下一桶' });
-    const sw = jib.add(Math.abs(to.a - jib.state.a) / 45 + Math.abs(to.r - jib.state.r) / 800 + 1.2, { a: to.a, r: to.r }, { action: `旋臂到棧板第 ${slot + 1} 格`, sub: '先放遠側兩格，近側兩格不必越過' });
-    if (i === 0) ev(sw, 'inbound', '懸臂吊上棧板');
-    jib.add(1.2, { y: deckY }, { action: '放下' });
-    jib.add(.6, { clamp: 0 }, { action: '鬆開夾具' });
-    d.add(0, { mode: 'pallet', slot, state: '入庫棧板' }, { at: jib.t });
-    jib.add(1, { y: carryY + 150 }, { action: '夾具上升' });
+  // ================================================================ 清洗完 → 頂面貼標 → 讀碼 → 轉角 → 三碼比對分線 → 填裝鎖蓋 → 擦拭放行 → 集貨 → 組板
+  const spd = CONV.speed, [hx, hz] = toWorld('cell', UPRIGHT.x, UPRIGHT.handoff), [pickX, pickZ] = STAGING.pick;
+  const along = pts => { const S = [0]; for (let i = 1; i < pts.length; i++) S.push(S[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1])); return S; };
+  const go = (d, S, j, o) => d.add(Math.abs(S[j] - d.state.s) / spd + 1, { s: S[j] }, o);
+  const lineNext = FILL.lines.map(() => 0), lineClear = FILL.lines.map(() => 0), palNext = { A: STAGING.preload.A, B: STAGING.preload.B };
+  const HX = [0, 165, -165];   // 3 張頂標在世界 X 的偏移（桶方位 270°：桶局部 z → 世界 −x）
+  const G = STAGING.gantry, deckY = PALLET.H + DRUM.H / 2, convY = CONV.top + DRUM.H / 2;
+  // 組板龍門夾爪方位：爪朝棧板外側與對角，避開同板相鄰的桶
+  const jawRot = ([sx, sz]) => (sx > 0) === (sz > 0) ? -45 : 45;
+  let tAfull = null;
+  dep.forEach((r, k) => {
+    const d = drums[k], id = DRUM_IDS[k], liq = LIQUID[k], li = FILL.liquids.indexOf(liq), lx = FILL.lines[li], pi = lineNext[li]++, pz = FILL.pos[pi];
+    const inPts = [[hx, hz], [hx, OUTFEED.topLabel], [hx, OUTFEED.topRead], [hx, FILL.distZ], [FILL.reader, FILL.distZ], [lx, FILL.distZ], [lx, pz]];
+    ROUTES['in' + k] = inPts; const S = along(inPts);
+    // ---- S8 頂面貼標（旋蓋面 3 張：1 張無條碼＋2 張條碼，條碼與側標同一讀值）
+    go(d, S, 1, { action: '北段輸送 → 頂面貼標站' });
+    topLab.hold(d.t);
+    for (let n = 0; n < 3; n++) {
+      const p = topLab.add(.9, { hx: HX[n], hy: 1, flash: true, label: false }, { action: `列印第 ${n + 1} 張頂標`, sub: n ? `條碼 ${id}（與側標同值）` : '品名／警示標（無條碼）' });
+      if (k === 0 && n === 0) ev(p, 'top', '頂面貼標開始（3 張）');
+      topLab.add(.3, { flash: false, label: true }, { action: '貼標頭吸附標籤' });
+      topLab.add(.8, { hy: 0 }, { action: '下壓貼附', sub: '避開 2" 與 3/4" 桶塞' });
+      d.add(0, { top: n + 1 }, { at: topLab.t });
+      topLab.add(.3, { label: false }); topLab.add(.6, { hy: 1 }, { action: '貼標頭上升' });
+    }
+    topLab.add(.8, { hx: 0 }, { action: '貼標頭回原點' });
+    d.add(0, { state: '頂標 3 張完成' }, { at: topLab.t });
+    d.hold(topLab.t);
+    go(d, S, 2, { action: '往貼後讀碼' });
+    readers.hold(d.t);
+    const rt1 = readers.add(1.2, { top: true }, { action: '貼後讀碼：頂面 2 碼', sub: `${id} × 2，與側標一致（模擬）` });
+    if (k === 0) ev(rt1, 'top', `${id} 頂標讀碼`);
+    readers.add(0, { top: false });
+    d.hold(readers.t);
+    go(d, S, 3, { action: '往北側轉角' });
+    d.add(1.5, { state: '轉角直角移載' }, { action: '直角移載：轉往西' });
+    go(d, S, 4, { action: '分線輸送（穿過共用牆進填裝區）', sub: '往三碼比對站' });
+    d.add(0, { state: '三碼比對' });
+    readers.hold(Math.max(readers.t, d.t));
+    const ck = readers.add(1.5, { check: true }, { action: '三碼比對', sub: `頂 2 碼＋側 1 碼皆為 ${id} → 一致，放行；液體 ${liq} → L${li + 1}（模擬）` });
+    ev(ck, 'fill', `${id} 三碼一致 → L${li + 1}`);
+    readers.add(0, { check: false });
+    d.add(0, { read: true }, { at: readers.t }); d.hold(readers.t);
+    go(d, S, 5, { action: `往 L${li + 1} 分岐` });
+    d.add(1.5, { state: `轉入 L${li + 1}` }, { action: '直角移載：轉往南' });
+    go(d, S, 6, { action: `到 L${li + 1} 第 ${pi + 1} 位`, sub: '區段式輸送，各位獨立' });
+    d.add(0, { state: `L${li + 1} 第 ${pi + 1} 位 · 待填裝` });
+    // ---- S9 填裝（各位獨立啟動）＋鎖蓋扭力
+    const h = heads[li][pi]; h.hold(d.t);
+    h.add(FILL.lanceS, { e: 1 }, { action: '灌裝槍下降插入 2" 桶口', sub: '3/4" 桶口開著當通氣口' });
+    const fl = h.add(FILL.fillS, {}, { action: `秤重式灌裝 200 L（液體 ${liq}）`, sub: `3 分鐘／桶（手稿）；同線其他填裝位各自運轉` });
+    if (k === 0) ev(fl, 'fill', `${id} 開始填裝`);
+    d.add(FILL.fillS, { water: 200, state: `填裝中（液體 ${liq}）` }, { at: fl.start });
+    h.add(FILL.lanceS, { e: 0 }, { action: '灌裝槍上升', sub: '槍口滴液盤接住殘滴' });
+    h.add(1.5, { sx: 1 }, { action: '填裝頭換位', sub: '鎖蓋頭移到 2" 與 3/4" 桶塞上方' });
+    h.add(1, { cy: 1 }, { action: '鎖蓋頭下降', sub: '套筒帶新桶蓋（桶蓋供料方式待確認）' });
+    d.add(0, { capBig: true, capSmall: true, state: '鎖蓋中' }, { at: h.t });
+    h.add(3, { spin: h.state.spin + 2.5 }, { action: '同時鎖緊 2" 與 3/4" 桶蓋' });
+    const tq = h.add(1, {}, { action: '扭力檢測', sub: `${FILL.torque.big}；${FILL.torque.small}` });
+    if (k === 0) ev(tq, 'fill', '鎖蓋扭力檢測（2 種扭力）');
+    d.add(0, { torque: true, state: '扭力 OK · 待擦拭' }, { at: h.t });
+    h.add(1, { cy: 0 }, { action: '鎖蓋頭上升' }); h.add(1.5, { sx: 0 }, { action: '填裝頭復位' });
+    // ---- S10 擦拭放行（每線 1 人巡迴）
+    const wp = wipers[li]; wp.hold(Math.max(wp.t, h.t - 4));
+    wp.add(Math.abs(pz - wp.state.z) / 1000 + 1, { z: pz }, { action: `走到第 ${pi + 1} 位`, sub: '東側走道' });
+    wp.add(1.2, { x: lx + FILL.wipeDx }, { action: '走近桶旁', sub: '桶間站位' });
+    const wi = wp.add(FILL.wipeS, { wipe: 1 }, { action: '擦拭桶身', sub: '擦去灌裝溢滴，確認標籤與桶蓋' });
+    if (k === 0) ev(wi, 'wipe', `${id} 人員擦拭桶身`);
+    d.add(0, { state: '擦拭中' }, { at: wi.start });
+    wp.add(0, { wipe: 0 });
+    wp.add(1.2, { x: FILL.wipers[li] }, { action: '退回走道' });
+    h.hold(wp.t); const bt = h.add(.8, { btn: true }, { action: '放行確認', sub: '擦拭完成，人員按放行鈕' });
+    wp.add(.8, {}, { action: '按放行鈕' });
+    if (k === 0) ev(bt, 'wipe', '按放行鈕確認');
+    h.add(.4, { btn: false });
+    // ---- 放行 → 集貨輸送 → 暫存區取料位
+    const exPts = [[lx, pz], [lx, FILL.collectZ], [pickX, pickZ]]; ROUTES['ex' + k] = exPts; const SE = along(exPts);
+    const tRel = Math.max(h.t, lineClear[li]);
+    d.add(0, { route: 'ex' + k, s: 0, state: '放行 → 集貨輸送' }, { at: tRel });
+    go(d, SE, 1, { action: '往集貨輸送', sub: '下游各位已清空' });
+    lineClear[li] = d.t;
+    d.add(1.5, { state: '轉入集貨輸送' }, { action: '直角移載：轉往西' });
+    go(d, SE, 2, { action: '集貨輸送 → 暫存區取料位' });
+    d.add(0, { state: '取料位 · 等組板龍門' });
+    // ---- S11 組板：龍門夾桶 → 同液體的棧板
+    const slot = palNext[liq]++, [sx, sz] = PALLET.slots[slot], tx = STAGING.pallets[liq] + sx, tz = STAGING.z + sz, rot = jawRot([sx, sz]);
+    stg.hold(Math.max(stg.t, d.t));
+    const g0 = stg.add(Math.hypot(pickX - stg.state.x, pickZ - stg.state.z) / 600 + 1.2, { x: pickX, z: pickZ, y: G.safeY, rot }, { action: '移到取料位上方', sub: id });
+    if (k === 0) ev(g0, 'stage', '組板龍門取桶');
+    stg.add(1.8, { y: convY }, { action: '下降夾桶位' });
+    stg.add(1, { jaw: 1 }, { action: '夾爪夾緊' });
+    d.add(0, { mode: 'stg', state: '組板龍門夾持' }, { at: stg.t });
+    stg.add(1.8, { y: G.safeY }, { action: '抬升', sub: '桶底高過棧板上的桶 100 mm 以上' });
+    stg.add(Math.hypot(tx - pickX, tz - pickZ) / 600 + 1.2, { x: tx, z: tz }, { action: `移到組板 ${liq} 第 ${slot + 1} 格`, sub: '同液體同板（田字型 2×2）' });
+    stg.add(2, { y: deckY }, { action: '下降放上棧板' });
+    stg.add(1, { jaw: 0 }, { action: '夾爪鬆開' });
+    d.add(0, { mode: 'pallet', pal: liq, slot, yaw: 270, state: `組板 ${liq} · ${palNext[liq]}/4` }, { at: stg.t });
+    stg.add(1.8, { y: G.safeY }, { action: '夾爪上升' });
+    if (liq === 'A' && palNext.A === 4) tAfull = stg.t;
   });
-  jib.add(3, { a: ib.jib.park, r: 700, y: 2000 }, { action: '懸臂吊回待命', sub: '手臂朝西讓出 AGV 通道' });
-  // AGV 取滿棧板 → 第 3 道底層前位
-  agv.hold(jib.t);
-  ev(arc(false, { action: '弧線轉入入庫通道', sub: '取 4 桶滿棧板' }), 'inbound', 'AGV 取滿棧板入架');
-  move({ x: ib.x, z: pivotInbound }, { speed: AGV.slow, action: '低速插入棧板' });
-  agv.add(.4, { fork: ib.stand + FORK.deck, moving: false }, { action: '貨叉接觸棧板' });
-  pallet.add(0, { mode: 'agv' }, { at: agv.t });
-  agv.add(.5, { fork: ib.stand + FORK.lifted }, { action: '抬起滿棧板' });
-  move({ x: ib.x, z: ib.arcEnd[1] }, { speed: AGV.slow, action: '倒車退出' });
-  arc(true, { action: '倒車沿弧線退回走道' });
-  move({ x: putX, z: AISLE.zc }, { speed: AGV.slow, action: `倒車到第 ${RACK.putaway.lane + 1} 道前` });
-  turn(90, { fork: putRail + FORK.lifted }, { action: '原地轉向北', sub: `第 ${RACK.putaway.lane + 1} 道底層前位` });
-  move({ x: putX, z: pivotRack }, { speed: AGV.slow, action: '低速入道' });
-  agv.add(.4, { fork: putRail + FORK.deck, moving: false }, { action: '棧板落軌' });
-  pallet.add(0, { mode: 'putaway' }, { at: agv.t });
-  ev(agv.add(.5, { fork: putRail + FORK.deck - 60 }, { action: '貨叉脫離', sub: '入庫完成；穿梭車可再往深處送' }), 'agv', '入庫上架完成');
-  IN_IDS.forEach((_, i) => inDrums[i].add(0, { state: '已入架' }, { at: agv.t }));
-  move({ x: putX, z: AISLE.zc }, { speed: AGV.slow, action: '倒車退出' });
+  stg.add(3, { x: G.x0 + 1000, z: STAGING.z, rot: 45 }, { action: '組板龍門回原點' });
+
+  // ================================================================ AGV：空棧板 → 填裝區空棧板位 → 倉庫充電；組板 A 滿板 → 倉庫成品 A
+  const [EX, AX] = [STAGING.pallets.E, STAGING.pallets.A], pivotStage = STAGING.z + AGV.palletX, stageDoor = 16000;
+  agv.hold(tPickedClear + 1);
+  ev(move({ x: STATION_WX, z: nearDoor }, { action: '駛入清洗區取空棧板', sub: '龍門已離開棧板範圍' }), 'agv', 'AGV 空棧板送填裝區');
+  fork(PALLET_STATION.stand + FORK.entry, { action: '貨叉對準空棧板' });
+  move({ x: STATION_WX, z: pivotStation }, { speed: AGV.slow, action: '低速插入空棧板', sub: '光柵屏蔽' });
+  agv.add(.4, { fork: PALLET_STATION.stand + FORK.deck, moving: false }, { action: '貨叉接觸空棧板' });
+  palD.add(0, { mode: 'agv' }, { at: agv.t });
+  agv.add(.5, { fork: PALLET_STATION.stand + FORK.lifted }, { action: '抬起空棧板' });
+  move({ x: STATION_WX, z: nearDoor }, { speed: AGV.slow, action: '倒車退出龍門區' });
+  move({ x: STATION_WX, z: RZ }, { action: '倒車到道路' });
+  turn(180, {}, { action: '原地轉向西' });
+  move({ x: EX, z: RZ }, { action: '沿 3 m 道路往西', sub: '到填裝區南牆捲門（空棧板位）' });
+  turn(90, {}, { action: '原地轉向北' });
+  move({ x: EX, z: stageDoor }, { action: '駛入填裝區捲門' });
+  move({ x: EX, z: pivotStage }, { speed: AGV.slow, action: '低速駛入空棧板位' });
+  agv.add(.4, { fork: FORK.deck, moving: false }, { action: '空棧板落地' });
+  palD.add(0, { mode: 'stage', at: 'E' }, { at: agv.t });
+  ev(agv.add(.5, { fork: FORK.deck - 60 }, { action: '貨叉脫離', sub: '空棧板留給組板重複使用' }), 'agv', '空棧板放到填裝區空棧板位');
+  move({ x: EX, z: stageDoor }, { speed: AGV.slow, action: '倒車退出' });
+  move({ x: EX, z: RZ }, { action: '倒車到道路' });
   fork(AGV.travel, { action: '貨叉降至行駛高度' });
   turn(0, {}, { action: '原地轉向東' });
-  move({ x: RACK.lanes[3], z: AISLE.zc }, { action: '行駛至柱旁東道前', sub: '柱前不能原地迴轉' });
-  turn(-180, {}, { action: '原地轉向西' });
-  ev(move({ x: AGV.charger.x, z: AGV.charger.z }, { action: '回充電板', sub: '柱前走道中心線，地面接觸式充電' }), 'agv', 'AGV 回充電板');
-  agv.add(.5, { moving: false }, { action: '待命：充電中' });
+  move({ x: RX, z: RZ }, { action: '沿 3 m 道路往東', sub: '回倉庫' });
+  turn(270, {}, { action: '原地轉向南' });
+  move({ x: RX, z: WH_ZONES.aisleZ }, { action: '駛入倉庫' });
+  turn(180, {}, { action: '原地轉向西' });
+  move({ x: AGV.charger.x, z: WH_ZONES.aisleZ }, { action: '駛到充電位' });
+  agv.add(.5, { moving: false }, { action: '待命：充電中', sub: '等待組板 A 滿板' });
+  // ---- 組板 A 滿板 → 倉庫成品 A
+  agv.hold(tAfull + 1);
+  const drop = WH_ZONES.drop.A, pivotDrop = drop.z - AGV.palletX;
+  ev(turn(0, {}, { action: '接到任務：組板 A 滿板入庫', sub: '原地轉向東' }), 'stage', 'AGV 取組板 A 滿板');
+  move({ x: RX, z: WH_ZONES.aisleZ }, { action: '駛到倉庫門內' });
+  turn(90, {}, { action: '原地轉向北' });
+  move({ x: RX, z: RZ }, { action: '出倉庫到道路交叉口' });
+  turn(180, {}, { action: '原地轉向西' });
+  move({ x: AX, z: RZ }, { action: '沿 3 m 道路往西', sub: '到填裝區南牆捲門（組板 A）' });
+  turn(90, { fork: FORK.entry }, { action: '原地轉向北', sub: '貨叉降到插入高度' });
+  move({ x: AX, z: stageDoor }, { action: '駛入填裝區捲門' });
+  move({ x: AX, z: pivotStage }, { speed: AGV.slow, action: '低速插入棧板', sub: '組板龍門已回原點' });
+  agv.add(.4, { fork: FORK.deck, moving: false }, { action: '貨叉接觸棧板' });
+  palA.add(0, { mode: 'agv' }, { at: agv.t });
+  ev(agv.add(.6, { fork: FORK.lifted }, { action: '抬起滿板（4 桶約 900 kg）' }), 'stage', '叉起組板 A 滿板');
+  move({ x: AX, z: stageDoor }, { speed: AGV.slow, action: '倒車退出' });
+  move({ x: AX, z: RZ }, { action: '倒車到道路' });
+  turn(0, {}, { action: '原地轉向東' });
+  move({ x: RX, z: RZ }, { action: '沿 3 m 道路往東', sub: '回倉庫' });
+  turn(270, {}, { action: '原地轉向南' });
+  move({ x: RX, z: WH_ZONES.aisleZ }, { action: '駛入倉庫' });
+  turn(0, {}, { action: '原地轉向東' });
+  move({ x: drop.x, z: WH_ZONES.aisleZ }, { action: '沿主通道到成品 A 區' });
+  turn(270, {}, { action: '原地轉向南' });
+  move({ x: drop.x, z: pivotDrop }, { speed: AGV.slow, action: '低速駛入儲位' });
+  agv.add(.4, { fork: FORK.deck, moving: false }, { action: '棧板落地' });
+  palA.add(0, { mode: 'wh', x: drop.x, z: drop.z, yaw: agv.state.yaw - 90 }, { at: agv.t });
+  for (const d of [...drums.filter((_, k) => LIQUID[k] === 'A'), preA]) d.add(0, { state: '倉庫成品 A' }, { at: agv.t });
+  ev(agv.add(.5, { fork: FORK.deck - 60 }, { action: '貨叉脫離', sub: '成品 A 入庫完成' }), 'stage', '成品 A 入庫完成');
+  move({ x: drop.x, z: WH_ZONES.aisleZ }, { speed: AGV.slow, action: '倒車退出' });
+  fork(AGV.travel, { action: '貨叉降至行駛高度' });
+  agv.add(.5, { moving: false }, { action: '待命' });
 
   // ---------------------------------------------------------------- 取樣
   const robotSample = Tm => {
@@ -426,47 +514,73 @@ export function createSequence({ robot }) {
     const r = rsteps.find(s => s.start <= Tm && Tm < s.start + s.dur); if (r) out.robot = r;
     return out;
   }
-  return { sample, activity, tracks: T, robotSteps: rsteps, events, total, stationStart, poses: P, robotStart };
+  return { sample, activity, tracks: T, robotSteps: rsteps, events, total, stationStart, poses: P, robotStart, dep };
 }
 
 // ---------------------------------------------------------------- 由狀態推算世界座標（主程式與驗證共用）
 const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), Yax = new THREE.Vector3(0, 1, 0), Zax = new THREE.Vector3(0, 0, 1);
+const _p = new THREE.Vector3(), _s = new THREE.Vector3();
+// 框架矩陣：front 平移、cell 旋轉 180° 後平移
+export const FRAME_M = {
+  front: new THREE.Matrix4().makeTranslation(FRAME.front.x, 0, FRAME.front.z),
+  cell: new THREE.Matrix4().makeTranslation(FRAME.cell.x, 0, FRAME.cell.z).multiply(new THREE.Matrix4().makeRotationY(Math.PI)),
+};
+const FRAME_Q = { front: new THREE.Quaternion(), cell: new THREE.Quaternion().setFromAxisAngle(Yax, Math.PI) };
+const toFrame = (f, out) => { out.pos.applyMatrix4(FRAME_M[f]); out.q.premultiply(FRAME_Q[f]); return out; };
 export function palletWorld(p, agvState) {
   const at = (x, y, z, yaw) => ({ pos: new THREE.Vector3(x, y, z), yaw });
-  if (p.mode === 'rack') return at(RACK.lanes[RACK.demo.lane], RACK.levels[RACK.demo.level] + p.lift * RACK.shuttleLift, RACK.pos[0], 0);
-  if (p.mode === 'station') return at(PALLET_STATION.x, PALLET_STATION.stand, PALLET_STATION.z, 180);
-  if (p.mode === 'inbound') return at(INBOUND.x, INBOUND.stand, INBOUND.z, 0);
-  if (p.mode === 'putaway') return at(RACK.lanes[RACK.putaway.lane], RACK.levels[RACK.putaway.level], RACK.pos[0], 0);
+  if (p.mode === 'station') return at(STATION_WX, PALLET_STATION.stand, STATION_WZ, 0);
+  if (p.mode === 'stage') return at(STAGING.pallets[p.at], 0, STAGING.z, 0);
+  if (p.mode === 'wh') return at(p.x, 0, p.z, p.yaw);
   const a = agvState, y = a.yaw * D2R;
-  // 棧板在車道內朝向 0°，AGV 朝北（90°）叉起，所以棧板方位 = AGV 方位 − 90°
+  // 棧板底樑沿 Z（朝向 0°），AGV 朝北（90°）叉起，所以棧板方位 = AGV 方位 − 90°
   return at(a.x + Math.cos(y) * AGV.palletX, a.fork - FORK.deck, a.z - Math.sin(y) * AGV.palletX, a.yaw - 90);
 }
-// 回傳桶中心位置與姿態（key：drum0–3、in0–3；robotTcp：手臂 TCP 的世界矩陣，僅 robot 模式需要）
-export function drumWorld(key, st, robotTcp) {
-  const d = st[typeof key === 'number' ? 'drum' + key : key], pos = new THREE.Vector3(), q = new THREE.Quaternion();
+const STATIC_PALLET = { B: { mode: 'stage', at: 'B' } };
+// 沿世界座標路線取點
+function routePoint(pts, s) {
+  for (let i = 1; i < pts.length; i++) {
+    const [ax, az] = pts[i - 1], [bx, bz] = pts[i], L = Math.hypot(bx - ax, bz - az);
+    if (s <= L || i === pts.length - 1) { const u = L ? Math.min(1, s / L) : 0; return [ax + (bx - ax) * u, az + (bz - az) * u]; }
+    s -= L;
+  }
+  return pts[0];
+}
+// 回傳桶中心位置與姿態（key：drum0–3、preA；robotTcp：cell 邏輯座標的手臂 TCP 矩陣，僅 robot 模式需要）
+// logical：清洗線上的桶回傳框架內的邏輯座標（tools/verify.mjs 的手臂、龍門檢查用），其他模式回傳 hidden
+export function drumWorld(key, st, robotTcp, { logical = false } = {}) {
+  const d = st[typeof key === 'number' ? 'drum' + key : key], pos = new THREE.Vector3(), q = new THREE.Quaternion(), out = { pos, q };
+  const frame = f => logical ? out : toFrame(f, out);
   switch (d.mode) {
     case 'hidden': case 'gone': return { pos: pos.set(0, -5000, 0), q, hidden: true };
-    case 'dolly': pos.set(st.dolly.x, DOLLY_H + DRUM.H / 2, INBOUND.dolly.z); q.setFromAxisAngle(Yax, d.yaw * D2R); break;
-    case 'jib': pos.copy(jibPoint(st.jib.a, st.jib.r, st.jib.y)); q.setFromAxisAngle(Yax, d.yaw * D2R); break;
     case 'pallet': {
-      const pw = palletWorld(st.pallet, st.agv), [sx, sz] = PALLET.slots[d.slot], c = Math.cos(pw.yaw * D2R), s = Math.sin(pw.yaw * D2R);
+      if (logical) return { pos: pos.set(0, -5000, 0), q, hidden: true };
+      const pw = palletWorld(STATIC_PALLET[d.pal] ?? st['pal' + d.pal], st.agv), [sx, sz] = PALLET.slots[d.slot], c = Math.cos(pw.yaw * D2R), s = Math.sin(pw.yaw * D2R);
       pos.set(pw.pos.x + sx * c + sz * s, pw.pos.y + PALLET.H + DRUM.H / 2, pw.pos.z - sx * s + sz * c);
-      q.setFromAxisAngle(Yax, (d.yaw + pw.yaw) * D2R); break;
+      q.setFromAxisAngle(Yax, (d.yaw + pw.yaw) * D2R); return out;
     }
     case 'gantry': {
       const g = st.gantry, a = g.tilt * Math.PI / 2;
       pos.set(g.x + Math.sin(a) * GANTRY.hang, g.y - Math.cos(a) * GANTRY.hang, g.z);
-      q.setFromAxisAngle(Zax, a).multiply(_q.setFromAxisAngle(Yax, d.yaw * D2R)); break;
+      q.setFromAxisAngle(Zax, a).multiply(_q.setFromAxisAngle(Yax, d.yaw * D2R)); return frame('front');
     }
     case 'lying':
-      pos.set(d.lx, LYING.y, LYING.z); q.setFromAxisAngle(Zax, Math.PI / 2).multiply(_q.setFromAxisAngle(Yax, d.yaw * D2R)); break;
+      pos.set(d.lx, LYING.y, LYING.z); q.setFromAxisAngle(Zax, Math.PI / 2).multiply(_q.setFromAxisAngle(Yax, d.yaw * D2R)); return frame('front');
     case 'upender': {
       const a = -st.upender.tilt * Math.PI / 2, [px, py, pz] = UPENDER.pivot, rx = LYING.upender - px, ry = LYING.y - py;
       pos.set(px + rx * Math.cos(a) - ry * Math.sin(a), py + rx * Math.sin(a) + ry * Math.cos(a), pz);
-      q.setFromAxisAngle(Zax, a).multiply(_q.setFromAxisAngle(Zax, Math.PI / 2)).multiply(_q2.setFromAxisAngle(Yax, d.yaw * D2R)); break;
+      q.setFromAxisAngle(Zax, a).multiply(_q.setFromAxisAngle(Zax, Math.PI / 2)).multiply(_q2.setFromAxisAngle(Yax, d.yaw * D2R)); return frame('front');
     }
-    case 'upright': pos.set(UPRIGHT.x, UPRIGHT.top + DRUM.H / 2 + (d.lift || 0), d.uz); q.setFromAxisAngle(Yax, d.yaw * D2R); break;
-    case 'robot': robotTcp.decompose(pos, q, new THREE.Vector3()); break;
+    case 'upright': pos.set(UPRIGHT.x, UPRIGHT.top + DRUM.H / 2 + (d.lift || 0), d.uz); q.setFromAxisAngle(Yax, d.yaw * D2R); return frame('cell');
+    case 'robot': robotTcp.decompose(pos, q, _s); return frame('cell');
+    case 'route': {
+      if (logical) return { pos: pos.set(0, -5000, 0), q, hidden: true };
+      const [x, z] = routePoint(ROUTES[d.route], d.s); pos.set(x, CONV.top + DRUM.H / 2, z); q.setFromAxisAngle(Yax, 270 * D2R); return out;
+    }
+    case 'stg': {
+      if (logical) return { pos: pos.set(0, -5000, 0), q, hidden: true };
+      pos.set(st.stg.x, st.stg.y, st.stg.z); q.setFromAxisAngle(Yax, 270 * D2R); return out;
+    }
   }
-  return { pos, q };
+  return out;
 }

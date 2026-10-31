@@ -5,24 +5,24 @@ import { createStage, exposeSim } from '@core/ui/stage.js';
 import { createPlayer } from '@core/ui/player.js';
 import { createViewerWorkspace } from '@core/ui/viewer-workspace.js';
 import { createVisionOverlay } from '@core/ui/vision-overlay.js';
-import { COLUMN, UPRIGHT, DECAP, BOOTH, WASTE, layoutChecks, ROBOT, LABEL, LYING, INBOUND, PAYLOAD, payloadAt } from './layout.js';
+import { UPRIGHT, DECAP, BOOTH, WASTE, layoutChecks, ROBOT, LABEL, LYING, PAYLOAD, payloadAt, toWorld, fromWorld, OUTFEED, FILL, STAGING, WAREHOUSE, CLEAN, COLUMN } from './layout.js';
 import { MAT } from '@core/geom/materials.js';
 import { applyPlant } from './plant.js';
 import { createProject } from './project.js';
-import { STATIONS, DRUM_IDS, IN_IDS, DRUM_KEYS, SPRAY_S, SPRAY_SINGLE_S } from './sequence.js';
+import { STATIONS, DRUM_IDS, PRE_ID, DRUM_KEYS, LIQUID, SPRAY_S, SPRAY_SINGLE_S } from './sequence.js';
 import { finishMaterials } from '@core/geom/hardware.js';
 
 const qp = new URLSearchParams(location.search);
 // ---------------------------------------------------------------- 場景（共用舞台，按需重繪：靜止時不重畫，狀態改變時 stage.invalidate）
 const canvas = document.getElementById('c');
-// 對數深度緩衝：場景 15 m、細節到 mm，一般深度緩衝會讓貼地的分區、標線互搶深度而閃爍
-// 外觀用廠房預設（look 'plant'：曝光、配色、環境光與燈光強度）；太陽與補光位置、陰影範圍沿用原本為這座廠房調好的值（不用 extent 推算，也不加霧）
+// 對數深度緩衝：場區約 65 m、細節到 mm，一般深度緩衝會讓貼地的分區、標線互搶深度而閃爍
+// 外觀用廠房預設（look 'plant'）；太陽涵蓋填裝區、清洗區、道路與倉庫（不用 extent 推算，也不加霧）
 const stage = createStage({
   canvas, qp, look: 'plant', logDepth: true, onDemand: true,
-  camera: { fov: 40, near: 100, far: 150000 },
-  controls: { maxPolarAngle: Math.PI * .495, minDistance: 400, maxDistance: 70000 },
-  sun: { position: [-3000, 17000, 4000], target: [5000, 0, 8000], shadow: { mapSize: 4096, camera: { left: -11000, right: 11000, top: 11000, bottom: -11000, near: 2000, far: 40000 }, bias: -.0003, normalBias: 3 } },
-  fill: { position: [16000, 9000, 22000] },
+  camera: { fov: 40, near: 100, far: 260000 },
+  controls: { maxPolarAngle: Math.PI * .495, minDistance: 400, maxDistance: 140000 },
+  sun: { position: [8000, 36000, 4000], target: [23000, 0, 19000], shadow: { mapSize: 4096, camera: { left: -34000, right: 34000, top: 34000, bottom: -34000, near: 2000, far: 90000 }, bias: -.0003, normalBias: 3 } },
+  fill: { position: [44000, 18000, 52000] },
 });
 const { renderer, scene, camera, controls } = stage;
 finishMaterials(renderer);
@@ -55,8 +55,10 @@ function focusPosition(key) {
   if (key === 'gripper') return robot.tool.localToWorld(new THREE.Vector3(0, 80, ROBOT.grip * .65));
   if (key === 'agv') return agv.root.position.clone().add(new THREE.Vector3(0, 750, 0));
   if (key === 'gantry') return line.gantryPivot.getWorldPosition(new THREE.Vector3());
+  if (key === 'stg') return plant.filling.group.getObjectByName('staging')?.getWorldPosition(new THREE.Vector3()).setY(S.st.stg.y) ?? null;
   if (key === 'auto') {
-    key = ['robot', 'gantry', 'upender', 'upright', 'lying', 'jib', 'dolly', 'pallet'].map(mode => DRUM_KEYS.find(k => S.st[k].mode === mode)).find(Boolean);
+    key = ['robot', 'gantry', 'upender', 'upright', 'lying', 'stg', 'route'].map(mode => DRUM_KEYS.slice(0, 4).find(k => S.st[k].mode === mode)).find(Boolean)
+      ?? DRUM_KEYS.slice(0, 4).find(k => S.st[k].water > 0 && S.st[k].mode === 'route');
   }
   const i = DRUM_KEYS.indexOf(key);
   return i >= 0 && drums[i].root.visible ? drums[i].root.position.clone() : null;
@@ -64,23 +66,24 @@ function focusPosition(key) {
 function gripperOffset() {
   const forward = new THREE.Vector3().setFromMatrixColumn(robot.tool.matrixWorld, 2); forward.y = 0; forward.normalize();
   const side = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), forward);
-  const p = robot.tcp.getWorldPosition(new THREE.Vector3());
-  if (p.z > BOOTH.z0 - 150 && p.x < BOOTH.x1) return forward.multiplyScalar(-1850).addScaledVector(side, -350).add(new THREE.Vector3(0, 800, 0));
+  const p = robot.tcp.getWorldPosition(new THREE.Vector3()), [lx, lz] = fromWorld('cell', p.x, p.z);   // 換回 cell 邏輯座標判斷是否在沖洗站內
+  if (lz > BOOTH.z0 - 150 && lx < BOOTH.x1) return forward.multiplyScalar(-1850).addScaledVector(side, -350).add(new THREE.Vector3(0, 800, 0));
   return forward.multiplyScalar(-1320).addScaledVector(side, -1140).add(new THREE.Vector3(0, 960, 0));
 }
-ui.cycleTime.textContent = `本棧板 4 桶共 ${Math.round(total)} s（模擬時間）`;
+ui.cycleTime.textContent = `一板 4 桶全流程 ${Math.round(total)} s（模擬時間）`;
 // 手臂節拍：相鄰兩桶放回輸送線的間隔
 const placed = seq.events.filter(e => e.label.endsWith('放回輸送線')).map(e => e.time), cycle = placed.at(-1) - placed.at(-2);
-$('cycleNote').textContent = `散桶入庫 4 桶＋一個棧板（4 桶）走完全線。手臂一桶約 ${cycle.toFixed(0)} s，是整線瓶頸（約 ${Math.floor(3600 / cycle)} 桶／h；200 桶約 ${(200 * cycle / 3600).toFixed(1)} h）。雙孔進水每道 ${SPRAY_S.toFixed(1)} s（單孔 ${SPRAY_SINGLE_S.toFixed(0)} s）。`;
-const VIEW_OF = { inbound: 'inbound', agv: 'storage', gantry: 'gantry', label: 'label', upender: 'upender', decap: 'decap', robot: 'robot', waste: 'waste' };
+$('cycleNote').textContent = `AGV 從倉庫送一板待洗桶（4 桶）→ 清洗 → 頂面貼標 → 三碼比對分線 → 填裝鎖蓋 → 擦拭放行 → 組板 → AGV 送回倉庫。手臂一桶約 ${cycle.toFixed(0)} s，是整線瓶頸（約 ${Math.floor(3600 / cycle)} 桶／h）；填裝 3 分鐘／桶，4 線 × 4 位各自獨立啟動，產能遠大於清洗。雙孔進水每道 ${SPRAY_S.toFixed(1)} s（單孔 ${SPRAY_SINGLE_S.toFixed(0)} s）。`;
+const VIEW_OF = { agv: 'road', gantry: 'gantry', label: 'label', upender: 'upender', decap: 'decap', robot: 'robot', waste: 'waste', top: 'toplabel', fill: 'fill', wipe: 'line1', stage: 'stage' };
 for (const s of STATIONS) {
   const b = document.createElement('button'); b.className = 'st'; b.dataset.st = s.id; b.innerHTML = `<span class="idx">${s.short}</span>${s.name}`;
   b.onclick = () => { player.seekTo(seq.stationStart[s.id]); setView(VIEW_OF[s.id]); }; ui.stations.appendChild(b);
 }
-const EQUIP = [['dolly', '入庫台車'], ['jib', '入庫懸臂吊'], ['agv', 'AGV'], ['shuttle', '穿梭車'], ['gantry', '龍門'], ['labeler', '貼標讀碼'], ['upender', '翻桶機'], ['decap', '開蓋站'], ['robot', '清洗手臂'], ['booth', '沖洗站'], ['sump', '集液／泵'], ['scale', '秤重段']];
+const EQUIP = [['agv', 'AGV'], ['gantry', '龍門'], ['labeler', '側標讀碼'], ['upender', '翻桶機'], ['decap', '開蓋站'], ['robot', '清洗手臂'], ['booth', '沖洗站'], ['sump', '集液／泵'], ['scale', '秤重段'],
+  ['topLab', '頂面貼標'], ['readers', '讀碼／三碼比對'], ['h00', 'L1 第 1 位'], ['h01', 'L1 第 2 位'], ['h02', 'L1 第 3 位'], ['h10', 'L2 第 1 位'], ['wiper0', 'L1 擦拭人員'], ['wiper1', 'L2 擦拭人員'], ['stg', '組板龍門']];
 ui.equip.innerHTML = EQUIP.map(([k, n]) => `<div class="row" data-k="${k}"><span class="name"><i></i>${n}</span><span class="act"></span></div>`).join('');
-ui.drums.innerHTML = DRUM_IDS.map((id, k) => `<div class="d" data-k="${k}"><span class="id">${id}</span><span class="state"></span><span class="tags"></span></div>`).join('')
-  + `<div class="d inb"><span class="id">入庫 0101–0104</span><span class="state"></span></div>`;
+ui.drums.innerHTML = DRUM_IDS.map((id, k) => `<div class="d" data-k="${k}"><span class="id">${id} · 液體 ${LIQUID[k]}</span><span class="state"></span><span class="tags"></span></div>`).join('')
+  + `<div class="d pre"><span class="id">${PRE_ID}（組板 A 原有）</span><span class="state"></span></div>`;
 const TANKS = [['WA', '#c77b34'], ['WB', '#8c6bd6'], ['R', '#58b6f2'], ['F', '#8fd3ff']];
 ui.tanks.innerHTML = TANKS.map(([k, c]) => `<div class="tank" data-k="${k}"><span>${WASTE.tanks[k].name}</span><span class="bar"><i style="background:${c}"></i></span><span class="v"></span></div>`).join('');
 const checks = layoutChecks();
@@ -171,13 +174,19 @@ player = createPlayer({
 const seekTo = t => player.seekTo(t);
 
 // ---------------------------------------------------------------- 視角
+const at = (f, [x, y, z]) => { const [wx, wz] = toWorld(f, x, z); return [wx, y, wz]; };
+const fv = (f, cam, look) => [at(f, cam), at(f, look)];
 const VIEWS = {
-  iso: [[-3500, 14500, 24000], [5600, 0, 8200]], top: [[5040, 28000, 7790], [5040, 0, 7760]],
-  storage: [[2300, 4300, 8600], [6300, 1500, 3800]], gantry: [[1200, 4300, 13800], [4700, 1100, 9700]],
-  label: [[6300, 2600, 7600], [7550, 850, 9750]], upender: [[8400, 3600, 7400], [10900, 1000, 10100]],
-  decap: [[9700, 3300, 8900], [11290, 1350, 11000]], robot: [[6200, 5600, 10200], [9900, 1100, 13400]],
-  booth: [[7600, 2800, 12000], [9400, 1350, 14700]], waste: [[1500, 4300, 11600], [5000, 800, 14600]],
-  inbound: [[-900, 3900, 7400], [2300, 900, 2900]], weigh: [[10150, 1500, 12650], [11292, 650, 13400]],
+  iso: [[-9000, 30000, 52000], [21000, 0, 17000]], top: [[22500, 78000, 19500], [22500, 0, 19490]],
+  fill: [[-5000, 9500, 19500], [6200, 600, 7400]], clean: [[12500, 11000, 22500], [19500, 600, 8500]],
+  road: [[6000, 11000, 30000], [16000, 0, 16500]], warehouse: [[19000, 17000, 50000], [37000, 0, 30000]],
+  gantry: [[19200, 4300, 9300], [14800, 1100, 12700]],   // 清洗區龍門在南牆邊，從東北側室內看
+  label: fv('front', [6300, 2600, 7600], [7550, 850, 9750]), upender: fv('front', [8400, 3600, 7400], [10900, 1000, 10100]),
+  decap: fv('cell', [9700, 3300, 8900], [11290, 1350, 11000]), robot: fv('cell', [6200, 5600, 10200], [9900, 1100, 13400]),
+  booth: fv('cell', [7600, 2800, 12000], [9400, 1350, 14700]), weigh: fv('cell', [10150, 1500, 12650], [11292, 650, 13400]),
+  waste: fv('util', [1500, 4300, 11600], [5000, 800, 14600]),
+  toplabel: [[19400, 3300, 7800], [OUTFEED.x, 1300, OUTFEED.topLabel - 200]],
+  line1: [[6600, 4200, 3000], [3000, 1000, 8200]], stage: [[-2200, 2700, 11450], [1500, 700, 14300]],
 };
 const highlightView = name => document.querySelectorAll('.views button[data-view]').forEach(b => b.classList.toggle('selected', b.dataset.view === name));
 function setView(name, instant = false) {
@@ -203,17 +212,24 @@ controls.addEventListener('start', () => stage.cancelTween());
 const P = (x, y, z) => { const v = new THREE.Vector3(x, y, z); return () => v; };
 const showLabel = pos => () => ui.showLabels.checked ? pos() : null;
 const label = (html, pos, priority = 2) => stage.addLabel(html, showLabel(pos), '', { anchor: 'above', priority });
-label('<b>倉儲</b> 穿梭車密集架 212 桶', P(6000, 4000, 2700));
+const Pw = (f, x, y, z) => { const [wx, wz] = toWorld(f, x, z); return P(wx, y, wz); };
+label('<b>填裝區</b> 4 線 × 4 填裝位（原洗桶區）', P(6200, 3600, 3000));
+label('<b>清洗區</b> 自行規劃 13.5 × 15.52 m', P(19500, 4400, 900), 1);
+label('<b>倉庫</b> W 30 × L 20 × H 5 m', P(39000, 5600, 23000));
 label('<b>AGV</b> 平衡重式堆高', () => agv.root.position.clone().add(new THREE.Vector3(0, 2500, 0)), 1);
-label('<b>S2</b> 棧板站＋龍門翻轉夾爪', P(4800, 3600, 9050));
-label('<b>S3</b> 貼標＋讀碼', P(LABEL.x, 2350, LYING.z + 500));
-label('<b>S4</b> 90° 翻桶機', P(10500, 1700, 9500));
-label('<b>S5</b> 自動開蓋站', P(UPRIGHT.x, 2900, DECAP.z));
-label('<b>S6</b> FANUC R-2000iC/165F', P(ROBOT.x, 2700, ROBOT.z - 300));
-label('<b>S6</b> 沖洗站', P(9500, 2950, BOOTH.z0 + 200));
-label('<b>S7</b> 廢液回收', P(5700, 2500, 14300));
-label('<b>S0</b> 散桶入庫（捲門＋懸臂吊）', P(1500, 3500, INBOUND.z));
-label('裝填區（下一站）', P(11400, 1500, 14700), 1);
+label('<b>S2</b> 棧板站＋龍門翻轉夾爪', Pw('front', 4800, 3600, 9050));
+label('<b>S3</b> 側標＋讀碼', Pw('front', LABEL.x, 2350, LYING.z + 500));
+label('<b>S4</b> 90° 翻桶機', Pw('front', 10500, 1700, 9500));
+label('<b>S5</b> 自動開蓋站', Pw('cell', UPRIGHT.x, 2900, DECAP.z));
+label('<b>S6</b> FANUC R-2000iC/165F', Pw('cell', ROBOT.x, 2700, ROBOT.z - 300));
+label('<b>S6</b> 沖洗站', Pw('cell', 9500, 2950, BOOTH.z0 + 200));
+label('<b>S7</b> 廢液回收', Pw('util', 5000, 2500, 14300));
+label('<b>S8</b> 頂面貼標（3 張）', P(OUTFEED.x, 2700, OUTFEED.topLabel));
+label('<b>S9</b> 三碼比對＋分線', P(FILL.reader, 2300, FILL.distZ));
+FILL.lines.forEach((x, i) => label(`<b>L${i + 1}</b> 液體 ${FILL.liquids[i]}`, P(x, 3300, FILL.frame[0])));
+label('<b>S11</b> 暫存區組板龍門', P(1800, 4100, 12400));
+label('NG 暫存', P(FILL.ng.x, 1700, FILL.ng.z0), 1);
+label('料倉 · 4 種液體', P((FILL.tank[0] + FILL.tank[2]) / 2, 2300, FILL.tank[1]), 1);
 label('結構柱', P(COLUMN.x, 2600, COLUMN.z), 0);
 for (const d of building.dimLabels) stage.addLabel(d.text, () => ui.showDims.checked ? d.pos : null, 'dim');
 
@@ -226,7 +242,7 @@ function drawHud() {
     row.querySelector('.act').innerHTML = s ? `${s.action}${s.sub ? `<small>${s.sub}</small>` : ''}` : '<span style="color:#6f8190">待命</span>';
   }
   for (const row of ui.drums.children) {
-    if (row.classList.contains('inb')) { const n = IN_IDS.filter((_, i) => st['in' + i].mode === 'pallet').length; row.querySelector('.state').textContent = st.in0.state === '已入架' ? '4 桶已入架（第 3 道底層）' : `已上棧板 ${n}/4`; continue; }
+    if (row.classList.contains('pre')) { row.querySelector('.state').textContent = st.preA.state; continue; }
     const s = st['drum' + row.dataset.k];
     row.querySelector('.state').textContent = s.state;
     row.querySelector('.tags').innerHTML = [
@@ -234,6 +250,9 @@ function drawHud() {
       [s.capBig || s.capSmall ? '桶蓋未開' : '桶口已開', !s.capBig && !s.capSmall],
       [`沖洗 ${s.rinse}/3`, s.rinse === 3 && s.mode !== 'robot'],
       [s.weighG >= 0 ? `殘水 ${s.weighG} g OK` : s.dry ? `熱風吹乾（附著 ${s.film.toFixed(0)} g）` : s.film > 0 ? `附著水 ${s.film.toFixed(0)} g` : `桶內水 ${s.water.toFixed(1)} L`, s.weighG >= 0],
+      [`頂標 ${s.top}/3`, s.top === 3],
+      [s.weighG >= 0 && s.water > 0 ? `液體 ${LIQUID[+row.dataset.k]} ${s.water.toFixed(0)} L` : '未填裝', s.water >= 199],
+      [s.torque ? '扭力 OK' : '未鎖蓋', s.torque],
     ].map(([t, ok]) => `<span class="tag ${ok ? 'ok' : ''}">${t}</span>`).join('');
   }
   // 手臂負載：夾持中的桶＋桶內水量
@@ -243,11 +262,11 @@ function drawHud() {
     row.querySelector('i').style.background = r > .9 ? '#ff4d4d' : r > .7 ? '#ffb020' : '#3dd68c'; row.querySelector('.v').textContent = `${v.toFixed(unit === 'kg·m²' ? 1 : 0)} / ${lim}`;
   }
   for (const row of ui.tanks.children) { const k = row.dataset.k, v = st.tanks[k], cap = WASTE.tanks[k].cap; row.querySelector('i').style.width = (v / cap * 100).toFixed(1) + '%'; row.querySelector('.v').textContent = `${v.toFixed(0)} L`; }
-  const ACT_OF = { label: 'labeler', waste: 'sump', inbound: 'jib' };
+  const ACT_OF = { label: 'labeler', waste: 'sump', top: 'topLab', fill: 'h00', wipe: 'wiper0', stage: 'stg' };
   document.querySelectorAll('#stations .st').forEach(b => b.classList.toggle('active', !!act[ACT_OF[b.dataset.st] || b.dataset.st]));
   const focusName = ui.focusTarget.selectedOptions[0].textContent, present = !!focusPosition(ui.focusTarget.value);
   ui.focusStatus.textContent = workspace.following ? (present ? '追蹤中 · ' + focusName : '目標已離開產線') : selectedView === 'focus' ? (present ? '焦點 · ' + focusName : '目標已離開產線') : '自由視角';
-  $('diagnostics').textContent = JSON.stringify({ T, total, playing: player.playing, view: selectedView, following: workspace.following, agv: st.agv, gantry: st.gantry, drums: DRUM_IDS.map((_, k) => st['drum' + k].state), robot: S.robot.err || null });
+  $('diagnostics').textContent = JSON.stringify({ T, total, playing: player.playing, view: selectedView, following: workspace.following, agv: st.agv, gantry: st.gantry, stg: st.stg, drums: DRUM_IDS.map((_, k) => st['drum' + k].state), robot: S.robot.err || null });
 }
 
 // ---------------------------------------------------------------- 繪製（stage.loop 只在有變化時呼叫）
@@ -291,7 +310,7 @@ if (qp.has('movie')) {
   // 所以以事件起點切段，片段內的畫面仍是當下全廠設備的真實並行狀態。
   //  · 片段不到 MIN_SEG 秒就有下一事件：由下一事件接手（起點不變），避免鏡頭來回甩。
   //  · 非清洗站的事件做完 HOLD 秒後手臂仍夾著桶在清洗（整線瓶頸）：切出一段回到清洗手臂。
-  //  · 手臂清洗中的 AGV 單獨動作（入架、回充電板）不另切鏡頭：AGV 在貨架深處，固定的西北偏移只拍得到頂層的桶。
+  //  · 手臂清洗中的 AGV 單獨動作（送空棧板、回倉庫充電）不另切鏡頭。
   const MIN_SEG = 2, HOLD = 6, AT_BOOTH = new Set(['robot', 'waste']);
   const stName = id => { const s = STATIONS.find(x => x.id === id); return `${s.short} ${s.name}`; };
   const heldAt = t => { const st = seq.sample(t).st; return DRUM_IDS.findIndex((_, k) => st['drum' + k].mode === 'robot'); };
@@ -309,9 +328,9 @@ if (qp.has('movie')) {
     const k = heldAt(back);
     if (k >= 0) cut(back, 'robot', `${stName('robot')} · ${DRUM_IDS[k]} 沖洗、抽乾與熱風吹乾`);
   });
-  // AGV 在貨架深處：這幾段改從南側走道拍（步驟的 offset，錄影程式在切換時平滑過渡）
-  const AGV_OFFSET = [1200, 5200, 6200];
-  const steps = segs.map((s, i) => ({ ...s, dur: (segs[i + 1]?.start ?? total) - s.start, ...(s.station === 'agv' ? { offset: AGV_OFFSET } : {}) }));
+  // AGV 在道路與倉庫之間：從南側高處拉遠拍（步驟的 offset，錄影程式在切換時平滑過渡）
+  const AGV_OFFSET = [-2500, 7000, 9000];
+  const steps = segs.map((s, i) => ({ ...s, dur: (segs[i + 1]?.start ?? total) - s.start, ...(s.station === 'agv' || s.station === 'stage' ? { offset: AGV_OFFSET } : {}) }));
 
   // 追焦對象：依目前片段的站別，看該站正在處理的桶（或設備）；目標暫時不在時用該站的固定點
   let movieT = 0;
@@ -323,17 +342,20 @@ if (qp.has('movie')) {
     for (const m of modes) { const k = DRUM_KEYS.findIndex(key => S.st[key].mode === m); if (k >= 0 && drums[k].root.visible) return drums[k].root.position.clone().add(up); }
     return null;
   };
+  const V3 = (f, x, y, z) => { const [wx, wz] = toWorld(f, x, z); return new THREE.Vector3(wx, y, wz); };
   const FIXED = {
-    label: new THREE.Vector3(LABEL.x, LYING.y, LYING.z), upender: new THREE.Vector3(UPRIGHT.x, 900, LYING.z),
-    decap: new THREE.Vector3(UPRIGHT.x, UPRIGHT.top + 600, DECAP.z), inbound: new THREE.Vector3(INBOUND.x, 700, INBOUND.z),
+    label: V3('front', LABEL.x, LYING.y, LYING.z), upender: V3('front', UPRIGHT.x, 900, LYING.z),
+    decap: V3('cell', UPRIGHT.x, UPRIGHT.top + 600, DECAP.z), top: new THREE.Vector3(OUTFEED.x, 1300, OUTFEED.topLabel),
+    fill: new THREE.Vector3(FILL.lines[0], 1300, FILL.pos[1]), wipe: new THREE.Vector3(FILL.lines[0], 1300, FILL.pos[1]),
   };
   function movieFocus() {
     const station = steps.findLast(s => s.start <= movieT)?.station ?? 'agv';
     // AGV 與入庫在貨架、懸臂吊旁：拉遠到約 7 m、高約 5.2 m，鏡頭在貨架頂層桶（約 3.75 m）與吊臂之上，不穿過貨架、桶與吊臂
-    if (station === 'agv') return agv.root.position.clone().add(new THREE.Vector3(0, 750, 0));
+    if (station === 'agv' || (station === 'stage' && !drumIn('stg'))) return agv.root.position.clone().add(new THREE.Vector3(0, 750, 0));
+    if (station === 'stage') return drumIn('stg');
+    if (station === 'top' || station === 'fill' || station === 'wipe') return drumIn('route') ?? FIXED[station].clone();
     if (station === 'gantry') return drumIn('gantry') ?? line.gantryPivot.getWorldPosition(new THREE.Vector3());
     if (station === 'upender') return drumIn('upender') ?? FIXED.upender.clone();
-    if (station === 'inbound') return wide(drumIn('jib', 'dolly') ?? FIXED.inbound.clone());
     if (AT_BOOTH.has(station)) return drumIn('robot') ?? focusPosition('gripper');
     return FIXED[station].clone();
   }

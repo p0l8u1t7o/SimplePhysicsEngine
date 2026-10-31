@@ -80,7 +80,7 @@ const times=[...new Set([...Array.from({length:Math.floor(seq.total/.05)+1},(_,i
 for(const t of times){
   const sm=seq.sample(t),st=sm.st;grip.set(st.grip.jaw);robot.root.updateMatrixWorld(true);samples++;
   const allBox=new THREE.Box3().setFromObject(grip.root),near=boxes.filter(o=>allBox.intersectsBox(o.box));
-  const drums=DRUM_KEYS.map(k=>({k,...drumWorld(k,st,robot.tcp.matrixWorld)})).filter(w=>!w.hidden&&allBox.distanceToPoint(w.pos)<600);
+  const drums=DRUM_KEYS.map(k=>({k,...drumWorld(k,st,robot.tcp.matrixWorld,{logical:true})})).filter(w=>!w.hidden&&allBox.distanceToPoint(w.pos)<600);
   for(const {mesh,i,points}of meshes){
     const wb=mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrixWorld);
     for(const obstacle of near)if(wb.intersectsBox(obstacle.box)&&intersects(mesh,obstacle.box))fail('設備干涉',{t,mesh:i,obstacle:obstacle.name,action:sm.robot.step?.action});

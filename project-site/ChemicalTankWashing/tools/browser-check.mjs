@@ -39,13 +39,14 @@ if (ready) {
   // 以事件名稱定位時刻，流程時間調整後截圖仍對準同一個動作
   const at = (label, off = 0) => evaluate(`(window.sim.seq.events.find(e => e.label.includes(${JSON.stringify(label)}))?.time ?? 0) + ${off}`);
   const scenes = [
-    ['01-overview', 0, 'iso'], ['02-plan-dims', 0, 'top', 'dims'], ['03-agv-rack', await at('抬起棧板', .5), 'storage'],
+    ['01-overview', 0, 'iso'], ['02-plan-dims', 0, 'top', 'dims'], ['03-agv-road', await at('AGV 出倉庫送待洗棧板', 8), 'road'],
     ['04-gantry-tilt', await at('CTW-2610-0001 翻轉放倒', 1.5), 'gantry'], ['05-label-read', await at('CTW-2610-0001 讀碼', .4), 'label'],
     ['06-upender', await at('CTW-2610-0001 翻正', 2), 'upender'], ['07-decap', await at('拆 2" 桶蓋', 1.2), 'decap'],
     ['08-robot-pick', await at('手臂開始取桶', 3), 'robot'], ['09-booth-spray', await at('沖洗水由 TK-R 供應', 5), 'booth'],
     ['10-booth-pour', await at('倒液進集液漏斗', 2), 'booth'], ['11-hot-air-dry', await at('熱風吹乾內壁附著水', 8), 'booth'],
-    ['12-waste', await at('末道沖洗水回收至 TK-R', 1), 'waste'], ['13-inbound-dolly', await at('散桶入庫：台車推入', 3), 'inbound'],
-    ['14-inbound-jib', await at('懸臂吊上棧板', 2), 'inbound'], ['15-agv-inbound-arc', await at('AGV 取滿棧板入架', 6), 'inbound'],
+    ['12-waste', await at('末道沖洗水回收至 TK-R', 1), 'waste'], ['13-top-label', await at('頂面貼標開始', 2), 'toplabel'],
+    ['14-fill', await at('CTW-2610-0001 開始填裝', 10), 'line1'], ['15-wipe', await at('CTW-2610-0001 人員擦拭桶身', 5), 'line1'],
+    ['15b-stage', await at('組板龍門取桶', 12), 'stage'], ['15c-warehouse', await at('成品 A 入庫完成', 0), 'warehouse'],
     ['16-weigh', await at('秤重確認殘水 < 100 g', .7), 'weigh'], ['16b-air-knife', await at('退出時風刀吹外表', 1.2), 'booth'], ['17-finish', report.total - 1, 'iso'],
   ];
   for (const [name, t, view, flag] of scenes) {

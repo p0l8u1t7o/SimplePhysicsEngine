@@ -1,6 +1,9 @@
-// 產線設備：棧板站、三軸龍門＋翻轉夾爪、橫躺輸送、貼標讀碼站、翻桶機、立放直線輸送（開蓋→清洗→裝填區）、圍籬與控制櫃。
+// 清洗線設備：棧板站、三軸龍門＋翻轉夾爪、橫躺輸送、側標貼標讀碼站、翻桶機（front）；
+// 立放直線輸送（開蓋→手臂清洗→秤重）、手臂圍籬、人機與三色燈（cell）；主控盤與手臂控制器（世界座標）。
+// 各段用 layout.js 的邏輯座標建立，frames 為 true 時把 front／cell 群組放到清洗區（見 layout.js 檔頭）；
+// tools/verify-detail.mjs 以 frames: false 建立，直接在邏輯座標檢查。
 import * as THREE from 'three';
-import { PALLET_STATION, PALLET, GANTRY, LYING, LABEL, UPENDER, UPRIGHT, DECAP, DRUM, FENCE, FENCE_GATES, GANTRY_FENCE, FOOTPRINTS, ROOM, WEIGH } from './layout.js';
+import { PALLET_STATION, PALLET, GANTRY, LYING, LABEL, UPENDER, UPRIGHT, DECAP, DRUM, FENCE, FENCE_GATES, GANTRY_FENCE, GANTRY_GATE, WEIGH, FRAME, worldFootprints, CELL_FOOTPRINTS } from './layout.js';
 import { D2R, block, blockBetween, cylinder, plate, rod } from '@core/geom/shapes.js';
 import { MAT } from '@core/geom/materials.js';
 import { drumJaws } from './drum.js';
@@ -14,19 +17,29 @@ import { labeler, upender, weighIndicator } from '@core/models/equipment-process
 import { vRollerConveyor, ballTurntable } from '@core/models/transport.js';
 import { create as conveyor } from '@core/models/conveyor.js';
 
-export function createLine(scene) {
-  const group = new THREE.Group(); group.name = 'line'; scene.add(group);
+const FRONT = new Set(['pallet', 'gantry', 'lying', 'label', 'upender']);
+
+export function createLine(scene, { frames = true } = {}) {
+  const root = new THREE.Group(); root.name = 'line'; scene.add(root);
+  const front = new THREE.Group(), cell = new THREE.Group(), world = new THREE.Group();
+  front.name = 'line front'; cell.name = 'line cell'; world.name = 'line world'; root.add(front, cell, world);
+  if (frames) {
+    front.position.set(FRAME.front.x, 0, FRAME.front.z);
+    cell.position.set(FRAME.cell.x, 0, FRAME.cell.z); cell.rotation.y = Math.PI;
+  }
   // 工位標記：每段建立的零件記下所屬工位（userData.station），統一檢查依此判斷「不同工位的架設相撞」
+  // 各段依工位放進 front 或 cell 群組（group 隨 section 切換）
   const sections = [];
-  const section = name => sections.push([group.children.length, name]);
-  const fences = new THREE.Group(); group.add(fences);
+  let group = front;
+  const section = name => { group = FRONT.has(name) ? front : name === 'world' ? world : cell; sections.push([group, group.children.length, name]); };
+  const fencesF = new THREE.Group(), fencesC = new THREE.Group(); front.add(fencesF); cell.add(fencesC);
 
   section('pallet');
   // ---------------------------------------------------------------- 棧板站
   const ps = PALLET_STATION;
   block(group, [1300, ps.stand, 1300], [ps.x, ps.stand / 2, ps.z], MAT.steelDark);
   for (const [dx, dz] of [[-660, 300], [660, 300], [-660, -300], [660, -300]]) block(group, [40, 200, 300], [ps.x + dx, ps.stand + 100, ps.z + dz], MAT.yellow);
-  block(group, [260, 30, 30], [ps.x, ps.stand + 17, ps.z + PALLET.W / 2 + 20], MAT.steelOrange);   // 後止擋：橫跨棧板中樑，距棧板南端 5 mm
+  block(group, [260, 30, 30], [ps.x, ps.stand + 17, ps.z - PALLET.W / 2 - 20], MAT.steelOrange);   // 後止擋：AGV 由南側送入，止擋在北端，距棧板 5 mm
 
   section('gantry');
   // ---------------------------------------------------------------- 龍門（雙 X 樑 → 橫樑沿 X → 台車沿 Z → 兩段伸縮 Z → 翻轉軸 → 夾爪）
@@ -143,7 +156,7 @@ export function createLine(scene) {
   // 站名牌貼在輸送架西側下方：夾爪兩側導軌在桶身高度會掃過 up.x ± 420，牌子不能放在那裡
   plate(group, ['取桶位'], 420, 110, [up.x - 420, up.top - 230, up.pick], -Math.PI / 2, { w: 512, h: 130 });
   plate(group, ['放回位＋頂升秤台'], 560, 110, [up.x - 420, up.top - 230, up.place], -Math.PI / 2, { w: 512, h: 110 });
-  plate(group, ['→ 裝填區（下一站）'], 900, 160, [up.x - 420, 1150, up.handoff - 200], -Math.PI / 2, { w: 640, h: 110 });
+  plate(group, ['→ 頂面貼標 → 填裝區'], 900, 160, [up.x - 420, 1150, up.handoff - 200], -Math.PI / 2, { w: 640, h: 110 });
 
   section('decap');
   // ---------------------------------------------------------------- 自動開蓋站（相機定位 → 旋轉台對位 → 伺服鎖付軸反轉拆蓋）
@@ -204,8 +217,8 @@ export function createLine(scene) {
   // ---------------------------------------------------------------- 圍籬
   // 圍籬：gaps 為 [x, z, 開口寬]，在所在邊上精確切出開口（寬度依通過的設備與光柵決定），其餘每段約 1.5 m 一片網
   const posts = new Set();
-  const post = (x, z) => { const k = Math.round(x) + ',' + Math.round(z); if (posts.has(k)) return; posts.add(k); block(fences, [60, 2000, 60], [x, 1000, z], MAT.fence); };
-  const fencePath = (pts, closed, gaps = []) => {
+  const post = (fences, x, z) => { const k = fences.uuid + Math.round(x) + ',' + Math.round(z); if (posts.has(k)) return; posts.add(k); block(fences, [60, 2000, 60], [x, 1000, z], MAT.fence); };
+  const fencePath = (fences, pts, closed, gaps = []) => {
     const list = closed ? [...pts, pts[0]] : pts;
     for (let i = 1; i < list.length; i++) {
       const [ax, az] = list[i - 1], [bx, bz] = list[i], L = Math.hypot(bx - ax, bz - az), ux = (bx - ax) / L, uz = (bz - az) / L;
@@ -223,27 +236,29 @@ export function createLine(scene) {
             const panel = new THREE.Mesh(new THREE.PlaneGeometry(seg - 60, 1800), MAT.mesh); panel.position.set(mx, 1000, mz); panel.rotation.y = yaw; fences.add(panel);
             const frame = block(fences, [seg - 60, 30, 30], [mx, 1900, mz], MAT.fence); frame.rotation.y = yaw;
           }
-          post(ax + ux * s0, az + uz * s0); post(ax + ux * s1, az + uz * s1);
+          post(fences, ax + ux * s0, az + uz * s0); post(fences, ax + ux * s1, az + uz * s1);
         }
       }
     }
   };
   // 開口寬：立放輸送架 ±405、光柵 ±450 → 1060；龍門北側 AGV 送棧板（1200 寬）、光柵 ±700 → 1520；
   // 龍門東側橫躺輸送（含南側底板到 +480）、光柵 ±550 → 1220
-  fencePath(FENCE, false, [[...FENCE_GATES.in, 1060], [...FENCE_GATES.out, 1060]]);
-  fencePath(GANTRY_FENCE, true, [[PALLET_STATION.x, 8950, 1520], [6700, LYING.z, 1220]]);
+  fencePath(fencesC, FENCE, false, [[...FENCE_GATES.in, 1060], [...FENCE_GATES.out, 1060]]);
+  fencePath(fencesF, GANTRY_FENCE, true, [[...GANTRY_GATE, 1520], [6700, LYING.z, 1220]]);
   // 光柵（入口）：core 的安全光柵模型，一對投／受光器，原點在兩支中間的地面；只畫機身（不畫透光面與光幕面）
-  for (const [x, z, w, ax] of [[PALLET_STATION.x, 8950, 1400, 'x'], [...FENCE_GATES.in, 900, 'x'], [...FENCE_GATES.out, 900, 'x'], [6700, LYING.z, 1100, 'z']]) {
+  for (const [x, z, w, ax, fences] of [[...GANTRY_GATE, 1400, 'x', fencesF], [...FENCE_GATES.in, 900, 'x', fencesC], [...FENCE_GATES.out, 900, 'x', fencesC], [6700, LYING.z, 1100, 'z', fencesF]]) {
     const lc = lightCurtain.create({ span: w, axis: ax, height: 1700, w: 50, d: 50, window: false, beam: false });
     lc.root.position.set(x, 0, z); fences.add(lc.root);
   }
 
+  section('world');
+  // ---------------------------------------------------------------- 主控盤與手臂控制器（清洗區東北角，世界座標；面朝南）
+  const WFP = worldFootprints();
+  const cab = (key, color, name) => { const [x0, z0, x1, z1, h] = WFP[key].r; block(group, [x1 - x0, h, z1 - z0], [(x0 + x1) / 2, h / 2, (z0 + z1) / 2], color); plate(group, name, Math.min(700, x1 - x0 - 60), 160, [(x0 + x1) / 2, h - 150, z1 + 2], 0, { w: 512, h: 120 }); return [x0, z0, x1, z1, h]; };
+  const cabRects = [cab('robotCtrl', MAT.cabinet, ['R-30iB Plus']), cab('panel', MAT.cabinet, ['主控盤 PLC'])];
   section('cabinet');
-  // ---------------------------------------------------------------- 控制櫃與人機
-  const cab = (key, color, name) => { const [x0, z0, x1, z1, h] = FOOTPRINTS[key]; block(group, [x1 - x0, h, z1 - z0], [(x0 + x1) / 2, h / 2, (z0 + z1) / 2], color); plate(group, name, Math.min(700, x1 - x0 - 60), 160, [(x0 + x1) / 2, h - 150, z0 - 2], Math.PI, { w: 512, h: 120 }); };
-  cab('robotCtrl', MAT.cabinet, ['R-30iB Plus']);
-  cab('panel', MAT.cabinet, ['主控盤 PLC']);
-  const [hx0, hz0, hx1, hz1] = FOOTPRINTS.hmi;
+  // ---------------------------------------------------------------- 人機（手臂區圍籬南側）與三色燈
+  const [hx0, hz0, hx1, hz1] = CELL_FOOTPRINTS.cell.hmi;
   block(group, [150, 1100, 150], [(hx0 + hx1) / 2, 550, (hz0 + hz1) / 2], MAT.steelDark);
   // 人機：core 的 HMI 模型，整塊機身就是螢幕（不另裝面板），原點在機身中心，往後仰
   const hmiPanel = hmiModel.create({ w: 380, h: 280, d: 50, bevel: 0, bodyMaterial: MAT.screen, panel: false });
@@ -261,8 +276,8 @@ export function createLine(scene) {
   for (const [x, z] of g.posts) foot(group, x, z, 280);
   section('decap');
   for (const [dx, dz] of [[-650, -400], [650, -400], [-650, 400], [650, 400]]) foot(group, up.x + dx, dc.z + dz, 160);
-  section('cabinet');
-  for (const key of ['panel', 'robotCtrl']) cabinetDetails(group, ...FOOTPRINTS[key]);
+  section('world');
+  for (const r of cabRects) cabinetDetails(group, ...r);
   section('lying');
   motor(group, ly.x0 + 380, axisY - 100, ly.z + 475, .65);
   section('upright');
@@ -274,8 +289,13 @@ export function createLine(scene) {
   for (const x of [ly.place, ly.label, ly.buffer]) sensor(group, x, axisY + 40, ly.z + 330);   // 低於夾爪下緣，避開龍門張開的夾爪
   for (const s of [-1, 1]) { block(z1, [20, 1240, 12], [s * 85, 650, 117], MAT.steelDark); block(trolley, [32, 220, 32], [s * 130, g.beamY + 150, 160], MAT.steel); }
   bolts(bridge, [-1, 1].flatMap(s => [-1, 1].map(k => [s * 200, g.beamY + 565, (p0[1] + p2[1]) / 2 + k * 600])), 14);
-  sections.push([group.children.length, null]);
-  for (let i = 0; i + 1 < sections.length; i++) for (const c of group.children.slice(sections[i][0], sections[i + 1][0])) c.userData.station ??= sections[i][1];
+  // 各群組依建立順序把零件標上工位（同一群組內，下一個段落開始之前的都屬於這一段）
+  for (let i = 0; i < sections.length; i++) {
+    const [g, start, name] = sections[i], next = sections.slice(i + 1).find(s => s[0] === g);
+    for (const c of g.children.slice(start, next ? next[1] : g.children.length)) if (c !== fencesF && c !== fencesC) c.userData.station ??= name === 'world' ? 'cabinet' : name;
+  }
+  // 圍籬不標工位（與搬移前相同）：圍籬立柱依附在龍門柱、輸送架旁，不算不同工位的架設相撞
+  const fences = { get visible() { return fencesC.visible; }, set visible(v) { fencesF.visible = v; fencesC.visible = v; } };
   return {
     animate(time, st) {
       // 分段滾輪只在相鄰桶輸送時轉動；角度由桶位移決定，重播完全一致。
@@ -286,7 +306,7 @@ export function createLine(scene) {
       }
     },
     mechanical: { rotRollers, uprightRollers, tableRollers, turntable, weigher, cradle, actuator, piston, upClamp, dcClamp },
-    group, fences, labelCam, decapCam, gantryPivot, cradle, padLabel,
+    group: root, front, cell, fences, fenceGroups: [fencesF, fencesC], labelCam, decapCam, gantryPivot, cradle, padLabel,
     setGantry({ x, z, y, tilt: t, jaw }) {
       bridge.position.x = x; trolley.position.z = z;
       // 兩段伸縮：內管原點即翻轉軸；外管底端隨行程移動，兩端都保持與內管、台車重疊

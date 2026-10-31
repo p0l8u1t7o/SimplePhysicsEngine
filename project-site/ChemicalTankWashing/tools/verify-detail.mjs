@@ -7,10 +7,12 @@ import { createBuilding } from '../web/js/building.js';
 import { createDrum, DRUM_GEO } from '../web/js/drum.js';
 import { createRobot } from '../web/js/robot.js';
 import { createSequence, drumWorld, DRUM_KEYS } from '../web/js/sequence.js';
-import { DRUM, LYING, UPRIGHT, BOOTH, WASTE, WEIGH, DECAP, INBOUND } from '../web/js/layout.js';
+import { DRUM, LYING, UPRIGHT, BOOTH, WASTE, WEIGH, DECAP, FENCE, FILL, OPENINGS, CONV, ROOM, toWorld } from '../web/js/layout.js';
 import { MAT } from '@core/geom/materials.js';
 
-const scene = new THREE.Scene(), line = createLine(scene), wash = createWashing(scene), building = createBuilding(scene);
+// 清洗線與沖洗站在邏輯座標建立（frames: false）；跨框架的世界座標配管另建一份（washW）檢查
+const scene = new THREE.Scene(), line = createLine(scene, { frames: false }), wash = createWashing(scene, { frames: false }), building = createBuilding(scene);
+const washW = createWashing(new THREE.Scene());
 const robot = createRobot(), seq = createSequence({robot}), m = line.mechanical;
 const checks = [], bad = [], check = (name, ok, detail) => { checks.push({name, ok, detail}); if (!ok) bad.push({name, detail}); };
 const v = (x,y,z) => new THREE.Vector3(x,y,z);
@@ -63,9 +65,16 @@ for(const [name,p]of Object.entries(wash.pipes))for(let i=1;i<p.points.length;i+
   const a=v(...p.points[i-1]),b=v(...p.points[i]),d=b.clone().sub(a),length=d.length();
   const ray=new THREE.Raycaster(a,d.clone().normalize(),.01,length-.01);
   if(ray.intersectObjects(wash.walls.children,true).length)pipeWallHits.push({name,segment:i});
-  if((a.x-7000)*(b.x-7000)<0){const t=(7000-a.x)/d.x,y=a.y+d.y*t,z=a.z+d.z*t;if(z>11300&&z<15520)fenceGaps.push({name,mm:y-p.radius*1.15-2000});}
-  if((a.z-(z1-bw/2))*(b.z-(z1-bw/2))<0){const t=(z1-bw/2-a.z)/d.z,y=a.y+d.y*t,x=a.x+d.x*t;if(x>x0&&x<x1)bundGaps.push({name,mm:y-p.radius*1.15-300});}
+  // 沖洗站背面補上的圍籬（邏輯 Z FENCE.at(-1)，X 7000–10200）：給水與集液管越過時要高過圍籬
+  const fz=FENCE.at(-1)[1];
+  if(name in wash.cellPipes&&(a.z-fz)*(b.z-fz)<0){const t=(fz-a.z)/d.z,y=a.y+d.y*t,x=a.x+d.x*t;if(x>7000&&x<10200)fenceGaps.push({name,mm:y-p.radius*1.15-2000});}
 }
+// 酸鹼清運管（世界座標）越過防溢堤北牆（世界 Z = 堤北緣＋半牆厚）
+const bundZ=toWorld('util',0,z0+bw/2)[1], [bx0]=toWorld('util',x0,0), [bx1]=toWorld('util',x1,0);
+for(const name of ['outA','outB']){const p=washW.pipes[name];for(let i=1;i<p.points.length;i++){
+  const a=v(...p.points[i-1]),b=v(...p.points[i]),d=b.clone().sub(a);
+  if((a.z-bundZ)*(b.z-bundZ)<0){const t=(bundZ-a.z)/d.z,y=a.y+d.y*t,x=a.x+d.x*t;if(x>bx0&&x<bx1)bundGaps.push({name,mm:y-p.radius*1.15-300});}
+}}
 check('排液管穿過實際 PP 板預留孔',pipeWallHits.length===0,pipeWallHits);
 check('剛性跨區配管高過圍籬',fenceGaps.length>0&&fenceGaps.every(g=>g.mm>=0),fenceGaps);
 check('酸鹼清運管高過防溢堤',bundGaps.length>=2&&bundGaps.every(g=>g.mm>=0),bundGaps);
@@ -82,7 +91,7 @@ for(const t of times){
   if(st.booth.spray && (st.booth.lance<.999 || st.booth.lance2<.999)) interlockErrors++;
   for(const [k,tank]of Object.entries(WASTE.tanks))if(st.tanks[k]<0||st.tanks[k]>tank.cap)liquidErrors++;
   for(const key of DRUM_KEYS){const d=st[key];if(d.mode!=='robot')continue;
-    const w=drumWorld(key,st,robot.tcp.matrixWorld), inv=w.q.clone().invert();
+    const w=drumWorld(key,st,robot.tcp.matrixWorld,{logical:true}), inv=w.q.clone().invert();
     for(const [kind,ext,xy,radius] of [['big',st.booth.lance,BOOTH.lance,24],['small',st.booth.lance2,BOOTH.lance2,10]]){
       const tipY=BOOTH.lanceUp+(BOOTH.lanceDown-BOOTH.lanceUp)*ext;
       if(ext<=0)continue;
@@ -102,11 +111,13 @@ check('抽液管與桶內壁桶底間隙',lanceGap>=0,{mm:lanceGap});
 check('噴洗必須等待雙槍到位',interlockErrors===0,{violations:interlockErrors});
 check('全流程液位不溢流且狀態有限',liquidErrors===0&&finiteErrors===0,{liquidErrors,finiteErrors});
 
-// 入库門空間穿越射線：以實際建築 mesh 驗證牆與踢腳已開洞。
+// 共用牆輸送口：沿分線輸送線（桶身高度）穿過共用牆，以實際建築 mesh 驗證牆與踢腳已開洞。
 scene.updateMatrixWorld(true);
-const ray=new THREE.Raycaster(v(-450,100,2700),v(1,0,0),0,850);
-const hits=ray.intersectObjects(building.group.children,true).filter(h=>h.object.isMesh);
-check('捲門台車通過面無建築牆阻擋',hits.length===0,{hits:hits.length});
+const hits=[]; for(const dz of [-300,0,300])for(const y of [CONV.top+50,CONV.top+DRUM.H-50]){
+  const ray=new THREE.Raycaster(v(ROOM.W-400,y,FILL.distZ+dz),v(1,0,0),0,1000);
+  hits.push(...ray.intersectObjects(building.group.children,true).filter(h=>h.object.isMesh));
+}
+check('分線輸送穿過共用牆的開口無牆阻擋',hits.length===0,{hits:hits.length,opening:OPENINGS.conveyor});
 
 const report={ok:bad.length===0,samples:times.length,dt:.05,checks,failures:bad,scope:'實際局部幾何與全流程雙槍/液位聯鎖；桶內以圓柱近似；不等於製造 CAD、連續碰撞或現場安全認證。'};
 writeFileSync(new URL('../review/detail-verification.json',import.meta.url),JSON.stringify(report,null,2));

@@ -1,19 +1,20 @@
 // 動畫幾何驗證（不需瀏覽器）：
 //   node --import ../../core/tools/register.mjs tools/verify.mjs
-// 涵蓋：空間檢核、手臂可達性／關節限位／關節速度、手臂連桿與夾持桶對沖洗站／輸送／圍籬的干涉、
-// 桶與桶互不重疊、AGV 車身與棧板對牆／柱／貨架／龍門柱的干涉、交接瞬間的跳動、倒退跳轉一致性。
-// 以 0.05 s 取樣，屬於有限取樣檢查，不是連續碰撞證明。
+// 涵蓋：空間檢核、手臂可達性／關節限位／關節速度、手臂連桿與夾持桶對沖洗站／輸送／圍籬的干涉（cell 邏輯座標）、
+// 桶與桶互不重疊（世界座標）、AGV 車身與棧板對牆／門框／龍門柱與光柵／組板龍門柱／暫存棧板／倉庫儲位的干涉、
+// 交接瞬間的跳動、倒退跳轉一致性。以 0.05 s 取樣，屬於有限取樣檢查，不是連續碰撞證明。
 import * as THREE from 'three';
 import { writeFileSync, mkdirSync } from 'node:fs';
-import { layoutChecks, BOOTH, UPRIGHT, FENCE, COLUMN, rackBlocks, RACK, GANTRY, AGV, PALLET, DRUM, pointInPolygon, OUTLINE, DECAP, ROBOT, FOOTPRINTS, LABEL } from '../web/js/layout.js';
+import { layoutChecks, BOOTH, UPRIGHT, FENCE, GANTRY, GANTRY_GATE, AGV, PALLET, DRUM, pointInPolygon, DECAP, ROBOT, LABEL, STAGING, FILL, CONV, wallRects, warehouseStore, toWorld, agvPolygons, polyRectOverlap } from '../web/js/layout.js';
 import { createRobot, LIMITS, SPEED, JOINTS } from '../web/js/robot.js';
-import { createSequence, drumWorld, DRUM_KEYS } from '../web/js/sequence.js';
+import { createSequence, drumWorld, palletWorld, DRUM_KEYS } from '../web/js/sequence.js';
 import { createWashing } from '../web/js/washing.js';
 
 const D2R = Math.PI / 180, DT = .05;
 const robot = createRobot(), seq = createSequence({ robot });
-const services = createWashing(new THREE.Scene());
-const pipeSegments = Object.entries(services.pipes).flatMap(([name,p])=>p.points.slice(1).map((b,i)=>({name,a:new THREE.Vector3(...p.points[i]),b:new THREE.Vector3(...b),r:p.radius})));
+const services = createWashing(new THREE.Scene(), { frames: false });
+// 手臂對配管只檢查沖洗站局部配管（cell 邏輯座標）；跨框架配管在圍籬外，由全場檢查負責
+const pipeSegments = Object.entries(services.cellPipes).flatMap(([name,p])=>p.points.slice(1).map((b,i)=>({name,a:new THREE.Vector3(...p.points[i]),b:new THREE.Vector3(...b),r:p.radius})));
 const segmentDistance = (p,a,b) => { const d=b.clone().sub(a), u=Math.max(0,Math.min(1,p.clone().sub(a).dot(d)/d.lengthSq())); return p.distanceTo(a.clone().addScaledVector(d,u)); };
 const fails = [], notes = {};
 const fail = (kind, msg) => { if (fails.filter(f => f.kind === kind).length < 8) fails.push({ kind, msg }); notes[kind] = (notes[kind] || 0) + 1; };
@@ -53,13 +54,17 @@ const inDrum = (p, w, margin) => { const l = p.clone().sub(w.pos).applyQuaternio
 // ---------------------------------------------------------------- 2–6. 逐時取樣
 const maxErr = { position: 0, angle: 0 }, speedRatio = Object.fromEntries(JOINTS.map(n => [n, 0])), jump = { mm: 0, at: 0, drum: '' };
 let prevJ = null, prevT = 0, prevPos = null, prevStep = null, samples = 0, minDrumGap = Infinity, minRobotClear = Infinity, minRobotClearAt = '';
-const agvRects = [['柱', [COLUMN.x - 400, COLUMN.z - 400, COLUMN.x + 400, COLUMN.z + 400]], ['懸臂吊', FOOTPRINTS.jib.slice(0, 4)], ...GANTRY.posts.map(([x, z]) => ['龍門柱', [x - 100, z - 100, x + 100, z + 100]])];
-const rect = (cx, cz, yaw, x0, z0, x1, z1) => { const c = Math.cos(yaw * D2R), s = Math.sin(yaw * D2R); return [[x0, z0], [x1, z0], [x1, z1], [x0, z1]].map(([lx, lz]) => [cx + lx * c + lz * s, cz - lx * s + lz * c]); };
-const polyRect = (poly, r) => {   // 凸多邊形 vs 軸向矩形（SAT）
-  const axes = [[1, 0], [0, 1]]; for (let i = 0; i < 4; i++) { const [ax, az] = poly[i], [bx, bz] = poly[(i + 1) % 4]; axes.push([-(bz - az), bx - ax]); }
-  const rp = [[r[0], r[1]], [r[2], r[1]], [r[2], r[3]], [r[0], r[3]]];
-  return axes.every(([nx, nz]) => { const pa = poly.map(([x, z]) => x * nx + z * nz), pb = rp.map(([x, z]) => x * nx + z * nz); return Math.max(...pa) > Math.min(...pb) + 1e-6 && Math.max(...pb) > Math.min(...pa) + 1e-6; });
-};
+// AGV 的障礙物（世界座標，俯視矩形）：牆與門框、清洗區龍門柱與入口光柵、組板龍門柱、暫存區靜態棧板、集貨輸送、倉庫儲位
+const sq = (x, z, h) => [x - h, z - h, x + h, z + h];
+const agvRects = [
+  ...wallRects(),
+  ...GANTRY.posts.map(([x, z]) => ['龍門柱', sq(...toWorld('front', x, z), 100)]),
+  ...[-700, 700].map(dx => ['龍門入口光柵', sq(...toWorld('front', GANTRY_GATE[0] + dx, GANTRY_GATE[1]), 40)]),
+  ...[[STAGING.gantry.x0, STAGING.gantry.z0], [STAGING.gantry.x1, STAGING.gantry.z0], [STAGING.gantry.x0, STAGING.gantry.z1], [STAGING.gantry.x1, STAGING.gantry.z1]].map(([x, z]) => ['組板龍門柱', sq(x, z, 100)]),
+  ...['B', 'C', 'D'].map(k => [`組板 ${k} 棧板`, [STAGING.pallets[k] - PALLET.W / 2, STAGING.z - PALLET.W / 2, STAGING.pallets[k] + PALLET.W / 2, STAGING.z + PALLET.W / 2]]),
+  ['集貨輸送', [STAGING.pick[0] - CONV.width / 2, FILL.collectZ - CONV.width / 2, FILL.lines.at(-1) + CONV.width / 2, FILL.collectZ + CONV.width / 2]],
+  ...warehouseStore().map(({ x, z }) => ['倉庫儲位', sq(x, z, PALLET.W / 2)]),
+];
 for (let t = 0; t <= seq.total + 1e-9; t += DT) {
   samples++;
   const sm = seq.sample(t), st = sm.st, rs = sm.robot;
@@ -82,12 +87,13 @@ for (let t = 0; t <= seq.total + 1e-9; t += DT) {
   }
   // 桶：位置、互相重疊、夾持中的桶對障礙物
   const ws = DRUM_KEYS.map(k => drumWorld(k, st, robot.tcp.matrixWorld)), N = ws.length;
+  const wl = DRUM_KEYS.map(k => drumWorld(k, st, robot.tcp.matrixWorld, { logical: true }));   // 清洗線上的桶：框架內邏輯座標
   for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) {
     if (ws[i].hidden || ws[j].hidden) continue;
     minDrumGap = Math.min(minDrumGap, ws[i].pos.distanceTo(ws[j].pos));
     if (ws[i].pos.distanceTo(ws[j].pos) < 2 * Math.hypot(DRUM.R, DRUM.H / 2) && worldPts(ws[i]).some(p => inDrum(p, ws[j], 3))) fail('drum-overlap', `${t.toFixed(2)} s ${DRUM_KEYS[i]} 與 ${DRUM_KEYS[j]} 重疊（${st[DRUM_KEYS[i]].mode}/${st[DRUM_KEYS[j]].mode}）`);
   }
-  ws.forEach((w, k) => {
+  wl.forEach((w, k) => {
     if (w.hidden) return;
     const mode = st[DRUM_KEYS[k]].mode;
     // 手臂連桿與夾爪不得碰到未夾持的桶（例如在取桶位等候的下一桶）
@@ -105,25 +111,15 @@ for (let t = 0; t <= seq.total + 1e-9; t += DT) {
   });
   // 交接瞬間不得跳動
   const pos = ws.map(w => w.pos);
-  if (prevPos) pos.forEach((p, k) => { if (ws[k].hidden || prevPos[k].y < -1000) return; const d = p.distanceTo(prevPos[k]) / (t - prevT) * DT; if (d > jump.mm) { jump.mm = d; jump.at = t; jump.drum = DRUM_KEYS[k]; } if (d > 150) fail('drum-jump', `${t.toFixed(2)} s ${DRUM_KEYS[k]} 一步移動 ${d.toFixed(0)} mm（${st['drum' + k].mode}）`); });
+  if (prevPos) pos.forEach((p, k) => { if (ws[k].hidden || prevPos[k].y < -1000) return; const d = p.distanceTo(prevPos[k]) / (t - prevT) * DT; if (d > jump.mm) { jump.mm = d; jump.at = t; jump.drum = DRUM_KEYS[k]; } if (d > 150) fail('drum-jump', `${t.toFixed(2)} s ${DRUM_KEYS[k]} 一步移動 ${d.toFixed(0)} mm（${st[DRUM_KEYS[k]].mode}）`); });
   prevPos = pos.map(p => p.clone()); prevT = t;
-  // AGV 車身與載物
-  const a = st.agv, loaded = st.pallet.mode === 'agv';
-  const body = rect(a.x, a.z, a.yaw, -AGV.rear, -AGV.halfW, AGV.mast[1], AGV.halfW);
-  const front = loaded ? rect(a.x, a.z, a.yaw, AGV.palletX - PALLET.W / 2, -PALLET.W / 2, AGV.palletX + PALLET.W / 2, PALLET.W / 2) : rect(a.x, a.z, a.yaw, AGV.fork[0], -AGV.forkHalf, AGV.fork[1], AGV.forkHalf);
-  for (const poly of [body, front]) {
-    if (!poly.every(p => pointInPolygon(p))) fail('agv-wall', `${t.toFixed(2)} s AGV 超出牆面`);
-    for (const [n, r] of agvRects) if (polyRect(poly, r)) fail('agv-hit', `${t.toFixed(2)} s AGV 碰到${n}`);
-  }
-  for (const r of rackBlocks()) {
-    if (polyRect(body, r)) fail('agv-rack', `${t.toFixed(2)} s AGV 車身進入貨架`);
-    const inLane = RACK.lanes.some(x => Math.abs(a.x - x) < 5) && Math.abs(((a.yaw % 360) + 360) % 360 - 90) < 1;
-    if (polyRect(front, r) && !inLane) fail('agv-rack', `${t.toFixed(2)} s AGV 貨叉／棧板不在車道內卻進入貨架`);
-  }
+  // AGV 車身與載物（世界座標）：叉著棧板時以棧板外框檢查，空叉時以貨叉外框檢查
+  const a = st.agv, loaded = ['palD', 'palA'].some(k => st[k].mode === 'agv');
+  for (const poly of agvPolygons(a.x, a.z, a.yaw, loaded)) for (const [n, r] of agvRects) if (polyRectOverlap(poly, r)) fail('agv-hit', `${t.toFixed(2)} s AGV（${loaded ? '載棧板' : '空叉'}）碰到${n}`);
 }
 
 // ---------------------------------------------------------------- 7. 倒退／跳轉一致性
-const probe = [3, 61.2, 94, 112, 150, 161, 190, 232, 260, 410, 590];
+const probe = [3, 61.2, 94, 112, 150, 161, 190, 232, 260, 410, 590, 700, 900, 1100, 1250];
 const snap = t => { const st = seq.sample(t).st; robot.root.updateMatrixWorld(true); return DRUM_KEYS.map(k => drumWorld(k, st, robot.tcp.matrixWorld).pos.toArray()).flat().concat(JOINTS.map(n => robot.q[n])); };
 const ref = probe.map(snap), again = [...probe].reverse().map(snap).reverse();
 const maxDiff = Math.max(...ref.flatMap((r, i) => r.map((v, j) => Math.abs(v - again[i][j]))));
@@ -135,7 +131,7 @@ const result = {
   jointSpeedRatioMax: Object.fromEntries(Object.entries(speedRatio).map(([k, v]) => [k, +v.toFixed(2)])),
   minRobotClearance: { mm: +minRobotClear.toFixed(0), at: minRobotClearAt }, maxDrumStep: { mm: +jump.mm.toFixed(1), at: +jump.at.toFixed(2), drum: jump.drum }, determinismMaxDiff: +maxDiff.toFixed(4),
   failCounts: notes, failures: fails,
-  scope: '0.05 s 取樣；手臂連桿以線段＋半徑近似、桶以含滾箍的 162 個表面點近似，納入剛性配管；未含軟管掃掠、所有緊固件與 AGV 與人員的動態干涉。',
+  scope: '0.05 s 取樣；手臂連桿以線段＋半徑近似、桶以含滾箍的 162 個表面點近似，納入沖洗站局部剛性配管；AGV 以 2D 車身與棧板多邊形對牆、門框與設備外框檢查；未含軟管掃掠、所有緊固件與人員的動態干涉（人員與設備由全場 scene 檢查）。',
 };
 mkdirSync(new URL('../review', import.meta.url), { recursive: true });
 writeFileSync(new URL('../review/verification.json', import.meta.url), JSON.stringify(result, null, 2));

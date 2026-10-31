@@ -1,10 +1,10 @@
 {
-  "url": "http://127.0.0.1:8775/",
+  "url": "http://127.0.0.1:8785/ChemicalTankWashing/",
   "ready": true,
   "shots": [
     "01-overview",
     "02-plan-dims",
-    "03-agv-rack",
+    "03-agv-road",
     "04-gantry-tilt",
     "05-label-read",
     "06-upender",
@@ -14,9 +14,11 @@
     "10-booth-pour",
     "11-hot-air-dry",
     "12-waste",
-    "13-inbound-dolly",
-    "14-inbound-jib",
-    "15-agv-inbound-arc",
+    "13-top-label",
+    "14-fill",
+    "15-wipe",
+    "15b-stage",
+    "15c-warehouse",
     "16-weigh",
     "16b-air-knife",
     "17-finish"
@@ -24,10 +26,10 @@
   "checks": {
     "samples": [],
     "pipShown": true,
-    "layoutChecks": "20 / 20 通過",
-    "equipRows": 12
+    "layoutChecks": "24 / 24 通過",
+    "equipRows": 18
   },
-  "total": 753.0879766492586,
+  "total": 1287.3203963456776,
   "errors": [],
   "logs": []
 }

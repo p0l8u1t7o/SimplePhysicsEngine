@@ -6,7 +6,7 @@ import { createSequence } from './sequence.js';
 import { layoutChecks } from './layout.js';
 
 export function createProject({ scene }) {
-  const plant = buildPlant(scene), seq = createSequence({ robot: plant.robot });
+  const plant = buildPlant(scene), seq = createSequence({ robot: plant.ikRobot });
   const nonPhysical = new Set([plant.building.zones, plant.building.dims, plant.building.ceiling]);
   const top = o => { let p = o; while (p.parent && p.parent !== scene) p = p.parent; return p.name || 'misc'; };
   const isDrum = o => { for (let p = o; p; p = p.parent) if (p.name?.startsWith('drum ')) return true; return false; };
@@ -23,7 +23,7 @@ export function createProject({ scene }) {
       stationOf: m => { for (let p = m; p; p = p.parent) if (p.userData.station) return p.userData.station; return 'misc'; },
       allow: [
         { why: '桶由各站支撐、夾持或噴槍伸入，桶的干涉另由 verify.mjs 檢查', test: (a, b, c) => c.moduleOf(a) === 'drum' || c.moduleOf(b) === 'drum' },
-        { why: 'AGV 與棧板、貨架以 2D 車身多邊形另行驗證（verify.mjs），叉子插入棧板屬正常', test: (a, b, c) => [a, b].some(m => c.moduleOf(m) === 'agv') && [a, b].some(m => ['storage', 'agv'].includes(c.moduleOf(m))) },
+        { why: 'AGV 叉取棧板：貨叉插入棧板底樑之間屬正常；AGV 車身另以 2D 多邊形對牆與設備驗證（verify.mjs）', test: (a, b, c) => [a, b].some(m => c.moduleOf(m) === 'agv') && [a, b].some(m => c.moduleOf(m) === 'pallets') },
         { why: '手臂本體與夾爪內部零件為廠商／夾爪模型，自身干涉另見 verify-gripper.mjs', test: (a, b, c) => c.moduleOf(a) === 'robot' && c.moduleOf(b) === 'robot' },
       ],
       envelope: ['robot'],

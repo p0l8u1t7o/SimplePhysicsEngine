@@ -1,8 +1,31 @@
 // 場地與設備配置的唯一資料來源：模型、動畫、空間檢核與 tools/verify.mjs 共用。
-// 座標單位 mm；X 向東、Y 向上、Z 向南；原點為洗桶區西北角內牆面（倉儲區西牆 × 北牆）。
-// 場地尺寸取自 docs/場地圖.jpg 的標註（1256、455＋540＋557 cm）；未標註的位置（柱、門、更衣室）
-// 依圖面比例量測，誤差約 ±300 mm，施工前須現場丈量。
+// 座標單位 mm；X 向東、Y 向上、Z 向南；原點為填裝區（原洗桶區）西北角內牆面。
+// 填裝區尺寸取自 docs/場地圖.jpg 的標註（1256、455＋540＋557 cm）；未標註的位置（柱、門、更衣室）
+// 依圖面比例量測，誤差約 ±300 mm，施工前須現場丈量。清洗區、道路、倉庫依 2026-10-30 手稿推估（無廠域圖）。
+//
+// 清洗線沿用原本已驗證的「邏輯座標」（原洗桶區內的配置），再用三個框架放到清洗區：
+//  · front：棧板站、龍門、橫躺輸送、貼標、翻桶機，整段平移
+//  · cell ：立放輸送、開蓋、清洗手臂、沖洗站、秤重、圍籬，整段旋轉 180° 後平移（流向由往南改成往北）
+//  · util ：廢液槽、泵與防溢堤，整段平移到清洗區東北角
+// 手臂軌跡、夾持與局部干涉檢查都在 cell 的邏輯座標內做，結果與搬移前相同。
 
+// 200 L 閉口 HDPE 桶（雙 L 環），2" 與 3/4" 螺塞在桶頂同一直徑兩端
+import { DRUM } from '@core/models/drum-200l.js';   // 200 L 桶規格與模型在共用模型庫
+export { DRUM };
+
+// ================================================================ 框架
+export const FRAME = {
+  front: { x: 10160, z: 3050, rot: false },
+  cell: { x: 32740, z: 22450, rot: true },    // 世界 = (x − 邏輯 x, z − 邏輯 z)
+  util: { x: 19000, z: -9050, rot: false },
+};
+export const toWorld = (f, x, z) => { const F = FRAME[f]; return F.rot ? [F.x - x, F.z - z] : [x + F.x, z + F.z]; };
+export const fromWorld = (f, x, z) => { const F = FRAME[f]; return F.rot ? [F.x - x, F.z - z] : [x - F.x, z - F.z]; };
+export const frameYaw = f => FRAME[f].rot ? 180 : 0;
+// 矩形 [x0, z0, x1, z1, …] 換到世界座標（其餘欄位照抄）
+export const rectToWorld = (f, r) => { const [ax, az] = toWorld(f, r[0], r[1]), [bx, bz] = toWorld(f, r[2], r[3]); return [Math.min(ax, bx), Math.min(az, bz), Math.max(ax, bx), Math.max(az, bz), ...r.slice(4)]; };
+
+// ================================================================ 填裝區（原洗桶區）
 export const ROOM = { W: 12560, D: 15520, H: 4500, wall: 200 };
 
 // 內牆輪廓（俯視）：更衣室由西側凸入，西南角向西延伸。
@@ -13,77 +36,57 @@ export const OUTLINE = [
 
 // 門：swing 為門扇開啟掃過的區域（不得放設備）
 export const DOORS = [
-  { id: 'D3', x0: 1860, x1: 2830, z: 0, dir: 1, note: '北牆門，往倉儲區內開' },
-  { id: 'D2', x0: 230, x1: 1030, z: 4700, dir: -1, note: '更衣室門，往倉儲區開' },
+  { id: 'D3', x0: 1860, x1: 2830, z: 0, dir: 1, note: '北牆門，往填裝區內開' },
+  { id: 'D2', x0: 230, x1: 1030, z: 4700, dir: -1, note: '更衣室門，往填裝區開' },
 ];
 export const doorSwing = d => [d.x0, Math.min(d.z, d.z + d.dir * (d.x1 - d.x0)), d.x1, Math.max(d.z, d.z + d.dir * (d.x1 - d.x0))];
 
-// 倉儲南緣的結構柱（圖面量測，800 mm 見方）
+// 結構柱（圖面量測，800 mm 見方）
 export const COLUMN = { x: 8300, z: 5200, size: 800 };
 export const columnRect = () => [COLUMN.x - COLUMN.size / 2, COLUMN.z - COLUMN.size / 2, COLUMN.x + COLUMN.size / 2, COLUMN.z + COLUMN.size / 2];
 
-// 200 L 閉口 HDPE 桶（雙 L 環），2" 與 3/4" 螺塞在桶頂同一直徑兩端
-import { DRUM } from '@core/models/drum-200l.js';   // 200 L 桶規格與模型在共用模型庫
-export { DRUM };
+// ================================================================ 清洗區、道路、倉庫（世界座標）
+// 清洗區緊鄰填裝區東牆（共用牆厚 200）；寬 13.5 m 放得下整條清洗線與手臂圍籬
+export const CLEAN = { x0: 12760, x1: 26260, z0: 0, z1: 15520, H: 4500 };
+export const CLEAN_OUTLINE = [[CLEAN.x0, CLEAN.z0], [CLEAN.x1, CLEAN.z0], [CLEAN.x1, CLEAN.z1], [CLEAN.x0, CLEAN.z1]];
+export const ROAD3 = { z0: 16520, z1: 19520, x0: -9000, x1: 58000 };   // 東西向 3 m 道路（手稿）
+ROAD3.zc = (ROAD3.z0 + ROAD3.z1) / 2;
+export const ROAD5 = { x0: 27260, x1: 32260, z0: -4000, z1: 21500 };   // 南北向 5 m 道路（手稿「馬路」），往南接倉庫門
+ROAD5.xc = (ROAD5.x0 + ROAD5.x1) / 2;
+export const WAREHOUSE = { x0: 24000, x1: 54000, z0: 21500, z1: 41500, H: 5000, door: [27760, 31760] };   // W 30 × L 20 × H 5 m
+// 牆面開口（z 為牆內面；y1 為開口頂）：填裝區南牆兩樘捲門、清洗區南牆 AGV 捲門、共用牆輸送口
+export const OPENINGS = {
+  fillA: { wall: 'fillS', x0: -2150, x1: 2200, y1: 2800, name: '填裝區南牆捲門（A～C 組板位）' },
+  fillB: { wall: 'fillS', x0: 2300, x1: 5200, y1: 2800, name: '填裝區南牆捲門（D 組板位、空棧板位）' },
+  clean: { wall: 'cleanS', x0: 12960, x1: 15960, y1: 2800, name: '清洗區南牆 AGV 捲門' },
+  conveyor: { wall: 'shared', z0: 1170, z1: 2270, y1: 1500, name: '共用牆輸送口' },
+};
+
+// ================================================================ 桶、棧板、AGV
 export const PALLET = {
   W: 1200, H: 150,
-  // 2×2 擺放（棧板局部座標）。棧板在棧板站轉了 180°，此順序對應世界座標先取東側兩桶，西側兩桶取料時不必越過其他桶
+  // 2×2 擺放（棧板局部座標）
   slots: [[-300, 300], [-300, -300], [300, 300], [300, -300]],
 };
-
-// 穿梭車密集架：南北向車道，每道 4 深 × 3 層；柱子前方的道位無法進出，故分成西 3 道、東 2 道。
-// 西側 3 道往東靠到柱邊，且最西一道只做 3 深，讓出倉儲西側給散桶入庫站與 AGV 轉入弧線。
-export const RACK = {
-  lanes: [4230, 5590, 6950, 9450, 10810], pitch: 1360,
-  zFront: 5400, zBack: 100,
-  pos: [4800, 3500, 2200, 900],          // 前 → 後的棧板中心 Z（前位棧板與貨架前緣齊）
-  levels: [150, 1480, 2810],             // 各層軌道頂面（棧板底）
-  topBeam: 3700,
-  shuttleLift: 40,
-  emptyLane: 4, emptyLevel: 0, emptyStack: 5,   // 空棧板疊放道（東側最後一道底層，緩衝用）
-  // 穿梭車每層一台共 3 台，換道時由 AGV 以貨叉搬運（每次約 1 分鐘）；[道, 層, 停放位]
-  shuttles: [[3, 0, 3], [1, 1, 3], [0, 2, 3]],
-  demo: { lane: 1, level: 1 },                  // 動畫取料：第 2 道第 2 層
-  putaway: { lane: 2, level: 0 },               // 動畫入庫：第 3 道底層前位（初始空位）
-  shortLane: 0, shortFront: 4100,               // 第 1 道只做 3 深（前緣退到 Z 4100）
-};
-// 貨架俯視外框：[0] 最西一道（3 深）、[1] 西側其餘兩道、[2] 東側兩道
-export const rackBlocks = () => [
-  [RACK.lanes[0] - RACK.pitch / 2, RACK.zBack, RACK.lanes[0] + RACK.pitch / 2, RACK.shortFront],
-  [RACK.lanes[1] - RACK.pitch / 2, RACK.zBack, RACK.lanes[2] + RACK.pitch / 2, RACK.zFront],
-  [RACK.lanes[3] - RACK.pitch / 2, RACK.zBack, RACK.lanes[4] + RACK.pitch / 2, RACK.zFront],
-];
-export const lanePositions = l => l === RACK.shortLane ? [1, 2, 3] : [0, 1, 2, 3];
-
-export const AISLE = { z0: 5400, z1: 9000, zc: 7200 };
+// 待洗棧板在棧板站朝向 0°（AGV 由南駛入）；依此順序先取東側兩桶，西側兩桶取料時不必越過其他桶
+export const DIRTY_ORDER = [3, 2, 1, 0];
 
 // 平衡重式堆高 AGV（局部座標：+X 前進，原點為前輪軸中心，迴轉中心）
+// 方位 yaw（度）：前進方向 (cos yaw, −sin yaw)；0 朝東、90 朝北、180 朝西、270 朝南
 export const AGV = {
   rear: 1550, halfW: 500, mast: [220, 350], fork: [350, 1500], forkHalf: 350, palletX: 950,
   travel: 300, mastLowered: 2100, backrest: 1100,
-  speed: 1000, slow: 300, turn: 35, lift: 250,
-  // 地面接觸式充電板（齊平，不擋迴轉）設在走道中心線柱前；充電櫃掛在柱南面
-  charger: { x: 8300, z: 7200, yaw: 180 },
+  speed: 1200, slow: 300, turn: 35, lift: 250,
+  // 倉庫內充電位（地面接觸式充電板）
+  charger: { x: 26600, z: 23400, yaw: 0 },
 };
 // 迴轉掃掠半徑：取車身後角與棧板前角的最大值
 export const agvSweep = loaded => Math.max(Math.hypot(AGV.rear, AGV.halfW), loaded ? Math.hypot(AGV.palletX + PALLET.W / 2, PALLET.W / 2) : Math.hypot(AGV.fork[1], AGV.forkHalf));
-// 叉面高度：插入（低於上板 50）／抬起（棧板離軌 60）；棧板底 = 叉面 − 120
+// 叉面高度：插入（低於上板 50）／抬起（棧板離地 60）；棧板底 = 叉面 − 120
 export const FORK = { entry: 70, lifted: 180, deck: 120 };
 
-// 散桶入庫（依手繪圖箭頭：倉儲西牆南段開捲門）：台車推入 → 懸臂吊夾桶上棧板 → AGV 弧線轉入取走入架
-export const INBOUND = {
-  x: 2850, z: 3000, stand: 100,               // 入庫棧板中心（AGV 朝北叉取，棧板方位 0°）
-  door: [1900, 3600],                         // 西牆捲門 Z 範圍（X = 0）
-  dolly: { x0: -1300, x1: 450, z: 2700 },     // 台車由門外推到吊取點
-  // 手臂朝任何方向都不能穿過西牆（內面 x 0）：立柱 x − 臂長 ≥ 150；仍需搆到台車（x 450）與棧板最遠格
-  jib: { x: 1750, z: 3000, armY: 3000, reach: 1550, park: 180 },   // 懸臂吊立柱；待命時手臂朝西
-  arc: 2600,                                  // AGV 由走道中心線右轉進入西側的弧線半徑（載棧板淨距 ≥ 100）
-};
-INBOUND.arcStart = [INBOUND.x + INBOUND.arc, AISLE.zc];
-INBOUND.arcEnd = [INBOUND.x, AISLE.zc - INBOUND.arc];
-
-// 棧板站＋三軸龍門＋翻轉夾爪
-// 棧板站南移 50 mm：龍門夾爪張開取北側桶時不越過龍門圍籬北線
+// ================================================================ 清洗線（邏輯座標，見檔頭）
+// 棧板站＋三軸龍門＋翻轉夾爪（front）；AGV 由南側光柵入口送棧板
 export const PALLET_STATION = { x: 3900, z: 9750, stand: 100 };
 export const GANTRY = {
   posts: [[3000, 9050], [6600, 9050], [3000, 10350], [6600, 10350]], beamY: 3000,
@@ -96,8 +99,8 @@ GANTRY.pickY = PALLET_STATION.stand + PALLET.H + DRUM.H + 150;
 // 橫躺輸送：桶軸沿 X，桶頂朝西、桶底朝東（供翻轉機使用）；水平沙漏形（V 槽）滾輪
 export const LYING = { z: 9700, y: 800, x0: 5400, x1: 10000, place: 5900, label: 7700, buffer: 9000, speed: 400, vee: 25 };
 LYING.upender = 11000 - DRUM.H / 2;
-// 貼標站：同一支相機斜拍桶頂端面與桶身上方，先辨識 2" 桶塞方位、轉到定位再貼，貼後讀碼並量標籤相對桶塞的角度。
-// angle：標籤中心相對 2" 桶塞的方位（依客戶規定，0 = 對齊 2" 桶塞）；tol：允收偏差
+// 側標貼標站：同一支相機斜拍桶頂端面與桶身上方，先辨識 2" 桶塞方位、轉到定位再貼，貼後讀碼並量標籤相對桶塞的角度。
+// angle：標籤中心相對 2" 桶塞的方位（0 = 對齊 2" 桶塞）；tol：允收偏差
 export const LABEL = {
   x: LYING.label, standZ: 10560, size: [100, 150], angle: 0, tol: 2,
   cam: { pos: [6750, 1450, 9700], target: [7500, 850, 9700], fov: 50 },   // 西側斜上方約俯 39°，避開龍門翻桶擺動範圍
@@ -105,15 +108,15 @@ export const LABEL = {
 };
 // 翻桶機：L 形搖籃以桶底下緣為軸翻 90°
 export const UPENDER = { pivot: [11000, LYING.y - DRUM.R, LYING.z] };
-// 立放輸送：翻桶後一路往南直送；手臂在取桶位取下、洗完放回同一條線的下游，再往南送到裝填區
+// 立放輸送（cell）：翻桶後在邏輯座標往南（世界往北）；手臂在取桶位取下、洗完放回同一條線的下游
 export const UPRIGHT = { x: 11000 + DRUM.R, top: LYING.y - DRUM.R, z0: LYING.z, decap: 10800, pick: 12400, place: 13400, handoff: 15000, z1: 15350, speed: 300 };
 export const DECAP = { z: UPRIGHT.decap, camY: 2500, safeY: 1750, bin: { x: 11780, z: UPRIGHT.decap }, rail: 760 };   // rail：XY 模組 Z 向導軌距中心線
 
-// 清洗手臂與沖洗站
+// 清洗手臂與沖洗站（cell）
 export const ROBOT = { x: 9400, z: 12000, name: 'FANUC R-2000iC/165F', grip: 250 + DRUM.R };
 export const BOOTH = {
   x0: 8750, x1: 10050, z0: 14050, z1: 15420, h: 2600,
-  opening: [8850, 9950, 300, 2450],          // 北面開口 X0, X1, Y0, Y1
+  opening: [8850, 9950, 300, 2450],          // 開口 X0, X1, Y0, Y1（邏輯北面，朝手臂）
   drum: [9400, 1300, 14700], entryZ: 13700,   // entryZ：進站前桶中心，桶身仍在隔間外
   lance: [9600, 14700], lance2: [9200, 14700], lanceUp: 2050, lanceDown: 1620,   // 2" 旋轉噴頭、3/4" 直噴
   funnel: { x0: 8900, x1: 9950, z0: 14150, z1: 15250, y: 650 },
@@ -155,14 +158,14 @@ export function maxWaterL() {
   return L;
 }
 
-// 清洗區圍籬（手臂以 DCS 限制在圍籬內）；南側為牆，東南角留給裝填區
-// 北側在 X 8200–10300 往北凸到 Z 10800：手臂朝南時前臂後方馬達組往北擺，最北約 Z 10920（tools/verify-scene.mjs 量得）
-export const FENCE = [[7000, 15490], [7000, 11300], [8200, 11300], [8200, 10800], [10300, 10800], [10300, 11300], [11700, 11300], [11700, 13850], [10200, 13850], [10200, 15490]];   // 兩端立柱貼齊南牆內面（15520），不插進牆
-export const FENCE_GATES = { in: [11000 + DRUM.R, 11300], out: [11000 + DRUM.R, 13850] };   // 立放輸送進出清洗區的開口
+// 手臂圍籬（cell，手臂以 DCS 限制在圍籬內）；原本靠南牆收尾，搬到清洗區後在沖洗站背面（邏輯 Z 15650）補一段封閉
+// 北側在 X 8200–10300 往北凸到 Z 10800：手臂朝南時前臂後方馬達組往北擺
+export const FENCE = [[7000, 15650], [7000, 11300], [8200, 11300], [8200, 10800], [10300, 10800], [10300, 11300], [11700, 11300], [11700, 13850], [10200, 13850], [10200, 15650], [7000, 15650]];
+export const FENCE_GATES = { in: [11000 + DRUM.R, 11300], out: [11000 + DRUM.R, 13850] };   // 立放輸送進出手臂區的開口
 export const GANTRY_FENCE = [[2900, 8950], [6700, 8950], [6700, 10550], [2900, 10550]];
+export const GANTRY_GATE = [PALLET_STATION.x, 10550];   // AGV 送棧板的入口（邏輯南側，世界也是南側）
 
-// 廢液回收：放在清洗區圍籬外西南側（控制櫃南面）的防溢堤內，避開手臂迴轉範圍。
-// 酸、鹼殘液依讀到的桶號分流到兩個廢液槽，避免混合後發熱或產生氣體；防溢堤往西延伸到預留區
+// 廢液回收（util）：防溢堤內四槽與兩台泵；酸、鹼殘液依讀到的桶號分流到兩個廢液槽
 export const WASTE = {
   bund: [3300, 13950, 7000, 15420], wall: 30,
   tanks: {
@@ -173,44 +176,83 @@ export const WASTE = {
   },
   pumpRinse: [6830, 14300], pumpDrain: [6830, 14950], rinseL: 20,
 };
-// 人員通道：沿更衣室東牆往南；Z 4700–9000 一段與 AGV 入庫路線、走道共用（設區域警示燈，AGV 減速）
-export const WALKWAYS = [[1770, 4700, 2900, 8520], [620, 8520, 2900, 11190]];
-export const INBOUND_AREA = [0, 1700, 2200, 4650];     // 散桶上棧板作業區
-export const FILLING = [10200, 13850, 12560, 15520];   // 裝填區（下一站，東南角）
-export const SHUTTLE_BAY = [7630, 100, 8770, 4700];
+// 沖洗站與泵之間的跨框架配管接點（cell 邏輯座標，在圍籬外的沖洗站背面上方）
+export const PIPE_JOINT = { supply: [9600, 2800, 15800], sump: [8600, 2300, 15800] };
 
-// 設備俯視外框 [x0, z0, x1, z1, 高度]
-export const FOOTPRINTS = {
-  rack1: [...rackBlocks()[0], RACK.topBeam], rackW: [...rackBlocks()[1], RACK.topBeam], rackE: [...rackBlocks()[2], RACK.topBeam],
-  charger: [7900, 5600, 8300, 5750, 1400],   // 柱面充電櫃（西半；東半留給東道 AGV 迴轉）
-  inbound: [INBOUND.x - 650, INBOUND.z - 650, INBOUND.x + 650, INBOUND.z + 650, 250],
-  jib: [INBOUND.jib.x - 150, INBOUND.jib.z - 150, INBOUND.jib.x + 150, INBOUND.jib.z + 150, 3200],
-  gantry: [2900, 8950, 6700, 10550, 3200],
-  lying: [5400, 9300, 10000, 10100, 1100],
-  labeler: [7000, 10120, 8000, 10900, 1800],
-  hmi: [8250, 10350, 8650, 10750, 1500],   // 移到清洗區圍籬北凸段外
-  upender: [10000, 9250, 11650, 10150, 1500],
-  upright: [10900, 10150, 11690, UPRIGHT.z1, 700],
-  decap: [10600, 10350, 12100, 11250, 2700],
-  robot: [8900, 11500, 9900, 12500, 1200],
-  booth: [BOOTH.x0, BOOTH.z0, BOOTH.x1, BOOTH.z1, BOOTH.h],
-  robotCtrl: [6200, 13350, 6940, 13900, 1200],
-  panel: [4900, 13350, 6100, 13950, 2000],
-  bund: [...WASTE.bund, 1900],
+// 清洗線各設備俯視外框（各自框架的邏輯座標）[x0, z0, x1, z1, 高度]
+export const CELL_FOOTPRINTS = {
+  front: {
+    gantry: [2900, 8950, 6700, 10550, 3200],
+    lying: [5400, 9300, 10000, 10100, 1100],
+    labeler: [7000, 10120, 8000, 10900, 1800],
+    upender: [10000, 9250, 11650, 10150, 1500],
+  },
+  cell: {
+    hmi: [8250, 10350, 8650, 10750, 1500],
+    upright: [10900, 10150, 11690, UPRIGHT.z1, 700],
+    decap: [10600, 10350, 12100, 11250, 2700],
+    robot: [8900, 11500, 9900, 12500, 1200],
+    booth: [BOOTH.x0, BOOTH.z0, BOOTH.x1, BOOTH.z1, BOOTH.h],
+  },
+  util: { bund: [...WASTE.bund, 1900] },
 };
-// 設計上相接或包含的組合（不算干涉）
-export const ALLOWED = [['rack1', 'rackW'], ['gantry', 'lying'], ['lying', 'upender'], ['upender', 'upright'], ['upright', 'decap']];
 
-// AGV 原地迴轉點（動畫實際使用＋最東一道的取放）
-export const AGV_TURNS = [
-  { x: RACK.lanes[1], z: AISLE.zc, loaded: true, note: '第 2 道取料' },
-  { x: RACK.lanes[2], z: AISLE.zc, loaded: true, note: '第 3 道入庫' },
-  { x: PALLET_STATION.x, z: AISLE.zc, loaded: true, note: '棧板站' },
-  { x: RACK.lanes[4], z: AISLE.zc, loaded: true, note: '空棧板道' },
-  { x: RACK.lanes[3], z: AISLE.zc, loaded: true, note: '柱旁東道' },
-];
+// ================================================================ 清洗區出口 → 填裝區（世界座標）
+// 所有輸送線頂面同高；立放輸送出 cell 後繼續往北，到北側轉角往西穿過共用牆進填裝區
+export const CONV = { top: UPRIGHT.top, width: 700, speed: 300 };
+const [OUT_X] = toWorld('cell', UPRIGHT.x, 0);
+export const OUTFEED = {
+  x: OUT_X,                                  // 北段中心線（= 立放輸送中心線）
+  z0: toWorld('cell', 0, UPRIGHT.z1)[1],     // 接立放輸送尾端
+  corner: 1720,                              // 北側轉角（直角移載）中心 Z
+  topLabel: 4800,                            // 頂面貼標站（旋蓋面 3 張）
+  topRead: 3500,                             // 貼後讀碼（頂面 2 碼）
+};
+// 填裝區：分線輸送（沿北側往西）→ 4 條線（往南）→ 集貨輸送（沿南側往西）→ 暫存區組板
+export const FILL = {
+  distZ: OUTFEED.corner, distX0: 2650,
+  lines: [3000, 5200, 7200, 10300], liquids: ['A', 'B', 'C', 'D'],
+  // 填裝位：索引 0 為最下游（最南）；桶距 1,450，桶間留約 850 mm 給擦拭人員
+  pos: [9950, 8500, 7050, 5600], frame: [4900, 10650], frameHalf: 550, frameY: 2500,
+  wipers: [4100, 6200, 8600, 11400],          // 每線 1 人巡迴的走道中心 X
+  wipeDx: 760,                                // 擦拭時站到桶旁（線中心 + 760），擦完退回走道
+  collectZ: 12450, buttonDz: 500,             // 集貨輸送中心 Z；放行確認鈕在填裝位下游側（人員擦拭時手臂不會掃到）
+  reader: 11900,                              // 三碼比對站 X（分線輸送上，進填裝區第一站）
+  ng: { x: 10950, z0: 300, box: [10400, 150, 11350, 1250] },   // NG 剔除口在比對站下游，往北推入（可存 1 桶，人工取出重貼）
+  fillS: 180, capS: 9, wipeS: 30, lanceS: 3,  // 填裝 3 分鐘／桶（手稿）；鎖蓋扭力每蓋約 4 s
+  torque: { big: '2" 桶蓋 扭力達標（模擬）', small: '3/4" 桶蓋 扭力達標（模擬）' },
+  tank: [150, 1100, 1600, 3300],              // 料倉（4 種液體供液）[x0, z0, x1, z1]
+  pipeZ: 4750, pipeY: 3200,
+};
+// 暫存區：集貨輸送末端由龍門夾桶，同液體同板（田字型 2×2）；A～D 組板位＋空棧板位，AGV 由南牆捲門進出
+export const STAGING = {
+  z: 14300, pallets: { A: -1500, B: 0, C: 1500, D: 3000, E: 4500 },
+  pick: [-1500, FILL.collectZ],
+  gantry: { x0: -2300, x1: 6000, z0: 11800, z1: 15000, beamY: 3300, safeY: 2000 },   // 南側立柱讓開捲門箱
+  preload: { A: 1, B: 1, C: 3, D: 2 },        // 動畫開始時各組板位已有的成品桶（先前生產）
+};
+// 倉庫分區
+export const WH_ZONES = {
+  dirty: [24500, 25500, 33500, 41000], finished: { A: [34500, 25500, 38500, 41000], B: [39000, 25500, 43000, 41000], C: [43500, 25500, 47500, 41000], D: [48000, 25500, 53500, 41000] },
+  aisleZ: 23500,
+  drop: { A: { x: 36600, z: 26100 } },        // 成品 A 的卸板點（棧板中心）
+  pickDirty: { x: ROAD5.xc, z: 23900 },       // 動畫開始時 AGV 已叉起待洗棧板的位置
+};
 
-// ---------------------------------------------------------------- 幾何工具
+// 倉庫靜態儲位（建築與 AGV 檢查共用）：回傳 [{ x, z, n }]（n 為桶數）；動畫卸板位留空
+export function warehouseStore() {
+  const W = WH_ZONES, rows = [26100, 27500, 32500, 33900, 38900, 40300], out = [];
+  const cols = (x0, x1) => { const c = []; for (let x = x0 + 700; x + 600 <= x1; x += 1400) c.push(x); return c; };
+  let seed = 7; const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32;
+  for (const z of rows) for (const x of cols(W.dirty[0], W.dirty[2])) if (rnd() > .12) out.push({ x, z, n: 4 });
+  for (const [k, r] of Object.entries(W.finished)) for (const z of rows) for (const x of cols(r[0], r[2])) {
+    if (k === 'A' && Math.abs(x - W.drop.A.x) < 10 && Math.abs(z - W.drop.A.z) < 10) continue;
+    if (rnd() > .35) out.push({ x, z, n: 4 });
+  }
+  return out;
+}
+
+// ================================================================ 幾何工具
 export function pointInPolygon([x, z], poly = OUTLINE) {
   let inside = false;
   for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
@@ -220,24 +262,14 @@ export function pointInPolygon([x, z], poly = OUTLINE) {
   return inside;
 }
 export const rectsOverlap = (a, b, gap = 0) => a[0] < b[2] + gap && b[0] < a[2] + gap && a[1] < b[3] + gap && b[1] < a[3] + gap;
-export function rectInside(r) {
+export function rectInside(r, poly = OUTLINE) {
   const corners = [[r[0], r[1]], [r[2], r[1]], [r[2], r[3]], [r[0], r[3]]];
-  if (!corners.every(p => pointInPolygon(p))) return false;
-  return !OUTLINE.some(([x, z]) => x > r[0] && x < r[2] && z > r[1] && z < r[3]);
+  if (!corners.every(p => pointInPolygon(p, poly))) return false;
+  return !poly.some(([x, z]) => x > r[0] && x < r[2] && z > r[1] && z < r[3]);
 }
 export function circleRectGap(cx, cz, r, rect) {
   const dx = Math.max(rect[0] - cx, 0, cx - rect[2]), dz = Math.max(rect[1] - cz, 0, cz - rect[3]);
   return Math.hypot(dx, dz) - r;
-}
-// 圓到牆的最短距離（輪廓各邊）
-export function circleWallGap(cx, cz, r) {
-  let best = Infinity;
-  for (let i = 0; i < OUTLINE.length; i++) {
-    const [ax, az] = OUTLINE[i], [bx, bz] = OUTLINE[(i + 1) % OUTLINE.length];
-    const L = Math.hypot(bx - ax, bz - az), t = Math.max(0, Math.min(1, ((cx - ax) * (bx - ax) + (cz - az) * (bz - az)) / (L * L)));
-    best = Math.min(best, Math.hypot(cx - (ax + t * (bx - ax)), cz - (az + t * (bz - az))));
-  }
-  return best - r;
 }
 // AGV 車身與前端（棧板或貨叉）的俯視多邊形
 export function agvPolygons(x, z, yaw, loaded) {
@@ -252,68 +284,126 @@ export function polyRectOverlap(poly, r) {
   const rp = [[r[0], r[1]], [r[2], r[1]], [r[2], r[3]], [r[0], r[3]]];
   return axes.every(([nx, nz]) => { const pa = poly.map(([x, z]) => x * nx + z * nz), pb = rp.map(([x, z]) => x * nx + z * nz); return Math.max(...pa) > Math.min(...pb) + 1e-6 && Math.max(...pb) > Math.min(...pa) + 1e-6; });
 }
-// 入庫弧線：由走道中心線向西行駛、以半徑 arc 右轉朝北，取樣檢查車身與棧板
-export function inboundArcPoses(n = 60) {
-  const [cx, cz] = [INBOUND.arcStart[0], INBOUND.arcEnd[1]], R = INBOUND.arc, out = [];
-  for (let i = 0; i <= n; i++) { const a = i / n * Math.PI / 2; out.push({ x: cx - R * Math.sin(a), z: cz + R * Math.cos(a), yaw: 180 - a * 180 / Math.PI }); }
+
+// 牆（俯視矩形，世界座標，厚 ROOM.wall，開口處斷開）：AGV 動線檢查與建築共用
+export function wallRects() {
+  const t = ROOM.wall, out = [];
+  const run = (name, horiz, at, from, to, gaps = []) => {   // 沿牆切掉開口
+    let p = from;
+    for (const [g0, g1] of [...gaps].sort((a, b) => a[0] - b[0])) { if (g0 > p) out.push([name, horiz ? [p, at, g0, at + t] : [at, p, at + t, g0]]); p = g1; }
+    if (p < to) out.push([name, horiz ? [p, at, to, at + t] : [at, p, at + t, to]]);
+  };
+  const fillDoors = Object.values(OPENINGS).filter(o => o.wall === 'fillS').map(o => [o.x0, o.x1]);
+  run('填裝區南牆', true, ROOM.D, -2480 - t, ROOM.W, fillDoors);
+  run('清洗區南牆', true, CLEAN.z1, CLEAN.x0, CLEAN.x1 + t, [[OPENINGS.clean.x0, OPENINGS.clean.x1]]);
+  run('清洗區東牆', false, CLEAN.x1, CLEAN.z0 - t, CLEAN.z1 + t);
+  run('填裝區西南牆', false, -2480 - t, 11190, ROOM.D + t);
+  run('共用牆', false, ROOM.W, 0, ROOM.D);
+  const W = WAREHOUSE;
+  run('倉庫北牆', true, W.z0 - t, W.x0 - t, W.x1 + t, [W.door]);
+  run('倉庫西牆', false, W.x0 - t, W.z0, W.z1);
+  run('倉庫東牆', false, W.x1, W.z0, W.z1);
+  run('倉庫南牆', true, W.z1, W.x0 - t, W.x1 + t);
   return out;
 }
-export function agvPathClear(poses, loaded, margin = 50) {
-  const obstacles = [['柱', columnRect()], ['第 1 道貨架', rackBlocks()[0]], ['西貨架', rackBlocks()[1]], ['懸臂吊', FOOTPRINTS.jib], ['龍門', FOOTPRINTS.gantry]].map(([n, r]) => [n, [r[0] - margin, r[1] - margin, r[2] + margin, r[3] + margin]]);
-  for (const p of poses) for (const poly of agvPolygons(p.x, p.z, p.yaw, loaded)) {
-    if (!poly.every(q => pointInPolygon(q)) || poly.some(q => circleWallGap(q[0], q[1], margin) < 0) || OUTLINE.some(v => pointInPolygon(v, poly))) return '牆';
-    for (const [n, r] of obstacles) if (polyRectOverlap(poly, r)) return n;
-  }
-  return null;
+
+// 清洗線設備換到世界座標（框架名＋外框）
+export function worldFootprints() {
+  const out = {};
+  for (const [f, list] of Object.entries(CELL_FOOTPRINTS)) for (const [k, r] of Object.entries(list)) out[k] = { room: 'clean', r: rectToWorld(f, r) };
+  const c = CONV.width / 2, g = STAGING.gantry;
+  Object.assign(out, {
+    // 主控盤與手臂控制器在防溢堤北側；酸、鹼清運管（X 22950、24150）由兩者之間往北牆穿過
+    panel: { room: 'clean', r: [24700, 3000, 25900, 3600, 2000] },
+    robotCtrl: { room: 'clean', r: [23300, 3000, 24040, 3550, 1200] },
+    outfeed: { room: 'clean', r: [OUTFEED.x - c, OUTFEED.corner - c, OUTFEED.x + c, OUTFEED.z0, 700] },
+    topLabeler: { room: 'clean', r: [OUTFEED.x - 1450, OUTFEED.topLabel - 450, OUTFEED.x + 750, OUTFEED.topLabel + 450, 2300] },
+    fillTank: { room: 'fill', r: [...FILL.tank, 2200] },
+    reader: { room: 'fill', r: [FILL.reader - 500, FILL.distZ - 650, FILL.reader + 500, FILL.distZ + 650, 1800] },
+    ngBox: { room: 'fill', r: [...FILL.ng.box, 900] },
+    staging: { room: 'fill', r: [g.x0 - 100, g.z0 - 100, g.x1 + 100, g.z1 + 100, g.beamY + 300] },
+  });
+  FILL.lines.forEach((x, i) => { out['line' + (i + 1)] = { room: 'fill', r: [x - FILL.frameHalf - 50, FILL.frame[0] - 50, x + FILL.frameHalf + 50, FILL.frame[1] + 50, FILL.frameY + 300] }; });
+  return out;
 }
+// 設計上相接或包含的組合（不算干涉）
+export const ALLOWED = [['gantry', 'lying'], ['lying', 'upender'], ['upender', 'upright'], ['upright', 'decap'], ['upright', 'outfeed'], ['outfeed', 'topLabeler']];
+
+// AGV 原地迴轉點（動畫實際使用）
+export const AGV_TURNS = [
+  { x: ROAD5.xc, z: ROAD3.zc, loaded: true, note: '道路交叉口' },
+  { x: 14060, z: ROAD3.zc, loaded: true, note: '清洗區門前' },
+  { x: STAGING.pallets.A, z: ROAD3.zc, loaded: true, note: '填裝區 A 組板位門前' },
+  { x: STAGING.pallets.E, z: ROAD3.zc, loaded: true, note: '填裝區空棧板位門前' },
+  { x: ROAD5.xc, z: WH_ZONES.aisleZ, loaded: true, note: '倉庫主通道' },
+];
 
 // ---------------------------------------------------------------- 空間檢核（網頁面板與驗證共用）
 export function layoutChecks() {
   const out = [];
   const add = (group, name, ok, value, note = '') => out.push({ group, name, ok, value, note });
-  const full = RACK.lanes.reduce((n, _, l) => n + lanePositions(l).length, 0) * RACK.levels.length - RACK.pos.length;
-  add('倉儲', '棧板位（第 1 道 3 深、扣空棧板道）', full * 4 >= 200, `${full} 位 × 4 桶 = ${full * 4} 桶 ≥ 200`);
-  const top = RACK.levels[2] + PALLET.H + DRUM.H + RACK.shuttleLift;
-  add('倉儲', '第 3 層貨頂與樓高', top <= ROOM.H - 450, `${top} mm，距樓板 ${ROOM.H - top} mm（灑水頭 ≥ 450）`);
-  const gap = RACK.levels[1] - (RACK.levels[0] + PALLET.H + DRUM.H + RACK.shuttleLift) - 105;
-  add('倉儲', '層間淨空（含軌道 105）', gap >= 100, `${gap} mm ≥ 100`);
-  const swing = agvSweep(true);
-  add('AGV', '走道寬 vs 迴轉直徑', AISLE.z1 - AISLE.z0 >= 2 * swing + 200, `${AISLE.z1 - AISLE.z0} ≥ 2×${swing.toFixed(0)}＋200`);
-  const obstacles = [['柱', columnRect()], ['第 1 道貨架', rackBlocks()[0]], ['西貨架', rackBlocks()[1]], ['東貨架', rackBlocks()[2]], ['龍門', FOOTPRINTS.gantry], ['充電座', FOOTPRINTS.charger]];
-  for (const t of AGV_TURNS) {
-    const r = agvSweep(t.loaded);
-    const gaps = [['牆', circleWallGap(t.x, t.z, r)], ...obstacles.map(([n, rect]) => [n, circleRectGap(t.x, t.z, r, rect)])];
-    const [n, g] = gaps.reduce((a, b) => b[1] < a[1] ? b : a);
-    add('AGV', `迴轉點 X ${t.x}（${t.note}）`, g >= 50, `最近：${n} ${g.toFixed(0)} mm`);
-  }
-  const arc = inboundArcPoses(), toStation = [...arc, { x: INBOUND.x, z: INBOUND.z + AGV.palletX, yaw: 90 }];
-  const hit = agvPathClear(toStation, true) || agvPathClear(toStation, false);
-  add('AGV', `入庫弧線 R${INBOUND.arc}（載棧板／空叉）`, !hit, hit ? `與${hit}距離 < 50 mm` : '車身與棧板淨距 ≥ 50 mm');
-  const mast = RACK.levels[2] + FORK.lifted + AGV.backrest;
-  add('AGV', '第 3 層取放門架高度', mast <= ROOM.H - 150, `${mast} mm`);
-  for (const d of DOORS) {
-    const s = doorSwing(d), hit = Object.entries(FOOTPRINTS).find(([, r]) => rectsOverlap(r, s, 100));
-    add('動線', `${d.id} 門開啟範圍`, !hit, hit ? `與 ${hit[0]} 干涉` : '淨空 ≥ 100 mm');
-  }
-  const walk = WALKWAYS.map(w => Object.entries(FOOTPRINTS).find(([, r]) => rectsOverlap(r, w)));
-  add('動線', '人員通道（更衣室→產線）', walk.every(h => !h), walk.find(Boolean)?.[0] ?? `寬 ${WALKWAYS[0][2] - WALKWAYS[0][0]} mm；與 AGV 共用段設警示`);
-  const dw = INBOUND.door[1] - INBOUND.door[0];
-  add('動線', '散桶入庫門（西牆）', dw >= 1500, `寬 ${dw} mm（推車＋桶 ≥ 1500）`);
-  const outside = Object.entries(FOOTPRINTS).filter(([, r]) => !rectInside(r)).map(([n]) => n);
-  add('配置', '設備都在牆內', !outside.length, outside.length ? outside.join('、') : `${Object.keys(FOOTPRINTS).length} 項`);
-  const keys = Object.keys(FOOTPRINTS), clash = [];
+  // 場地
+  const fp = worldFootprints();
+  const rooms = { fill: OUTLINE, clean: CLEAN_OUTLINE };
+  const outside = Object.entries(fp).filter(([, f]) => !rectInside(f.r, rooms[f.room])).map(([n]) => n);
+  add('配置', '設備都在牆內', !outside.length, outside.length ? outside.join('、') : `${Object.keys(fp).length} 項（清洗區、填裝區）`);
+  const keys = Object.keys(fp), clash = [];
   for (let i = 0; i < keys.length; i++) for (let j = i + 1; j < keys.length; j++) {
     const a = keys[i], b = keys[j];
     if (ALLOWED.some(p => p.includes(a) && p.includes(b))) continue;
-    if (rectsOverlap(FOOTPRINTS[a], FOOTPRINTS[b])) clash.push(`${a}/${b}`);
+    if (rectsOverlap(fp[a].r, fp[b].r)) clash.push(`${a}/${b}`);
   }
-  if (rectsOverlap(columnRect(), FOOTPRINTS.charger, -1)) clash.push('column/charger');
-  add('配置', '設備外框互不重疊', !clash.length, clash.length ? clash.join('、') : '通過');
+  for (const [k, f] of Object.entries(fp)) if (rectsOverlap(columnRect(), f.r, 0)) clash.push(`柱/${k}`);
+  add('配置', '設備外框互不重疊（含結構柱）', !clash.length, clash.length ? clash.join('、') : '通過');
+  for (const d of DOORS) {
+    const s = doorSwing(d), hit = Object.entries(fp).find(([, f]) => rectsOverlap(f.r, s, 100));
+    add('動線', `${d.id} 門開啟範圍`, !hit, hit ? `與 ${hit[0]} 干涉` : '淨空 ≥ 100 mm');
+  }
   const zTop = GANTRY.safeY + 250 + 1300;
-  add('配置', '龍門伸縮 Z 軸頂端', zTop <= ROOM.H - 300, `${zTop} mm（兩段伸縮）`);
+  add('配置', '清洗區龍門伸縮 Z 軸頂端', zTop <= CLEAN.H - 300, `${zTop} mm（兩段伸縮）`);
+  const sg = STAGING.gantry.beamY + 400;
+  add('配置', '暫存區組板龍門頂端', sg <= ROOM.H - 300, `${sg} mm（樓高 ${ROOM.H}）`);
+  // 填裝區
+  const L = FILL.lines, gaps = L.slice(1).map((x, i) => x - L[i] - 2 * FILL.frameHalf - 100);
+  add('填裝', '相鄰兩線填裝架之間的走道', Math.min(...gaps) >= 800, `最窄 ${Math.min(...gaps)} mm（擦拭人員巡迴 ≥ 800）`);
+  const pitch = FILL.pos[0] - FILL.pos[1], between = pitch - 2 * DRUM.envelopeR;
+  add('填裝', '桶間擦拭站位', between >= 800, `桶距 ${pitch}、桶間淨空 ${between} mm`);
+  const stg = Object.values(STAGING.pallets).sort((a, b) => a - b), sgap = Math.min(...stg.slice(1).map((x, i) => x - stg[i] - PALLET.W));
+  add('暫存', '組板位間距（AGV 叉取）', sgap >= 250, `相鄰棧板淨距 ${sgap} mm`);
+  for (const [k, x] of Object.entries(STAGING.pallets)) {
+    const door = Object.values(OPENINGS).find(o => o.wall === 'fillS' && x - PALLET.W / 2 >= o.x0 + 50 && x + PALLET.W / 2 <= o.x1 - 50);
+    add('暫存', `${k === 'E' ? '空棧板位' : `${k} 組板位`} 對準南牆捲門`, !!door, door ? `${door.name}（${door.x1 - door.x0} mm）` : '棧板不在任一捲門範圍內');
+  }
+  // AGV 動線
+  const swing = agvSweep(true);
+  add('AGV', '3 m 道路上原地迴轉', ROAD3.z1 - ROAD3.z0 >= 2 * swing - 400, `迴轉直徑 ${(2 * swing).toFixed(0)} mm，道路 ${ROAD3.z1 - ROAD3.z0} mm（路肩各外擴約 ${(swing - 1500).toFixed(0)} mm，無障礙物）`);
+  const walls = wallRects();
+  const pathClear = (pts, loaded) => {
+    for (let i = 1; i < pts.length; i++) {
+      const [ax, az, ay] = pts[i - 1], [bx, bz] = pts[i], n = Math.ceil(Math.hypot(bx - ax, bz - az) / 100);
+      for (let k = 0; k <= n; k++) for (const poly of agvPolygons(ax + (bx - ax) * k / n, az + (bz - az) * k / n, ay, loaded)) for (const [nm, r] of walls) if (polyRectOverlap(poly, r)) return nm;
+    }
+    return null;
+  };
+  const yN = 90, yS = 270;
+  for (const [name, pts] of [
+    ['清洗區棧板站（載待洗棧板）', [[14060, ROAD3.zc, yN], [14060, toWorld('front', PALLET_STATION.x, PALLET_STATION.z)[1] + AGV.palletX, yN]]],
+    ['填裝區 A 組板位（載滿板）', [[STAGING.pallets.A, ROAD3.zc, yN], [STAGING.pallets.A, STAGING.z + AGV.palletX, yN]]],
+    ['填裝區空棧板位（載空板）', [[STAGING.pallets.E, ROAD3.zc, yN], [STAGING.pallets.E, STAGING.z + AGV.palletX, yN]]],
+    ['倉庫門（載板）', [[ROAD5.xc, ROAD3.zc, yS], [ROAD5.xc, WH_ZONES.aisleZ, yS]]],
+  ]) { const hit = pathClear(pts, true); add('AGV', name, !hit, hit ? `碰到${hit}` : '車身與棧板不碰牆、門框'); }
+  const [sx] = toWorld('front', PALLET_STATION.x, 0), door = OPENINGS.clean;
+  add('AGV', '清洗區捲門寬 vs 棧板', sx - PALLET.W / 2 - door.x0 >= 300 && door.x1 - sx - PALLET.W / 2 >= 300, `門 ${door.x1 - door.x0} mm，棧板兩側各 ${(sx - PALLET.W / 2 - door.x0).toFixed(0)}／${(door.x1 - sx - PALLET.W / 2).toFixed(0)} mm`);
+  // 倉庫
+  const W = WAREHOUSE, area = (W.x1 - W.x0) * (W.z1 - W.z0) / 1e6;
+  const tiers = Math.floor((W.H - 500) / (PALLET.H + DRUM.H + 100));
+  add('倉庫', '樓高與堆疊', tiers >= 2, `W 30 × L 20 × H ${W.H / 1000} m（${area} m²）；滿桶棧板可疊 ${tiers} 層（需確認桶與棧板承重）`);
+  // 清洗
   const reachDist = (x, z) => Math.hypot(x - ROBOT.x, z - ROBOT.z);
   const far = Math.max(reachDist(UPRIGHT.x - ROBOT.grip, UPRIGHT.pick), reachDist(BOOTH.drum[0], BOOTH.drum[2] - ROBOT.grip), reachDist(UPRIGHT.x - ROBOT.grip, UPRIGHT.place));
   add('清洗', '手臂取放點水平距離', far < 2655 - 215, `最遠 ${far.toFixed(0)} mm（型錄伸展 2655）`);
+  const [rx, rz] = toWorld('cell', ROBOT.x, ROBOT.z);
+  add('清洗', '手臂伸展範圍在清洗區內', rx + 2655 <= CLEAN.x1 && rz + 2655 <= CLEAN.z1, `東側餘 ${(CLEAN.x1 - rx - 2655).toFixed(0)} mm（DCS 另限制在圍籬內）`);
   const p = payloadAt(WASTE.rinseL), mw = maxWaterL();
   add('清洗', `手臂負載（桶＋${WASTE.rinseL} L 水）`, p.kg <= PAYLOAD.rated && p.j5 <= PAYLOAD.moment.j5 && p.j6 <= PAYLOAD.moment.j6 && p.i5 <= PAYLOAD.inertia.j5,
     `${p.kg.toFixed(0)}/${PAYLOAD.rated} kg、J5 ${p.j5.toFixed(0)}/${PAYLOAD.moment.j5} N·m、J6 ${p.j6.toFixed(0)}/${PAYLOAD.moment.j6} N·m；最多可裝約 ${mw} L`);
