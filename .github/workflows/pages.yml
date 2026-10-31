@@ -20,6 +20,12 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    # 連續推送時取消同一分支尚未跑完的舊檢查（舊 run 的 deploy 會一併略過）；deploy 本身不取消，避免發布到一半中斷。
+    concurrency:
+      group: check-${{ github.ref }}
+      cancel-in-progress: true
+    # 上限防止單一檢查卡住或異常變慢時整段耗掉額度（曾有場景檢查跑到 2049 秒）
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
