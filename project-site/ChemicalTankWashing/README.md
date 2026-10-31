@@ -194,7 +194,7 @@ node --import ../../core/tools/register.mjs tools/verify-gripper.mjs
 
 本站的 `render-details.js` 補充捲門收捲葉片紋理與導軌蓋板、牆柱與壁掛燈具、瀝青骨材、門前停止線、維修淨空標線、倉庫儲位圖集與分區牌，以及 IBC 籠架、填裝位集液盤／荷重元／備蓋盒、每線 HMI 與西側防濺板。燈具使用發光材質，不增加即時光源；重複加工件與荷重元使用 `InstancedMesh`，儲位號共用一張圖集與一個網格。桶身另加離線粗糙度擦痕，頂標提高貼圖解析度，原有尺寸、位置、排程與動作不變。
 
-上述附件是設備外觀示意；備蓋盒不代表已實作自動供蓋，HMI 不顯示虛構即時重量。一般 `scene` 檢查不列入 `InstancedMesh`，補強後另在庫根目錄經 CPU 限制器執行 `node --import ./core/tools/register.mjs project-site/ChemicalTankWashing/tools/verify-render-details.mjs`，展開本站新增實例後沿完整動畫重新檢查；結果寫到 `TEMP/ctw-codex-evidence/instanced-scene.json`，不擴大 allow 或 skip。瀏覽器畫面與手機幀率須另外驗證。
+上述附件是設備外觀示意；備蓋盒不代表已實作自動供蓋，HMI 不顯示虛構即時重量。一般 `scene` 檢查不列入 `InstancedMesh`，所以完整檢查另跑 `tools/verify-render-details.mjs`：展開本站新增實例後沿完整動畫重新檢查（[review/render-details-verification.json](review/render-details-verification.json)），不擴大 allow 或 skip。補強前後無頭瀏覽器量測（相對值）：桌面約 43.8 → 36.3 fps、手機尺寸約 57.7 → 49.3 fps，都在「不低於補強前 80%」的預算內。
 
 ## 檔案
 
