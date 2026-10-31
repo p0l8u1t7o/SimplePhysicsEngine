@@ -61,5 +61,6 @@ export function applyPlant(p, sm, { playing = false } = {}) {
   line.animate(sm.time, st);
   filling.setTopLabeler(st.topLab); filling.setReaders(st.readers);
   FILL.lines.forEach((_, li) => { filling.setLine(li, FILL.pos.map((_, pi) => st[`h${li}${pi}`])); filling.setWiper(li, st['wiper' + li]); });
+  filling.setWeights(drums.map((d, k) => ({ ...d.root.position, visible: d.root.visible, water: st[DRUM_KEYS[k]].water })));
   filling.setStaging(st.stg);
 }

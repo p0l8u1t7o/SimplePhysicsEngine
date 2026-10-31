@@ -36,7 +36,7 @@ const floorMesh = (parent, pts, mat, y = 0) => {
 };
 
 // 沿多邊形內牆輪廓外推建牆；gapsOf(邊) 回傳該邊的開口 [沿邊起點, 終點, 開口頂高]；skip(邊) 為 true 的邊不建（共用牆只建一次）
-function walls(group, poly, H, { gapsOf = () => [], skip = () => false } = {}) {
+function walls(group, poly, H, { gapsOf = () => [], skip = () => false, lowerMaterial } = {}) {
   const t = ROOM.wall;
   for (let i = 0; i < poly.length; i++) {
     const [ax, az] = poly[i], [bx, bz] = poly[(i + 1) % poly.length];
@@ -53,14 +53,14 @@ function walls(group, poly, H, { gapsOf = () => [], skip = () => false } = {}) {
       const w = new THREE.Mesh(new THREE.BoxGeometry(s1 - s0 + ext, y1 - y0, t), mat);
       w.position.set(ax + dx * (c + off) + nx * t / 2, (y0 + y1) / 2, az + dz * (c + off) + nz * t / 2); w.rotation.y = yaw; w.receiveShadow = true; group.add(w);
     };
-    for (const [h, mat] of [[H, MAT.wall], [160, MAT.wallBase]]) {
+    for (const [bottom, h, mat] of [[0, 160, MAT.wallBase], [160, 1200, lowerMaterial], [1200, H, MAT.wall]]) {
       let s = 0;
       for (const [g0, g1, top] of gaps) {
-        piece(s, g0, 0, h, mat);
-        if (h === H) piece(g0, g1, top, H, mat);   // 門楣以上
+        piece(s, g0, bottom, h, mat);
+        piece(g0, g1, Math.max(top, bottom), h, mat);   // 門楣以上，牆帶不互相重疊
         s = g1;
       }
-      piece(s, L, 0, h, mat);
+      piece(s, L, bottom, h, mat);
     }
   }
 }
@@ -83,6 +83,7 @@ function rollerDoor(group, x0, x1, z, top, inward) {
 
 export function createBuilding(scene) {
   const group = new THREE.Group(); group.name = 'building'; scene.add(group);
+  const lowerMaterial = new THREE.MeshStandardMaterial({ color: 0xaab9b9, roughness: .88 });
   // 地坪（廠區外地）
   const outside = new THREE.Mesh(new THREE.PlaneGeometry(76000, 58000), MAT.floorOut);
   outside.rotation.x = -Math.PI / 2; outside.position.set(23000, -2, 19000); outside.receiveShadow = true; group.add(outside);
@@ -95,6 +96,7 @@ export function createBuilding(scene) {
   // ---- 牆 ----
   const t = ROOM.wall, conv = OPENINGS.conveyor;
   walls(group, OUTLINE, ROOM.H, {
+    lowerMaterial,
     gapsOf: ([ax, az], [bx, bz]) => {
       if (az === ROOM.D && bz === ROOM.D) return Object.values(OPENINGS).filter(o => o.wall === 'fillS').map(o => [[o.x0, az], [o.x1, az], o.y1]);
       if (ax === ROOM.W && bx === ROOM.W) return [[[ax, conv.z0], [ax, conv.z1], conv.y1]];
@@ -102,11 +104,13 @@ export function createBuilding(scene) {
     },
   });
   walls(group, CLEAN_OUTLINE, CLEAN.H, {
+    lowerMaterial,
     skip: ([ax], [bx]) => ax === CLEAN.x0 && bx === CLEAN.x0,   // 西牆就是填裝區東牆（共用）
     gapsOf: ([, az], [, bz]) => az === CLEAN.z1 && bz === CLEAN.z1 ? [[[OPENINGS.clean.x0, az], [OPENINGS.clean.x1, az], OPENINGS.clean.y1]] : [],
   });
   // 更衣室西牆（輪廓以外）
-  block(group, [t, ROOM.H, 3820], [-2150, ROOM.H / 2, 6610], MAT.wall);
+  block(group, [t, 1200, 3820], [-2150, 600, 6610], lowerMaterial);
+  block(group, [t, ROOM.H - 1200, 3820], [-2150, (ROOM.H + 1200) / 2, 6610], MAT.wall);
   // 捲門（南牆三樘：填裝區兩樘、清洗區一樘）
   for (const o of Object.values(OPENINGS)) if (o.wall !== 'shared') rollerDoor(group, o.x0, o.x1, ROOM.D + t / 2, o.y1, -1);
   // 共用牆輸送口的框
@@ -153,7 +157,7 @@ export function createBuilding(scene) {
   // ---- 倉庫 ----
   const W = WAREHOUSE, whPoly = [[W.x0, W.z0], [W.x1, W.z0], [W.x1, W.z1], [W.x0, W.z1]];
   floorMesh(group, whPoly, MAT.floor);
-  walls(group, whPoly, W.H, { gapsOf: ([, az], [, bz]) => az === W.z0 && bz === W.z0 ? [[[W.door[0], az], [W.door[1], az], 4200]] : [] });
+  walls(group, whPoly, W.H, { lowerMaterial, gapsOf: ([, az], [, bz]) => az === W.z0 && bz === W.z0 ? [[[W.door[0], az], [W.door[1], az], 4200]] : [] });
   rollerDoor(group, W.door[0], W.door[1], W.z0 - t / 2, 4200, 1);
   group.add(line([...whPoly, whPoly[0]].map(([x, z]) => [x, W.H, z]), 0x8fb6c8, .55));
   floorMesh(ceiling, whPoly, ceilMat, W.H);
@@ -228,12 +232,23 @@ export function createBuilding(scene) {
   dimLabels.push({ text: 'R-2000iC 最大伸展 R2655（DCS 限制在圍籬內）', pos: new THREE.Vector3(rx - 1900, 40, rz + 1850) });
   for (const d of DOORS) zone(dims, doorSwing(d), 0xffd27a, .08, 2);
 
-  return { group, zones, dims, dimLabels, ceiling, store };
+  return { group, zones, dims, dimLabels, ceiling, store,
+    setWallCutaway(on) {
+      lowerMaterial.transparent = on; lowerMaterial.opacity = on ? .16 : 1;
+      lowerMaterial.depthWrite = !on; lowerMaterial.needsUpdate = true;
+    },
+  };
 }
 
 // 固定建築細節：立柱放在牆帶內，燈具高於所有製程機構；不占 AGV 路肩。
 function addPlantDetails(group) {
-  const columns = [], lights = [], housings = [];
+  const columns = [], lights = [], housings = [], girts = [];
+  // 橫樑與柱同在 200 mm 牆帶內，讓半透明上牆仍讀得出連續鋼構。
+  for (const y of [1250, 2900, 4100]) {
+    girts.push([[26060, 90, 65], [13030, y, -120]]);
+    girts.push([[30000, 90, 65], [39000, y, WAREHOUSE.z1 + 120]]);
+  }
+  detailBoxes(group, 'wall steel girts', girts, MAT.column);
   for (const x of [1000, 6000, 12000, 14000, 18000, 22000, 25500]) {
     columns.push([[130, 4380, 140], [x, 2250, -120]]);
     housings.push([[1200, 65, 180], [x, 4280, 350]]);

@@ -93,6 +93,7 @@ ui.chkCount.textContent = `${checks.filter(c => c.ok).length} / ${checks.length}
 ui.showDims.onchange = () => { building.dims.visible = ui.showDims.checked; };
 ui.showFence.onchange = () => { line.fences.visible = ui.showFence.checked; };
 ui.showCeiling.onchange = () => { building.ceiling.visible = ui.showCeiling.checked; };
+$('wallCutaway').onchange = e => building.setWallCutaway(e.target.checked);
 $('cutaway').onchange = e => {
   for (const m of [MAT.pp, MAT.tankW]) { m.transparent = e.target.checked; m.opacity = e.target.checked ? .2 : 1; m.depthWrite = !e.target.checked; m.needsUpdate = true; }
 };

@@ -196,6 +196,14 @@ node --import ../../core/tools/register.mjs tools/verify-gripper.mjs
 
 上述附件是設備外觀示意；備蓋盒不代表已實作自動供蓋，HMI 不顯示虛構即時重量。一般 `scene` 檢查不列入 `InstancedMesh`，所以完整檢查另跑 `tools/verify-render-details.mjs`：展開本站新增實例後沿完整動畫重新檢查（[review/render-details-verification.json](review/render-details-verification.json)），不擴大 allow 或 skip。補強前後無頭瀏覽器量測（相對值）：桌面約 43.8 → 36.3 fps、手機尺寸約 57.7 → 49.3 fps，都在「不低於補強前 80%」的預算內。
 
+第二輪補強由 `filling-hardware.js` 提供 16 支隨動供液軟管、頂部歧管與支架、槍管閥體／先導氣缸／密封錐／接頭，以及滾輪間梳齒秤台。滑座與導套保留原安裝位置和行程，增加側向開口供接頭通過。軟管以共用圓管幾何的實例組成，每線一批；只有該頭的 `e`（插入）或 `sx`（換位）變化時更新矩陣，不逐幀建立或銷毀幾何。新增件不增加即時光源，也不新增投射陰影的機構網格。
+
+每位增加 core `weighIndicator` 外殼的實例與數字畫面；16 位共用一張 512×512 圖集。畫面讀取既有桶狀態 `water`，以 1 L 約 1 kg 顯示整公斤淨重，變化才更新；空位顯示 `---`，既有背景桶為 120 kg。畫面標示 `SIM`，是動畫液量的顯示，不是量測或荷重元力學模擬，沒有改變桶的運動、控制或製程排程。
+
+兩台 AGV 的站內附件含琥珀色旋轉燈片與藍色前方地面警示區，讀取原有 `moving` 及動畫 `time`；停車時投影熄滅、燈片停轉。投影標記 `userData.fx`，不當成實體。建築改為實體 1.2 m 牆裙與半透明上牆，北牆／倉庫南牆的鋼柱以牆帶內橫樑相連；「顯示 → 剖視實體牆裙」可恢復低處視線，不修改 core 的牆面材質。
+
+`verify-render-details.mjs` 會同步動態實例的矩陣再檢查完整動畫，另核對短行程／倒序取樣的軟管端點、相同狀態不更新、重量隨填裝段變化與 AGV 警示狀態。第二輪的瀏覽器截圖、顯示切換操作與 FPS 由審查端補測；效能門檻仍以最初基準計算（桌面 ≥35.0、手機 ≥46.2 fps），不能以 Node 幾何檢查取代。
+
 ## 檔案
 
 | 檔案 | 用途 |
@@ -203,6 +211,7 @@ node --import ../../core/tools/register.mjs tools/verify-gripper.mjs
 | `web/js/layout.js` | 場地、框架（front／cell／util）、設備位置、手臂負載估算、倉庫儲位與空間檢核的唯一來源 |
 | `web/js/building.js` | 填裝區與清洗區的地坪、牆（含捲門、共用牆輸送口）、門窗、柱；道路；倉庫（牆、靜態儲位）；分區與尺寸標註 |
 | `web/js/agv.js` | AGV（套用 core 模型的尺寸） |
+| `web/js/filling-hardware.js` | 隨動供液管、填裝頭加工件、梳齒秤台、重量圖集與 core 秤重指示器實例 |
 | `web/js/line.js` | 清洗線：棧板站、龍門、V 槽滾輪輸送、側標讀碼、翻桶機（front）；開蓋站、立放直線輸送、秤台、圍籬、人機與三色燈（cell）；主控盤與手臂控制器 |
 | `web/js/robot.js`、`gripper.js` | R-2000iC/165F（手臂本體、限位、速度與 IK 在 core 模型）的工具與站位；完整清洗夾具（站內自畫） |
 | `web/js/washing.js` | 沖洗站、雙噴槍、真空泵、集液（cell）；四槽、泵（util）；跨框架配管與清運接頭 |

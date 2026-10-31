@@ -1,12 +1,19 @@
 {
-  "meshObjects": 4448,
-  "instancedObjects": 111,
-  "drawnInstances": 2443,
-  "expandedDetailParts": 817,
+  "meshObjects": 4538,
+  "instancedObjects": 152,
+  "drawnInstances": 3041,
+  "expandedDetailParts": 1415,
+  "stateChecks": {
+    "headSamples": 7904,
+    "weightSamples": 20,
+    "agvSamples": 988,
+    "originalEnvelopes": 32,
+    "unchangedStateCache": true
+  },
   "ok": true,
-  "meshes": 5065,
-  "moving": 550,
-  "joints": 128,
+  "meshes": 5710,
+  "moving": 650,
+  "joints": 197,
   "samples": 2579,
   "dt": 0.5,
   "total": 1289.4656344409157,
@@ -36,5 +43,5 @@
   ],
   "thresholds": {},
   "scope": "OBB 分離軸（穿插門檻 2 mm，可依模組調整，圓柱為保守外框、曲面以頂點複核）；動態每 0.5 s 取樣；重合面檢查盒、倒角外殼、圓柱端面與平面，距離 < 0.6 mm、重疊 > 25 mm²、外觀不同者，取 11 個時刻。不是連續碰撞證明。",
-  "note": "僅展開本站新增實例；既有倉儲桶與其他 core 實例仍沿用原站驗證範圍。不修改 allow、skip 或門檻。"
+  "note": "僅展開本站新增實例，動態實例逐次同步；既有倉儲桶與其他 core 實例仍沿用原站驗證範圍。不修改 allow、skip 或門檻。"
 }

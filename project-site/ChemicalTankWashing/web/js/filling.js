@@ -14,6 +14,7 @@ import { signalTower } from '@core/models/indicators.js';
 import { pallet } from '@core/models/transport-handling.js';
 import { createDrum, narrowJaws, addTopLabels } from './drum.js';
 import { addIbcDetails, addFillLineDetails } from './render-details.js';
+import { openCarriageGeometry, openGuideGeometry, createWeightAtlas, createFillingHardware } from './filling-hardware.js';
 
 const TOP = CONV.top, HALF = CONV.width / 2;
 // 2" 桶塞在世界 +Z（桶方位 270°），3/4" 在 −Z
@@ -50,6 +51,8 @@ function belt(group, axis, span, at, { legsPitch = 1500 } = {}) {
 }
 
 export function createFilling(scene) {
+  const weightAtlas = createWeightAtlas();
+  const carriageGeometry = openCarriageGeometry(), guideGeometry = openGuideGeometry();
   const root = new THREE.Group(); root.name = 'filling'; scene.add(root);
   const people = new THREE.Group(); people.name = 'people'; scene.add(people);   // 人員獨立一組：全場檢查會檢查人員對所有設備
   const sub = name => { const g = new THREE.Group(); g.name = name; g.userData.station = name; root.add(g); return g; };
@@ -115,8 +118,10 @@ export function createFilling(scene) {
       block(g, [2 * fh + 100, 80, 100], [x, HEAD.beamY, bz], MAT.steelDark);   // 換位橫樑
       for (const s of [-1, 1]) block(g, [100, fy - HEAD.beamY - 40, 100], [x + s * fh, (fy + HEAD.beamY + 40) / 2, bz], MAT.steelDark);   // 吊架
       const head = new THREE.Group(); head.position.set(x, 0, z); g.add(head);
-      block(head, [HEAD.shift + 300, 60, 900], [HEAD.shift / 2, HEAD.beamY - 70, -120], MAT.alu);   // 換位台車（在橫樑下方滑行）
-      cylinder(head, 45, 380, [0, HEAD.beamY - 290, BUNG_DZ.big], MAT.alu, 'y', 20);                 // 灌裝槍升降氣缸
+      const carriage = new THREE.Mesh(carriageGeometry, MAT.alu);
+      carriage.position.set(HEAD.shift / 2, HEAD.beamY - 70, -120); carriage.name = 'slotted fill carriage'; head.add(carriage);
+      const guide = new THREE.Mesh(guideGeometry, MAT.alu);
+      guide.position.set(0, HEAD.beamY - 290, BUNG_DZ.big); guide.name = 'open lance guide'; head.add(guide);
       const lance = new THREE.Group(); lance.position.set(0, HEAD.lanceUp, BUNG_DZ.big); head.add(lance);
       cylinder(lance, 14, 900, [0, 450, 0], MAT.steel, 'y', 12);                  // 灌裝管（原點在管下端）
       cylinder(lance, 34, 40, [0, 120, 0], MAT.black, 'y', 18);                    // 密封錐
@@ -142,9 +147,10 @@ export function createFilling(scene) {
     plate(g, [`L${i + 1} · 液體 ${FILL.liquids[i]}`], 900, 150, [x, fy + 420, f0 - 60], Math.PI, { w: 640, h: 110 });
     for (const z of FILL.pos) sensor(g, x + 340, TOP + 90, z - 380, Math.PI / 2);
     addFillLineDetails(g, x, i, FILL, TOP);
+    const hardware = createFillingHardware(g, x, i, FILL, TOP, heads, weightAtlas);
     // 擦拭人員（每線 1 人，在東側走道巡迴）
     const w = person(people, 0x2f6fb5); w.root.position.set(FILL.wipers[i], 0, FILL.pos[2]); w.root.rotation.y = Math.PI; w.root.name = `wiper L${i + 1}`;
-    return { x, heads, buttons, tower, wiper: w };
+    return { x, heads, buttons, tower, hardware, wiper: w };
   });
 
   // ---------------------------------------------------------------- 集貨輸送（各線南端 → 往西 → 暫存區龍門取料點）
@@ -210,7 +216,14 @@ export function createFilling(scene) {
   }
 
   return {
-    group: root, lines, readers, topReader, statics,
+    group: root, lines, readers, topReader, statics, weightAtlas,
+    setWeights(drums) {
+      FILL.lines.forEach((x, li) => FILL.pos.forEach((z, pi) => {
+        const occupied = drums.find(d => d.visible && Math.abs(d.x - x) < 2 && Math.abs(d.z - z) < 2 && Math.abs(d.y - (TOP + DRUM.H / 2)) < 2);
+        const background = busy.some(([l, p]) => l === li && p === pi);
+        weightAtlas.set(li * 4 + pi, occupied ? occupied.water : background ? 120 : null);
+      }));
+    },
     setTopLabeler({ hx = 0, hz = 0, hy = 1, flash = false, label = false }) {
       tlCar.position.x = lx + hx; tlHead.position.set(0, hy * 400 + TOP + DRUM.H + 30, hz); padLabel.visible = label; pad.material = flash ? MAT.green : MAT.pu;
     },
@@ -222,6 +235,7 @@ export function createFilling(scene) {
         const H = L.heads[k];
         H.head.position.x = L.x - h.sx * HEAD.shift;
         H.lance.position.y = HEAD.lanceUp + (HEAD.lanceDown - HEAD.lanceUp) * h.e;
+        L.hardware.setHead(k, h.e, h.sx);
         H.capZ.position.y = HEAD.capUp + (HEAD.capDown - HEAD.capUp) * h.cy;
         for (const n of H.spindles) n.set({ turns: h.spin });
         L.buttons[k].material = h.btn ? MAT.green : MAT.cap;
