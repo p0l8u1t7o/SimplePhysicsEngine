@@ -1,10 +1,38 @@
 // 200 L 閉口 HDPE 桶：模型在共用模型庫（core/models/drum-200l.js）。
 // 本站另加旋蓋面 3 張標籤（1 張無條碼＋2 張條碼，條碼讀值與側標相同），避開 2"（+X）與 3/4"（−X）桶塞。
 import * as THREE from 'three';
-import { DRUM } from '@core/models/drum-200l.js';
+import { DRUM, DRUM_GEO, createDrum as coreDrum, createDrumInstances as coreDrumInstances } from '@core/models/drum-200l.js';
 import { HAS_DOM } from '@core/geom/shapes.js';
 import { MAT } from '@core/geom/materials.js';
 export * from '@core/models/drum-200l.js';
+
+// 只改本站材質；core 的桶外形、標籤位置、液位與透視開關完全沿用。
+let wearMap;
+function drumWear() {
+  if (wearMap) return wearMap;
+  const n = 256, data = new Uint8Array(n * n * 4);
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const hash = (Math.imul(x + 19, 1973) ^ Math.imul(y + 7, 9277)) >>> 0;
+    // 細粒底紋搭配少量搬運擦痕；粗糙度變化不改桶的碰撞表面。
+    const scratch = (y % 47 < 2 && (x + y * 3) % 83 < 27) || (x % 97 < 2 && y % 61 < 17);
+    const value = scratch ? 252 : 190 + hash % 28;
+    data.set([value, value, value, 255], (y * n + x) * 4);
+  }
+  wearMap = new THREE.DataTexture(data, n, n); wearMap.generateMipmaps = true;
+  wearMap.minFilter = THREE.LinearMipmapLinearFilter; wearMap.magFilter = THREE.LinearFilter;
+  wearMap.wrapS = wearMap.wrapT = THREE.RepeatWrapping; wearMap.needsUpdate = true; return wearMap;
+}
+export function createDrum(id) {
+  const drum = coreDrum(id), body = drum.root.children.find(o => o.geometry === DRUM_GEO);
+  body.material.roughnessMap = drumWear(); body.material.roughness = .48;
+  return drum;
+}
+export function createDrumInstances(count) {
+  const drums = coreDrumInstances(count), material = MAT.drum.clone();
+  material.roughnessMap = drumWear(); material.roughness = .48;
+  for (const mesh of drums.group.children) if (mesh.material === MAT.drum) mesh.material = material;
+  return drums;
+}
 
 const TOP_Y = DRUM.H / 2 - 12.5 + .8;   // 桶頂板（凹在 L 環內）上方 0.8 mm
 // 桶局部座標：[中心 x, 中心 z, 寬（x 向）, 深（z 向）, 有條碼]；桶塞在 x ±200（半徑 36／18），標籤 x 範圍 ≤ ±130
@@ -13,7 +41,8 @@ const texCache = new Map();
 function topTexture(id, barcode) {
   if (!HAS_DOM) return null;
   const key = id + barcode; if (texCache.has(key)) return texCache.get(key);
-  const c = document.createElement('canvas'); c.width = 256; c.height = 112; const g = c.getContext('2d');
+  const c = document.createElement('canvas'); c.width = 512; c.height = 224; const g = c.getContext('2d');
+  g.scale(2, 2);   // 實體尺寸不變，近看時桶號與條碼邊緣有足夠像素。
   g.fillStyle = '#fbfbf7'; g.fillRect(0, 0, 256, 112); g.fillStyle = '#111'; g.textAlign = 'center';
   if (barcode) {
     let seed = [...id].reduce((s, ch) => s * 31 + ch.charCodeAt(0), 7) >>> 0;

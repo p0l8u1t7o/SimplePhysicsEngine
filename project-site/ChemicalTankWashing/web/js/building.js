@@ -4,10 +4,11 @@ import {
   ROOM, OUTLINE, DOORS, COLUMN, CLEAN, CLEAN_OUTLINE, ROAD3, ROAD5, WAREHOUSE, WH_ZONES, OPENINGS, AGV, AGV_TURNS, agvSweep, doorSwing,
   ROBOT, FENCE, GANTRY_FENCE, WASTE, FILL, STAGING, OUTFEED, PALLET, DRUM, pointInPolygon, toWorld, rectToWorld, warehouseStore,
 } from './layout.js';
-import { block, floorText, rod } from '@core/geom/shapes.js';
+import { block, floorText, rod, plate } from '@core/geom/shapes.js';
 import { MAT } from '@core/geom/materials.js';
 import { agvCharger, pallet } from '@core/models/transport-handling.js';
 import { createDrumInstances } from './drum.js';
+import { detailBoxes, asphaltMaterial, shutterMaterial, floorSlotLabels } from './render-details.js';
 
 const line = (pts, color, opacity = 1) => {
   const g = new THREE.BufferGeometry().setFromPoints(pts.map(p => new THREE.Vector3(...p)));
@@ -66,7 +67,18 @@ function walls(group, poly, H, { gapsOf = () => [], skip = () => false } = {}) {
 // 捲門：兩側導軌（嵌在門邊牆內，不佔開口）＋門楣內側的捲門箱
 function rollerDoor(group, x0, x1, z, top, inward) {
   for (const x of [x0 - 50, x1 + 50]) block(group, [120, top, 260], [x, top / 2, z], MAT.yellow);   // 凸出開口 10 mm，與牆端面不共面
-  block(group, [x1 - x0 + 240, 380, 300], [(x0 + x1) / 2, top + 200, z + inward * 160], MAT.steelDark);
+  const curtain = shutterMaterial();
+  // 收捲後露出的葉片位於門楣內，既有開口淨高保持不變。
+  block(group, [x1 - x0 + 240, 380, 300], [(x0 + x1) / 2, top + 200, z + inward * 160], [MAT.steelDark, MAT.steelDark, MAT.steelDark, MAT.steelDark, curtain, curtain]);
+  const rails = [];
+  for (const x of [x0 - 50, x1 + 50]) {
+    rails.push([[28, top - 80, 18], [x, top / 2, z + inward * 144]]);
+    for (let y = 300; y < top; y += 600) rails.push([[55, 22, 10], [x, y, z + inward * 158]]);
+  }
+  detailBoxes(group, 'roller door guide covers', rails, MAT.steelDark);
+  plate(group, ['AGV 通行 · 保持淨空'], Math.min(1800, x1 - x0 - 100), 220,
+    [(x0 + x1) / 2, top + 205, z - inward * 155], inward < 0 ? 0 : Math.PI,
+    { bg: '#efc13b', fg: '#1c2730', w: 1024, h: 128 });
 }
 
 export function createBuilding(scene) {
@@ -121,8 +133,13 @@ export function createBuilding(scene) {
   block(group, [COLUMN.size, ROOM.H, COLUMN.size], [COLUMN.x, ROOM.H / 2, COLUMN.z], MAT.column);
 
   // ---- 道路 ----
-  const road = new THREE.MeshStandardMaterial({ color: 0x2c3238, roughness: .95 });
-  const roadPlane = (x0, z0, x1, z1, y = 1) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, z1 - z0), road); m.rotation.x = -Math.PI / 2; m.position.set((x0 + x1) / 2, y, (z0 + z1) / 2); m.receiveShadow = true; group.add(m); };
+  const road = asphaltMaterial();
+  const roadPlane = (x0, z0, x1, z1, y = 1) => {
+    const geometry = new THREE.PlaneGeometry(x1 - x0, z1 - z0), uv = geometry.attributes.uv;
+    // 世界尺度 600 mm 一塊紋理；長短路段使用同一個材質，不拉長骨材。
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * (x1 - x0) / 600, uv.getY(i) * (z1 - z0) / 600);
+    const m = new THREE.Mesh(geometry, road); m.rotation.x = -Math.PI / 2; m.position.set((x0 + x1) / 2, y, (z0 + z1) / 2); m.receiveShadow = true; group.add(m);
+  };
   roadPlane(ROAD3.x0, ROAD3.z0, ROAD3.x1, ROAD3.z1);
   roadPlane(ROAD5.x0, ROAD5.z0, ROAD5.x1, ROAD3.z0);
   roadPlane(ROAD5.x0, ROAD3.z1, ROAD5.x1, ROAD5.z1);
@@ -144,6 +161,7 @@ export function createBuilding(scene) {
   for (const ch of AGV.chargers) { const c = agvCharger.create({ w: 600, h: 1400, d: 400 }); c.root.position.set(ch.x + 900, 0, W.z0 + 250); group.add(c.root); }
   // 倉儲棧板與桶（靜態，InstancedMesh）：待洗區、成品 A～D；動畫用的卸板位留空
   const store = createStaticStore(group);
+  addPlantDetails(group);
 
   // ---- 分區 ----
   const zones = new THREE.Group(); group.add(zones);
@@ -211,6 +229,46 @@ export function createBuilding(scene) {
   for (const d of DOORS) zone(dims, doorSwing(d), 0xffd27a, .08, 2);
 
   return { group, zones, dims, dimLabels, ceiling, store };
+}
+
+// 固定建築細節：立柱放在牆帶內，燈具高於所有製程機構；不占 AGV 路肩。
+function addPlantDetails(group) {
+  const columns = [], lights = [], housings = [];
+  for (const x of [1000, 6000, 12000, 14000, 18000, 22000, 25500]) {
+    columns.push([[130, 4380, 140], [x, 2250, -120]]);
+    housings.push([[1200, 65, 180], [x, 4280, 350]]);
+    housings.push([[40, 35, 350], [x, 4280, 85]]);
+    lights.push([[1140, 12, 130], [x, 4238, 350]]);
+  }
+  for (const x of [25000, 30500, 36000, 41500, 47000, 52500]) {
+    columns.push([[160, 4880, 140], [x, 2500, WAREHOUSE.z1 + 120]]);
+    housings.push([[1600, 65, 220], [x, 4780, WAREHOUSE.z1 - 350]]);
+    housings.push([[40, 35, 350], [x, 4780, WAREHOUSE.z1 - 85]]);
+    lights.push([[1540, 12, 170], [x, 4738, WAREHOUSE.z1 - 350]]);
+  }
+  detailBoxes(group, 'wall pilasters', columns, MAT.column);
+  detailBoxes(group, 'wall light housings', housings, MAT.steelDark);
+  detailBoxes(group, 'wall light diffusers', lights, new THREE.MeshStandardMaterial({ color: 0xe8f0ee, emissive: 0xcfe2e1, emissiveIntensity: .65, roughness: .65 }));
+  // 通道標線是薄漆膜，不建立會擋車的實體路緣或護柱。
+  const paint = new THREE.MeshBasicMaterial({ color: 0xf2c230 });
+  const markings = [];
+  for (const x of [1795, 2325]) markings.push([[40, 1, 7600], [x, 8, 6500]]);
+  for (const o of Object.values(OPENINGS).filter(o => o.wall !== 'shared')) {
+    markings.push([[o.x1 - o.x0 - 240, 1, 120], [(o.x0 + o.x1) / 2, 8, ROOM.D + 450]]);
+    floorText(group, 'STOP', (o.x0 + o.x1) / 2, ROOM.D + 760, 850, 210, { fg: '#f5d36b', y: 9 });
+  }
+  detailBoxes(group, 'walkway and door stop paint', markings, paint).castShadow = false;
+  for (const x of [9000, 21000, 39000]) floorText(group, '➜', x, ROAD3.zc + 650, 1000, 550, { fg: '#e6e4d5', y: 9 });
+  // 預留維修區只畫邊界與斜線，保留原本的棧板與人員通路。
+  const hatch = new THREE.Group(); hatch.name = 'maintenance floor paint'; group.add(hatch);
+  for (let x = 13900; x < 19100; x += 500) {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(80, 760), paint); m.rotation.set(-Math.PI / 2, 0, -Math.PI / 4); m.position.set(x, 9, 10400); hatch.add(m);
+  }
+  floorText(group, '維修淨空 / KEEP CLEAR', 16500, 10900, 3000, 280, { fg: '#f5d36b', y: 9 });
+  // 倉庫採地面儲位，不新增貨架；儲位號與牆牌讓棧板區可辨識。
+  floorSlotLabels(group, warehouseStore());
+  for (const [k, r] of Object.entries(WH_ZONES.finished)) plate(group, [`成品 ${k}`, 'FINISHED GOODS'], 2200, 580, [(r[0] + r[2]) / 2, 3450, WAREHOUSE.z1 - 8], Math.PI, { bg: '#205e52', fg: '#ffffff', w: 1024, h: 256 });
+  plate(group, ['待洗桶 / INBOUND', '依儲位號存放'], 3000, 580, [(WH_ZONES.dirty[0] + WH_ZONES.dirty[2]) / 2, 3450, WAREHOUSE.z1 - 8], Math.PI, { bg: '#24527b', fg: '#ffffff', w: 1024, h: 256 });
 }
 
 // 倉庫靜態儲位：棧板（core 棧板模型的 InstancedMesh）＋桶（InstancedMesh）

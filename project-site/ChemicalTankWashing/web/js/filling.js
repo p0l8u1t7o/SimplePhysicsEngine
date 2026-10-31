@@ -13,6 +13,7 @@ import { nutrunner } from '@core/models/motion.js';
 import { signalTower } from '@core/models/indicators.js';
 import { pallet } from '@core/models/transport-handling.js';
 import { createDrum, narrowJaws, addTopLabels } from './drum.js';
+import { addIbcDetails, addFillLineDetails } from './render-details.js';
 
 const TOP = CONV.top, HALF = CONV.width / 2;
 // 2" 桶塞在世界 +Z（桶方位 270°），3/4" 在 −Z
@@ -140,6 +141,7 @@ export function createFilling(scene) {
     tower.root.position.set(x - fh, fy + 700, f0); g.add(tower.root);
     plate(g, [`L${i + 1} · 液體 ${FILL.liquids[i]}`], 900, 150, [x, fy + 420, f0 - 60], Math.PI, { w: 640, h: 110 });
     for (const z of FILL.pos) sensor(g, x + 340, TOP + 90, z - 380, Math.PI / 2);
+    addFillLineDetails(g, x, i, FILL, TOP);
     // 擦拭人員（每線 1 人，在東側走道巡迴）
     const w = person(people, 0x2f6fb5); w.root.position.set(FILL.wipers[i], 0, FILL.pos[2]); w.root.rotation.y = Math.PI; w.root.name = `wiper L${i + 1}`;
     return { x, heads, buttons, tower, wiper: w };
@@ -186,6 +188,7 @@ export function createFilling(scene) {
     block(tk, [700, 100, 960], [cx, 50, cz2], MAT.steelDark);
     block(tk, [600, 6, 860], [cx, 1104, cz2], tankColors[k]);
     plate(tk, [`液體 ${FILL.liquids[k]}`], 520, 120, [cx, 1300, cz2 + 470], 0, { w: 512, h: 110 });
+    addIbcDetails(tk, cx, cz2, FILL.liquids[k]);
   }
   plate(tk, ['料倉 · 4 種液體'], 1100, 160, [(t0x + t1x) / 2, 1700, t1z + 10], 0, { w: 640, h: 110 });
   FILL.lines.forEach((x, k) => {

@@ -9,7 +9,8 @@
     ],
     "full": [
       "tools/verify-detail.mjs",
-      "tools/verify-gripper.mjs"
+      "tools/verify-gripper.mjs",
+      "tools/verify-render-details.mjs"
     ]
   }
 }

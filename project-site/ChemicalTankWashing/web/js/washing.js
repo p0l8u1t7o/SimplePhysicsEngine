@@ -8,6 +8,7 @@ import { MAT } from '@core/geom/materials.js';
 import { flange, gauge, bolts, motor } from '@core/geom/hardware.js';
 import { airKnife, sprayLance, hotAirBlower, vacuumPump, centrifugalPump, diaphragmPump, valve, transferCoupling } from '@core/models/equipment-process.js';
 import { linearAxis } from '@core/models/motion.js';
+import { detailBoxes } from './render-details.js';
 
 export function createWashing(scene, { frames = true } = {}) {
   const root = new THREE.Group(); root.name = 'washing'; scene.add(root);
@@ -55,6 +56,16 @@ export function createWashing(scene, { frames = true } = {}) {
   // 開口上方的防濺簾（條狀 PVC）
   for (let x = ox0 + 60; x < ox1; x += 120) block(group, [100, 220, 4], [x, oy1 - 110, b.z0 + 40], MAT.pp);
   plate(group, ['沖洗站 · 酸鹼殘液'], 900, 160, [(b.x0 + b.x1) / 2, H + 140, b.z0 - 5], Math.PI, { w: 640, h: 110 });
+  // 隔間外側維修銘牌與板材緊固條，避開正面的手臂／桶進出開口。
+  plate(group, ['沖洗隔間', '佩戴護目鏡與手套', '維修前隔離能源'], 700, 400,
+    [b.x0 - 5, 1850, (b.z0 + b.z1) / 2], -Math.PI / 2,
+    { bg: '#efc13b', fg: '#202a32', w: 768, h: 384 });
+  const trims = [];
+  for (const x of [b.x0 - 3, b.x1 + 3]) for (const z of [b.z0 + 180, b.z1 - 180]) {
+    trims.push([[4, H - 260, 30], [x, H / 2, z]]);
+    for (let y = 250; y < H - 100; y += 400) trims.push([[10, 16, 16], [x, y, z]]);
+  }
+  detailBoxes(group, 'booth panel fixing strips', trims, MAT.steel);
   const lamp = new THREE.PointLight(0xdfefff, 0, 4000, 1); lamp.position.set(9400, 2300, 14700); group.add(lamp);
 
   // ---- 集液漏斗＋集液槽 ----

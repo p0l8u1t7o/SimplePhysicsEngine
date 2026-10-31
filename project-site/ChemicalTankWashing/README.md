@@ -192,6 +192,10 @@ node --import ../../core/tools/register.mjs tools/verify-gripper.mjs
 
 使用離線程序紋理表現金屬拉絲、HDPE 微表面和地坪，搭配環境反射、ACES 色調映射及陰影。圍籬為可透視網孔；沖洗隔間與槽體預設為實體材質，可在「顯示 → 剖視沖洗隔間與儲槽」切換。桶頂雙孔、噴槍導管、PP 穿管孔、捲門與共用牆輸送口都有實際幾何開孔。規劃圖在本機 `docs/改版規劃_20261031/`。
 
+本站的 `render-details.js` 補充捲門收捲葉片紋理與導軌蓋板、牆柱與壁掛燈具、瀝青骨材、門前停止線、維修淨空標線、倉庫儲位圖集與分區牌，以及 IBC 籠架、填裝位集液盤／荷重元／備蓋盒、每線 HMI 與西側防濺板。燈具使用發光材質，不增加即時光源；重複加工件與荷重元使用 `InstancedMesh`，儲位號共用一張圖集與一個網格。桶身另加離線粗糙度擦痕，頂標提高貼圖解析度，原有尺寸、位置、排程與動作不變。
+
+上述附件是設備外觀示意；備蓋盒不代表已實作自動供蓋，HMI 不顯示虛構即時重量。一般 `scene` 檢查不列入 `InstancedMesh`，補強後另在庫根目錄經 CPU 限制器執行 `node --import ./core/tools/register.mjs project-site/ChemicalTankWashing/tools/verify-render-details.mjs`，展開本站新增實例後沿完整動畫重新檢查；結果寫到 `TEMP/ctw-codex-evidence/instanced-scene.json`，不擴大 allow 或 skip。瀏覽器畫面與手機幀率須另外驗證。
+
 ## 檔案
 
 | 檔案 | 用途 |
