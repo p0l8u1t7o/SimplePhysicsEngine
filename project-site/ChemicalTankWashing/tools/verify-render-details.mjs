@@ -9,6 +9,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { createProject } from '../web/js/project.js';
 import { verifyScene } from '../../../core/verify/scene.mjs';
 import { FILL } from '../web/js/layout.js';
+import { verifyServices } from './verify-services.mjs';
 
 const scene = new THREE.Scene(), project = createProject({ scene });
 // 額外檢查短行程端點、倒序 seek、相同狀態快取，以及實際填裝段的重量讀值。
@@ -94,6 +95,7 @@ for (const inst of instances) {
 }
 // 軟管是動態實例，展開後仍逐次同步原矩陣；不可把起始姿態當成全行程驗證。
 const apply = project.apply.bind(project);
+const serviceChecks = verifyServices(project, scene);
 project.apply = (...args) => {
   const sample = apply(...args);
   for (const record of expanded) {
@@ -111,9 +113,9 @@ project.apply = (...args) => {
   return sample;
 };
 const result = verifyScene(project, scene);
-const report = { ...counts, stateChecks, ...result, note: '僅展開本站新增實例，動態實例逐次同步；既有倉儲桶與其他 core 實例仍沿用原站驗證範圍。不修改 allow、skip 或門檻。' };
+const report = { ...counts, stateChecks, serviceChecks, ...result, note: '僅展開本站新增實例，動態實例逐次同步；既有倉儲桶與其他 core 實例仍沿用原站驗證範圍。不修改 allow、skip 或門檻。' };
 const out = new URL('../review/render-details-verification.json', import.meta.url);
 mkdirSync(new URL('.', out), { recursive: true }); writeFileSync(out, JSON.stringify(report, null, 2));
-console.log(JSON.stringify({ ok: result.ok, ...counts, stateChecks, verifiedMeshes: result.meshes, dynamic: result.dynamic.length, static: result.static.length, zfight: result.zfight.length }));
+console.log(JSON.stringify({ ok: result.ok, ...counts, stateChecks, serviceChecks, verifiedMeshes: result.meshes, dynamic: result.dynamic.length, static: result.static.length, zfight: result.zfight.length }));
 if (!result.ok) console.log(JSON.stringify({ dynamic: result.dynamic, static: result.static, zfight: result.zfight }, null, 2));
 process.exitCode = result.ok ? 0 : 1;

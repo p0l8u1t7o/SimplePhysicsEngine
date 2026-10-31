@@ -11,6 +11,7 @@ import { createLine } from './line.js';
 import { createRobot } from './robot.js';
 import { createWashing } from './washing.js';
 import { createFilling } from './filling.js';
+import { createPlantServices } from './plant-services.js';
 import { createDrum, addTopLabels, BIG_CAP, SMALL_CAP } from './drum.js';
 import { drumWorld, palletWorld, DRUM_IDS, PRE_ID, DRUM_KEYS } from './sequence.js';
 
@@ -25,13 +26,14 @@ export function buildPlant(scene) {
   const ikRobot = createRobot();
   const washing = createWashing(scene);
   const filling = createFilling(scene);
+  const services = createPlantServices(scene);
   // 會移動的棧板：D 待洗棧板（之後成為空棧板）、A 組板位 A
   const pallets = new THREE.Group(); pallets.name = 'pallets'; scene.add(pallets);
   const pal = Object.fromEntries(['D', 'A'].map(k => { const p = pallet.create({ size: PALLET.W, height: PALLET.H }); p.root.name = 'pallet ' + k; pallets.add(p.root); return [k, p.root]; }));
   const drums = [...DRUM_IDS, PRE_ID].map(id => { const d = createDrum(id); d.top = addTopLabels(d); scene.add(d.root); return d; });
   const held = { big: new THREE.Mesh(BIG_CAP, MAT.cap), small: new THREE.Mesh(SMALL_CAP, MAT.cap) };
   for (const k of ['big', 'small']) { held[k].position.y = 8; line.socket(k).add(held[k]); }
-  return { building, agv, agv2, line, robot, ikRobot, washing, filling, pal, drums, held };
+  return { building, agv, agv2, line, robot, ikRobot, washing, filling, services, pal, drums, held };
 }
 
 // 依取樣結果擺放所有設備與桶（不含 UI）

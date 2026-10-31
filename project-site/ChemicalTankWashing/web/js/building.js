@@ -9,6 +9,7 @@ import { MAT } from '@core/geom/materials.js';
 import { agvCharger, pallet } from '@core/models/transport-handling.js';
 import { createDrumInstances } from './drum.js';
 import { detailBoxes, asphaltMaterial, shutterMaterial, floorSlotLabels } from './render-details.js';
+import { SERVICES } from './service-layout.js';
 
 const line = (pts, color, opacity = 1) => {
   const g = new THREE.BufferGeometry().setFromPoints(pts.map(p => new THREE.Vector3(...p)));
@@ -46,7 +47,7 @@ function walls(group, poly, H, { gapsOf = () => [], skip = () => false, lowerMat
     if (pointInPolygon([mx + nx * 20, mz + nz * 20], poly)) { nx = -nx; nz = -nz; }
     const yaw = Math.atan2(-dz, dx);
     // 開口在沿邊距離上的區間
-    const gaps = gapsOf([ax, az], [bx, bz]).map(([p, q, top]) => { const s0 = (p[0] - ax) * dx + (p[1] - az) * dz, s1 = (q[0] - ax) * dx + (q[1] - az) * dz; return [Math.min(s0, s1), Math.max(s0, s1), top]; }).sort((u, v) => u[0] - v[0]);
+    const gaps = gapsOf([ax, az], [bx, bz]).map(([p, q, top, bottom = 0]) => { const s0 = (p[0] - ax) * dx + (p[1] - az) * dz, s1 = (q[0] - ax) * dx + (q[1] - az) * dz; return [Math.min(s0, s1), Math.max(s0, s1), top, bottom]; }).sort((u, v) => u[0] - v[0]);
     const piece = (s0, s1, y0, y1, mat) => {
       if (s1 - s0 < 1 || y1 - y0 < 1) return;
       const c = (s0 + s1) / 2, ext = (s0 <= 0 ? t / 2 : 0) + (s1 >= L ? t / 2 : 0), off = (s1 >= L ? t / 4 : 0) - (s0 <= 0 ? t / 4 : 0);
@@ -54,13 +55,18 @@ function walls(group, poly, H, { gapsOf = () => [], skip = () => false, lowerMat
       w.position.set(ax + dx * (c + off) + nx * t / 2, (y0 + y1) / 2, az + dz * (c + off) + nz * t / 2); w.rotation.y = yaw; w.receiveShadow = true; group.add(w);
     };
     for (const [bottom, h, mat] of [[0, 160, MAT.wallBase], [160, 1200, lowerMaterial], [1200, H, MAT.wall]]) {
-      let s = 0;
-      for (const [g0, g1, top] of gaps) {
-        piece(s, g0, bottom, h, mat);
-        piece(g0, g1, Math.max(top, bottom), h, mat);   // 門楣以上，牆帶不互相重疊
-        s = g1;
+      // 各牆帶獨立切割，容許輸送開口上方另設管線穿孔，保留兩者間的牆。
+      const active = gaps.filter(g => g[2] > bottom && g[3] < h);
+      const cuts = [...new Set([0, L, ...active.flatMap(g => g.slice(0, 2))])].sort((a, b) => a - b);
+      for (let j = 1; j < cuts.length; j++) {
+        const s0 = cuts[j - 1], s1 = cuts[j], mid = (s0 + s1) / 2;
+        const holes = active.filter(g => g[0] < mid && mid < g[1]).sort((a, b) => a[3] - b[3]);
+        let y0 = bottom;
+        for (const [, , top, base] of holes) {
+          piece(s0, s1, y0, Math.min(base, h), mat); y0 = Math.max(y0, top);
+        }
+        piece(s0, s1, y0, h, mat);
       }
-      piece(s, L, bottom, h, mat);
     }
   }
 }
@@ -99,7 +105,10 @@ export function createBuilding(scene) {
     lowerMaterial,
     gapsOf: ([ax, az], [bx, bz]) => {
       if (az === ROOM.D && bz === ROOM.D) return Object.values(OPENINGS).filter(o => o.wall === 'fillS').map(o => [[o.x0, az], [o.x1, az], o.y1]);
-      if (ax === ROOM.W && bx === ROOM.W) return [[[ax, conv.z0], [ax, conv.z1], conv.y1]];
+      if (ax === ROOM.W && bx === ROOM.W) {
+        const p = SERVICES.pass;
+        return [[[ax, conv.z0], [ax, conv.z1], conv.y1], [[ax, p.z0], [ax, p.z1], p.top, p.bottom]];
+      }
       return [];
     },
   });

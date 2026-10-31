@@ -1,8 +1,8 @@
 {
-  "meshObjects": 4538,
-  "instancedObjects": 152,
-  "drawnInstances": 3041,
-  "expandedDetailParts": 1415,
+  "meshObjects": 4589,
+  "instancedObjects": 191,
+  "drawnInstances": 4133,
+  "expandedDetailParts": 2507,
   "stateChecks": {
     "headSamples": 7904,
     "weightSamples": 20,
@@ -10,8 +10,16 @@
     "originalEnvelopes": 32,
     "unchangedStateCache": true
   },
+  "serviceChecks": {
+    "wallPassRays": 3,
+    "agvSamples": 5160,
+    "minAgvPlanGap": 883.1240003532913,
+    "minTrayReachGap": 48,
+    "doorChecks": 914,
+    "scope": "AGV 淨距為新設施低於 2200 mm 部分的保守俯視 AABB 下界，另以多邊形驗證；0.5 s 取樣，不是現場安全認證。"
+  },
   "ok": true,
-  "meshes": 5710,
+  "meshes": 6814,
   "moving": 650,
   "joints": 197,
   "samples": 2579,

@@ -202,7 +202,15 @@ node --import ../../core/tools/register.mjs tools/verify-gripper.mjs
 
 兩台 AGV 的站內附件含琥珀色旋轉燈片與藍色前方地面警示區，讀取原有 `moving` 及動畫 `time`；停車時投影熄滅、燈片停轉。投影標記 `userData.fx`，不當成實體。建築改為實體 1.2 m 牆裙與半透明上牆，北牆／倉庫南牆的鋼柱以牆帶內橫樑相連；「顯示 → 剖視實體牆裙」可恢復低處視線，不修改 core 的牆面材質。
 
-`verify-render-details.mjs` 會同步動態實例的矩陣再檢查完整動畫，另核對短行程／倒序取樣的軟管端點、相同狀態不更新、重量隨填裝段變化與 AGV 警示狀態。第二輪的瀏覽器截圖、顯示切換操作與 FPS 由審查端補測；效能門檻仍以最初基準計算（桌面 ≥35.0、手機 ≥46.2 fps），不能以 Node 幾何檢查取代。
+`verify-render-details.mjs` 會同步動態實例的矩陣再檢查完整動畫，另核對短行程／倒序取樣的軟管端點、相同狀態不更新、重量隨填裝段變化與 AGV 警示狀態。第二輪審查以交錯基準／新版各 3 次測量，未發現可量測的 FPS 降幅；第三輪撤回絕對 FPS 門檻，由審查端再做交錯比較，不能以 Node 幾何檢查取代。
+
+### 第三輪廠務與安全附件
+
+新增 3.8 m 高梯式線槽、橫檔、吊架及電纜：主控盤／手臂控制器接北側幹線，穿共用牆的獨立高位孔，再分接四條填裝線的固定橫樑與 HMI；清洗支線供 HB-1／VP-1。手臂支線沿東牆避開 R2655 範圍（含吊架保守淨距 48 mm），下接 36 mm 高地面護線槽至基座東緣。既有輸送穿牆口與設備座標不變。
+
+IBC 區、填裝線尾及廢液防溢堤北側各設沖淋／洗眼站，另有壁掛滅火器、PPE 牌、洗管捲盤、四線放行側與組板龍門急停。輸送增加 10 組齒輪馬達、傳動護罩、輸入／輸出段導軌與光電支架；導軌避開分岐與龍門取桶區。全部附件為靜態實例，沒有新增即時光源或每幀工作。
+
+`verify-services.mjs` 由展開檢查呼叫，確認牆孔、手臂範圍、門扇、AGV 掃掠及桶身對導軌。第三輪基準為 `TEMP/ctw-codex3-base/ChemicalTankWashing/`（18 視角、4295 meshes）；瀏覽器外觀與 FPS 由審查端驗收。手臂隨動 dress pack 與兩站印表碳帶暫不增加，避免本輪擴張到腕部隨動包絡與印字引擎內部配置。
 
 ## 檔案
 
@@ -211,6 +219,7 @@ node --import ../../core/tools/register.mjs tools/verify-gripper.mjs
 | `web/js/layout.js` | 場地、框架（front／cell／util）、設備位置、手臂負載估算、倉庫儲位與空間檢核的唯一來源 |
 | `web/js/building.js` | 填裝區與清洗區的地坪、牆（含捲門、共用牆輸送口）、門窗、柱；道路；倉庫（牆、靜態儲位）；分區與尺寸標註 |
 | `web/js/agv.js` | AGV（套用 core 模型的尺寸） |
+| `web/js/service-layout.js`、`plant-services.js` | 新增廠務附件座標、梯式線槽、安全設施與輸送驅動細節；既有設備位置仍以 layout.js 為準 |
 | `web/js/filling-hardware.js` | 隨動供液管、填裝頭加工件、梳齒秤台、重量圖集與 core 秤重指示器實例 |
 | `web/js/line.js` | 清洗線：棧板站、龍門、V 槽滾輪輸送、側標讀碼、翻桶機（front）；開蓋站、立放直線輸送、秤台、圍籬、人機與三色燈（cell）；主控盤與手臂控制器 |
 | `web/js/robot.js`、`gripper.js` | R-2000iC/165F（手臂本體、限位、速度與 IK 在 core 模型）的工具與站位；完整清洗夾具（站內自畫） |
@@ -221,6 +230,7 @@ node --import ../../core/tools/register.mjs tools/verify-gripper.mjs
 | `web/js/plant.js`、`project.js` | 建立全場設備並套用取樣狀態（排程用的手臂在邏輯座標解運動學，畫面上的手臂照抄關節角）；`project.js` 是網頁與 core 統一檢查共用的專案介面 |
 | `web/js/main.js` | 場景、面板、視角、3D 標籤、相機子畫面、焦點目標、錄影 |
 | `tools/verify.mjs`、`verify-detail.mjs`、`verify-gripper.mjs` | 排程與幾何、局部機構、清洗夾具驗證 |
+| `tools/verify-render-details.mjs`、`verify-services.mjs` | 實例展開與隨動同步、服務孔、手臂／AGV／門扇淨空、導軌與桶身驗證 |
 | `tools/browser-check.mjs`、`review-camera.mjs`、`review-scenes.mjs` | 瀏覽器檢查、焦點與相機視窗互動檢查、站位截圖 |
 
 使用的 core 模型（`core/models/`）：
@@ -231,6 +241,7 @@ node --import ../../core/tools/register.mjs tools/verify-gripper.mjs
 | `agv.js` | `agv-forklift.js` |
 | `building.js` | `transport-handling.js` 的 `agvCharger`、`pallet`（倉庫靜態儲位） |
 | `plant.js` | `transport-handling.js` 的 `pallet` |
+| `plant-services.js` | `indicators.js` 的 `estop`；另重用 core 的 `hardware.motor`、`hardware.sensor`、形狀、材質與離線標牌；梯式線槽、沖淋洗眼站、滅火器與捲盤為站內示意加工件 |
 | `line.js` | `transport.js` 的 `vRollerConveyor`、`ballTurntable`；`conveyor.js`；`equipment-process.js` 的 `labeler`、`upender`、`weighIndicator`；`motion.js` 的 `loadCell`、`airCylinder`、`linearAxis`、`nutrunner`；`vision.js` 的 `visionCamera`；`lights.js` 的 `barLight`；`sensors.js` 的 `lightCurtain`；`indicators.js` 的 `signalTower`、`hmi` |
 | `washing.js` | `equipment-process.js` 的 `airKnife`、`sprayLance`、`hotAirBlower`、`vacuumPump`、`centrifugalPump`、`diaphragmPump`、`valve`、`transferCoupling`；`motion.js` 的 `linearAxis` |
 | `filling.js` | `conveyor.js`；`vision.js` 的 `codeReader`；`motion.js` 的 `nutrunner`；`indicators.js` 的 `signalTower`；`transport-handling.js` 的 `pallet` |
