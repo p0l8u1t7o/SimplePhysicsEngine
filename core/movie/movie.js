@@ -3,9 +3,10 @@ import {smooth,filterTargets,atFrame} from './camera-path.mjs';
 
 /** One absolute-time renderer for preview, audit and recording.
  *  步驟可以帶 offset（這一步的鏡頭偏移，切換時約 2 秒平滑過渡）與 speed（這一步的展示倍率，>1 較快）；targetSeconds 讓製程段等比例壓到指定總長（短動作保底 0.25 s，不設就不壓）。
- *  各專案在 main.js 以 ?movie 呼叫：installMovie({ project, title, scene, renderer, camera, controls, render, setView, total, steps, sample, focus, offset, detailShots, electricalMode, keepGuards, glandShots, far })。
+ *  各專案在 main.js 以 ?movie 呼叫：installMovie({ project, title, scene, renderer, camera, controls, render, setView, total, steps, sample, focus, offset, detailShots, electricalMode, keepGuards, glandShots, far, overview })。
+ *  overview：片頭與片尾全景的鏡位 { p, t }（或回傳它的函式）；不給時框整個場景（只錄某一站時用）。
  *  網頁本身的畫面迴圈在 ?movie 時不啟動（core/ui/stage.js 已處理；未用 stage 的專案在自己的迴圈開頭判斷）。 */
-export async function installMovie({project,title,scene,renderer,camera,controls,render,setView,total,steps,sample,focus,offset,detailShots=[],electricalMode,keepGuards=false,glandShots=true,far=16000,targetSeconds=0}) {
+export async function installMovie({project,title,scene,renderer,camera,controls,render,setView,total,steps,sample,focus,offset,detailShots=[],electricalMode,keepGuards=false,glandShots=true,far=16000,targetSeconds=0,overview=null}) {
   const setElectricalMode=electricalMode||(await import('@core/electrical/electrical-cabinet.js')).setElectricalMode;
   const W=1920,H=1080,FPS=30,SSAA=2,shots=[];
   const acid=project==='AutomaticAcid-BaseTitration',pcb=project==='PCB-CopperAssembly';
@@ -122,7 +123,7 @@ export async function installMovie({project,title,scene,renderer,camera,controls
     sample(Math.min(total,simTime(sh,0)));
     setView(sh.kind==='overview'?'iso':sh.kind==='wiring'?'wiring':sh.kind==='station'?sh.view:'electrical',true);
     scene.updateMatrixWorld(true);sh.pose={p:camera.position.toArray(),t:controls.target.toArray()};
-    if(sh.kind==='overview')sh.pose=fitOverview();
+    if(sh.kind==='overview')sh.pose=overview?(typeof overview==='function'?overview(sh):overview):fitOverview();
     else if(sh.kind==='station'&&['feeder','head'].includes(sh.view)){
       // Stay below the 1260 mm moving beam while keeping the entire tray/tool
       // in view; raising the camera above it would obscure the insertion point.

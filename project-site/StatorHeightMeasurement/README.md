@@ -22,6 +22,14 @@ node ../../core/tools/serve.mjs "StatorHeightMeasurement"
 
 側欄「量測方案」可直接切換；視角有全景、下料、整列、地坑、品檢站、量測、俯視（另有 `view=scara` 下料手臂近景）。
 
+品檢站影片（只錄品檢站：抱盒進站 → 翻盒／上砧 → 量測 → 剔除 NG → 放行，底部字幕＋右下角模擬量測畫面）：
+
+```powershell
+node core/tools/export-mp4.mjs StatorHeightMeasurement TEMP/videos/<資料夾> --query "plan=box-laser&scope=qc"
+```
+
+每段的注視點與鏡頭方向在 `web/js/main.js` 的錄影區塊（`AIM`）：作業員站在入料座南側，翻盒從西側看、量測區從東南看（相機低於外框頂樑 2100）。不加 `scope=qc` 時錄整條線。
+
 ## 流程（動畫約 70～87 s，依方案與工件）
 
 1. **沖壓出料・整列・SCARA 擺盒**：6 道散料經整列單元（收斂導正 → 窄通道 → 分料擋銷 → 定位座，側推靠基準壁、光纖確認到位與方向，上方相機再確認），SCARA 從定位座吸起，交錯 180° 擺進鐵盒，每 3.33 s 一顆（手臂實際取放 1.5 s）。

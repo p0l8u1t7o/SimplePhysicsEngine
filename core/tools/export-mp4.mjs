@@ -1,9 +1,10 @@
 // MP4 展示影片匯出（Node 版，取代 tools/movie-export 的 Python 接收端）：全自動，不需要人按按鈕。
-//   node core/tools/export-mp4.mjs <專案> [輸出資料夾] [--port 8810] [--encoder auto|h264_nvenc|libx264] [--ffmpeg 路徑] [--chrome 路徑] [--samples] [--manual]
+//   node core/tools/export-mp4.mjs <專案> [輸出資料夾] [--port 8810] [--encoder auto|h264_nvenc|libx264] [--ffmpeg 路徑] [--chrome 路徑] [--samples] [--manual] [--query 參數]
 // 流程：build-site.mjs 建單站網站副本 → 本機接收端（只聽 127.0.0.1，網站＋/render/ 端點）→ 無頭 Chrome 開 /<專案>/?pause&movie&auto
 //       （core/movie/movie.js 的 ?auto 會自動按「輸出完整影片」）→ JPEG 影格依序送進 ffmpeg → ffprobe 核對影格數。
 // 預設輸出 <庫>/TEMP/videos/<專案>-<日期>/（工作區模式為 <專案>/TEMP/videos/…）：<專案>_1080p30.mp4 與 .shots.json（tools/movie-export/verify.py 可直接用）。
 // --manual 只開接收端不開瀏覽器，可在自己的瀏覽器用「檢查鏡頭與固定影格」等按鈕（檢查影格寫到 <輸出>/audit/）。
+// --query 附加到網址的參數（例如 plan=box-vision&scope=qc），由站的 main.js 決定方案與錄哪一段。
 import { createServer } from 'node:http';
 import { spawn, spawnSync } from 'node:child_process';
 import { createReadStream, existsSync, mkdirSync, readFileSync, rmSync, rmdirSync, statSync, writeFileSync } from 'node:fs';
@@ -237,7 +238,7 @@ function defaultOutDir(p) {
 
 /** 匯出單站 MP4。回傳 { file, frames, seconds（實際耗時）, duration（影片秒數）, size, encoder, gpu, warnings }。
  *  另可傳 signal（AbortSignal）中止：會關掉 Chrome、ffmpeg、伺服器並刪掉未完成的成品；samples 另存抽查影格；manual 只開接收端等 signal。 */
-export async function exportMp4(projectId, outDir, { log = console.log, port, ffmpeg, encoder = 'auto', chrome, signal, samples = false, manual = false } = {}) {
+export async function exportMp4(projectId, outDir, { log = console.log, port, ffmpeg, encoder = 'auto', chrome, signal, samples = false, manual = false, query = '' } = {}) {
   const t0 = Date.now(), warnings = [], cleanup = [];
   const p = pickProjects([projectId])[0];
   const main = join(p.web, 'js', 'main.js');
@@ -282,7 +283,8 @@ export async function exportMp4(projectId, outDir, { log = console.log, port, ff
       },
     });
     cleanup.push(() => rx.close());
-    const url = `${rx.origin}/${encodeURIComponent(p.id)}/?pause&movie${manual ? '' : '&auto'}`;
+    const extra = String(query || '').replace(/^[?&]+/, '');
+    const url = `${rx.origin}/${encodeURIComponent(p.id)}/?pause&movie${manual ? '' : '&auto'}${extra ? '&' + extra : ''}`;
     log(`[mp4] ${p.id}：網站副本與接收端 ${rx.origin}，編碼器 ${enc}，ffmpeg ${ff}`);
     const aborted = new Promise((_, no) => { if (signal?.aborted) no(new Error('已中止')); signal?.addEventListener('abort', () => no(new Error('已中止')), { once: true }); });
     aborted.catch(() => { });
@@ -335,9 +337,9 @@ export async function exportMp4(projectId, outDir, { log = console.log, port, ff
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const argv = process.argv.slice(2), opt = k => { const i = argv.indexOf(k); return i >= 0 ? argv.splice(i, 2)[1] : undefined; };
   const flag = k => { const i = argv.indexOf(k); return i >= 0 ? (argv.splice(i, 1), true) : false; };
-  const port = opt('--port'), o = { port: port ? +port : undefined, encoder: opt('--encoder'), ffmpeg: opt('--ffmpeg'), chrome: opt('--chrome'), samples: flag('--samples'), manual: flag('--manual') };
+  const port = opt('--port'), o = { port: port ? +port : undefined, encoder: opt('--encoder'), ffmpeg: opt('--ffmpeg'), chrome: opt('--chrome'), samples: flag('--samples'), manual: flag('--manual'), query: opt('--query') };
   const [name, out] = argv.filter(a => !a.startsWith('--'));
-  if (!name) { console.log('用法：node core/tools/export-mp4.mjs <專案> [輸出資料夾] [--port 8810] [--encoder auto|h264_nvenc|libx264] [--ffmpeg 路徑] [--chrome 路徑] [--samples] [--manual]'); process.exit(2); }
+  if (!name) { console.log('用法：node core/tools/export-mp4.mjs <專案> [輸出資料夾] [--port 8810] [--encoder auto|h264_nvenc|libx264] [--ffmpeg 路徑] [--chrome 路徑] [--samples] [--manual] [--query 參數]'); process.exit(2); }
   const ac = new AbortController(); let hits = 0;
   process.on('SIGINT', () => { if (++hits > 1) process.exit(130); console.log('[mp4] 中止中，正在關閉 Chrome、ffmpeg 與伺服器…'); ac.abort(); });
   try {

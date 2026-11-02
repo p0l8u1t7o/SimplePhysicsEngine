@@ -184,13 +184,91 @@ stage.loop(dt => { const changed = player.update(dt); workspace.follow(); stage.
 
 exposeSim({ seekTo: player.seekTo, setView, views: VIEWS, total: project.total, play: player.play, pause: player.pause, get T() { return player.T; }, stationStart, project });
 
+// ---------------------------------------------------------------- 錄影（?movie；core/tools/export-mp4.mjs --query "plan=…&scope=qc" 全自動輸出）
+// scope=qc：只錄品檢站（作業員從推車抱盒進站 → 翻盒／上砧 → 量測 → 剔除 NG → 放行）。每段指定注視點與鏡頭方向，
+// 鏡頭從外框開口的南側看、避開作業員站位與外框立柱；畫面疊字幕（目前動作）與右下角模擬量測畫面。
 if (movie) {
   const { installMovie } = await import('@core/movie/movie.js');
+  const qcOnly = qp.get('scope') === 'qc', box = plan.mode === 'box', W = (x, y, z) => V(S.x + x, y, S.z + z);
+  let movieT = 0, steps;
+  const at = t => steps.findLast(s => s.start <= t + 1e-6) ?? steps[0];
+  const boxAt = k => () => project.boxes[k].root.position.clone().add(V(0, 120, 0));
+  // 鏡頭偏移（相機＝注視點＋偏移）：作業員站在入料座南側，所以翻盒從西側看（翻轉在 YZ 平面，側面看得到整個 180° 弧線）、
+  // 量測區從東南看（相機低於外框頂樑 2100、仍高過入料座上的空盒，作業員頭頂在畫面外）；跟隨鐵盒的鏡頭留在品檢區牆內
+  const SIDE = [-2100, 900, 700], SE = [600, 1050, 1500], FOLLOW = [-1100, 1300, 1000];
+  const AIM = box ? {
+    carry: [boxAt('A'), FOLLOW], nest: [() => W(0, 1050, QB.nest.z), [-1700, 1000, 900]],
+    flip: [() => W(0, 1050, 0), SIDE], meas: [() => W(0, 960, QB.meas), SE], reject: [() => W(300, 960, QB.meas - 10), SE],
+  } : {
+    carry: [boxAt('A'), FOLLOW], out: [boxAt('E'), [1100, 1300, 1000]],
+    cell: [() => W(0, 980, -150), [800, 1400, 1600]], anvil: [() => W(QP.anvil.x, 990, QP.anvil.z), [500, 550, 900]],
+  };
+  if (qcOnly) {
+    const evs = events.filter(e => e.action && e.station >= 2).sort((a, b) => a.start - b.start);
+    const q0 = evs.find(e => /抱起/.test(e.action))?.start ?? project.t0 - 4;
+    const raw = [];
+    for (const e of evs.filter(e => e.start >= q0 - 1e-6)) {
+      const a = e.action, st = e.station;
+      let aim = st === 2 ? 'carry' : st === 6 ? (box ? 'carry' : 'out') : 'cell', speed = 1;
+      if (box) aim = st === 2 ? 'carry' : st === 6 ? 'carry' : st === 4 ? 'meas' : /量盒壁/.test(a) ? 'nest' : /剔除/.test(a) ? 'reject' : st === 5 && /回停放位/.test(a) ? 'reject' : st >= 3 && st <= 5 ? 'flip' : aim;
+      else if (st === 3 && /放上量測砧/.test(a) || st === 4 && !/快轉/.test(a)) { aim = 'anvil'; speed = .4; }
+      else if (st === 5) speed = .4;
+      else if (/快轉/.test(a)) speed = 2;
+      raw.push({ start: e.start, station: st, text: a, sub: e.sub || '', aim, speed });
+    }
+    // 逐顆：第 1 顆慢動作做完後，第 2～5 顆以實際速度展示
+    if (!box) {
+      const k = raw.findIndex(s => s.station === 5), t1 = raw.find(s => /放上量測砧/.test(s.text)).start + project.cycleQc / cap;
+      raw.splice(k + 1, 0, { start: t1, station: 4, text: `連續取放量測：每顆 ${(project.cycleQc / cap).toFixed(2)} s（實際速度）`, sub: 'OK 放回出料盒同一格、NG 丟進滑槽', aim: 'cell', speed: 1.4 });
+    }
+    // 第一段從抱盒開始；最後一段到作業員把良品盒放回推車
+    steps = raw.map((s, i) => ({ ...s, label: `S${s.station + 1} ${STATIONS[s.station]}`, offset: AIM[s.aim][1], dur: (raw[i + 1]?.start ?? project.total) - s.start }));
+  } else steps = events.map((e, i) => ({ ...e, text: e.action, aim: e.station >= 2 ? (box ? 'flip' : 'cell') : null, dur: (events[i + 1]?.start ?? project.total) - e.start }));
+  const q0 = steps[0].start;
+
+  // 疊圖：底部字幕＋右下角模擬量測畫面（以 4K 畫好再隨畫面縮成 1080p）
+  const hud = document.createElement('canvas'); hud.width = 3840; hud.height = 2160;
+  const hctx = hud.getContext('2d'), tex = new THREE.CanvasTexture(hud); tex.colorSpace = THREE.SRGBColorSpace;
+  const hudScene = new THREE.Scene(), hudCam = new THREE.OrthographicCamera(0, 1920, 1080, 0, -1, 1);
+  const quad = new THREE.Mesh(new THREE.PlaneGeometry(1920, 1080), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false, toneMapped: false }));
+  quad.position.set(960, 540, 0); hudScene.add(quad);
+  const mStart = stationStart[4] - .3, mEnd = events.find(e => /回停放位/.test(e.action))?.start ?? project.tOut, font = '"Microsoft JhengHei","Noto Sans TC",sans-serif';
+  function drawHud(t) {
+    const c = hctx; c.setTransform(2, 0, 0, 2, 0, 0); c.clearRect(0, 0, 1920, 1080);
+    const s = at(t);
+    if (qcOnly && s && t >= q0) {
+      const inset = t >= mStart && t <= (box ? mEnd : project.tOut + .3), w = inset ? 1184 : 1856;
+      c.fillStyle = '#081722e0'; c.fillRect(32, 942, w, 106); c.fillStyle = '#72e3cd'; c.fillRect(32, 942, 5, 106);
+      c.fillStyle = '#f2f6f8'; c.font = `600 28px ${font}`; c.fillText(s.text, 56, 984, w - 48);
+      // 整盒掃描：每列的事件沒有文字，字幕改顯示目前列與已量顆數
+      const m = box && s.station === 4 ? project.measured(t) : null;
+      const sub = m ? `第 ${Math.min(part.grid.rows, Math.floor(m.count / part.grid.cols) + 1)} / ${part.grid.rows} 列・已量 ${m.count} / ${cap} 顆` : s.sub || STATIONS[s.station];
+      c.fillStyle = '#adbdc9'; c.font = `20px ${font}`; c.fillText(sub, 56, 1024, w - 48);
+      if (inset) {
+        // 兩次取像之間保留上一筆量測畫面（往回找 3 s 內最近的有效量測），避免逐顆方案每顆閃回「等待」
+        let tm = t;
+        if (project.measured(t).current < 0) for (let k = 1; k <= 60 && t - k * .05 >= mStart; k++) if (project.measured(t - k * .05).current >= 0) { tm = t - k * .05; break; }
+        c.save(); c.translate(1248, 648); c.fillStyle = '#081722'; c.fillRect(-4, -4, 648, 408);
+        drawMeasurement(c, 640, 400, tm, project, drawGrid); c.restore();
+        c.strokeStyle = '#72e3cd'; c.lineWidth = 2; c.strokeRect(1246, 646, 644, 404);
+      }
+    }
+    tex.needsUpdate = true;
+  }
+
   installMovie({
     project: decodeURIComponent(location.pathname.split('/').filter(Boolean).at(-1)),
-    title: document.querySelector('.brand .title')?.textContent || document.title,
-    scene, renderer, camera, controls, render, setView, total: project.total, steps: timeline.events, far: true,
-    sample: t => { project.apply(t); updatePanels(t); },
-    focus: () => project.focus(player.T), offset: [-1600, 1300, 2000],
+    title: qcOnly ? `品檢站 · ${plan.name}` : document.querySelector('.brand .title')?.textContent || document.title,
+    scene, renderer, camera, controls, setView, total: project.total, steps, far: 60000,
+    // 片頭（t＝0）取第一段的狀態，進站時不會突然出現作業員與鐵盒
+    sample: t => { movieT = qcOnly ? Math.max(t, q0) : t; project.apply(movieT); updatePanels(movieT); },
+    render: () => {
+      renderer.shadowMap.needsUpdate = true; renderer.setScissorTest(false);
+      renderer.render(scene, camera);
+      drawHud(movieT); const ac = renderer.autoClear; renderer.autoClear = false; renderer.render(hudScene, hudCam); renderer.autoClear = ac;
+    },
+    focus: () => { const s = at(movieT); return s?.aim ? AIM[s.aim][0]() : project.focus(movieT); },
+    offset: [-1600, 1300, 2000],
+    ...(qcOnly ? { overview: { p: [S.x - 2100, 2600, S.z + 1700], t: [S.x, 950, S.z - 100] } } : {}),
   });
 }

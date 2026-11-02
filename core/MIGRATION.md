@@ -229,6 +229,12 @@ Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs
 
 七站 91 張基準回歸超過門檻 0 張；本站 31 張事件畫面與三場型高低畫質／深度模式逐圖檢視，外觀變更為預期。CCTV／LPR 子畫面及缺檔降級另有瀏覽器檢查。量測、圖檔位置與限制見 `project-site/ParkingEMS/review/cinematic-render.md`。
 
+## 2026-11-02：core 1.16.0 錄影只錄某一站
+
+- `movie/movie.js` 的 `installMovie` 加選項 `overview`：片頭與片尾全景的鏡位 `{ p, t }`（或回傳它的函式）。不給時照舊框整個場景，現有各站的錄影不變。
+- `tools/export-mp4.mjs` 加 `--query`（程式內 `exportMp4(id, out, { query })`）：附加到錄影網址的參數，例如 `plan=box-vision&scope=qc`，由站的 `main.js` 決定方案與錄哪一段。
+- 第一個使用者是 StatorHeightMeasurement 的品檢站影片（`?movie&scope=qc`，四個方案各一支）。兩項都只在錄影時生效，網頁畫面與檢查不受影響，所以沒有跑全站截圖回歸。
+
 ## 2026-10-22：core 1.15.0 數位孿生（core/twin）
 
 依 AutoSequence 孿生開發計畫 v0.2（本機 `TEMP/AutoSequence孿生_SPE開發計畫_v0.2.md`，使用者 2026-10-21 拍板）新增 SPE 端的 Twin Protocol v2 server。Automation-Schema `v2.0.0-preview.3` 在開工當天發版，所以計畫的 M1-a／M1-b 一次做完。
@@ -246,6 +252,7 @@ Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs
 
 | 版本 | 日期 | 內容 |
 |---|---|---|
+| 1.16.0 | 2026-11-02 | 錄影：`installMovie` 的 `overview`（片頭片尾鏡位）、`export-mp4.mjs --query`（附加網址參數）；只錄某一站時用。其他站畫面與檢查結果不變。首用：StatorHeightMeasurement 品檢站影片 |
 | 1.15.0 | 2026-10-22 | 數位孿生 `core/twin/`（Twin Protocol v2 server：握手、鎖步、cmd、故障、感測器、即時干涉、工件持有權、SSE 觀看）與 `tools/twin*.mjs`；Automation-Schema 版本鎖 `twin/automation-schema.lock.json`；新 core 檢查 `twin`、`names`；三色燈 `setLamps`。示範站 MilitaryGradePC。其他站畫面與檢查結果不變 |
 | 1.14.0 | 2026-10-07 | 新共用模型 FANUC M-710iC/45M（`models/robots/fanuc-m710ic.js`，介面與 R-2000iC 相同，另匯出型錄負載能力 `RATING`；臂長為推估值待型錄核對），共 81 個。其他站畫面與檢查結果不變。來源：SolarDismantling 手臂改選 45 kg 級 |
 | 1.13.0 | 2026-10-06 | 剛體動力學：Rapier 決定性版 0.21 放 `vendor/rapier/`；`physics/physics.js`（烘焙：固定物、輸送帶、投料、移除區、治具、吸附、力控制兩指夾爪；取樣、`createPhysicsView`）、`physics/analysis.js`；範例 `examples/physics/`（四種用途）；新檢查：站的 `physics`（用了才檢查）、core 的 `physics`；全場干涉對 `userData.physics` 的網格把穿插門檻放寬到 8 mm。一致性工具（Q9）：`robot/reach.js`（手臂可達：IK／工作空間包絡）、`anim/cycle.js`（節拍分析，`run.mjs cycle`）、`models/parts.js`（`fromPart`／`tagPart`，模型根帶 `partRef`）、新檢查 `bom`（場景 ↔ 平台 BOM，只警告；`noBom` 排除現場既有設備）。回收物分揀的分流帶尾端到收料箱改用物理（`createProject` 改成 async，出料視角有一張截圖改變，屬刻意）；其他站畫面與檢查結果不變。評估平台 Q8、Q9 |
