@@ -1,0 +1,33 @@
+{
+  "ok": true,
+  "variants": [
+    {
+      "variant": "預設",
+      "params": {},
+      "ok": true,
+      "objects": 358,
+      "samples": 40,
+      "failures": []
+    },
+    {
+      "variant": "B 立式轉台＋升降柱",
+      "params": {
+        "plan": "turntable"
+      },
+      "ok": true,
+      "objects": 329,
+      "samples": 40,
+      "failures": []
+    },
+    {
+      "variant": "C 移動門架＋協作臂",
+      "params": {
+        "plan": "cobot"
+      },
+      "ok": true,
+      "objects": 292,
+      "samples": 40,
+      "failures": []
+    }
+  ]
+}

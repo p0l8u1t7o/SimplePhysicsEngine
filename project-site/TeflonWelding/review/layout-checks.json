@@ -1,0 +1,186 @@
+{
+  "ok": true,
+  "variants": [
+    {
+      "variant": "預設",
+      "params": {},
+      "ok": true,
+      "count": 8,
+      "failures": [],
+      "rows": [
+        {
+          "group": "手臂姿態",
+          "name": "環縫焊接姿態 IK 收斂",
+          "ok": true,
+          "value": "0 mm／0°"
+        },
+        {
+          "group": "手臂姿態",
+          "name": "縱縫焊接姿態 IK 收斂",
+          "ok": true,
+          "value": "0 mm／0°"
+        },
+        {
+          "group": "手臂姿態",
+          "name": "退刀姿態 IK 收斂",
+          "ok": true,
+          "value": "0 mm／0°"
+        },
+        {
+          "group": "手臂姿態",
+          "name": "工具架取放姿態 IK 收斂",
+          "ok": true,
+          "value": "0 mm／0°"
+        },
+        {
+          "group": "手臂姿態",
+          "name": "取放上升姿態 IK 收斂",
+          "ok": true,
+          "value": "0 mm／0°"
+        },
+        {
+          "group": "人孔通過",
+          "name": "手臂伸直半徑 ≤ 人孔 226.5 − 20",
+          "ok": true,
+          "value": "188.7 mm"
+        },
+        {
+          "group": "人孔通過",
+          "name": "工具最大半徑（伸直時）",
+          "ok": true,
+          "value": "141.4 mm"
+        },
+        {
+          "group": "行程",
+          "name": "伸直進桶時工具尖端高於下封頭",
+          "ok": true,
+          "value": "151 mm"
+        }
+      ]
+    },
+    {
+      "variant": "B 立式轉台＋升降柱",
+      "params": {
+        "plan": "turntable"
+      },
+      "ok": true,
+      "count": 8,
+      "failures": [],
+      "rows": [
+        {
+          "group": "手臂姿態",
+          "name": "環縫焊接姿態 IK 收斂",
+          "ok": true,
+          "value": "0 mm／0°"
+        },
+        {
+          "group": "手臂姿態",
+          "name": "縱縫焊接姿態 IK 收斂",
+          "ok": true,
+          "value": "0 mm／0°"
+        },
+        {
+          "group": "手臂姿態",
+          "name": "退刀姿態 IK 收斂",
+          "ok": true,
+          "value": "0 mm／0°"
+        },
+        {
+          "group": "手臂姿態",
+          "name": "工具架取放姿態 IK 收斂",
+          "ok": true,
+          "value": "0 mm／0°"
+        },
+        {
+          "group": "手臂姿態",
+          "name": "取放上升姿態 IK 收斂",
+          "ok": true,
+          "value": "0 mm／0°"
+        },
+        {
+          "group": "人孔通過",
+          "name": "手臂伸直半徑 ≤ 人孔 226.5 − 20",
+          "ok": true,
+          "value": "188.7 mm"
+        },
+        {
+          "group": "人孔通過",
+          "name": "工具最大半徑（伸直時）",
+          "ok": true,
+          "value": "141.4 mm"
+        },
+        {
+          "group": "行程",
+          "name": "伸直進桶時工具尖端高於下封頭",
+          "ok": true,
+          "value": "151 mm"
+        }
+      ]
+    },
+    {
+      "variant": "C 移動門架＋協作臂",
+      "params": {
+        "plan": "cobot"
+      },
+      "ok": true,
+      "count": 9,
+      "failures": [],
+      "rows": [
+        {
+          "group": "手臂姿態",
+          "name": "環縫焊接姿態 IK 收斂",
+          "ok": true,
+          "value": "0 mm／0°"
+        },
+        {
+          "group": "手臂姿態",
+          "name": "縱縫焊接姿態 IK 收斂",
+          "ok": true,
+          "value": "0 mm／0°"
+        },
+        {
+          "group": "手臂姿態",
+          "name": "退刀姿態 IK 收斂",
+          "ok": true,
+          "value": "0.1 mm／0°"
+        },
+        {
+          "group": "手臂姿態",
+          "name": "工具架取放姿態 IK 收斂",
+          "ok": true,
+          "value": "0 mm／0°"
+        },
+        {
+          "group": "手臂姿態",
+          "name": "取放上升姿態 IK 收斂",
+          "ok": true,
+          "value": "0 mm／0°"
+        },
+        {
+          "group": "人孔通過",
+          "name": "手臂伸直半徑 ≤ 人孔 226.5 − 20",
+          "ok": true,
+          "value": "172.7 mm"
+        },
+        {
+          "group": "人孔通過",
+          "name": "工具最大半徑（伸直時）",
+          "ok": true,
+          "value": "141.4 mm"
+        },
+        {
+          "group": "行程",
+          "name": "伸直進桶時工具尖端高於下封頭",
+          "ok": true,
+          "value": "151 mm"
+        },
+        {
+          "group": "手臂姿態",
+          "name": "J1 繞 360° 在限位內",
+          "ok": true,
+          "value": "-180～180°"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "title": "鐵氟龍襯裡桶自動焊接",
+  "summary": "1000L 襯 PTFE 桶內焊道：DENSO 手臂熱風焊接＋兆赫波檢測（多方案比較）",
+  "order": 14,
+  "coreVersion": "1.16.0",
+  "checks": {
+    "quick": [
+      "tools/verify.mjs"
+    ],
+    "full": []
+  },
+  "variants": [
+    {
+      "name": "B 立式轉台＋升降柱",
+      "params": {
+        "plan": "turntable"
+      }
+    },
+    {
+      "name": "C 移動門架＋協作臂",
+      "params": {
+        "plan": "cobot"
+      }
+    }
+  ]
+}

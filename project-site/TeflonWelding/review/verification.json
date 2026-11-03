@@ -1,0 +1,45 @@
+{
+  "ok": true,
+  "plans": {
+    "roll": {
+      "ok": true,
+      "total": 197.5,
+      "follow": 0.05,
+      "minGapInside": 16.8,
+      "tightest": {
+        "t": 136.5,
+        "mesh": "pfa-tape",
+        "y": 885
+      },
+      "failures": []
+    },
+    "turntable": {
+      "ok": true,
+      "total": 231.4,
+      "follow": 0.05,
+      "minGapInside": 16.8,
+      "tightest": {
+        "t": 153.3,
+        "mesh": "pfa-tape",
+        "y": 435
+      },
+      "failures": []
+    },
+    "cobot": {
+      "ok": true,
+      "total": 234.2,
+      "follow": 0.16,
+      "minGapInside": 16.8,
+      "tightest": {
+        "t": 167.3,
+        "mesh": "pfa-tape",
+        "y": 885
+      },
+      "failures": []
+    }
+  },
+  "estimate": {
+    "metres": 6.68,
+    "hours": 2.48
+  }
+}
