@@ -4,7 +4,37 @@ import * as THREE from 'three';
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { createProject } from '../web/js/project.js';
-import { FIELD, PROCESS, TANK, TOOLS } from '../web/js/spec.js';
+import { FIELD, PROCESS, TANK, TOOLS, THZ } from '../web/js/spec.js';
+import { depthTime, THZ_TIMES, seamVerdicts, drawThz } from '../web/js/thz-view.js';
+
+// 只驗證畫布輸出的資料與快取契約；此記錄器不是瀏覽器，也不驗證字形或排版。
+function checkThzCanvas(p, check) {
+  const create = document.createElement, texts = [];
+  let paints = 0;
+  const canvas = () => {
+    const context = new Proxy({
+      fillText(text, x, y) { texts.push({ text: String(text), x, y, font: this.font }); },
+      fillRect() { paints++; },
+      createImageData(w, h) { return { data: new Uint8ClampedArray(w * h * 4) }; },
+    }, { get: (target, key) => target[key] ?? (() => {}) });
+    return { getContext: () => context, width: 0, height: 0 };
+  };
+  document.createElement = tag => tag === 'canvas' ? canvas() : create.call(document, tag);
+  try {
+    const ctx = canvas().getContext('2d'), z = p.thzAt(p.total);
+    drawThz(ctx, 320, 221, z, p.seams);
+    const count = paints;
+    check(texts.some(t => t.text === 'ps') && texts.some(t => t.text === 'mm'), 'THz 時間與深度刻度都有單位');
+    check(texts.some(t => t.text === '橙：正回波') && texts.some(t => t.text === '藍：負回波'), 'THz 正負回波圖例');
+    check(texts.every(t => t.y <= 221 && t.x >= 0 && t.x < 320), '320 px 畫布文字基準點在範圍內');
+    check(texts.every(t => Number(t.font.match(/([\d.]+)px/)[1]) >= 9.5), '320 px 畫布最小字級 9.5 px');
+    drawThz(ctx, 320, 221, z, p.seams);
+    check(paints === count, 'THz 相同狀態只複製快取畫布，不重畫波形');
+    const step = p.timeline.tracks.repair.steps.find(s => s.dur > 0 && s.end.r === 1);
+    drawThz(ctx, 320, 221, p.thzAt(step.start - .01), p.seams);
+    check(paints > count && texts.some(t => t.text === 'NG 氣孔'), '倒序回到補焊前會更新 NG 波形');
+  } finally { document.createElement = create; }
+}
 
 const results = [];
 for (const plan of ['roll', 'turntable', 'cobot']) {
@@ -16,6 +46,56 @@ for (const plan of ['roll', 'turntable', 'cobot']) {
   check(shell.material.clippingPlanes === liner.material.clippingPlanes, '拉絲材質仍共用切面');
   check(p.tank.seams.C1.layers.path.material === p.tank.seams.C2.layers.path.material, '焊道共用材質');
   check(p.tank.seams.C1.layers.path.userData.fx, '規劃線為虛擬效果');
+  check(!!scene.getObjectByName('chip-collector'), '三方案都有獨立集屑機');
+  for (const key of ['groove', 'flat']) {
+    const shroud = p.tools[key].root.getObjectByName('chip-suction-shroud');
+    check(!!shroud && !shroud.userData.fx, `${key} 吸屑罩為實體，接受間隙檢查`);
+    check(!!shroud.getObjectByName('chip-suction-tool'), `${key} 吸屑管隨工具移動`);
+  }
+  for (const key of ['rod', 'belt']) {
+    const slot = scene.getObjectByName('rack-slot-' + key);
+    check(!!slot.getObjectByName('parked-gun-heat-shield'), `${key} 停放格隔熱槽`);
+    check(!!slot.getObjectByName('standby-air'), `${key} 待機送風管`);
+  }
+  const patch = scene.getObjectByName('repair-patch');
+  check(patch.userData.fx && patch.material.isMeshPhysicalMaterial && patch.material.roughness < .4, '重熔焊帶保持光澤，效果不當成實體厚度');
+  const repairStep = p.timeline.tracks.repair.steps.find(s => s.dur > 0 && s.end.r === 1);
+  const repairTime = repairStep.start + repairStep.dur / 2;
+  p.apply(repairTime);
+  const patchColor = patch.material.color.getHex(), range = patch.geometry.drawRange.count;
+  check(scene.getObjectByName('thz-defect').material.color.getHex() === 0xffb020, '補焊中保留橘圈');
+  p.apply(p.total);
+  check(scene.getObjectByName('thz-defect').material.color.getHex() === 0x3dd68c, '複檢後保留綠圈');
+  check(patch.material.color.getHex() !== patchColor, '焊帶由暖色冷卻為乳白');
+  check(seamVerdicts(p.thzAt(p.total), SEAMS).every(v => v.text.includes('OK')), '複檢後所有焊道 OK');
+  p.apply(repairTime);
+  check(patch.material.color.getHex() === patchColor && patch.geometry.drawRange.count === range, '補焊顏色與範圍倒序可重現');
+  check(Math.abs(depthTime(0) - THZ_TIMES.surface) < 1e-10, 'B-scan 零深度對齊表面回波');
+  check(Math.abs(depthTime(THZ.layers.belt + THZ.layers.ptfe) - THZ_TIMES.glue) < 1e-10, 'B-scan 覆蓋深度對齊膠層回波');
+  check(Math.abs(depthTime(THZ.layers.belt + THZ.layers.ptfe + THZ.layers.glue) - THZ_TIMES.sus) < 1e-10, 'B-scan 膠層依其折射率對齊 SUS 回波');
+  checkThzCanvas(p, check);
+  const clampStep = p.timeline.tracks.load.steps.find(s => s.dur > 0 && s.end.clamp === 1);
+  p.apply(clampStep.start + clampStep.dur); scene.updateMatrixWorld(true);
+  if (plan === 'roll') {
+    scene.traverse(m => {
+      if (m.name !== 'clamp-screw-extension') return;
+      const pad = m.parent.children.find(o => o.name === 'clamp-pad');
+      const tip = new THREE.Vector3(0, -.5, 0).applyMatrix4(m.matrixWorld);
+      const contact = new THREE.Vector3(0, 6, 0).applyMatrix4(pad.matrixWorld);
+      check(tip.distanceTo(contact) < .001, 'A 案螺桿延伸段接到壓墊，沒有懸空');
+    });
+  } else if (plan === 'turntable') {
+    scene.traverse(m => {
+      if (m.name !== 'locator-clamp-pad') return;
+      m.geometry.computeBoundingBox();
+      check(Math.abs(Math.abs(m.position.x) - m.geometry.boundingBox.max.x - TANK.legs.plate / 2) < .001, 'B 案夾持墊接觸桶腳板側面');
+    });
+  } else {
+    const shoes = []; scene.traverse(m => { if (m.name === 'leveling-foot-shoe') shoes.push(m); });
+    for (const shoe of shoes) check(Math.abs(new THREE.Box3().setFromObject(shoe).min.y) < .001, 'C 案定位腳鞋板夾緊後貼地');
+    p.apply(p.total); scene.updateMatrixWorld(true);
+    for (const shoe of shoes) check(new THREE.Box3().setFromObject(shoe).min.y > 50, 'C 案退場前鞋板收起');
+  }
 
   for (const time of [0, p.total * .2, p.total * .6, p.total]) {
     p.setLook('cut'); p.apply(time); scene.updateMatrixWorld(true);

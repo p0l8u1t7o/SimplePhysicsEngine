@@ -1,0 +1,286 @@
+{
+  "baseline": "df4bf9f431b7986c33916510085866e68c8a80be",
+  "scope": "Node geometry, schedule and canvas command checks only; browser rendering, FPS and hardware not validated",
+  "quick": [
+    {
+      "check": "imports",
+      "ok": true,
+      "note": "36 個模組"
+    },
+    {
+      "check": "structure",
+      "ok": true,
+      "note": "通過"
+    },
+    {
+      "check": "names",
+      "ok": true,
+      "note": "通過（名單 23 個）"
+    },
+    {
+      "check": "determinism",
+      "ok": true,
+      "note": "[預設] 一致：771 個物件、40 個時間點 ／ [B 立式轉台＋升降柱] 一致：718 個物件、40 個時間點 ／ [C 移動門架＋協作臂] 一致：675 個物件、40 個時間點"
+    },
+    {
+      "check": "layout",
+      "ok": true,
+      "note": "[預設] 8/8 通過 ／ [B 立式轉台＋升降柱] 8/8 通過 ／ [C 移動門架＋協作臂] 9/9 通過"
+    },
+    {
+      "check": "scene",
+      "ok": true,
+      "note": "[預設] {\"ok\":true,\"dynamic\":0,\"static\":0,\"zfight\":0} ／ [B 立式轉台＋升降柱] {\"ok\":true,\"dynamic\":0,\"static\":0,\"zfight\":0} ／ [C 移動門架＋協作臂] {\"ok\":true,\"dynamic\":0,\"static\":0,\"zfight\":0}"
+    },
+    {
+      "check": "electrical",
+      "ok": true,
+      "note": "[預設] 略過：場景沒有電控元件、電盤，也沒有宣告 verify.cables ／ [B 立式轉台＋升降柱] 略過：場景沒有電控元件、電盤，也沒有宣告 verify.cables ／ [C 移動門架＋協作臂] 略過：場景沒有電控元件、電盤，也沒有宣告 verify.cables"
+    },
+    {
+      "check": "physics",
+      "ok": true,
+      "note": "[預設] 略過：沒有用 core/physics ／ [B 立式轉台＋升降柱] 略過：沒有用 core/physics ／ [C 移動門架＋協作臂] 略過：沒有用 core/physics"
+    },
+    {
+      "check": "bom",
+      "ok": true,
+      "note": "[預設] 略過：沒有 BOM 資料（本機沒有平台資料庫，或站還沒有成本表） ／ [B 立式轉台＋升降柱] 略過：沒有 BOM 資料（本機沒有平台資料庫，或站還沒有成本表） ／ [C 移動門架＋協作臂] 略過：沒有 BOM 資料（本機沒有平台資料庫，或站還沒有成本表）"
+    },
+    {
+      "check": "tools/verify.mjs",
+      "ok": true,
+      "note": "exit 0"
+    },
+    {
+      "check": "tools/verify-details.mjs",
+      "ok": true,
+      "note": "exit 0"
+    }
+  ],
+  "fingerprint": [
+    {
+      "variant": "預設",
+      "ok": true,
+      "diffs": [],
+      "addedMovingObjects": 22
+    },
+    {
+      "variant": "B 立式轉台＋升降柱",
+      "ok": true,
+      "diffs": [],
+      "addedMovingObjects": 22
+    },
+    {
+      "variant": "C 移動門架＋協作臂",
+      "ok": true,
+      "diffs": [],
+      "addedMovingObjects": 18
+    }
+  ],
+  "scheduleAndGeometry": [
+    {
+      "plan": "roll",
+      "total": 268.4199999999999,
+      "events": 221,
+      "samples": 892,
+      "exactTimelineAndToolTransforms": true,
+      "before": {
+        "meshes": 586,
+        "triangles": 156892
+      },
+      "after": {
+        "meshes": 618,
+        "triangles": 164514
+      }
+    },
+    {
+      "plan": "turntable",
+      "total": 322.4769444444444,
+      "events": 250,
+      "samples": 1001,
+      "exactTimelineAndToolTransforms": true,
+      "before": {
+        "meshes": 539,
+        "triangles": 156676
+      },
+      "after": {
+        "meshes": 571,
+        "triangles": 164298
+      }
+    },
+    {
+      "plan": "cobot",
+      "total": 324.87,
+      "events": 269,
+      "samples": 1077,
+      "exactTimelineAndToolTransforms": true,
+      "before": {
+        "meshes": 523,
+        "triangles": 150486
+      },
+      "after": {
+        "meshes": 551,
+        "triangles": 158124
+      }
+    }
+  ],
+  "rackShieldVertexChecks": {
+    "intervalSeconds": 0.02,
+    "surfaceToleranceMm": 0.05,
+    "results": [
+      {
+        "plan": "roll",
+        "samples": 13421,
+        "intersections": 0,
+        "failures": []
+      },
+      {
+        "plan": "turntable",
+        "samples": 16124,
+        "intersections": 0,
+        "failures": []
+      },
+      {
+        "plan": "cobot",
+        "samples": 16244,
+        "intersections": 0,
+        "failures": []
+      }
+    ]
+  },
+  "clearances": {
+    "roll": {
+      "ok": true,
+      "total": 268.4,
+      "follow": 0.05,
+      "minGapInside": 16.8,
+      "minNeckGap": 37.8,
+      "seamLayout": {
+        "c1": 420,
+        "c2": 870,
+        "nl": 1
+      },
+      "tightest": {
+        "t": 162.2,
+        "mesh": "pfa-tape",
+        "y": 885
+      },
+      "failures": []
+    },
+    "roll·極端排版": {
+      "ok": true,
+      "total": 291.8,
+      "follow": 0.05,
+      "minGapInside": 16.8,
+      "minNeckGap": 37.8,
+      "seamLayout": {
+        "c1": 250,
+        "c2": 1000,
+        "nl": 2
+      },
+      "tightest": {
+        "t": 181.9,
+        "mesh": "pfa-tape",
+        "y": 1015
+      },
+      "failures": []
+    },
+    "turntable": {
+      "ok": true,
+      "total": 322.5,
+      "follow": 0.05,
+      "minGapInside": 16.8,
+      "minNeckGap": 37.3,
+      "seamLayout": {
+        "c1": 420,
+        "c2": 870,
+        "nl": 1
+      },
+      "tightest": {
+        "t": 186.6,
+        "mesh": "pfa-tape",
+        "y": 435
+      },
+      "failures": []
+    },
+    "turntable·極端排版": {
+      "ok": true,
+      "total": 345.9,
+      "follow": 0.05,
+      "minGapInside": 14.4,
+      "minNeckGap": 14.4,
+      "seamLayout": {
+        "c1": 250,
+        "c2": 1000,
+        "nl": 2
+      },
+      "tightest": {
+        "t": 17.9,
+        "mesh": "mast-head",
+        "y": 1542
+      },
+      "failures": []
+    },
+    "cobot": {
+      "ok": true,
+      "total": 324.9,
+      "follow": 0.16,
+      "minGapInside": 16.8,
+      "minNeckGap": 22,
+      "seamLayout": {
+        "c1": 420,
+        "c2": 870,
+        "nl": 1
+      },
+      "tightest": {
+        "t": 193.2,
+        "mesh": "pfa-tape",
+        "y": 435
+      },
+      "failures": []
+    },
+    "cobot·極端排版": {
+      "ok": true,
+      "total": 351.9,
+      "follow": 0.16,
+      "minGapInside": 16.8,
+      "minNeckGap": 17.8,
+      "seamLayout": {
+        "c1": 250,
+        "c2": 875,
+        "nl": 2
+      },
+      "tightest": {
+        "t": 215.8,
+        "mesh": "pfa-tape",
+        "y": 265
+      },
+      "failures": []
+    }
+  },
+  "detailChecks": [
+    {
+      "plan": "roll",
+      "checks": 2921,
+      "ok": true
+    },
+    {
+      "plan": "turntable",
+      "checks": 2921,
+      "ok": true
+    },
+    {
+      "plan": "cobot",
+      "checks": 2921,
+      "ok": true
+    }
+  ],
+  "browser": {
+    "status": "unavailable",
+    "exitCode": 2147483651,
+    "error": "Chrome DevTools 未啟動",
+    "serverPort": 8850,
+    "devToolsPort": 8851
+  }
+}

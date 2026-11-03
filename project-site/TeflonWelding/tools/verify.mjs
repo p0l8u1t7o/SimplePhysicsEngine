@@ -54,7 +54,7 @@ for (const [plan, opts] of ['roll', 'turntable', 'cobot'].flatMap(k => [[k, {}],
   scene.traverse(o => { if (['boom', 'gantry', 'robot'].includes(o.userData.module) && o.parent === scene) movers.push(o); });
   const meshes = []; for (const m of movers) m.traverse(c => { if (!c.isMesh) return; for (let q = c; q; q = q.parent) if (q.userData.fx) return; if (!meshes.includes(c)) meshes.push(c); });
   const isTool = new Set(); for (const t of Object.values(p.tools)) t.root.traverse(c => isTool.add(c));
-  let minGap = Infinity, worst = null, hits = 0;
+  let minGap = Infinity, minNeckGap = Infinity, worst = null, hits = 0;
   const dt = .1, inv = new THREE.Matrix4();
   for (let t = 0; t <= p.total; t += dt) {
     p.apply(t); scene.updateMatrixWorld(true); inv.copy(p.tank.frame.matrixWorld).invert(); p.arm.tcp.getWorldPosition(tcp);
@@ -65,12 +65,13 @@ for (const [plan, opts] of ['roll', 'turntable', 'cobot'].flatMap(k => [[k, {}],
         if (tool && v.distanceTo(tcp) < 60) continue;
         const l = v2.copy(v).applyMatrix4(inv), w = wallAt(l.y); if (!w) continue;
         const r = Math.hypot(l.x, l.z);
-        if (r < w[0]) { const gap = w[0] - r; if (gap < minGap) { minGap = gap; worst = { t: +t.toFixed(1), mesh: m.name || m.parent?.name, y: Math.round(l.y) }; } }
+        if (r < w[0]) { const gap = w[0] - r; if (l.y > 1290) minNeckGap = Math.min(minNeckGap, gap); if (gap < minGap) { minGap = gap; worst = { t: +t.toFixed(1), mesh: m.name || m.parent?.name, y: Math.round(l.y) }; } }
         else if (r <= w[1] + 2) { hits++; if (hits <= 5) failures.push(`桶內間隙：t=${t.toFixed(1)} ${m.name || m.parent?.name || m.geometry.type} 進入桶壁（y=${Math.round(l.y)}、r=${Math.round(r)}，壁 ${Math.round(w[0])}～${Math.round(w[1])}）`); }
       }
     }
   }
   if (hits > 5) failures.push(`桶內間隙：另有 ${hits - 5} 個取樣點進入桶壁`);
+  if (plan.startsWith('cobot') && minGap < 15) failures.push(`C 案間隙 ${minGap.toFixed(1)} mm 小於 15 mm`);
 
   // ---- 3. 製程順序與完成
   const fin = tl.sample(p.total);
@@ -83,7 +84,8 @@ for (const [plan, opts] of ['roll', 'turntable', 'cobot'].flatMap(k => [[k, {}],
   const layout = p.layoutChecks().filter(r => !r.ok).map(r => `配置：${r.name} ${r.value}`);
   failures.push(...layout);
 
-  out.plans[plan] = { ok: !failures.length, total: +p.total.toFixed(1), follow: +follow.toFixed(2), minGapInside: Number.isFinite(minGap) ? +minGap.toFixed(1) : null, tightest: worst, failures };
+  out.plans[plan] = { ok: !failures.length, total: +p.total.toFixed(1), follow: +follow.toFixed(2), minGapInside: Number.isFinite(minGap) ? +minGap.toFixed(1) : null, minNeckGap: Number.isFinite(minNeckGap) ? +minNeckGap.toFixed(1) : null, seamLayout: { c1: p.layout.c1, c2: p.layout.c2, nl: p.layout.nl }, tightest: worst, failures };
+  console.log(`${plan}: ${failures.length ? 'FAIL' : 'PASS'}，桶內 ${minGap.toFixed(1)} mm，人孔區 ${minNeckGap.toFixed(1)} mm`);
   if (failures.length) out.ok = false;
 }
 

@@ -56,7 +56,7 @@ label(`工具架（${TOOLS.length} 支工具）`, () => project.plan.rackRoot.ch
 label('電控櫃・熱風控制・兆赫波主機', () => plan.periphery.group.localToWorld(V(700, 2050, 0)), 1);
 if (meta.key === 'roll') { label('開合式雙環迴轉架', V(150, 2000, 0), 3); label('懸吊 X 軸＋伸臂', V(-3300, 3050, 0), 2); }
 if (meta.key === 'turntable') { label('立式轉台', V(0, 420, 900), 3); label('立柱懸臂（上下＋伸縮）', V(-3500, 5550, -650), 2); }
-if (meta.key === 'cobot') { label('移動式門架（X 橫移＋Z 伸縮柱）', V(-700, 5900, 0), 3); }
+if (meta.key === 'cobot') { label('移動式門架（X 橫移＋Z 伸縮柱）', () => scene.getObjectByName('gantry').localToWorld(V(-700, 5900, 0)), 3); }
 label('焊點', () => project.focus(), 2);
 
 // ---------------------------------------------------------------- 站別按鈕

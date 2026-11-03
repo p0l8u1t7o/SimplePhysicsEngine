@@ -33,8 +33,8 @@ export function headHeight(r, o = 0) {
 // ---------------------------------------------------------------- 焊道（依照片：兩道環縫＋中段縱縫；位置為假設，網頁側欄可調，待用戶給襯板排版）
 // c1／c2：下／上環縫離下切線的高度；nl：中段縱縫條數（1 或 2，2 條時相隔 180°）
 export const SEAM_LAYOUT = { c1: 420, c2: 870, nl: 1 };
-// 環縫範圍：上限依手臂（伸入深度不同）——COBOTTA 的上臂在上環縫高於約 870 時，管束會擦到人孔頸（tools/verify.mjs 驗證過的區間）
-export const SEAM_LIMITS = { min: 250, gap: 250, max: { vs068: 1000, cobotta: 870 } };
+// 環縫範圍：COBOTTA 熱風管改沿中性側後，上限保留人孔間隙；共用護線仍限制可達高度。
+export const SEAM_LIMITS = { min: 250, gap: 250, max: { vs068: 1000, cobotta: 875 } };
 export function seamLayout(o = {}, arm = 'vs068') {
   const L = { ...SEAM_LIMITS, max: SEAM_LIMITS.max[arm] ?? 870 }, num = (v, d) => Number.isFinite(+v) && v !== '' && v != null ? +v : d;
   let c1 = Math.round(num(o.c1, SEAM_LAYOUT.c1)), c2 = Math.round(num(o.c2, SEAM_LAYOUT.c2));

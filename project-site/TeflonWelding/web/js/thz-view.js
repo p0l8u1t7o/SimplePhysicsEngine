@@ -27,7 +27,7 @@ const voidAt = (z, seamId, u) => seamId === z.defect.seam.id && Math.abs(u - z.d
 // B-scan 預先畫好（每道焊道一張、缺陷焊道另有補焊後一張），每格只裁切顯示已掃描的部分
 const cache = new Map();
 function bscan(seam, repaired, z, W, H) {
-  const key = `${seam.id}|${repaired}|${W}x${H}`;
+  const key = `${seam.id}|${seamLength(seam)}|${z.defect.u}|${repaired}|${W}x${H}`;
   if (cache.has(key)) return cache.get(key);
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   const g = cv.getContext('2d'), img = g.createImageData(W, H);
@@ -59,35 +59,59 @@ export function seamVerdicts(z, seams) {
 }
 
 const FONT = '"Microsoft JhengHei","Noto Sans TC",sans-serif';
+// 深度刻度依各層折射率換算，不把膠層誤當成 PTFE。
+export function depthTime(depth) {
+  const belt = Math.min(depth, Ly.belt), ptfe = Math.min(Math.max(0, depth - Ly.belt), Ly.ptfe), glue = Math.max(0, depth - Ly.belt - Ly.ptfe);
+  return T0 + 2 * (belt * n.pfa + ptfe * n.ptfe + glue * n.glue) / c;
+}
+const frames = new WeakMap();
 export function drawThz(ctx, w, h, z, seams) {
+  let frame = frames.get(ctx);
+  if (!frame) { const canvas = document.createElement('canvas'); frame = { canvas, ctx: canvas.getContext('2d'), key: '' }; frames.set(ctx, frame); }
+  const atVoid = voidAt(z, z.seam?.id || z.defect.seam.id, z.seam ? z.u : z.defect.u);
+  const key = JSON.stringify([w, h, z.seam?.id, atVoid, Math.floor(z.u * 40), z.scanning, z.recheck, z.found, z.repair > 0, z.checked > 0, Math.floor(z.repair * 40), Math.floor(z.checked * 40), ...seams.map(s => [s.id, seamLength(s), Math.floor(z.st['seam-' + s.id].i * 40)])]);
+  if (key !== frame.key) {
+    frame.canvas.width = w; frame.canvas.height = h;
+    paintThz(frame.ctx, w, h, z, seams); frame.key = key;
+  }
+  ctx.drawImage(frame.canvas, 0, 0); // 共用視窗會清除目的畫布；只複製快取，不逐幀重算波形。
+}
+function paintThz(ctx, w, h, z, seams) {
   ctx.fillStyle = '#0d1620'; ctx.fillRect(0, 0, w, h);
   const s = w / 640, pad = 14 * s;
   // 目前要畫哪一道：掃描中的焊道；沒在掃描時畫缺陷焊道（判定、補焊、複檢都看它）
   // 沒在掃描、已判 NG 時停在缺陷處（看 NG 波形）；複檢通過後也停在缺陷處（看補焊後的 OK 波形）
   const seam = z.seam || z.defect.seam, u = z.seam ? z.u : z.found ? z.defect.u : Math.min(1, z.st['seam-' + seam.id].i);
   const isVoid = !(z.recheck || z.checked >= 1) && voidAt(z, seam.id, u);
-  ctx.fillStyle = '#e6edf3'; ctx.font = `600 ${15 * s}px ${FONT}`;
-  ctx.fillText(z.recheck ? '兆赫波複檢（補焊段）' : z.scanning ? '兆赫波掃描中' : '兆赫波檢測結果', pad, 22 * s);
-  ctx.font = `${12 * s}px ${FONT}`; ctx.fillStyle = '#8b98a8';
-  ctx.fillText(`${seam.name}・位置 ${seam.kind === 'circ' ? Math.round(u * 360) + '°' : Math.round(u * (seam.y1 - seam.y0)) + ' mm'}`, pad + 170 * s, 22 * s);
+  ctx.fillStyle = '#e6edf3'; ctx.font = `600 ${26 * s}px ${FONT}`;
+  ctx.fillText(z.recheck ? '兆赫波複檢（補焊段）' : z.scanning ? '兆赫波掃描中' : '兆赫波檢測結果', pad, 29 * s);
+  ctx.font = `${21 * s}px ${FONT}`; ctx.fillStyle = '#bacbd8';
+  ctx.fillText(`${seam.name}・位置 ${seam.kind === 'circ' ? Math.round(u * 360) + '°' : Math.round(u * (seam.y1 - seam.y0)) + ' mm'}　A-scan`, pad, 56 * s);
 
   // ---- A-scan
-  const ax = pad, ay = 34 * s, aw = w - 2 * pad, ah = 120 * s, mid = ay + ah / 2;
+  const ax = 54 * s, ay = 86 * s, aw = w - ax - 18 * s, ah = 94 * s, mid = ay + ah / 2;
   ctx.strokeStyle = '#26384a'; ctx.lineWidth = 1; ctx.strokeRect(ax, ay, aw, ah);
   ctx.beginPath(); ctx.moveTo(ax, mid); ctx.lineTo(ax + aw, mid); ctx.stroke();
   const list = echoes(isVoid), X = t => ax + t / TMAX * aw;
   ctx.strokeStyle = isVoid ? '#ff7070' : '#72e3cd'; ctx.lineWidth = 1.6 * s; ctx.beginPath();
   for (let k = 0; k <= 400; k++) { const t = k / 400 * TMAX, v = list.reduce((a, e) => a + pulse(t, e), 0), y = mid - Math.max(-1, Math.min(1, v * 2.2)) * ah * .45; k ? ctx.lineTo(X(t), y) : ctx.moveTo(X(t), y); }
   ctx.stroke();
-  ctx.font = `${10.5 * s}px ${FONT}`;
-  for (const e of list) { ctx.fillStyle = e.name.startsWith('氣孔') ? '#ff8a8a' : '#9fb2c2'; if (e.name !== '氣孔下緣') ctx.fillText(e.name, X(e.t) + 3 * s, ay + 12 * s + (e.name.startsWith('焊帶') ? 12 * s : 0)); }
-  ctx.fillStyle = '#6f8191'; ctx.fillText('時間（ps）→ 深度', ax + aw - 92 * s, ay + ah - 5 * s);
+  ctx.font = `${19 * s}px ${FONT}`;
+  for (const [t, text, row] of [[T0, '表面', 0], [tBelt, '焊帶', 1], [tGlue, '膠層', 0], [tSus, 'SUS', 1], ...(isVoid ? [[tVoid, '氣孔', 0]] : [])]) {
+    ctx.fillStyle = text === '氣孔' ? '#ff9999' : '#ccdce8'; ctx.fillText(text, X(t) - 18 * s, (row ? 108 : 80) * s);
+  }
+  ctx.font = `${21 * s}px ${FONT}`; ctx.fillStyle = '#ccdce8';
+  for (let t = 0; t <= 60; t += 10) {
+    ctx.beginPath(); ctx.moveTo(X(t), ay + ah); ctx.lineTo(X(t), ay + ah + 5 * s); ctx.stroke();
+    ctx.fillText(String(t), X(t) - (t ? 11 : 5) * s, 204 * s);
+  }
+  ctx.fillText('ps', pad, 204 * s);
   // 覆蓋厚度量測
-  ctx.fillStyle = '#c9d4de'; ctx.font = `${11.5 * s}px ${FONT}`;
-  ctx.fillText(`覆蓋厚度（表面 → PTFE／膠）${THZ_TIMES.cover.toFixed(2)} mm ≥ 3.2 ✓　${isVoid ? '多一道反相回波 → 氣孔' : '無多餘回波'}`, ax, ay + ah + 16 * s);
+  ctx.fillStyle = '#e0e8ef'; ctx.font = `${21 * s}px ${FONT}`;
+  ctx.fillText(`覆蓋 ${THZ_TIMES.cover.toFixed(2)} mm ≥ 3.2　${isVoid ? '反相回波：疑似氣孔' : '無多餘回波'}`, pad, 234 * s);
 
   // ---- B-scan（已掃描部分）
-  const by = ay + ah + 26 * s, bh = 92 * s, bw = aw;
+  const by = 254 * s, bh = 80 * s, bw = aw;
   ctx.strokeStyle = '#26384a'; ctx.strokeRect(ax, by, bw, bh);
   const repaired = seam.id === z.defect.seam.id && z.checked > 0;
   const img = bscan(seam, false, z, 240, 64), img2 = repaired ? bscan(seam, true, z, 240, 64) : null;
@@ -106,14 +130,24 @@ export function drawThz(ctx, w, h, z, seams) {
     const dx = ax + z.defect.u * bw;
     ctx.strokeStyle = z.checked >= 1 ? '#3dd68c' : '#ff5a5a'; ctx.lineWidth = 2 * s; ctx.strokeRect(dx - 8 * s, by + 4 * s, 16 * s, bh - 8 * s);
   }
-  ctx.fillStyle = '#6f8191'; ctx.font = `${10.5 * s}px ${FONT}`; ctx.fillText('B-scan：沿焊道（橫）× 深度（縱）', ax + 4 * s, by + bh + 13 * s);
+  ctx.fillStyle = '#ccdce8'; ctx.font = `${20 * s}px ${FONT}`;
+  ctx.fillText('mm', 8 * s, 249 * s);
+  for (const depth of [0, 2, 4]) {
+    const y = by + depthTime(depth) / TMAX * bh;
+    ctx.fillText(String(depth), 25 * s, y + 6 * s);
+    ctx.strokeStyle = '#8fa6b8'; ctx.beginPath(); ctx.moveTo(ax - 6 * s, y); ctx.lineTo(ax, y); ctx.stroke();
+  }
+  ctx.fillText('B-scan 沿焊道 →', pad, 360 * s);
+  ctx.fillStyle = '#ffa94b'; ctx.fillText('橙：正回波', 264 * s, 360 * s);
+  ctx.fillStyle = '#61c9ff'; ctx.fillText('藍：負回波', 450 * s, 360 * s);
 
   // ---- 判定
-  const vy = by + bh + 32 * s;
-  ctx.font = `600 ${12.5 * s}px ${FONT}`;
+  const vy = 391 * s;
+  ctx.font = `600 ${21 * s}px ${FONT}`;
   seamVerdicts(z, seams).forEach((v, k) => {
-    const x = ax + k * (aw / seams.length);
+    const x = pad + k * ((w - 2 * pad) / seams.length);
     ctx.fillStyle = '#c9d4de'; ctx.fillText(v.s.name, x, vy);
-    ctx.fillStyle = v.color; ctx.fillText(v.text, x, vy + 17 * s);
+    const text = v.text.startsWith('NG') ? 'NG 氣孔' : v.text === '補焊後複檢 OK' ? '複檢 OK' : v.text === '已補焊，待複檢' ? '待複檢' : v.text;
+    ctx.fillStyle = v.color; ctx.fillText(text, x, vy + 28 * s);
   });
 }

@@ -6,6 +6,12 @@
       "total": 268.4,
       "follow": 0.05,
       "minGapInside": 16.8,
+      "minNeckGap": 37.8,
+      "seamLayout": {
+        "c1": 420,
+        "c2": 870,
+        "nl": 1
+      },
       "tightest": {
         "t": 162.2,
         "mesh": "pfa-tape",
@@ -18,6 +24,12 @@
       "total": 291.8,
       "follow": 0.05,
       "minGapInside": 16.8,
+      "minNeckGap": 37.8,
+      "seamLayout": {
+        "c1": 250,
+        "c2": 1000,
+        "nl": 2
+      },
       "tightest": {
         "t": 181.9,
         "mesh": "pfa-tape",
@@ -30,6 +42,12 @@
       "total": 322.5,
       "follow": 0.05,
       "minGapInside": 16.8,
+      "minNeckGap": 37.3,
+      "seamLayout": {
+        "c1": 420,
+        "c2": 870,
+        "nl": 1
+      },
       "tightest": {
         "t": 186.6,
         "mesh": "pfa-tape",
@@ -42,6 +60,12 @@
       "total": 345.9,
       "follow": 0.05,
       "minGapInside": 14.4,
+      "minNeckGap": 14.4,
+      "seamLayout": {
+        "c1": 250,
+        "c2": 1000,
+        "nl": 2
+      },
       "tightest": {
         "t": 17.9,
         "mesh": "mast-head",
@@ -53,11 +77,17 @@
       "ok": true,
       "total": 324.9,
       "follow": 0.16,
-      "minGapInside": 6.8,
+      "minGapInside": 16.8,
+      "minNeckGap": 22,
+      "seamLayout": {
+        "c1": 420,
+        "c2": 870,
+        "nl": 1
+      },
       "tightest": {
-        "t": 159.6,
-        "mesh": "hot-air upper / jacket",
-        "y": 1446
+        "t": 193.2,
+        "mesh": "pfa-tape",
+        "y": 435
       },
       "failures": []
     },
@@ -65,11 +95,17 @@
       "ok": true,
       "total": 351.9,
       "follow": 0.16,
-      "minGapInside": 6.8,
+      "minGapInside": 16.8,
+      "minNeckGap": 17.8,
+      "seamLayout": {
+        "c1": 250,
+        "c2": 875,
+        "nl": 2
+      },
       "tightest": {
-        "t": 36.7,
-        "mesh": "hot-air upper / jacket",
-        "y": 1446
+        "t": 215.8,
+        "mesh": "pfa-tape",
+        "y": 265
       },
       "failures": []
     }

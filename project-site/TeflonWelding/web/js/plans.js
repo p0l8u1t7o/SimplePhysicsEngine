@@ -132,7 +132,7 @@ function planRoll(scene) {
       iso: [[-5200, 4200, 6200], [-900, 900, 0]],
       inside: [[-250, 2650, 1900], [-70, 1000, 0]],
       weld: [[180, 1940, 1100], [-160, 640, 0]],
-      rack: [[-3000, 2200, 3200], [-2600, 900, 0]],
+      rack: [[-2200, 2500, 1500], [-2800, 600, 0]],   // 從周邊櫃前方往下看，不被兆赫波主機櫃擋住
       top: [[-1800, 11000, 10], [-1800, 0, 0]],
     },
   };
@@ -155,11 +155,16 @@ function planTurntable(scene) {
   cylinder(pos, 700, tt - 60, [0, (tt - 60) / 2, 0], P.paint, 'y', 48).name = 'turntable-base';
   const table = g('turntable', pos); table.userData.cableHost = false;
   cylinder(table, 900, 60, [0, tt - 30, 0], MAT.steelDark, 'y', 64).name = 'turntable-top';
-  const locators = [];
+  const locators = [], clampPads = [];
   for (let k = 0; k < 4; k++) {
     const a = Math.PI / 4 + k * Math.PI / 2, r = TANK.legs.footR;
     const lg = g('leg-locator', table); lg.position.set(r * Math.cos(a), tt, r * Math.sin(a)); lg.rotation.y = -a;
-    for (const s of [-1, 1]) box(lg, [40, 60, 200], [s * (TANK.legs.plate / 2 + 22), 30, 0], P.yellow, 'locator');
+    for (const s of [-1, 1]) {
+      box(lg, [40, 60, 200], [s * (TANK.legs.plate / 2 + 22), 30, 0], P.yellow, 'locator');
+      // 圓弧橡膠壓條以切線接觸腳板，避免兩片平面完全重合而閃爍。
+      const pad = cylinder(lg, 2, 100, [s * 86, 8, 0], P.rubber, 'z', 12); pad.name = 'locator-clamp-pad';
+      clampPads.push({ pad, side: s });
+    }
     locators.push(lg);
   }
   box(pos, [400, 260, 400], [-900, 130, 700], MAT.steelDark, 'turntable-drive');
@@ -199,8 +204,9 @@ function planTurntable(scene) {
     rackRoot: rack,
     setCarrier(s, lat) { boom.position.set(0, y0 + s + drop, 0); slide.position.x = lat; updateDetails(); },
     setSpin(phi, tank) { tank.spin.rotation.y = phi; table.rotation.y = phi; },
-    setLoad({ k }, tank) {
+    setLoad({ k, clamp = 0 }, tank) {
       tank.frame.position.set(0, y0 + k * 1500, 0);
+      for (const { pad, side } of clampPads) pad.position.x = side * (86 - 4 * clamp);
       const ly = y0 + lugY + k * 1500;
       crane.group.visible = k > .02;
       crane.set(new THREE.Vector3(0, ly + 1500, 0), [new THREE.Vector3(-lugR, ly, 0), new THREE.Vector3(lugR, ly, 0)]);
@@ -229,7 +235,11 @@ function planCobot(scene) {
     cylinder(gantry, 55, 50, [x, 55, z + (z > 0 ? -60 : 60)], P.rubber, 'z', 24).name = 'caster';
   }
   const feet = [];
-  for (const x of xs) for (const z of zs) { const f = box(gantry, [120, 80, 120], [x + (x > 0 ? -150 : 150), 150, z], MAT.steelDark, 'leveling-foot'); feet.push(f); }
+  for (const x of xs) for (const z of zs) {
+    const f = box(gantry, [120, 80, 120], [x + (x > 0 ? -150 : 150), 150, z], MAT.steelDark, 'leveling-foot'); feet.push(f);
+    // 原定位腳行程保持不變，補上落地鞋板，夾緊時底面恰在地坪。
+    box(f, [140, 25, 140], [0, -52.5, 0], P.rubber, 'leveling-foot-shoe');
+  }
   for (const z of zs) { box(gantry, [xs[1] - xs[0] + 180, 300, 260], [(xs[0] + xs[1]) / 2, H + 260, z], P.paint, 'side-beam'); box(gantry, [xs[1] - xs[0], 160, 160], [(xs[0] + xs[1]) / 2, 260, z], P.paint, 'base-rail'); }
   const cross = g('cross-carriage', gantry); cross.userData.cableHost = false;
   box(cross, [300, 260, zs[1] - zs[0] + 200], [0, H + 540, 0], P.paint, 'cross-beam');

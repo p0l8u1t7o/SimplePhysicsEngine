@@ -8,6 +8,7 @@ import { decal } from '@core/geom/shapes.js';
 import { sensor } from '@core/models/hardware.js';
 import { laserProfiler } from '@core/models/vision.js';
 import { TOOL_LEN } from './spec.js';
+import { mergeStatic, detailCable } from './details.js';
 
 export const ATC_LEN = 30;                     // 手臂側快換盤（法蘭面 → 結合面）
 export const RACK_DEPTH = TOOL_LEN + 70;       // 工具架層板在結合面下方的距離（工具下緣留約 40 mm）
@@ -61,6 +62,29 @@ function couplingPlate(t) {
   mesh(t, new THREE.BoxGeometry(70, 70, 10), M.coupling, [0, 0, 19], [0, 0, 0], 'tool-coupling');
 }
 
+// 後側吸口包住切屑飛出方向，前方保留雷射與刀口視線；罩口比 TCP 退後 22 mm。
+function chipShroud(t) {
+  const g = new THREE.Group(); g.name = 'chip-suction-shroud'; t.add(g);
+  mesh(g, new THREE.BoxGeometry(4, 76, 40), M.coupling, [-47, 0, 258]);
+  for (const y of [-36, 36]) mesh(g, new THREE.BoxGeometry(52, 4, 40), M.coupling, [-23, y, 258]);
+  mesh(g, new THREE.BoxGeometry(40, 76, 3), M.coupling, [-29, 0, 237]);
+  // 吸管在主軸／刀座外側；快換接頭在結合面外緣，自動換刀時隨工具一起分離。
+  detailCable(g, 'chip-suction-tool', [[-49, 0, 256], [-68, 0, 256], [-68, -50, 220], [-65, -50, 0]], { radius: 12, color: CABLE.sleeve, clips: 0 });
+  mergeStatic(g);
+}
+
+function chipFlow(t, count) {
+  const chips = new THREE.Group(); chips.userData.fx = true; t.add(chips);
+  for (let i = 0; i < count; i++) mesh(chips, new THREE.BoxGeometry(3, 1, 6), M.pfa, [0, 0, 0], [i, i * .4, 0]);
+  return (on, travel) => {
+    chips.visible = on;
+    chips.children.forEach((chip, i) => {
+      const u = (travel * 4 + i / count) % 1;
+      chip.position.set(-8 - 38 * u, 8 * (1 - u), 296 - 40 * u);
+    });
+  };
+}
+
 // ---------------------------------------------------------------- 各工具
 const BUILD = {
   // 3D 相機（結構光投影＋雙鏡頭＋環形光）：工作距離約 160 mm，焦點（TCP）在襯裡表面；取像時投影藍光條紋
@@ -79,6 +103,7 @@ const BUILD = {
   // 開 V 槽刀：主軸馬達＋V 形刀＋兩條導靴；前方（+X）裝 3D 線雷射循縫
   groove(t) {
     couplingPlate(t);
+    chipShroud(t);
     cylZ(t, 30, 24, 172, M.body); cylZ(t, 18, 172, 206, M.coupling, 0, 0, 12);
     const cutter = cylZ(t, 8.5, 206, TOOL_LEN - 1, M.blade, 0, 0, .8, 20);                       // V 形刀（尖端在 TCP）
     for (let i = 0; i < 3; i++) mesh(cutter, new THREE.BoxGeometry(2, 65, 2), M.body, [5 * Math.cos(i * 2 * Math.PI / 3), 0, 5 * Math.sin(i * 2 * Math.PI / 3)]);
@@ -88,9 +113,8 @@ const BUILD = {
     const prof = laserProfiler.create(); prof.root.position.set(78, 0, 150); prof.root.rotation.y = -.35; t.add(prof.root);
     prof.root.traverse(o => { if (o.isMesh && (o.material?.transparent || /plane|fan|beam/i.test(o.name))) o.userData.fx = true; });
     const line = mesh(t, new THREE.PlaneGeometry(28, 1.6), fxMat(0xff3024, .9), [38, 0, TOOL_LEN - .8]); line.userData.fx = true;
-    const chips = new THREE.Group(); chips.userData.fx = true; t.add(chips);
-    for (let i = 0; i < 5; i++) mesh(chips, new THREE.BoxGeometry(3, 1, 6), M.pfa, [-12 - i * 7, 8 + i * 3, TOOL_LEN - 3 - i * 2], [i, i * .4, 0]);
-    return { set(on, travel = 0) { prof.set({ laser: on ? 1 : 0 }); cutter.rotation.y = travel * 120; line.visible = chips.visible = on; chips.position.x = on ? -((travel * 40) % 12) : 0; } };
+    const setChips = chipFlow(t, 5);
+    return { set(on, travel = 0) { prof.set({ laser: on ? 1 : 0 }); cutter.rotation.y = travel * 120; line.visible = on; setChips(on, travel); } };
   },
   // 焊條焊槍：LHS 21S 與工具軸平行（側偏 105），彎管把熱風送到拖嘴（約 80 mm）壓在焊道上；焊條從捲盤經送料輪進入拖嘴
   rod(t) {
@@ -111,11 +135,13 @@ const BUILD = {
   // 削平刀：刀座＋碳化鎢刀片，兩側滑靴控制削平高度
   flat(t) {
     couplingPlate(t);
+    chipShroud(t);
     mesh(t, new THREE.BoxGeometry(96, 76, 110), M.green, [0, 0, 82]);
     mesh(t, new THREE.BoxGeometry(60, 44, 70), M.body, [0, 0, 172]);
     mesh(t, new THREE.BoxGeometry(18, 34, 32), M.blade, [12, 0, TOOL_LEN - 17]);   // 刀片
     for (const y of [-26, 26]) mesh(t, new THREE.BoxGeometry(84, 8, 12), M.shoe, [-4, y, TOOL_LEN - 6]);
-    return { set() { } };
+    const setChips = chipFlow(t, 3);
+    return { set(on, travel = 0) { setChips(on, travel); } };
   },
   // 焊帶焊槍：LHS 21S 平行側偏＋寬口噴嘴，壓輪把 PFA 焊帶壓在焊道上；焊帶捲盤在另一側
   belt(t) {
@@ -176,5 +202,17 @@ export function rackSlot(parent, label) {
   mesh(g, new THREE.BoxGeometry(20, 20, RACK_DEPTH - 14), MAT.steelDark, [-68, -138, (RACK_DEPTH + 14) / 2]);
   mesh(g, new THREE.BoxGeometry(70, 70, 10), MAT.steelDark, [-68, -138, RACK_DEPTH - 5]);
   const present = sensor.create(); present.root.scale.setScalar(.25); present.root.position.set(-59, -45, 12); present.root.rotation.y = Math.PI / 2; g.add(present.root);
+  if (label === 'rod' || label === 'belt') {
+    const shield = new THREE.Group(); shield.name = 'parked-gun-heat-shield'; g.add(shield);
+    // 向上開口的不鏽鋼隔熱槽，工具沿 +Z 的反方向離架；與拖嘴、壓輪保持空隙。
+    mesh(shield, new THREE.BoxGeometry(224, 216, 4), M.gun, [-42, 0, 340]);
+    // 側板只包住熱噴嘴側；送料輪與料卷側保留退刀擺動開口。
+    for (const y of [-110, 110]) mesh(shield, new THREE.BoxGeometry(134, 4, 125), M.gun, [-87, y, 279.5]);
+    for (const x of [-130, 45]) mesh(shield, new THREE.BoxGeometry(14, 100, 26), M.body, [x, 0, 355]);
+    // 待機風支管朝噴嘴周邊送風，熱氣由上方開口排出。
+    detailCable(shield, 'standby-air', [[-105, -150, 370], [-105, -150, 300], [-105, -121, 280], [-105, -85, 270]], { radius: 7, color: CABLE.air, clips: 0 });
+    decal(shield, 130, 42, [-42, 0, 337.8], [0, Math.PI, 0], ['高溫／禁止觸碰', '待機保持送風'], { center: true, bg: '#f3c943', color: '#202b34' });
+    mergeStatic(shield);
+  }
   return g;
 }

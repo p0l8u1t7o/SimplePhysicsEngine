@@ -39,7 +39,7 @@ function fence(scene, x0, x1, z) {
 
 // 靜態細節依材質合併成一個網格（手機 draw call：主畫面、相機視窗、總覽各畫一次）。
 // 共用模型（會變色、會動的三色燈、HMI 等）、效果、貼圖件與標 userData.keep 的件不合併。
-function mergeStatic(root) {
+export function mergeStatic(root) {
   root.updateMatrixWorld(true);
   const inv = root.matrixWorld.clone().invert(), byMat = new Map();
   root.traverse(m => {
@@ -62,6 +62,18 @@ function mergeStatic(root) {
   }
 }
 
+// 新增的小管路用 24 段曲線、單一護套材質合併；保留端點資料供干涉檢查使用。
+export function detailCable(parent, name, points, options) {
+  const existing = new Set(parent.children), route = cable(parent, name, points, options);
+  for (const o of [...parent.children]) if (!existing.has(o) && o !== route) route.add(o);
+  const tube = route.getObjectByName(name + ' / jacket'), geo = tube.geometry;
+  tube.geometry = new THREE.TubeGeometry(geo.parameters.path, 24, options.radius, 8, false); geo.dispose();
+  route.traverse(m => { if (m.isMesh) m.material = tube.material; });
+  mergeStatic(route);
+  route.traverse(m => { if (m.isMesh) { m.userData.routingHardware = 'jacket'; m.castShadow = false; } });
+  return route;
+}
+
 export function addPeripheryDetails(scene, per, key) {
   const p = per.group;
   const blower = hotAirBlower.create({ size: [380, 260, 330], fins: false, material: MAT.steelBlue });
@@ -70,6 +82,17 @@ export function addPeripheryDetails(scene, per, key) {
   decal(p, 380, 80, [1500, 720, 251], [0, 0, 0], ['THz  /  FIBER', '反射式掃描・示意'], { center: true, bg: '#d5dfe4', color: '#26353e' });
   cable(p, 'blower-supply', [[800, 1575, -40], [1090, 1575, -40], [1090, 380, -320], [350, 380, -320]], { radius: 17, color: CABLE.air, clips: 2 });
   cableTray(p, 'utility-tray', [-380, 180, -700], [1800, 180, -700], { width: 90, height: 35 });
+  // 切屑獨立收集，不與熱風廢氣共用濾材；管口接到載具服務管束。
+  const collector = group(p); collector.name = 'chip-collector';
+  box(collector, [380, 480, 380], [2100, 440, 0], MAT.cabinet);
+  box(collector, [320, 100, 340], [2100, 150, 0], MAT.steelDark);
+  for (const x of [1960, 2240]) for (const z of [-140, 140]) box(collector, [32, 100, 32], [x, 50, z], steel);
+  cylinder(collector, 110, 140, [2100, 750, 0], steel, 'y', 20);
+  detailCable(collector, 'chip-collector-inlet', [[1920, 540, 0], [1870, 540, 0], [1870, 250, -700], [350, 250, -700], [350, 250, -280]], { radius: 16, color: CABLE.sleeve, clips: 0 });
+  box(p, [50, 60, 30], [350, 250, -265], steel); // 櫃後服務歧管，接載具內的吸屑主管
+  decal(collector, 340, 115, [2100, 465, 191], [0, 0, 0], ['PTFE 切屑收集', '密閉集屑桶／濾芯'], { center: true, bg: '#d7e4df', color: '#263b37' });
+  // 保留獨立命名根節點，靜態件仍按材質合併。
+  collector.userData.keep = true; mergeStatic(collector);
   for (const [x, h] of [[0, 1900], [800, 1300], [1500, 900]]) {
     box(p, [8, h - 80, 8], [x - 215, h / 2, 255], MAT.steelDark);
     box(p, [16, 130, 22], [x + 210, h * .52, 262], MAT.black);
@@ -89,6 +112,7 @@ export function addPeripheryDetails(scene, per, key) {
 }
 
 export function addRollDetails({ pos, rings, carriage, gx, beamY, Hc }) {
+  const screwTips = [];
   for (const { ring: r, hinge, clamps } of rings) {
     cylinder(hinge, 33, 155, [0, 0, 0], steel, 'x', 20);
     box(r, [120, 65, 100], [0, -20, -704], MAT.steelDark);
@@ -99,9 +123,11 @@ export function addRollDetails({ pos, rings, carriage, gx, beamY, Hc }) {
       for (let i = 0; i < 36; i++) { const a = (i + .5) * Math.PI / 36 + (top ? 0 : Math.PI); teeth.push({ pos: [65, 768 * Math.sin(a), 768 * Math.cos(a) - (top ? 700 : 0)], rot: [Math.PI / 2 - a, 0, 0] }); }
       repeat(host, new THREE.BoxGeometry(18, 16, 26), steel, teeth);
     }
-    for (const { c } of clamps) {
+    for (const { c, pad } of clamps) {
       ring(c, 38, 6, [0, 670, 0]); cylinder(c, 12, 45, [0, 656, 0], steel, 'y', 12);
       box(c, [72, 7, 7], [0, 670, 0], MAT.black);
+      const tip = cylinder(c, 12, 1, [0, 540, 0], steel, 'y', 12); tip.name = 'clamp-screw-extension';
+      screwTips.push({ tip, pad });
     }
     drive(pos, [r.position.x + 260, 370, -480], .65);
     ring(pos, 70, 12, [r.position.x + 65, 500, -610], 'x');
@@ -110,7 +136,13 @@ export function addRollDetails({ pos, rings, carriage, gx, beamY, Hc }) {
   const chain = carrier(gx, 'X supply chain', { origin: [0, beamY + 210, -300], fixed: -5400, min: -5400, max: -1200, radius: 90, width: 70, pitch: 38 });
   drive(carriage, [0, beamY - 330, -330], .65);
   cable(carriage, 'boom-services', [[0, beamY + 390, -300], [0, beamY - 470, -230], [0, Hc, -140], [950, Hc, -140]], { radius: 12, color: CABLE.sleeve, clips: 4 });
-  return () => chain.set(carriage.position.x);
+  return () => {
+    chain.set(carriage.position.x);
+    for (const { tip, pad } of screwTips) {
+      const contact = pad.position.y + 6;
+      tip.scale.y = Math.max(1, 540 - contact); tip.position.y = 540 - tip.scale.y / 2;
+    }
+  };
 }
 
 export function addTurntableDetails({ pos, table, col, boom, slide, y0 }) {
@@ -148,16 +180,41 @@ export function addGantryDetails({ gantry, cross, ram, H, xs, zs }) {
 
 export function addArmServices(arm, compact = false) {
   const j = arm.j, L = arm.L;
-  const shoulderZ = compact ? 72 : 118, elbowZ = compact ? 55 : 80, foreZ = compact ? 65 : 100;
+  const shoulderZ = compact ? 74 : 118, elbowZ = compact ? 86 : 80, foreZ = compact ? 65 : 100;
+  const upperX = compact ? 42 : -22;
   // 關節內部以接頭表示；外部固定段跟著各連桿，沒有跨關節拉直的假軟管。
-  cable(j.j2, 'hot-air upper', [[-22, 20, shoulderZ - 13], [-22, 70, shoulderZ], [-22, L.upper - 50, shoulderZ], [-22, L.upper - 10, elbowZ]], { radius: 8, color: CABLE.air, clips: 2 });
+  const upperRoute = [[upperX, compact ? 105 : 20, compact ? shoulderZ : shoulderZ - 13], [upperX, compact ? 140 : 70, shoulderZ], [upperX, L.upper - (compact ? 90 : 50), shoulderZ], [upperX, L.upper - 10, elbowZ]];
+  if (compact) {
+    // 管夾支架改形狀、保留原局部基準框架；指紋追蹤的原框架不隨幾何重配而改動。
+    const before = new Set(j.j2.children);
+    const old = cable(j.j2, 'hot-air upper', [[-22, 20, 59], [-22, 70, 72], [-22, L.upper - 50, 72], [-22, L.upper - 10, 55]], { radius: 8, color: CABLE.air, clips: 2 });
+    const refs = j.j2.children.filter(o => !before.has(o) && o !== old);
+    for (const o of [old, ...refs]) j.j2.remove(o);
+    const start = new Set(j.j2.children);
+    cable(j.j2, 'hot-air upper', upperRoute, { radius: 8, color: CABLE.air, clips: 2 });
+    j.j2.children.filter(o => !start.has(o) && o.isMesh).forEach((o, i) => {
+      const ref = refs[i]; if (!ref) return;
+      o.updateMatrix(); ref.updateMatrix();
+      const reshape = ref.matrix.clone().invert().multiply(o.matrix);
+      o.geometry.applyMatrix4(reshape);
+      for (const key of ['a', 'b']) o.userData.support[key] = new THREE.Vector3(...o.userData.support[key]).applyMatrix4(reshape).toArray();
+      o.position.copy(ref.position); o.quaternion.copy(ref.quaternion); o.scale.copy(ref.scale);
+    });
+    for (const o of [old, ...refs]) o.traverse(m => { if (m.isMesh) m.geometry.dispose(); });
+  } else cable(j.j2, 'hot-air upper', upperRoute, { radius: 8, color: CABLE.air, clips: 2 });
   cable(j.j3, 'hot-air forearm', [[20, L.foreOffset, foreZ - 15], [55, L.foreOffset, foreZ], [L.fore - L.wrist1 - 20, L.foreOffset, foreZ]], { radius: 8, color: CABLE.air, clips: 2 });
   // 電源與光纖沿同一束管外側配置，接頭處保留關節活動餘量。
   for (const [name, offset, radius, color] of [['power', 14, 3, CABLE.power], ['fiber', 23, 2.6, 0x9a72c4]]) {
-    cable(j.j2, name + '-upper', [[-22 + offset, 20, shoulderZ - 13], [-22 + offset, 70, shoulderZ], [-22 + offset, L.upper - 50, shoulderZ], [-22 + offset, L.upper - 10, elbowZ]], { radius, color, clips: 0 });
+    const x = compact ? upperX - offset : upperX + offset;
+    cable(j.j2, name + '-upper', [[x, compact ? 105 : 20, compact ? shoulderZ : shoulderZ - 13], [x, compact ? 140 : 70, shoulderZ], [x, L.upper - (compact ? 90 : 50), shoulderZ], [x, L.upper - 10, elbowZ]], { radius, color, clips: 0 });
     cable(j.j3, name + '-forearm', [[20, L.foreOffset + offset, foreZ - 15], [55, L.foreOffset + offset, foreZ], [L.fore - L.wrist1 - 20, L.foreOffset + offset, foreZ]], { radius, color, clips: 0 });
   }
   cable(arm.tool || arm.mount, 'wrist service', [[-55, 35, -30], [-55, 50, 10], [-30, 50, 30]], { radius: 6, color: CABLE.sleeve, clips: 1 });
+  // 吸屑管配置於連桿另一側，避開熱風與光纖。關節使用旋轉管接頭示意，未假定無限扭轉軟管。
+  const suctionZ = compact ? -80 : -120;
+  detailCable(j.j2, 'chip-suction-upper', [[32, 110, suctionZ], [32, L.upper - 90, suctionZ], [32, L.upper - 15, suctionZ - 10]], { radius: 12, color: CABLE.sleeve, clips: 2 });
+  detailCable(j.j3, 'chip-suction-forearm', [[40, L.foreOffset, -82], [85, L.foreOffset, -76], [L.fore - L.wrist1 - 20, L.foreOffset, -76]], { radius: 12, color: CABLE.sleeve, clips: 2 });
+  detailCable(arm.tool || arm.mount, 'chip-suction-wrist', [[-60, -40, -15], [-65, -50, 12], [-65, -50, 30]], { radius: 12, color: CABLE.sleeve, clips: 0 });
   ring(arm.root, 108, 9, [0, 70, 0]);
   const union = new THREE.Mesh(new THREE.LatheGeometry([[89, 48], [116, 48], [116, 63], [89, 63], [89, 48]].map(p => new THREE.Vector2(...p)), 32), steel);
   union.name = 'rotary-service-union'; arm.root.add(union);

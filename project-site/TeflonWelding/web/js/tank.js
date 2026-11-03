@@ -188,18 +188,28 @@ export function createTank({ circStart = 0, seams: seamList = SEAMS, defect = TH
   mark.name = 'thz-defect'; mark.userData.fx = true; mark.position.copy(dp.p).addScaledVector(dp.n, 4);
   mark.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dp.n); mark.visible = false; spin.add(mark);
 
-  // 缺陷處補焊段（虛擬疊層，標示補焊範圍）：缺陷前後各 THZ.repairHalf mm，r 0→1 時沿焊道長出來
+  // 缺陷處重熔焊帶（視覺疊層）：缺陷前後各 THZ.repairHalf mm，r 0→1 時沿焊道長出來
   const half = THZ.repairHalf / seamLength(ds.seam), pu0 = defect.u - half;
-  const patchMat = new THREE.MeshBasicMaterial({ color: 0xffb547, transparent: true, opacity: .75, depthWrite: false, clippingPlanes: planes });
-  const patch = new THREE.Mesh(stripGeometry(u => ds.at(pu0 + 2 * half * u), 40, [[-11, 3.6], [0, 4.1], [11, 3.6]]), patchMat);
+  const patchMat = new THREE.MeshPhysicalMaterial({ color: 0xf6dec0, roughness: .2, metalness: 0, clearcoat: .7, clearcoatRoughness: .16, side: THREE.DoubleSide, clippingPlanes: planes });
+  // 重熔後的圓潤邊緣比原 30 mm 焊帶略寬；局部起伏為凝固紋理，非檢測厚度資料。
+  const patchGeo = stripGeometry(u => ds.at(pu0 + 2 * half * u), 40, [[-18, 1.2], [-16, 2.9], [-10, 3.6], [0, 4.1], [10, 3.6], [16, 2.9], [18, 1.2]]);
+  const pp = patchGeo.attributes.position;
+  for (let j = 0; j < pp.count; j++) {
+    const u = Math.floor(j / 7) / 40, normal = ds.at(pu0 + 2 * half * u).n;
+    const ripple = .12 * Math.sin(u * Math.PI * 18) * Math.sin((j % 7) * Math.PI / 6);
+    pp.setXYZ(j, pp.getX(j) + normal.x * ripple, pp.getY(j) + normal.y * ripple, pp.getZ(j) + normal.z * ripple);
+  }
+  patchGeo.computeVertexNormals();
+  const patch = new THREE.Mesh(patchGeo, patchMat);
   patch.name = 'repair-patch'; patch.userData.fx = true; patch.visible = false; spin.add(patch);
-  // 判定狀態：掃到缺陷 → 紅圈（NG）；補焊中與補焊後未複檢 → 橘；複檢通過 → 綠圈、補焊段轉綠
+  // 判定保留紅／橘／綠圈；焊帶本體由暖色冷卻為乳白，不把綠色判定當成材料顏色。
   function setRepair({ r = 0, c = 0 } = {}, found = false) {
     mark.visible = found;
     mark.material.color.setHex(c >= 1 ? 0x3dd68c : r > 0 ? 0xffb020 : 0xff3b3b);
     const n = Math.round(Math.min(1, r) * 40), per = patch.geometry.userData.per;
     patch.visible = n > 0; patch.geometry.setDrawRange(0, n * per);
-    patchMat.color.setHex(c >= 1 ? 0x3dd68c : 0xffb547);
+    patchMat.color.setHex(r < 1 ? 0xf6dec0 : c > 0 ? 0xf0f3e9 : 0xe9dfcc);
+    patchMat.roughness = r < 1 ? .16 : .27;
   }
 
   // 每道焊道的進度（0～1）：s 定位、g 開槽、r 焊條、f 削平（刮平）、b 焊帶、i 檢測；各層只畫自己負責的區段，避免重疊面
