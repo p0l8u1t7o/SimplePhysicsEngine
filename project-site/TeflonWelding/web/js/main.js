@@ -1,11 +1,12 @@
 // 主程式：舞台＋播放列＋共用版面與相機視窗＋本專案的方案切換、剖切、視角、站別與面板。
-// 場景與每個時間點的狀態全部來自 project.js（與 core 統一檢查同一份）。網址參數：?plan=roll|turntable|cobot、?cut=0 關閉剖切
+// 場景與每個時間點的狀態全部來自 project.js（與 core 統一檢查同一份）。網址參數：?plan=roll|turntable|cobot、?look=xray|cut|solid（預設透視）
+// 生產時是完整的桶，手臂只從人孔進出；透視（桶身半透明）與剖切（同切半展示品）只是觀看方式。
 import * as THREE from 'three';
 import { createStage, exposeSim } from '@core/ui/stage.js';
 import { createPlayer } from '@core/ui/player.js';
 import { createViewerWorkspace } from '@core/ui/viewer-workspace.js';
 import { createProject, STATIONS, PLANS } from './project.js';
-import { PROCESS, SEAMS, HOT_AIR, TANK, NECK_CLEAR, cycleEstimate, seamLength } from './spec.js';
+import { PROCESS, SEAMS, HOT_AIR, TANK, NECK_CLEAR, FIELD, TOOLS, cycleEstimate, seamLength } from './spec.js';
 
 const qp = new URLSearchParams(location.search), movie = qp.has('movie');
 const $ = id => document.getElementById(id);
@@ -21,8 +22,9 @@ const { renderer, scene, camera, controls } = stage;
 renderer.localClippingEnabled = true;
 const project = createProject({ scene, plan: planKey });
 const { timeline, stationStart, meta, plan } = project;
-let cut = qp.get('cut') !== '0';
-project.setCut(cut);
+const LOOKS = { xray: '透視（完整桶）', cut: '剖切（示意）', solid: '不透明' };
+let look = LOOKS[qp.get('look')] ? qp.get('look') : 'xray';
+project.setLook(look);
 
 // ---------------------------------------------------------------- 共用版面
 const workspace = createViewerWorkspace({
@@ -48,10 +50,10 @@ const frameAt = (x, y, z) => () => project.tank.frame.localToWorld(V(x, y, z));
 label('1000L 襯 PTFE 桶', frameAt(0, TANK.manway.top + 80, 0), 3);
 label(`人孔（襯後內徑 ${Math.round(NECK_CLEAR * 2)}）`, frameAt(TANK.manway.flangeR, TANK.manway.top, 0), 1);
 label(meta.arm === 'vs068' ? 'DENSO VS-068' : 'DENSO COBOTTA PRO 900', () => project.arm.root.getWorldPosition(V(0, 0, 0)).add(V(0, 260, 0)), 4);
-label('工具架（5 支工具）', () => project.plan.rackRoot.children.find(c => c.name === 'rack-shelf')?.getWorldPosition(V(0, 0, 0)).add(V(0, 420, 0)) ?? V(0, 0, 0), 2);
+label(`工具架（${TOOLS.length} 支工具）`, () => project.plan.rackRoot.children.find(c => c.name === 'rack-shelf')?.getWorldPosition(V(0, 0, 0)).add(V(0, 420, 0)) ?? V(0, 0, 0), 2);
 label('電控櫃・熱風控制・兆赫波主機', () => plan.periphery.group.localToWorld(V(700, 2050, 0)), 1);
 if (meta.key === 'roll') { label('開合式雙環迴轉架', V(150, 2000, 0), 3); label('懸吊 X 軸＋伸臂', V(-3300, 3050, 0), 2); }
-if (meta.key === 'turntable') { label('立式轉台', V(0, 420, 900), 3); label('立柱懸臂（上下＋伸縮）', V(-3100, 5550, -650), 2); }
+if (meta.key === 'turntable') { label('立式轉台', V(0, 420, 900), 3); label('立柱懸臂（上下＋伸縮）', V(-3500, 5550, -650), 2); }
 if (meta.key === 'cobot') { label('移動式門架（X 橫移＋Z 伸縮柱）', V(-700, 5900, 0), 3); }
 label('焊點', () => project.focus(), 2);
 
@@ -70,10 +72,12 @@ $('plans').querySelectorAll('button').forEach(b => b.onclick = () => b.dataset.p
 $('planDesc').textContent = meta.method;
 $('planPros').innerHTML = meta.pros.map(s => `<li class="pro">＋ ${s}</li>`).join('') + meta.cons.map(s => `<li class="con">－ ${s}</li>`).join('');
 $('specLine').textContent = `焊接位置：${meta.pose}・熱風 ${HOT_AIR.temp} °C（${HOT_AIR.gun}）・拖嘴約 ${HOT_AIR.drag} mm`;
-const cutBtn = $('cutBtn');
-const syncCut = () => { cutBtn.classList.toggle('on', cut); cutBtn.textContent = cut ? '剖切顯示：開' : '剖切顯示：關'; };
-cutBtn.onclick = () => { cut = !cut; project.setCut(cut); project.apply(player.T); stage.invalidate(true); syncCut(); };
-syncCut();
+const lookBox = $('looks');
+lookBox.innerHTML = Object.entries(LOOKS).map(([k, n]) => `<button data-look="${k}">${n}</button>`).join('');
+const setLook = k => { look = k; project.setLook(k); project.apply(player.T); stage.invalidate(true); syncLook(); };
+const syncLook = () => lookBox.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.look === look));
+lookBox.querySelectorAll('button').forEach(b => b.onclick = () => setLook(b.dataset.look));
+syncLook();
 
 // 工時估算
 const est = cycleEstimate();
@@ -91,7 +95,6 @@ $('checkCount').textContent = `${checks.filter(r => r.ok).length} / ${checks.len
 // 焊道狀態：每道焊道 × 每道製程的進度
 const seamBox = $('seams');
 seamBox.innerHTML = `<table><tr><th></th>${PROCESS.map(p => `<th>${p.name.replace(' ', '').slice(0, 2)}</th>`).join('')}</tr>${SEAMS.map(s => `<tr data-seam="${s.id}"><td>${s.name}</td>${PROCESS.map(p => `<td><i data-p="${p.key}"></i></td>`).join('')}</tr>`).join('')}</table>`;
-const FIELD = { groove: 'g', rod: 'r', flat: 'f', belt: 'b', thz: 'i' };
 let shown = '';
 function updatePanels(T) {
   const act = timeline.activity(T).filter(s => s.action), last = events.filter(e => e.start <= T + 1e-6).at(-1), station = last?.station ?? 0;
@@ -139,7 +142,7 @@ if (qp.has('cam')) { const a = qp.get('cam').split(',').map(Number); if (a.lengt
 $('loading').classList.add('hide');
 stage.loop(dt => { const changed = player.update(dt); workspace.follow(); stage.updateLabels(); return changed; }, { render });
 
-exposeSim({ seekTo: player.seekTo, setView, views: VIEWS, total: project.total, play: player.play, pause: player.pause, get T() { return player.T; }, stationStart, project, setCut: on => { cut = on; project.setCut(on); project.apply(player.T); stage.invalidate(true); syncCut(); } });
+exposeSim({ seekTo: player.seekTo, setView, views: VIEWS, total: project.total, play: player.play, pause: player.pause, get T() { return player.T; }, stationStart, project, setLook });
 
 // ---------------------------------------------------------------- 錄影（?movie：core/movie 依時間軸步驟運鏡）
 if (movie) {

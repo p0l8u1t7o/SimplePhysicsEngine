@@ -3,43 +3,43 @@
   "plans": {
     "roll": {
       "ok": true,
-      "total": 197.5,
+      "total": 254.1,
       "follow": 0.05,
-      "minGapInside": 16.8,
+      "minGapInside": 9.5,
       "tightest": {
-        "t": 136.5,
-        "mesh": "pfa-tape",
-        "y": 885
+        "t": 196,
+        "mesh": "tool-scrape",
+        "y": 904
       },
       "failures": []
     },
     "turntable": {
       "ok": true,
-      "total": 231.4,
+      "total": 303.5,
       "follow": 0.05,
-      "minGapInside": 16.8,
+      "minGapInside": 9.5,
       "tightest": {
-        "t": 153.3,
-        "mesh": "pfa-tape",
-        "y": 435
+        "t": 229.1,
+        "mesh": "tool-scrape",
+        "y": 454
       },
       "failures": []
     },
     "cobot": {
       "ok": true,
-      "total": 234.2,
+      "total": 307.6,
       "follow": 0.16,
-      "minGapInside": 16.8,
+      "minGapInside": 9.5,
       "tightest": {
-        "t": 167.3,
-        "mesh": "pfa-tape",
-        "y": 885
+        "t": 236,
+        "mesh": "tool-scrape",
+        "y": 454
       },
       "failures": []
     }
   },
   "estimate": {
     "metres": 6.68,
-    "hours": 2.48
+    "hours": 2.79
   }
 }

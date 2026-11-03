@@ -84,7 +84,7 @@ function planRoll(scene) {
   }
 
   // ---- 懸吊 X 軸（門型架）＋伸臂
-  const gx = mod(g('x-axis', scene), 'x-axis'), beamY = 2750, xs = [-1500, -5200];
+  const gx = mod(g('x-axis', scene), 'x-axis'), beamY = 2750, xs = [-1500, -6000];
   box(gx, [xs[0] - xs[1] + 300, 300, 300], [(xs[0] + xs[1]) / 2, beamY, 0], P.paint, 'x-beam');
   box(gx, [xs[0] - xs[1], 40, 60], [(xs[0] + xs[1]) / 2, beamY - 170, 0], MAT.steel, 'x-rail');
   for (const x of xs) { for (const z of [-850, 850]) box(gx, [200, beamY + 150, 200], [x, (beamY + 150) / 2, z], P.paint, 'post'); box(gx, [200, 260, 1900], [x, beamY, 0], P.paint, 'portal-beam'); }
@@ -163,7 +163,7 @@ function planTurntable(scene) {
 
   // 立柱＋懸臂：懸臂沿立柱上下（Z），懸臂本身沿 X 伸縮；伸縮柱固定長度掛在懸臂前端。
   // 立柱偏在懸臂南側（z = colZ），懸臂從滑座框中穿過、往後伸時從立柱旁邊經過
-  const colX = -3100, colZ = -650, colH = 5400, mastLen = 600;
+  const colX = -3500, colZ = -650, colH = 5400, mastLen = 600;
   const col = mod(g('column', scene), 'column');
   box(col, [900, 60, 900], [colX, 30, colZ], MAT.steelDark, 'column-foot');
   box(col, [420, colH, 420], [colX, colH / 2, colZ], P.paint, 'column');
@@ -218,7 +218,7 @@ function planCobot(scene) {
   const y0 = 1 - TANK.legs.footY;                               // 桶腳站地面（底板離地 1 mm，避免與地坪重合面）
   const frameW = { pos: new THREE.Vector3(0, y0, 0), quat: new THREE.Quaternion() };
   floor(scene, { size: [13000, 8000], center: [600, 0], cell: 250 });
-  const H = 5000, xs = [-2500, 1100], zs = [-1200, 1200], ramLen = 2300;
+  const H = 5000, xs = [-2900, 1100], zs = [-1200, 1200], ramLen = 2300;
   const gantry = mod(g('gantry', scene), 'gantry'); gantry.userData.cableHost = false;
   for (const x of xs) for (const z of zs) {
     box(gantry, [180, H, 180], [x, H / 2 + 110, z], P.paint, 'gantry-post');

@@ -1,9 +1,10 @@
 // 專案介面：網頁（main.js）與 core 統一檢查共用。網址參數 ?plan=roll|turntable|cobot 切換方案。
-// 流程：上料定位 → 開 V 槽 → 焊條熔接 → 削平 → 焊帶熔接 → 兆赫波檢測 → 卸料；每道製程換一次工具，依序做縱縫、下環縫、上環縫。
+// 流程：上料定位 → 相機定位（取像＋軌跡規劃）→ 開 V 槽 → 焊條熔接 → 削平 → 焊帶熔接 → 刮平 → 兆赫波檢測 → 卸料；
+// 每道製程換一次工具，依序做縱縫、下環縫、上環縫。生產時是完整的桶，手臂只從人孔進出；畫面的透視、剖切只是觀看方式。
 // 手臂一律 J1 與桶軸同軸、從人孔伸入（伸直穿過人孔，進桶後展開到退刀姿態）；環縫由桶轉（A、B）或 J1 繞圈（C）完成，縱縫由載具沿桶軸移動完成。
 import * as THREE from 'three';
 import { createTimeline, linear } from '@core/anim/track.js';
-import { TANK, NECK_CLEAR, SEAMS, PROCESS, TOOLS, PLANS, DEMO, LINER_R, seamLength } from './spec.js';
+import { TANK, NECK_CLEAR, SEAMS, PROCESS, TOOLS, PLANS, DEMO, FIELD, seamLength } from './spec.js';
 import { createTank, wallAt } from './tank.js';
 import { createTools, rackSlot, RACK_DEPTH } from './tools.js';
 import { createWelderArm, STOW } from './robot.js';
@@ -13,7 +14,6 @@ import { block } from '@core/geom/shapes.js';
 
 export { PLANS };
 export const STATIONS = ['上料定位', ...PROCESS.map(p => p.name), '卸料'];
-const FIELD = { groove: 'g', rod: 'r', flat: 'f', belt: 'b', thz: 'i' };
 const CIRC_START = Math.PI / 2;                     // 環縫起點（桶座標方位）：離縱縫 90°，不在 T 形接頭起焊
 const D = 180 / Math.PI;
 
@@ -70,7 +70,7 @@ export function createProject({ scene, plan: planKey = 'roll' }) {
     spin: tl.track('spin', { phi: 0 }),
     tool: tl.track('tool', { held: '', fx: 0 }),
   };
-  for (const s of SEAMS) T[s.id] = tl.track('seam-' + s.id, { g: 0, r: 0, f: 0, b: 0, i: 0 });
+  for (const s of SEAMS) T[s.id] = tl.track('seam-' + s.id, Object.fromEntries(Object.values(FIELD).map(k => [k, 0])));
   let t = 0;
   const go = (track, dur, vals, o = {}) => { const st = track.add(dur, vals, { at: t, ...o }); t = st.start + st.dur; return st; };
   const with_ = (track, dur, vals, o = {}) => track.add(dur, vals, { at: o.at ?? t - dur, ...o });     // 與上一個步驟同時（同一段時間）
@@ -149,7 +149,7 @@ export function createProject({ scene, plan: planKey = 'roll' }) {
       }
       go(T.arm, DEMO.approach, pose(weldAt), A(`${label}：下刀`, '工具貼上焊道'));
       go(T.tool, 0, { fx: 1 });
-      const dur = circ ? DEMO.circ : DEMO.long, field = FIELD[P.key];
+      const dur = (circ ? DEMO.circ : DEMO.long) * (P.demo ?? 1), field = FIELD[P.key];
       if (circ) {
         if (meta.spin === 'tank') go(T.spin, dur, { phi: phi0 + 2 * Math.PI }, { ...A(label, sub), ease: linear });
         else go(T.arm, dur, { j1: j1Base + 180 }, { ...A(label, sub + '｜J1 繞桶軸一圈'), ease: linear });
@@ -163,6 +163,7 @@ export function createProject({ scene, plan: planKey = 'roll' }) {
     go(T.carrier, .9, { s: sMid }, A('回到展開位置'));
     go(T.arm, DEMO.approach * 1.3, pose(STOW), A('手臂伸直'));
     go(T.carrier, DEMO.enter, { s: sOut }, A('從人孔退出'));
+    if (P.key === 'scan') go(T.tool, DEMO.plan, {}, A('軌跡規劃', '由點雲算出三條焊道的中心線與板邊高低差，產生各工具的軌跡（姿態、拖嘴角度、壓輪位置）；焊道上的藍線是規劃結果'));
     atSlot(i, `放回${tname}`); lock('', `放回${tname}`); leaveSlot(`放回${tname}`);
   });
 
@@ -187,6 +188,7 @@ export function createProject({ scene, plan: planKey = 'roll' }) {
   const stationStart = STATIONS.map((_, k) => Math.min(...tl.events.filter(e => e.station === k).map(e => e.start)));
 
   // ---------------------------------------------------------------- 套用時間 t
+  // 顯示方式：'xray' 透視（預設，完整的桶半透明）、'cut' 剖切（同切半展示品，僅示意）、'solid' 不透明
   let cutOn = false;
   const cutWorld = new THREE.Plane();
   function apply(time) {
@@ -206,6 +208,7 @@ export function createProject({ scene, plan: planKey = 'roll' }) {
     return st;
   }
   function setCut(on) { cutOn = on; }
+  function setLook(mode) { cutOn = mode === 'cut'; tank.setGhost(mode === 'xray'); }
 
   // 目前焊點（給鏡頭追隨）：TCP 世界位置
   const focus = () => W.tcp.getWorldPosition(new THREE.Vector3());
@@ -238,7 +241,7 @@ export function createProject({ scene, plan: planKey = 'roll' }) {
   }
 
   return {
-    total, timeline: tl, apply, stationStart, STATIONS, meta, plan, tank, arm: W, tools: toolsObj, poses, slots, sOut, sMid, focus, setCut,
+    total, timeline: tl, apply, stationStart, STATIONS, meta, plan, tank, arm: W, tools: toolsObj, poses, slots, sOut, sMid, focus, setCut, setLook,
     layoutChecks,
     verify: {
       moduleOf: m => { for (let p = m; p; p = p.parent) if (p.userData.module) return p.userData.module; return 'misc'; },

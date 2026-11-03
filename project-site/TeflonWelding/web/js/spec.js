@@ -38,26 +38,33 @@ export const SEAMS = [
 ];
 export const seamLength = s => s.kind === 'circ' ? 2 * Math.PI * LINER_R : s.y1 - s.y0;
 
-// ---------------------------------------------------------------- 製程（依膠體斷面圖：開 V 槽 → 焊條熔接 → 削平 → 焊帶熔接，之後兆赫波檢測）
-// speed：實際行走速度 m/min（假設，以試焊決定）；demo：動畫中一道環縫的秒數
+// ---------------------------------------------------------------- 製程（依膠體斷面圖：開 V 槽 → 焊條熔接 → 削平 → 焊帶熔接 → 刮平，之後兆赫波檢測）
+// 開槽前先用手臂上的 3D 相機沿焊道取像定位，算出焊道中心線並規劃各工具軌跡（襯板是人工貼合，焊道位置每桶不同）。
+// speed：實際行走速度 m/min（假設，以試焊決定）；demo：動畫中走一道焊道的時間倍率
 export const PROCESS = [
-  { key: 'groove', name: '開 V 槽', tool: 'groove', speed: 1.0, note: '對接縫開 V 槽到膠層上方，雷射輪廓感測器循縫' },
+  { key: 'scan', name: '相機定位', tool: 'cam', speed: 1.5, demo: .7, note: '3D 相機（結構光）沿焊道取像，定位焊道中心線與板邊高低差' },
+  { key: 'groove', name: '開 V 槽', tool: 'groove', speed: 1.0, note: '依規劃軌跡開 V 槽到膠層上方，雷射輪廓感測器即時循縫修正' },
   { key: 'rod', name: '焊條熔接', tool: 'rod', speed: .15, hot: true, note: '熱風 250 °C＋拖嘴（約 80 mm）壓入 PFA 焊條' },
   { key: 'flat', name: '削平', tool: 'flat', speed: 1.0, note: '削除凸出的焊條，與 PTFE 面齊平' },
   { key: 'belt', name: '焊帶熔接', tool: 'belt', speed: .15, hot: true, note: '熱風 250 °C＋壓輪，PFA 焊帶覆蓋整條焊道' },
-  { key: 'thz', name: '兆赫波檢測', tool: 'thz', speed: .6, note: '反射式 THz 探頭沿焊道掃描：氣孔、未熔合、厚度' },
+  { key: 'scrape', name: '刮平', tool: 'scrape', speed: .8, note: '焊帶冷卻後以刮刀刮平表面與兩側邊緣' },
+  { key: 'thz', name: '兆赫波檢測', tool: 'thz', speed: .6, demo: .8, note: '反射式 THz 探頭沿焊道掃描：氣孔、未熔合、厚度' },
 ];
 export const HOT_AIR = { temp: 250, gun: 'Leister LHS 21S SYSTEM', drag: 80 };
 
 // ---------------------------------------------------------------- 末端工具（快換盤以下的長度統一為 TOOL_LEN：同一組焊接姿態適用全部工具）
 export const TOOL_LEN = 300;
 export const TOOLS = [
+  { key: 'cam', name: '3D 相機（定位）' },
   { key: 'groove', name: '開槽刀＋雷射循縫' },
   { key: 'rod', name: '焊條焊槍（LHS 21S＋拖嘴）' },
   { key: 'flat', name: '削平刀' },
   { key: 'belt', name: '焊帶焊槍（LHS 21S＋壓輪）' },
+  { key: 'scrape', name: '刮刀' },
   { key: 'thz', name: '兆赫波探頭' },
 ];
+// 進度欄位（每道焊道一組）：s 定位、g 開槽、r 焊條、f 削平、b 焊帶、k 刮平、i 檢測
+export const FIELD = { scan: 's', groove: 'g', rod: 'r', flat: 'f', belt: 'b', scrape: 'k', thz: 'i' };
 
 // ---------------------------------------------------------------- 方案
 // mount：手臂如何進桶；spin：環縫由誰轉（tank＝桶轉、j1＝手臂 J1 繞圈）；arm：手臂型號
@@ -83,7 +90,7 @@ export const PLANS = {
 };
 
 // ---------------------------------------------------------------- 動畫節奏（秒；實際工時另依 PROCESS.speed 計算）
-export const DEMO = { circ: 5, long: 2, enter: 2.2, change: 1.2, approach: .8 };
+export const DEMO = { circ: 4.5, long: 1.8, enter: 2, change: 1.1, approach: .75, plan: 2 };
 
 // 實際工時估算（分鐘）：每道製程走完全部焊道＋每次換工具與進出 3 分鐘（假設）
 export function cycleEstimate() {

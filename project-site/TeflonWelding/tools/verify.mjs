@@ -1,16 +1,15 @@
 // 本站製程檢查（三個方案各跑一次）：
 //   1. 焊道跟隨：每道製程走焊道時，工具 TCP 與焊道上「目前進度點」的距離 ≤ 2 mm（環縫轉桶／J1 繞圈、縱縫載具移動的同步是否正確）
 //   2. 桶內間隙：沿動畫取樣，手臂、載具、工具的每個頂點不得進入桶壁（襯裡表面到 SUS 外表面）；工具在 TCP 60 mm 內的接觸部位除外
-//   3. 製程順序：每道焊道的開槽 → 焊條 → 削平 → 焊帶 → 檢測依序完成，結束時全部 = 1
+//   3. 製程順序：每道焊道的相機定位 → 開槽 → 焊條 → 削平 → 焊帶 → 刮平 → 檢測依序完成，結束時全部 = 1
 //   node --import ../../core/tools/register.mjs tools/verify.mjs
 import '@core/verify/dom-stub.mjs';
 import * as THREE from 'three';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { createProject } from '../web/js/project.js';
 import { seamPath, wallAt } from '../web/js/tank.js';
-import { SEAMS, PROCESS, cycleEstimate } from '../web/js/spec.js';
+import { SEAMS, PROCESS, FIELD, cycleEstimate } from '../web/js/spec.js';
 
-const FIELD = { groove: 'g', rod: 'r', flat: 'f', belt: 'b', thz: 'i' };
 const CIRC_START = Math.PI / 2;
 const out = { ok: true, plans: {}, estimate: cycleEstimate() };
 out.estimate = { metres: +out.estimate.metres.toFixed(2), hours: +(out.estimate.sum / 60).toFixed(2) };

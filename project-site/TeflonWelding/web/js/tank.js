@@ -49,14 +49,17 @@ export function seamPath(s, circStart = 0) {
   return u => ({ p: new THREE.Vector3(LINER_R * c, s.y0 + trim + (s.y1 - s.y0 - 2 * trim) * u, LINER_R * si), n: new THREE.Vector3(-c, 0, -si), b: new THREE.Vector3(-si, 0, c), t: new THREE.Vector3(0, 1, 0) });
 }
 
-// 各層截面（mm）：對接間隙 → V 槽 → 焊條凸起 → 削平 → 焊帶（檢測後換綠色）
+// 各層截面（mm）：規劃軌跡（虛擬線）、對接間隙 → V 槽 → 焊條凸起 → 削平 → 焊帶 → 刮平（檢測後換綠色）
+const SCRAPED = [[-15, .7], [-14, 1.1], [14, 1.1], [15, .7]];
 const LAYERS = {
+  path: { profile: [[-1.4, 6], [1.4, 6]], color: 0x2ad4ff, emissive: 0x2ad4ff, fx: true },
   gap: { profile: [[-1, .7], [1, .7]], color: 0x2b3238 },
   groove: { profile: [[-5.5, .7], [-1.2, .7], [0, .7], [1.2, .7], [5.5, .7]], color: 0x6c7880 },
   rod: { profile: [[-4.5, .7], [-3.9, 2.2], [-2.6, 3.3], [0, 3.8], [2.6, 3.3], [3.9, 2.2], [4.5, .7]], color: 0xe4e9e6, roughness: .32 },
   flat: { profile: [[-5.5, .7], [5.5, .7]], color: 0xe2ddca, roughness: .4 },
-  belt: { profile: [[-15, .7], [-12.5, 1.6], [12.5, 1.6], [15, .7]], color: 0xf6f9fb, roughness: .22 },
-  ok: { profile: [[-15, .7], [-12.5, 1.6], [12.5, 1.6], [15, .7]], color: 0xa9e3c1, roughness: .3, emissive: 0x1d6b40 },
+  belt: { profile: [[-15, .7], [-12.5, 1.9], [0, 2.4], [12.5, 1.9], [15, .7]], color: 0xf6f9fb, roughness: .22 },
+  scraped: { profile: SCRAPED, color: 0xeef1ec, roughness: .3 },
+  ok: { profile: SCRAPED, color: 0xa9e3c1, roughness: .3, emissive: 0x1d6b40 },
 };
 
 export function createTank({ circStart = 0, defect = { seam: 'C2', u: .62 } } = {}) {
@@ -102,8 +105,9 @@ export function createTank({ circStart = 0, defect = { seam: 'C2', u: .62 } } = 
   for (const s of SEAMS) {
     const at = seamPath(s, circStart), N = s.kind === 'circ' ? 360 : 60, layers = {};
     for (const [key, L] of Object.entries(LAYERS)) {
-      const m = mat(L.color, L.roughness ?? .5, 0, L.emissive ? { emissive: L.emissive, emissiveIntensity: .35 } : {});
+      const m = mat(L.color, L.roughness ?? .5, 0, L.emissive ? { emissive: L.emissive, emissiveIntensity: L.fx ? .9 : .35 } : {});
       const o = mesh(stripGeometry(at, N, L.profile), m, `seam-${s.id}-${key}`); o.castShadow = false;
+      if (L.fx) o.userData.fx = true;                                       // 規劃軌跡是畫面上的虛擬線，不是實體
       layers[key] = o;
     }
     seams[s.id] = { seam: s, at, layers, N };
@@ -114,11 +118,11 @@ export function createTank({ circStart = 0, defect = { seam: 'C2', u: .62 } } = 
   mark.name = 'thz-defect'; mark.userData.fx = true; mark.position.copy(dp.p).addScaledVector(dp.n, 4);
   mark.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dp.n); mark.visible = false; spin.add(mark);
 
-  // 每道焊道的進度（0～1）：g 開槽、r 焊條、f 削平、b 焊帶、i 檢測；各層只畫自己負責的區段，避免重疊面
-  function setSeam(id, { g = 0, r = 0, f = 0, b = 0, i = 0 }) {
+  // 每道焊道的進度（0～1）：s 定位、g 開槽、r 焊條、f 削平、b 焊帶、k 刮平、i 檢測；各層只畫自己負責的區段，避免重疊面
+  function setSeam(id, { s: sc = 0, g = 0, r = 0, f = 0, b = 0, k = 0, i = 0 }) {
     const S = seams[id], N = S.N, seg = u => Math.round(Math.max(0, Math.min(1, u)) * N);
     const show = (key, u0, u1) => { const o = S.layers[key], a = seg(u0), z = Math.max(a, seg(u1)), per = o.geometry.userData.per; o.geometry.setDrawRange(a * per, (z - a) * per); o.visible = z > a; };
-    show('gap', g, 1); show('groove', r, g); show('rod', f, r); show('flat', b, f); show('belt', i, b); show('ok', 0, Math.min(i, b));
+    show('path', g, sc); show('gap', g, 1); show('groove', r, g); show('rod', f, r); show('flat', b, f); show('belt', k, b); show('scraped', i, k); show('ok', 0, Math.min(i, k));
     if (id === defect.seam) mark.visible = i >= defect.u;
   }
   for (const s of SEAMS) setSeam(s.id, {});
@@ -126,8 +130,17 @@ export function createTank({ circStart = 0, defect = { seam: 'C2', u: .62 } } = 
   // 剖切：plan 給世界座標的平面（法向量朝保留側）；off 時平面推到無限遠
   let cutPlane = null;
   function setCut(on, plane = cutPlane) { cutPlane = plane; if (on && plane) planes[0].copy(plane); else planes[0].set(new THREE.Vector3(0, 0, -1), 1e6); }
+  // 透視：桶身、襯裡、人孔與管腳半透明（焊道維持不透明），看得到桶內作業但桶仍是完整的
+  const shellMats = [M.sus, M.ptfe, M.flange, M.leg];
+  const base = new Map(shellMats.map(m => [m, { opacity: m.opacity, transparent: m.transparent, depthWrite: m.depthWrite }]));
+  function setGhost(on) {
+    for (const m of shellMats) {
+      const b0 = base.get(m), op = m === M.ptfe ? .2 : .14;
+      m.transparent = on || b0.transparent; m.opacity = on ? op : b0.opacity; m.depthWrite = on ? false : b0.depthWrite; m.needsUpdate = true;
+    }
+  }
 
-  return { frame, spin, seams, setSeam, setCut, materials: clipped, legs, defectAt: dp };
+  return { frame, spin, seams, setSeam, setCut, setGhost, materials: clipped, legs, defectAt: dp };
 }
 
 // 桶座標中某高度 y 的實體壁（給工具與手臂的間隙檢查）：回傳 [內半徑（襯裡表面）, 外半徑]；人孔、出口頸以外的區域回傳 null

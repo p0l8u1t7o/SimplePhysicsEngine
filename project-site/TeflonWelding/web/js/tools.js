@@ -46,6 +46,28 @@ function couplingPlate(t) {
 
 // ---------------------------------------------------------------- 各工具
 const BUILD = {
+  // 3D 相機（結構光投影＋雙鏡頭＋環形光）：工作距離約 160 mm，焦點（TCP）在襯裡表面；取像時投影藍光條紋
+  cam(t) {
+    couplingPlate(t);
+    mesh(t, new THREE.BoxGeometry(70, 60, 50), M.coupling, [0, 0, 45]);
+    mesh(t, new THREE.BoxGeometry(150, 64, 70), M.body, [0, 0, 105]);             // 相機機身（基線方向 X）
+    for (const x of [-52, 52]) cylZ(t, 15, 140, 158, M.lens, x, 0, 15, 20);        // 雙鏡頭
+    cylZ(t, 19, 140, 160, M.coupling, 0, 0, 19, 24);                               // 投影器
+    mesh(t, new THREE.TorusGeometry(26, 4, 8, 32), std(0xdfe8ff, .3, 0, { emissive: 0x3c6cff, emissiveIntensity: .4 }), [0, 0, 162]).name = 'ring-light';
+    mesh(t, new THREE.BoxGeometry(36, 24, 40), M.body, [0, 44, 90]);               // 接頭
+    const beam = mesh(t, new THREE.ConeGeometry(70, TOOL_LEN - 164, 4, 1, true), fxMat(0x5aa0ff, .18), [0, 0, (164 + TOOL_LEN) / 2], [-Math.PI / 2, Math.PI / 4, 0]);
+    beam.userData.fx = true; beam.name = 'scan-light';
+    return { set(on) { beam.visible = on; } };
+  },
+  // 刮刀：彈簧浮動刀座＋斜置刮刀片（約 30°），兩側滑靴控制刮削深度
+  scrape(t) {
+    couplingPlate(t);
+    cylZ(t, 26, 24, 120, M.coupling);                                               // 浮動緩衝
+    mesh(t, new THREE.BoxGeometry(80, 60, 90), M.green, [0, 0, 165]);
+    mesh(t, new THREE.BoxGeometry(34, 46, 60), M.blade, [16, 0, TOOL_LEN - 34], [0, .5, 0]).name = 'scraper-blade';
+    for (const y of [-30, 30]) mesh(t, new THREE.BoxGeometry(86, 8, 12), M.shoe, [-6, y, TOOL_LEN - 6]);
+    return { set() { } };
+  },
   // 開 V 槽刀：主軸馬達＋V 形刀＋兩條導靴；前方（+X）裝 3D 線雷射循縫
   groove(t) {
     couplingPlate(t);
