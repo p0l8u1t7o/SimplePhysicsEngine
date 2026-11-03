@@ -4,17 +4,17 @@
   "results": [
     {
       "plan": "roll",
-      "checks": 2898,
+      "checks": 2889,
       "ok": true
     },
     {
       "plan": "turntable",
-      "checks": 2898,
+      "checks": 2889,
       "ok": true
     },
     {
       "plan": "cobot",
-      "checks": 2898,
+      "checks": 2889,
       "ok": true
     }
   ]

@@ -1,4 +1,4 @@
-// 末端工具（7 支）與快換盤：局部原點在工具側快換盤結合面，+Z 為工具前進方向，TCP 在 (0, 0, TOOL_LEN)（接觸襯裡表面的點）。
+// 末端工具（6 支）與快換盤：局部原點在工具側快換盤結合面，+Z 為工具前進方向，TCP 在 (0, 0, TOOL_LEN)（接觸襯裡表面的點）。
 // 工具 +X 為行走方向（焊接姿態由 IK 對齊焊道切線）。熱風焊槍外形參考 docs/LHS SYSTEM 21S.stp（本體約 Ø66 × 300、尾端接線盒）。
 // 效果（熱風、雷射線、兆赫波束）標 userData.fx，不參與干涉檢查。
 import * as THREE from 'three';
@@ -75,15 +75,6 @@ const BUILD = {
     const beam = mesh(t, new THREE.ConeGeometry(70, TOOL_LEN - 164, 4, 1, true), fxMat(0x5aa0ff, .18), [0, 0, (164 + TOOL_LEN) / 2], [-Math.PI / 2, Math.PI / 4, 0]);
     beam.userData.fx = true; beam.name = 'scan-light';
     return { set(on) { beam.visible = on; } };
-  },
-  // 刮刀：彈簧浮動刀座＋斜置刮刀片（約 30°），兩側滑靴控制刮削深度
-  scrape(t) {
-    couplingPlate(t);
-    cylZ(t, 26, 24, 120, M.coupling);                                               // 浮動緩衝
-    mesh(t, new THREE.BoxGeometry(80, 60, 90), M.green, [0, 0, 165]);
-    mesh(t, new THREE.BoxGeometry(34, 46, 60), M.blade, [16, 0, TOOL_LEN - 34], [0, .5, 0]).name = 'scraper-blade';
-    for (const y of [-30, 30]) mesh(t, new THREE.BoxGeometry(86, 8, 12), M.shoe, [-6, y, TOOL_LEN - 6]);
-    return { set() { } };
   },
   // 開 V 槽刀：主軸馬達＋V 形刀＋兩條導靴；前方（+X）裝 3D 線雷射循縫
   groove(t) {

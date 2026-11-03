@@ -140,7 +140,7 @@ export function addGantryDetails({ gantry, cross, ram, H, xs, zs }) {
   drive(cross, [230, H + 300, 0], .8);
   drive(cross, [0, H + 600, -1200], .65);
   const chain = carrier(gantry, 'gantry supply chain', { origin: [0, H + 450, -1420], fixed: -2700, min: -2700, max: 0, radius: 100, width: 75, pitch: 40 });
-  const zChain = carrier(cross, 'ram supply chain', { origin: [-290, 2200, 300], axis: [0, 1, 0], rise: [-1, 0, 0], fixed: H + 280 - 2200, min: 2100, max: 4700, radius: 90, width: 65, pitch: 40 });
+  const zChain = carrier(cross, 'ram supply chain', { origin: [-290, 2200, 300], axis: [0, 1, 0], rise: [-1, 0, 0], fixed: H + 280 - 2200, min: 1800, max: 4700, radius: 90, width: 65, pitch: 40 });
   // 橫向接管留在伸縮柱頂部；穿人孔的垂直段緊貼柱側，不橫跨法蘭。
   cable(ram, 'ram-air-fiber', [[-470, 2220, 300], [-180, 2220, 300], [-150, 2220, 140], [-120, 2220, 0], [-120, 20, 0]], { radius: 11, color: CABLE.sleeve, clips: 2 });
   return () => { chain.set(cross.position.x); zChain.set(ram.position.y); };

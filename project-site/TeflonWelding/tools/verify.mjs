@@ -1,21 +1,23 @@
 // 本站製程檢查（三個方案各跑一次）：
 //   1. 焊道跟隨：每道製程走焊道時，工具 TCP 與焊道上「目前進度點」的距離 ≤ 2 mm（環縫轉桶／J1 繞圈、縱縫載具移動的同步是否正確）
 //   2. 桶內間隙：沿動畫取樣，手臂、載具、工具的每個頂點不得進入桶壁（襯裡表面到 SUS 外表面）；工具在 TCP 60 mm 內的接觸部位除外
-//   3. 製程順序：每道焊道的相機定位 → 開槽 → 焊條 → 削平 → 焊帶 → 刮平 → 檢測依序完成，結束時全部 = 1
+//   3. 製程順序：每道焊道的相機定位 → 開槽 → 焊條 → 削平（刮平）→ 焊帶 → 檢測依序完成，結束時全部 = 1
 //   node --import ../../core/tools/register.mjs tools/verify.mjs
 import '@core/verify/dom-stub.mjs';
 import * as THREE from 'three';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { createProject } from '../web/js/project.js';
 import { seamPath, wallAt } from '../web/js/tank.js';
-import { SEAMS, PROCESS, FIELD, cycleEstimate } from '../web/js/spec.js';
+import { PROCESS, FIELD, cycleEstimate } from '../web/js/spec.js';
 
 const CIRC_START = Math.PI / 2;
 const out = { ok: true, plans: {}, estimate: cycleEstimate() };
 out.estimate = { metres: +out.estimate.metres.toFixed(2), hours: +(out.estimate.sum / 60).toFixed(2) };
 
-for (const plan of ['roll', 'turntable', 'cobot']) {
-  const scene = new THREE.Scene(), p = createProject({ scene, plan }), failures = [];
+// 每個方案跑預設排版，再跑一次極端排版（環縫在可調範圍兩端、兩道縱縫）
+const EXTREME = { c1: 0, c2: 99999, nl: 2 };                     // 夾到各方案可調範圍的兩端
+for (const [plan, opts] of ['roll', 'turntable', 'cobot'].flatMap(k => [[k, {}], [k + '·極端排版', EXTREME]])) {
+  const scene = new THREE.Scene(), p = createProject({ scene, plan: plan.split('·')[0], ...opts }), failures = [], SEAMS = p.seams;
   const tl = p.timeline, v = new THREE.Vector3(), v2 = new THREE.Vector3(), tcp = new THREE.Vector3();
 
   // ---- 1. 焊道跟隨

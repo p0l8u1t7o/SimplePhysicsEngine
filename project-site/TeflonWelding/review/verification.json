@@ -3,31 +3,55 @@
   "plans": {
     "roll": {
       "ok": true,
-      "total": 254.1,
+      "total": 220.3,
       "follow": 0.05,
-      "minGapInside": 9.5,
+      "minGapInside": 16.8,
       "tightest": {
-        "t": 196,
-        "mesh": "tool-scrape",
-        "y": 904
+        "t": 162.2,
+        "mesh": "pfa-tape",
+        "y": 885
+      },
+      "failures": []
+    },
+    "roll·極端排版": {
+      "ok": true,
+      "total": 243.7,
+      "follow": 0.05,
+      "minGapInside": 16.8,
+      "tightest": {
+        "t": 181.9,
+        "mesh": "pfa-tape",
+        "y": 1015
       },
       "failures": []
     },
     "turntable": {
       "ok": true,
-      "total": 303.5,
+      "total": 259.9,
       "follow": 0.05,
-      "minGapInside": 9.5,
+      "minGapInside": 16.8,
       "tightest": {
-        "t": 229.1,
-        "mesh": "tool-scrape",
-        "y": 454
+        "t": 186.6,
+        "mesh": "pfa-tape",
+        "y": 435
+      },
+      "failures": []
+    },
+    "turntable·極端排版": {
+      "ok": true,
+      "total": 283.3,
+      "follow": 0.05,
+      "minGapInside": 14.4,
+      "tightest": {
+        "t": 17.9,
+        "mesh": "mast-head",
+        "y": 1542
       },
       "failures": []
     },
     "cobot": {
       "ok": true,
-      "total": 307.6,
+      "total": 263.3,
       "follow": 0.16,
       "minGapInside": 6.8,
       "tightest": {
@@ -36,10 +60,22 @@
         "y": 1446
       },
       "failures": []
+    },
+    "cobot·極端排版": {
+      "ok": true,
+      "total": 290.3,
+      "follow": 0.16,
+      "minGapInside": 6.8,
+      "tightest": {
+        "t": 36.7,
+        "mesh": "hot-air upper / jacket",
+        "y": 1446
+      },
+      "failures": []
     }
   },
   "estimate": {
     "metres": 6.68,
-    "hours": 2.79
+    "hours": 2.6
   }
 }

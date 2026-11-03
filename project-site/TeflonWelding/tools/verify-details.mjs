@@ -4,14 +4,14 @@ import * as THREE from 'three';
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { createProject } from '../web/js/project.js';
-import { SEAMS, FIELD, PROCESS, TANK } from '../web/js/spec.js';
+import { FIELD, PROCESS, TANK, TOOLS } from '../web/js/spec.js';
 
 const results = [];
 for (const plan of ['roll', 'turntable', 'cobot']) {
-  const scene = new THREE.Scene(), p = createProject({ scene, plan });
+  const scene = new THREE.Scene(), p = createProject({ scene, plan }), SEAMS = p.seams;
   let checks = 0;
   const check = (condition, label) => { assert.ok(condition, `${plan}: ${label}`); checks++; };
-  check(Object.keys(p.tools).length === 7, '保留七支工具');
+  check(Object.keys(p.tools).length === TOOLS.length, '工具數與 TOOLS 一致');
   const shell = scene.getObjectByName('shell'), liner = scene.getObjectByName('liner');
   check(shell.material.clippingPlanes === liner.material.clippingPlanes, '拉絲材質仍共用切面');
   check(p.tank.seams.C1.layers.path.material === p.tank.seams.C2.layers.path.material, '焊道共用材質');

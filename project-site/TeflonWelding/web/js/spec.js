@@ -30,24 +30,34 @@ export function headHeight(r, o = 0) {
   return Math.sqrt(Math.max(0, h.k * h.k - (r - h.kx) ** 2));
 }
 
-// ---------------------------------------------------------------- 焊道（依照片：兩道環縫＋中段一道縱縫；位置為假設，待用戶給襯板排版）
-export const SEAMS = [
-  { id: 'L1', name: '縱縫', kind: 'long', y0: 420, y1: 870, theta: 0 },   // 中段板捲成圓筒的對接縫
-  { id: 'C1', name: '下環縫', kind: 'circ', y: 420 },                      // 下封頭件與中段的對接縫
-  { id: 'C2', name: '上環縫', kind: 'circ', y: 870 },                      // 上封頭件與中段的對接縫
-];
+// ---------------------------------------------------------------- 焊道（依照片：兩道環縫＋中段縱縫；位置為假設，網頁側欄可調，待用戶給襯板排版）
+// c1／c2：下／上環縫離下切線的高度；nl：中段縱縫條數（1 或 2，2 條時相隔 180°）
+export const SEAM_LAYOUT = { c1: 420, c2: 870, nl: 1 };
+// 環縫範圍：上限依手臂（伸入深度不同）——COBOTTA 的上臂在上環縫高於約 870 時，管束會擦到人孔頸（tools/verify.mjs 驗證過的區間）
+export const SEAM_LIMITS = { min: 250, gap: 250, max: { vs068: 1000, cobotta: 870 } };
+export function seamLayout(o = {}, arm = 'vs068') {
+  const L = { ...SEAM_LIMITS, max: SEAM_LIMITS.max[arm] ?? 870 }, num = (v, d) => Number.isFinite(+v) && v !== '' && v != null ? +v : d;
+  let c1 = Math.round(num(o.c1, SEAM_LAYOUT.c1)), c2 = Math.round(num(o.c2, SEAM_LAYOUT.c2));
+  c1 = Math.min(Math.max(c1, L.min), L.max - L.gap); c2 = Math.min(Math.max(c2, c1 + L.gap), L.max);
+  return { c1, c2, nl: +o.nl === 2 ? 2 : 1, limits: L };
+}
+export function makeSeams(o = {}, arm) {
+  const { c1, c2, nl } = seamLayout(o, arm);
+  const longs = Array.from({ length: nl }, (_, k) => ({ id: `L${k + 1}`, name: nl > 1 ? `縱縫 ${k + 1}` : '縱縫', kind: 'long', y0: c1, y1: c2, theta: k * Math.PI }));
+  return [...longs, { id: 'C1', name: '下環縫', kind: 'circ', y: c1 }, { id: 'C2', name: '上環縫', kind: 'circ', y: c2 }];
+}
+export const SEAMS = makeSeams();
 export const seamLength = s => s.kind === 'circ' ? 2 * Math.PI * LINER_R : s.y1 - s.y0;
 
-// ---------------------------------------------------------------- 製程（依膠體斷面圖：開 V 槽 → 焊條熔接 → 削平 → 焊帶熔接 → 刮平，之後兆赫波檢測）
+// ---------------------------------------------------------------- 製程（依膠體斷面圖的順序：開 V 槽 → 焊條熔接 → 削平（Flat cut，用戶稱刮平）→ 焊帶熔接，之後兆赫波檢測）
 // 開槽前先用手臂上的 3D 相機沿焊道取像定位，算出焊道中心線並規劃各工具軌跡（襯板是人工貼合，焊道位置每桶不同）。
 // speed：實際行走速度 m/min（假設，以試焊決定）；demo：動畫中走一道焊道的時間倍率
 export const PROCESS = [
   { key: 'scan', name: '相機定位', tool: 'cam', speed: 1.5, demo: .7, note: '3D 相機（結構光）沿焊道取像，定位焊道中心線與板邊高低差' },
   { key: 'groove', name: '開 V 槽', tool: 'groove', speed: 1.0, note: '依規劃軌跡開 V 槽到膠層上方，雷射輪廓感測器即時循縫修正' },
   { key: 'rod', name: '焊條熔接', tool: 'rod', speed: .15, hot: true, note: '熱風 250 °C＋拖嘴（約 80 mm）壓入 PFA 焊條' },
-  { key: 'flat', name: '削平', tool: 'flat', speed: 1.0, note: '削除凸出的焊條，與 PTFE 面齊平' },
+  { key: 'flat', name: '削平（刮平）', tool: 'flat', speed: 1.0, note: '斷面圖的 Flat cut：刮除凸出的焊條，與 PTFE 面齊平' },
   { key: 'belt', name: '焊帶熔接', tool: 'belt', speed: .15, hot: true, note: '熱風 250 °C＋壓輪，PFA 焊帶覆蓋整條焊道' },
-  { key: 'scrape', name: '刮平', tool: 'scrape', speed: .8, note: '焊帶冷卻後以刮刀刮平表面與兩側邊緣' },
   { key: 'thz', name: '兆赫波檢測', tool: 'thz', speed: .6, demo: .8, note: '反射式 THz 探頭沿焊道掃描：氣孔、未熔合、厚度' },
 ];
 export const HOT_AIR = { temp: 250, gun: 'Leister LHS 21S SYSTEM', drag: 80 };
@@ -58,13 +68,12 @@ export const TOOLS = [
   { key: 'cam', name: '3D 相機（定位）' },
   { key: 'groove', name: '開槽刀＋雷射循縫' },
   { key: 'rod', name: '焊條焊槍（LHS 21S＋拖嘴）' },
-  { key: 'flat', name: '削平刀' },
+  { key: 'flat', name: '削平刀（刮刀）' },
   { key: 'belt', name: '焊帶焊槍（LHS 21S＋壓輪）' },
-  { key: 'scrape', name: '刮刀' },
   { key: 'thz', name: '兆赫波探頭' },
 ];
-// 進度欄位（每道焊道一組）：s 定位、g 開槽、r 焊條、f 削平、b 焊帶、k 刮平、i 檢測
-export const FIELD = { scan: 's', groove: 'g', rod: 'r', flat: 'f', belt: 'b', scrape: 'k', thz: 'i' };
+// 進度欄位（每道焊道一組）：s 定位、g 開槽、r 焊條、f 削平（刮平）、b 焊帶、i 檢測
+export const FIELD = { scan: 's', groove: 'g', rod: 'r', flat: 'f', belt: 'b', thz: 'i' };
 
 // ---------------------------------------------------------------- 方案
 // mount：手臂如何進桶；spin：環縫由誰轉（tank＝桶轉、j1＝手臂 J1 繞圈）；arm：手臂型號
@@ -89,12 +98,24 @@ export const PLANS = {
   },
 };
 
+// 方案比較表（側欄）：數值取自本站模型；投資為相對級距，待報價
+export const COMPARE = [
+  { k: '焊接位置', roll: '全部平焊', turntable: '環縫橫焊、縱縫立焊', cobot: '環縫橫焊、縱縫立焊' },
+  { k: '設備高度', roll: '約 2.9 m（X 軸樑）', turntable: '約 5.4 m（立柱）', cobot: '約 5.4 m（門架），Z 柱升起約 6.3 m' },
+  { k: '桶的擺放', roll: '放倒進迴轉架（天車）', turntable: '立放上轉台（天車或堆高機）', cobot: '原地不動' },
+  { k: '環縫怎麼轉', roll: '桶轉', turntable: '轉台轉', cobot: '手臂 J1 繞 360°' },
+  { k: '管線', roll: '不扭轉', turntable: '不扭轉', cobot: '需旋轉接頭' },
+  { k: '手臂', roll: 'VS-068（壁掛，需原廠確認）', turntable: 'VS-068（倒吊）', cobot: 'COBOTTA PRO 900（倒吊）' },
+  { k: '投資（相對）', roll: '中', turntable: '中高', cobot: '中低' },
+  { k: '主要風險', roll: '迴轉架要配合桶腳', turntable: '橫焊／立焊成形、廠房淨高', cobot: '橫焊／立焊成形、門架高度與穩定' },
+];
+
 // ---------------------------------------------------------------- 動畫節奏（秒；實際工時另依 PROCESS.speed 計算）
 export const DEMO = { circ: 4.5, long: 1.8, enter: 2, change: 1.1, approach: .75, plan: 2 };
 
 // 實際工時估算（分鐘）：每道製程走完全部焊道＋每次換工具與進出 3 分鐘（假設）
-export function cycleEstimate() {
-  const total = SEAMS.reduce((a, s) => a + seamLength(s), 0) / 1000;      // m
+export function cycleEstimate(seams = SEAMS) {
+  const total = seams.reduce((a, s) => a + seamLength(s), 0) / 1000;      // m
   const rows = PROCESS.map(p => ({ key: p.key, name: p.name, min: total / p.speed + 3 }));
   return { metres: total, rows, sum: rows.reduce((a, r) => a + r.min, 0) + 20 };   // ＋20 分上下料與定位
 }

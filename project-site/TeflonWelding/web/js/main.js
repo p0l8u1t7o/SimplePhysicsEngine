@@ -6,7 +6,7 @@ import { createStage, exposeSim } from '@core/ui/stage.js';
 import { createPlayer } from '@core/ui/player.js';
 import { createViewerWorkspace } from '@core/ui/viewer-workspace.js';
 import { createProject, STATIONS, PLANS } from './project.js';
-import { PROCESS, SEAMS, HOT_AIR, TANK, NECK_CLEAR, FIELD, TOOLS, cycleEstimate, seamLength } from './spec.js';
+import { PROCESS, HOT_AIR, TANK, NECK_CLEAR, FIELD, TOOLS, COMPARE, cycleEstimate, seamLength } from './spec.js';
 
 const qp = new URLSearchParams(location.search), movie = qp.has('movie');
 const $ = id => document.getElementById(id);
@@ -20,7 +20,8 @@ const stage = createStage({
 });
 const { renderer, scene, camera, controls } = stage;
 renderer.localClippingEnabled = true;
-const project = createProject({ scene, plan: planKey });
+const project = createProject({ scene, plan: planKey, c1: qp.get('c1'), c2: qp.get('c2'), nl: qp.get('nl') });
+const SEAMS = project.seams;
 const { timeline, stationStart, meta, plan } = project;
 const LOOKS = { xray: '透視（完整桶）', cut: '剖切（示意）', solid: '不透明' };
 let look = LOOKS[qp.get('look')] ? qp.get('look') : 'xray';
@@ -66,7 +67,7 @@ STATIONS.forEach((name, i) => {
 });
 
 // ---------------------------------------------------------------- 方案切換（重新載入）與剖切
-const reload = (k, v) => { const q = new URLSearchParams(location.search); q.set(k, v); ['t', 'time', 'step', 'st'].forEach(x => q.delete(x)); location.search = q.toString(); };
+const reload = (k, v) => { const q = new URLSearchParams(location.search); const kv = typeof k === 'object' ? k : { [k]: v }; for (const [a, b] of Object.entries(kv)) q.set(a, b); ['t', 'time', 'step', 'st'].forEach(x => q.delete(x)); location.search = q.toString(); };
 $('plans').innerHTML = Object.values(PLANS).map(p => `<button data-plan="${p.key}" class="${p.key === planKey ? 'on' : ''}">${p.name}</button>`).join('');
 $('plans').querySelectorAll('button').forEach(b => b.onclick = () => b.dataset.plan !== planKey && reload('plan', b.dataset.plan));
 $('planDesc').textContent = meta.method;
@@ -79,10 +80,21 @@ const syncLook = () => lookBox.querySelectorAll('button').forEach(b => b.classLi
 lookBox.querySelectorAll('button').forEach(b => b.onclick = () => setLook(b.dataset.look));
 syncLook();
 
+// 方案比較（三案並陳）
+$('compare').innerHTML = `<table><tr><th></th>${Object.values(PLANS).map(p => `<th class="${p.key === planKey ? 'on' : ''}">${p.name.split(' ')[0]}</th>`).join('')}</tr>${COMPARE.map(r => `<tr><td>${r.k}</td>${Object.keys(PLANS).map(k => `<td class="${k === planKey ? 'on' : ''}">${r[k]}</td>`).join('')}</tr>`).join('')}</table>`;
+
+// 焊道排版（假設，可調）：改完重新載入，時間軸與工具路徑依新排版重排
+const L = project.layout, lim = L.limits;
+$('layout').innerHTML = `<label>下環縫 <input id="c1" type="number" min="${lim.min}" max="${lim.max - lim.gap}" step="10" value="${L.c1}"> mm</label>
+<label>上環縫 <input id="c2" type="number" min="${lim.min + lim.gap}" max="${lim.max}" step="10" value="${L.c2}"> mm</label>
+<label>縱縫 <select id="nl"><option value="1"${L.nl === 1 ? ' selected' : ''}>1 條</option><option value="2"${L.nl === 2 ? ' selected' : ''}>2 條（相隔 180°）</option></select></label>
+<button id="applyLayout">套用</button><div class="note">高度從下切線（直筒下緣）量起；環縫 ${lim.min}～${lim.max} mm、兩環縫至少相距 ${lim.gap} mm（上限依手臂伸入深度與人孔間隙）</div>`;
+$('applyLayout').onclick = () => reload({ c1: $('c1').value, c2: $('c2').value, nl: $('nl').value });
+
 // 工時估算
-const est = cycleEstimate();
+const est = cycleEstimate(SEAMS);
 $('estimate').innerHTML = `<table><tr><th>製程</th><th>工時</th></tr>${est.rows.map(r => `<tr><td>${r.name}</td><td>${r.min.toFixed(0)} 分</td></tr>`).join('')}<tr class="sum"><td>合計（含上下料 20 分）</td><td>${(est.sum / 60).toFixed(1)} 小時</td></tr></table>
-<div class="note">焊道總長 ${est.metres.toFixed(2)} m（環縫 2 × ${(seamLength(SEAMS[1]) / 1000).toFixed(2)} m＋縱縫 ${(seamLength(SEAMS[0]) / 1000).toFixed(2)} m）；速度為假設值，以試焊決定</div>`;
+<div class="note">焊道總長 ${est.metres.toFixed(2)} m（環縫 2 × ${(seamLength(SEAMS.find(s => s.kind === 'circ')) / 1000).toFixed(2)} m＋縱縫 ${L.nl} × ${(seamLength(SEAMS[0]) / 1000).toFixed(2)} m）；速度為假設值，以試焊決定</div>`;
 
 // ---------------------------------------------------------------- 面板
 const events = timeline.events;
@@ -95,6 +107,8 @@ $('checkCount').textContent = `${checks.filter(r => r.ok).length} / ${checks.len
 // 焊道狀態：每道焊道 × 每道製程的進度
 const seamBox = $('seams');
 seamBox.innerHTML = `<table><tr><th></th>${PROCESS.map(p => `<th>${p.name.replace(' ', '').slice(0, 2)}</th>`).join('')}</tr>${SEAMS.map(s => `<tr data-seam="${s.id}"><td>${s.name}</td>${PROCESS.map(p => `<td><i data-p="${p.key}"></i></td>`).join('')}</tr>`).join('')}</table>`;
+const bars = SEAMS.flatMap(s => PROCESS.map(p => ({ seam: s.id, field: FIELD[p.key], el: seamBox.querySelector(`tr[data-seam="${s.id}"] i[data-p="${p.key}"]`), v: -1 })));
+const defectEl = $('defect');
 let shown = '';
 function updatePanels(T) {
   const act = timeline.activity(T).filter(s => s.action), last = events.filter(e => e.start <= T + 1e-6).at(-1), station = last?.station ?? 0;
@@ -106,12 +120,14 @@ function updatePanels(T) {
     ui.stationName.textContent = `S${station + 1} ${STATIONS[station]}`;
     ui.stations.forEach((b, i) => { b.classList.toggle('active', i === station); b.classList.toggle('done', i < station || T >= project.total - 1e-6); });
   }
+  // 進度條每 1% 才改一次 DOM（每格改樣式會讓側欄重排，手機幀率掉很多）
   const st = timeline.sample(T);
-  for (const s of SEAMS) for (const p of PROCESS) {
-    const v = st['seam-' + s.id][FIELD[p.key]], el = seamBox.querySelector(`tr[data-seam="${s.id}"] i[data-p="${p.key}"]`);
-    el.style.setProperty('--v', v); el.className = v >= 1 ? 'done' : v > 0 ? 'run' : '';
+  for (const b of bars) {
+    const v = Math.round(st['seam-' + b.seam][b.field] * 100);
+    if (v !== b.v) { b.v = v; b.el.style.setProperty('--v', v / 100); b.el.className = v >= 100 ? 'done' : v > 0 ? 'run' : ''; }
   }
-  $('defect').hidden = !(st['seam-C2'].i >= .62);
+  const def = !(st['seam-C2'].i >= .62);
+  if (defectEl.hidden !== def) defectEl.hidden = def;
 }
 
 // ---------------------------------------------------------------- 播放列

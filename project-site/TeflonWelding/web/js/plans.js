@@ -111,8 +111,8 @@ function planRoll(scene) {
     cut: new THREE.Plane(new THREE.Vector3(-1, 0, 0), 40),                     // 保留世界下半（桶座標 x ≤ 40）
     build(carrier, ctx) {
       carriage.add(carrier); carrier.position.set(tipX, Hc, 0); carrier.quaternion.copy(frameW.quat);
-      // 工具架：每格在 s_out 之後，間距 280（格位世界位置由手臂取放姿態的順向運動學決定，層板在 project.js 建）
-      ctx.slots = ctx.tools.map((_, i) => ({ s: ctx.sOut + 120 + i * 280, lat: 0 }));
+      // 工具架：每格在 s_out 之後，間距 340（換工具時手腕擺動不碰鄰格工具）（格位世界位置由手臂取放姿態的順向運動學決定，層板在 project.js 建）
+      ctx.slots = ctx.tools.map((_, i) => ({ s: ctx.sOut + 120 + i * 340, lat: 0 }));
     },
     rackRoot: rack,
     setCarrier(s) { carriage.position.x = xb - s - tipX; updateDetails(); },

@@ -1,4 +1,4 @@
-// 1000L 襯 PTFE 桶：SUS 桶身＋碟形封頭（LatheGeometry）、人孔、底部出口、管腳、PTFE 襯裡與三條焊道的分層狀態。
+// 1000L 襯 PTFE 桶：SUS 桶身＋碟形封頭（LatheGeometry）、人孔、底部出口、管腳、PTFE 襯裡與三條焊道的分層狀態（焊道清單由 spec.js makeSeams 依排版產生）。
 // 尺寸取自 docs/1000L.step（見 spec.js）。frame 是不轉的桶座標（原點在下切線中心、+Y 朝人孔），spin 是會跟著桶轉的部分。
 // 剖切：桶身、襯裡與焊道的材質共用一組剖切平面（世界座標），setCut(true) 時切掉朝向觀看者的一半（同切半展示品）。
 import * as THREE from 'three';
@@ -51,8 +51,7 @@ export function seamPath(s, circStart = 0) {
   return u => ({ p: new THREE.Vector3(LINER_R * c, s.y0 + trim + (s.y1 - s.y0 - 2 * trim) * u, LINER_R * si), n: new THREE.Vector3(-c, 0, -si), b: new THREE.Vector3(-si, 0, c), t: new THREE.Vector3(0, 1, 0) });
 }
 
-// 各層截面（mm）：規劃軌跡（虛擬線）、對接間隙 → V 槽 → 焊條凸起 → 削平 → 焊帶 → 刮平（檢測後換綠色）
-const SCRAPED = [[-15, .7], [-14, 1.1], [14, 1.1], [15, .7]];
+// 各層截面（mm）：規劃軌跡（虛擬線）、對接間隙 → V 槽 → 焊條凸起 → 削平（刮平）→ 焊帶（檢測後換綠色）
 const LAYERS = {
   path: { profile: [[-1.4, 6], [1.4, 6]], color: 0x2ad4ff, emissive: 0x2ad4ff, fx: true },
   gap: { profile: [[-1, .7], [1, .7]], color: 0x2b3238 },
@@ -61,11 +60,10 @@ const LAYERS = {
   rod: { profile: [[-4.5, .7], [-3.9, 2.2], [-2.6, 3.3], [0, 3.8], [2.6, 3.3], [3.9, 2.2], [4.5, .7]], color: 0xe4e9e6, roughness: .32 },
   flat: { profile: [[-5.5, .45], [5.5, .45]], color: 0xece8d8, roughness: .24 },
   belt: { profile: [[-15, .7], [-12.5, 1.9], [0, 2.4], [12.5, 1.9], [15, .7]], color: 0xf6f9fb, roughness: .22 },
-  scraped: { profile: SCRAPED, color: 0xeef1ec, roughness: .3 },
-  ok: { profile: [[-15, .7], [-14, 1.1], [-6, 1.1], [6, 1.1], [14, 1.1], [15, .7]], color: 0xffffff, roughness: .3, emissive: 0x1d6b40, shades: [0xcee3ae, 0x70b8a2, 0x31bd70, 0x3bd57c, 0x83c3a0, 0xc3dda9] },
+  ok: { profile: [[-15, .7], [-12.5, 1.9], [-6, 2.3], [6, 2.3], [12.5, 1.9], [15, .7]], color: 0xffffff, roughness: .3, emissive: 0x1d6b40, shades: [0xcee3ae, 0x70b8a2, 0x31bd70, 0x3bd57c, 0x83c3a0, 0xc3dda9] },
 };
 
-export function createTank({ circStart = 0, defect = { seam: 'C2', u: .62 }, craneLugs = false } = {}) {
+export function createTank({ circStart = 0, seams: seamList = SEAMS, defect = { seam: 'C2', u: .62 }, craneLugs = false } = {}) {
   const frame = new THREE.Group(); frame.name = 'tank';
   const spin = new THREE.Group(); spin.name = 'tank-spin'; spin.userData.cableHost = false; frame.add(spin);
   const planes = [new THREE.Plane(new THREE.Vector3(0, 0, -1), 1e6)];       // 預設不切；setCut 設定
@@ -165,7 +163,7 @@ export function createTank({ circStart = 0, defect = { seam: 'C2', u: .62 }, cra
     vertexColors: !!L.shades, ...(key === 'rod' ? { transparent: true, opacity: .9 } : {}),
     ...(L.emissive ? { emissive: L.emissive, emissiveIntensity: L.fx ? .9 : .25 } : {}),
   })]));
-  for (const s of SEAMS) {
+  for (const s of seamList) {
     const at = seamPath(s, circStart), N = s.kind === 'circ' ? 360 : 60, layers = {};
     for (const [key, L] of Object.entries(LAYERS)) {
       const geo = stripGeometry(at, N, L.profile);
@@ -190,11 +188,11 @@ export function createTank({ circStart = 0, defect = { seam: 'C2', u: .62 }, cra
   mark.name = 'thz-defect'; mark.userData.fx = true; mark.position.copy(dp.p).addScaledVector(dp.n, 4);
   mark.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dp.n); mark.visible = false; spin.add(mark);
 
-  // 每道焊道的進度（0～1）：s 定位、g 開槽、r 焊條、f 削平、b 焊帶、k 刮平、i 檢測；各層只畫自己負責的區段，避免重疊面
-  function setSeam(id, { s: sc = 0, g = 0, r = 0, f = 0, b = 0, k = 0, i = 0 }, tool = {}) {
+  // 每道焊道的進度（0～1）：s 定位、g 開槽、r 焊條、f 削平（刮平）、b 焊帶、i 檢測；各層只畫自己負責的區段，避免重疊面
+  function setSeam(id, { s: sc = 0, g = 0, r = 0, f = 0, b = 0, i = 0 }, tool = {}) {
     const S = seams[id], N = S.N, seg = u => Math.round(Math.max(0, Math.min(1, u)) * N);
     const show = (key, u0, u1) => { const o = S.layers[key], a = seg(u0), z = Math.max(a, seg(u1)), per = o.geometry.userData.per; o.geometry.setDrawRange(a * per, (z - a) * per); o.visible = z > a; };
-    show('path', g, sc); show('gap', g, 1); show('groove', r, g); show('rod', f, r); show('flat', b, f); show('belt', k, b); show('scraped', i, k); show('ok', 0, Math.min(i, k));
+    show('path', g, sc); show('gap', g, 1); show('groove', r, g); show('rod', f, r); show('flat', b, f); show('belt', i, b); show('ok', 0, Math.min(i, b));
     if (id === defect.seam) mark.visible = i >= defect.u;
     const progress = tool.held === 'rod' ? r : tool.held === 'belt' ? b : 0;
     S.hot.visible = !!tool.fx && progress > 0 && progress < 1;
@@ -210,7 +208,7 @@ export function createTank({ circStart = 0, defect = { seam: 'C2', u: .62 }, cra
       colors.needsUpdate = true;
     }
   }
-  for (const s of SEAMS) setSeam(s.id, {});
+  for (const s of seamList) setSeam(s.id, {});
 
   // 剖切：plan 給世界座標的平面（法向量朝保留側）；off 時平面推到無限遠
   let cutPlane = null;

@@ -1,10 +1,10 @@
 // 專案介面：網頁（main.js）與 core 統一檢查共用。網址參數 ?plan=roll|turntable|cobot 切換方案。
-// 流程：上料定位 → 相機定位（取像＋軌跡規劃）→ 開 V 槽 → 焊條熔接 → 削平 → 焊帶熔接 → 刮平 → 兆赫波檢測 → 卸料；
+// 流程：上料定位 → 相機定位（取像＋軌跡規劃）→ 開 V 槽 → 焊條熔接 → 削平（刮平）→ 焊帶熔接 → 兆赫波檢測 → 卸料（依膠體斷面圖的順序）；
 // 每道製程換一次工具，依序做縱縫、下環縫、上環縫。生產時是完整的桶，手臂只從人孔進出；畫面的透視、剖切只是觀看方式。
 // 手臂一律 J1 與桶軸同軸、從人孔伸入（伸直穿過人孔，進桶後展開到退刀姿態）；環縫由桶轉（A、B）或 J1 繞圈（C）完成，縱縫由載具沿桶軸移動完成。
 import * as THREE from 'three';
 import { createTimeline, linear } from '@core/anim/track.js';
-import { TANK, NECK_CLEAR, SEAMS, PROCESS, TOOLS, PLANS, DEMO, FIELD, seamLength } from './spec.js';
+import { TANK, NECK_CLEAR, PROCESS, TOOLS, PLANS, DEMO, FIELD, seamLength, makeSeams, seamLayout } from './spec.js';
 import { createTank, wallAt } from './tank.js';
 import { createTools, rackSlot, RACK_DEPTH } from './tools.js';
 import { createWelderArm, STOW } from './robot.js';
@@ -18,12 +18,14 @@ export const STATIONS = ['上料定位', ...PROCESS.map(p => p.name), '卸料'];
 const CIRC_START = Math.PI / 2;                     // 環縫起點（桶座標方位）：離縱縫 90°，不在 T 形接頭起焊
 const D = 180 / Math.PI;
 
-export function createProject({ scene, plan: planKey = 'roll' }) {
+// c1／c2／nl：焊道排版（環縫高度、縱縫條數；見 spec.js seamLayout，超出範圍會夾回）
+export function createProject({ scene, plan: planKey = 'roll', c1, c2, nl }) {
   const meta = PLANS[planKey] || PLANS.roll;
+  const layout = seamLayout({ c1, c2, nl }, meta.arm), SEAMS = makeSeams(layout, meta.arm);
   const plan = buildPlan(meta.key, scene);
 
   // ---------------------------------------------------------------- 桶
-  const tank = createTank({ circStart: CIRC_START, craneLugs: meta.key === 'turntable' });
+  const tank = createTank({ circStart: CIRC_START, seams: SEAMS, craneLugs: meta.key === 'turntable' });
   tank.frame.userData.module = 'tank'; scene.add(tank.frame);
   tank.frame.position.copy(plan.frameW.pos); tank.frame.quaternion.copy(plan.frameW.quat);
 
@@ -146,7 +148,7 @@ export function createProject({ scene, plan: planKey = 'roll' }) {
         go(T.carrier, .9, { s: sStart }, A(`${label}：定位`, circ ? '載具到環縫高度' : '載具到縱縫起點'));
         if (Math.abs(phi0 - T.spin.state.phi) > 1e-3) with_(T.spin, .9, { phi: phi0 });
       } else {
-        const off = (circ ? -Math.PI : tgtTheta - plan.psi) * D;      // C：J1 相對焊接姿態的偏移（環縫從 −180° 走到 +180°）
+        const off = (circ ? -Math.PI : Math.atan2(Math.sin(tgtTheta - plan.psi), Math.cos(tgtTheta - plan.psi))) * D;   // C：J1 相對焊接姿態的偏移（環縫從 −180° 走到 +180°；縱縫取 ±180° 內）
         tuckAt.j1 = j1Base + off; weldAt.j1 = j1Base + off;
         go(T.carrier, .9, { s: sStart }, A(`${label}：定位`, circ ? '載具到環縫高度' : '載具到縱縫起點'));
         with_(T.arm, .9, pose(tuckAt));
@@ -167,7 +169,7 @@ export function createProject({ scene, plan: planKey = 'roll' }) {
     go(T.carrier, .9, { s: sMid }, A('回到展開位置'));
     go(T.arm, DEMO.approach * 1.3, pose(STOW), A('手臂伸直'));
     go(T.carrier, DEMO.enter, { s: sOut }, A('從人孔退出'));
-    if (P.key === 'scan') go(T.tool, DEMO.plan, {}, A('軌跡規劃', '由點雲算出三條焊道的中心線與板邊高低差，產生各工具的軌跡（姿態、拖嘴角度、壓輪位置）；焊道上的藍線是規劃結果'));
+    if (P.key === 'scan') go(T.tool, DEMO.plan, {}, A('軌跡規劃', '由點雲算出各焊道的中心線與板邊高低差，產生各工具的軌跡（姿態、拖嘴角度、壓輪位置）；焊道上的藍線是規劃結果'));
     atSlot(i, `放回${tname}`); lock('', `放回${tname}`); leaveSlot(`放回${tname}`);
   });
 
@@ -264,7 +266,7 @@ export function createProject({ scene, plan: planKey = 'roll' }) {
   }
 
   return {
-    total, timeline: tl, apply, stationStart, STATIONS, meta, plan, tank, arm: W, tools: toolsObj, poses, slots, sOut, sMid, focus, setCut, setLook,
+    total, timeline: tl, seams: SEAMS, layout, apply, stationStart, STATIONS, meta, plan, tank, arm: W, tools: toolsObj, poses, slots, sOut, sMid, focus, setCut, setLook,
     layoutChecks,
     verify: {
       moduleOf: m => { for (let p = m; p; p = p.parent) if (p.userData.module) return p.userData.module; return 'misc'; },

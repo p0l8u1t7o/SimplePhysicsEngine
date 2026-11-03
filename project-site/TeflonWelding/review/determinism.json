@@ -5,7 +5,7 @@
       "variant": "預設",
       "params": {},
       "ok": true,
-      "objects": 747,
+      "objects": 724,
       "samples": 40,
       "failures": []
     },
@@ -15,7 +15,7 @@
         "plan": "turntable"
       },
       "ok": true,
-      "objects": 694,
+      "objects": 671,
       "samples": 40,
       "failures": []
     },
@@ -25,7 +25,7 @@
         "plan": "cobot"
       },
       "ok": true,
-      "objects": 655,
+      "objects": 632,
       "samples": 40,
       "failures": []
     }
