@@ -5,9 +5,9 @@
       "variant": "預設",
       "params": {},
       "ok": true,
-      "meshes": 311,
-      "moving": 219,
-      "joints": 29,
+      "meshes": 575,
+      "moving": 395,
+      "joints": 37,
       "samples": 398,
       "dt": 0.64,
       "total": 254.14666666666662,
@@ -17,11 +17,11 @@
       "envelope": {
         "robot": {
           "minX": -4296,
-          "maxX": 342,
-          "minY": 540,
+          "maxX": 350,
+          "minY": 532,
           "maxY": 1518,
           "minZ": -189,
-          "maxZ": 119
+          "maxZ": 128
         }
       },
       "allowances": [
@@ -47,9 +47,9 @@
         "plan": "turntable"
       },
       "ok": true,
-      "meshes": 290,
-      "moving": 212,
-      "joints": 21,
+      "meshes": 527,
+      "moving": 380,
+      "joints": 30,
       "samples": 400,
       "dt": 0.76,
       "total": 303.4980555555557,
@@ -58,9 +58,9 @@
       "zfight": [],
       "envelope": {
         "robot": {
-          "minX": -2709,
+          "minX": -2718,
           "maxX": 189,
-          "minY": 1245,
+          "minY": 1237,
           "maxY": 4108,
           "minZ": -326,
           "maxZ": 418
@@ -89,9 +89,9 @@
         "plan": "cobot"
       },
       "ok": true,
-      "meshes": 274,
-      "moving": 156,
-      "joints": 20,
+      "meshes": 514,
+      "moving": 354,
+      "joints": 29,
       "samples": 400,
       "dt": 0.77,
       "total": 307.618888888889,
@@ -102,7 +102,7 @@
         "robot": {
           "minX": -2665,
           "maxX": 3225,
-          "minY": 968,
+          "minY": 958,
           "maxY": 4003,
           "minZ": -446,
           "maxZ": 446

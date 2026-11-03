@@ -1,0 +1,21 @@
+{
+  "ok": true,
+  "scope": "Node geometry and state checks; browser rendering and hardware not validated",
+  "results": [
+    {
+      "plan": "roll",
+      "checks": 2898,
+      "ok": true
+    },
+    {
+      "plan": "turntable",
+      "checks": 2898,
+      "ok": true
+    },
+    {
+      "plan": "cobot",
+      "checks": 2898,
+      "ok": true
+    }
+  ]
+}

@@ -2,6 +2,8 @@
 // 尺寸取自 docs/1000L.step（見 spec.js）。frame 是不轉的桶座標（原點在下切線中心、+Y 朝人孔），spin 是會跟著桶轉的部分。
 // 剖切：桶身、襯裡與焊道的材質共用一組剖切平面（世界座標），setCut(true) 時切掉朝向觀看者的一半（同切半展示品）。
 import * as THREE from 'three';
+import { finished } from '@core/geom/materials.js';
+import { decal } from '@core/geom/shapes.js';
 import { TANK, LINER_R, SEAMS, headGeometry, headHeight } from './spec.js';
 
 const std = (color, roughness, metalness, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness, metalness, side: THREE.DoubleSide, ...extra });
@@ -54,30 +56,40 @@ const SCRAPED = [[-15, .7], [-14, 1.1], [14, 1.1], [15, .7]];
 const LAYERS = {
   path: { profile: [[-1.4, 6], [1.4, 6]], color: 0x2ad4ff, emissive: 0x2ad4ff, fx: true },
   gap: { profile: [[-1, .7], [1, .7]], color: 0x2b3238 },
-  groove: { profile: [[-5.5, .7], [-1.2, .7], [0, .7], [1.2, .7], [5.5, .7]], color: 0x6c7880 },
+  // 明暗 V 面保留襯裡幾何，槽底與表面錯開，避免把示意開槽當成壁厚改動。
+  groove: { profile: [[-5.5, .9], [-1.2, .35], [0, .3], [1.2, .35], [5.5, .9]], color: 0xffffff, shades: [0xd8d4c4, 0x706758, 0x292b2b, 0x9a917c, 0xeee9d9] },
   rod: { profile: [[-4.5, .7], [-3.9, 2.2], [-2.6, 3.3], [0, 3.8], [2.6, 3.3], [3.9, 2.2], [4.5, .7]], color: 0xe4e9e6, roughness: .32 },
-  flat: { profile: [[-5.5, .7], [5.5, .7]], color: 0xe2ddca, roughness: .4 },
+  flat: { profile: [[-5.5, .45], [5.5, .45]], color: 0xece8d8, roughness: .24 },
   belt: { profile: [[-15, .7], [-12.5, 1.9], [0, 2.4], [12.5, 1.9], [15, .7]], color: 0xf6f9fb, roughness: .22 },
   scraped: { profile: SCRAPED, color: 0xeef1ec, roughness: .3 },
-  ok: { profile: SCRAPED, color: 0xa9e3c1, roughness: .3, emissive: 0x1d6b40 },
+  ok: { profile: [[-15, .7], [-14, 1.1], [-6, 1.1], [6, 1.1], [14, 1.1], [15, .7]], color: 0xffffff, roughness: .3, emissive: 0x1d6b40, shades: [0xcee3ae, 0x70b8a2, 0x31bd70, 0x3bd57c, 0x83c3a0, 0xc3dda9] },
 };
 
-export function createTank({ circStart = 0, defect = { seam: 'C2', u: .62 } } = {}) {
+export function createTank({ circStart = 0, defect = { seam: 'C2', u: .62 }, craneLugs = false } = {}) {
   const frame = new THREE.Group(); frame.name = 'tank';
   const spin = new THREE.Group(); spin.name = 'tank-spin'; spin.userData.cableHost = false; frame.add(spin);
   const planes = [new THREE.Plane(new THREE.Vector3(0, 0, -1), 1e6)];       // 預設不切；setCut 設定
   const clipped = [];
   const mat = (c, r, m, x) => { const M = std(c, r, m, { clippingPlanes: planes, clipShadows: true, ...x }); clipped.push(M); return M; };
   const M = {
-    sus: mat(0xc9cfd4, .32, .78), susIn: mat(0x9aa2a8, .5, .6), ptfe: mat(0xf1f2ef, .55, 0), flange: mat(0xb9c0c6, .3, .8),
+    sus: mat(0xc9cfd4, .32, .78), ptfe: mat(0xeeeadd, .43, 0, { vertexColors: true }), flange: mat(0xb9c0c6, .3, .8),
     leg: mat(0xbfc6cc, .35, .75),
   };
+  M.sus = finished(M.sus, 'metal', .06); M.sus.clippingPlanes = planes; clipped.push(M.sus);
   const mesh = (g, m, name, parent = spin) => { const o = new THREE.Mesh(g, m); o.name = name; o.castShadow = o.receiveShadow = true; parent.add(o); return o; };
 
   const mw = TANK.manway, ol = TANK.outlet, ST = TANK.straight;
   // 桶身（SUS，內 0 → 外 +4）、PTFE 襯裡（−1 → −4，與桶身之間留 1 mm 膠層）
   mesh(shellGeometry(0, TANK.wall, ol.ro, mw.ro), M.sus, 'shell');
-  mesh(shellGeometry(-TANK.glue - TANK.ptfe, -TANK.glue, ol.ri, mw.ri), M.ptfe, 'liner');
+  const linerG = shellGeometry(-TANK.glue - TANK.ptfe, -TANK.glue, ol.ri, mw.ri);
+  const linerColors = new Float32Array(linerG.attributes.position.count * 3);
+  for (let i = 0; i < linerG.attributes.position.count; i++) {
+    const y = linerG.attributes.position.getY(i);
+    const shade = .85 + .15 * Math.min(1, Math.max(0, Math.min(y + 150, ST + 150 - y) / 280));
+    linerColors.fill(shade, i * 3, i * 3 + 3);
+  }
+  linerG.setAttribute('color', new THREE.BufferAttribute(linerColors, 3));
+  mesh(linerG, M.ptfe, 'liner');
   // 人孔頸＋法蘭；襯裡套管翻邊到法蘭面
   const yNeck = ST + headHeight(mw.ro, TANK.wall) - 6, yFl = mw.top - mw.flangeT;
   mesh(ringGeometry([[mw.ri, yNeck], [mw.ro, yNeck], [mw.ro, yFl], [mw.flangeR, yFl], [mw.flangeR, mw.top], [mw.ri, mw.top], [mw.ri, yNeck]].reverse()), M.flange, 'manway');
@@ -85,7 +97,15 @@ export function createTank({ circStart = 0, defect = { seam: 'C2', u: .62 } } = 
   mesh(ringGeometry([[mw.ri - TANK.ptfe, yNeckIn], [mw.ri - .6, yNeckIn], [mw.ri - .6, mw.top + .6], [mw.flangeR - 30, mw.top + .6], [mw.flangeR - 30, mw.top + 3.6], [mw.ri - TANK.ptfe, mw.top + 3.6], [mw.ri - TANK.ptfe, yNeckIn]].reverse()), M.ptfe, 'manway-liner');
   // 人孔法蘭螺栓孔位（16 支螺栓頭）
   const boltG = new THREE.CylinderGeometry(11, 11, 10, 6);
-  for (let k = 0; k < 16; k++) { const a = (k + .5) * Math.PI / 8; const b = mesh(boltG, M.flange, 'manway-bolt'); b.position.set(Math.cos(a) * (mw.flangeR - 26), mw.top + 5.5, Math.sin(a) * (mw.flangeR - 26)); }
+  const bolts = new THREE.InstancedMesh(boltG, M.flange, 16), boltPose = new THREE.Object3D();
+  bolts.name = 'manway-bolts'; bolts.castShadow = bolts.receiveShadow = true; spin.add(bolts);
+  for (let k = 0; k < 16; k++) {
+    const a = (k + .5) * Math.PI / 8;
+    boltPose.position.set(Math.cos(a) * (mw.flangeR - 26), mw.top + 5.5, Math.sin(a) * (mw.flangeR - 26));
+    boltPose.updateMatrix(); bolts.setMatrixAt(k, boltPose.matrix);
+    // 保留原本的命名座標標記，指紋仍能驗證每顆螺栓的軌跡。
+    const marker = new THREE.Object3D(); marker.name = 'manway-bolt'; marker.position.copy(boltPose.position); spin.add(marker);
+  }
   // 底部出口
   const yOut = -headHeight(ol.ro, TANK.wall) + 6, yOf = ol.bottom + ol.flangeT;
   mesh(ringGeometry([[ol.ri, ol.bottom], [ol.flangeR, ol.bottom], [ol.flangeR, yOf], [ol.ro, yOf], [ol.ro, yOut], [ol.ri, yOut], [ol.ri, ol.bottom]].reverse(), 48), M.flange, 'outlet');
@@ -98,19 +118,71 @@ export function createTank({ circStart = 0, defect = { seam: 'C2', u: .62 } } = 
     leg.position.copy(top).add(foot).multiplyScalar(.5); leg.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), foot.clone().sub(top).normalize());
     const plate = mesh(new THREE.BoxGeometry(L.plate, 12, L.plate), M.leg, 'leg-plate'); plate.position.set(foot.x, L.footY + 6, foot.z); plate.rotation.y = -a;
     legs.push(leg);
+    const gusset = new THREE.Shape(); gusset.moveTo(0, 0); gusset.lineTo(95, -80); gusset.lineTo(20, -170); gusset.closePath();
+    const brace = mesh(new THREE.ExtrudeGeometry(gusset, { depth: 8, bevelEnabled: false }), M.leg, 'leg-gusset');
+    brace.position.set(top.x, top.y - 30, top.z); brace.rotation.y = -a;
+  }
+
+  // B 案吊耳沿用吊帶端點；A/C 的外側耳座避開人孔與手臂掃掠區。
+  for (const side of [-1, 1]) {
+    const eye = new THREE.Shape(); eye.absarc(0, 0, 35, 0, Math.PI * 2, false);
+    const hole = new THREE.Path(); hole.absarc(0, 0, 17, 0, Math.PI * 2, true); eye.holes.push(hole);
+    const lug = mesh(new THREE.ExtrudeGeometry(eye, { depth: 14, bevelEnabled: false, curveSegments: 12 }), M.sus, 'lifting-lug');
+    const r = craneLugs ? 420 : 490, y = ST + (craneLugs ? 70 : 80);
+    lug.position.set(side * r, y, -7);
+    const stem = mesh(new THREE.BoxGeometry(24, 55, 14), M.sus, 'lug-foot');
+    stem.position.set(side * (r + 12), y - 40, 0);
+  }
+  const plate = decal(spin, 150, 65, [0, 230, -TANK.ri - TANK.wall - 1], [0, Math.PI, 0], ['PTFE LINED VESSEL', '1000 L  /  SUS304'], { center: true, color: '#28333b', bg: '#c2c7c7' });
+  plate.material.clippingPlanes = planes;
+
+  // 剖切封面只表現切開的層次，並非槽內實體；不隨槽體自轉。
+  const cutFaces = new THREE.Group(); cutFaces.name = 'cut-faces'; cutFaces.userData.fx = true; frame.add(cutFaces); cutFaces.visible = false;
+  const capMats = [std(0x929b9e, .46, .7), std(0xab8753, .8, 0), std(0xf6f0dc, .55, 0)];
+  const localPlane = new THREE.Plane(), invFrame = new THREE.Matrix4();
+  let capKey = '';
+  function updateCutFaces(plane) {
+    localPlane.copy(plane).applyMatrix4(invFrame.copy(frame.matrixWorld).invert());
+    const key = [localPlane.normal.x, localPlane.normal.z, localPlane.constant].map(v => v.toFixed(3)).join(',');
+    if (key === capKey) return;
+    capKey = key;
+    for (const m of [...cutFaces.children]) { m.geometry.dispose(); cutFaces.remove(m); }
+    const n = localPlane.normal, d = -localPlane.constant;
+    const projectPoint = ([r, y], side) => new THREE.Vector2(side * Math.sqrt(Math.max(0, r * r - d * d)), y);
+    const bands = [[0, TANK.wall], [-TANK.glue, 0], [-TANK.glue - TANK.ptfe, -TANK.glue]];
+    bands.forEach(([a, b], i) => {
+      for (const side of [-1, 1]) {
+        const points = [...vesselLine(a, ol.ro, mw.ro), ...vesselLine(b, ol.ro, mw.ro).reverse()].map(p => projectPoint(p, side));
+        const cap = mesh(new THREE.ShapeGeometry(new THREE.Shape(points)), capMats[i], 'cut-layer-' + i, cutFaces);
+        cap.position.set(n.x * d, 0, n.z * d); cap.rotation.y = Math.atan2(n.x, n.z); cap.castShadow = false;
+      }
+    });
   }
 
   // ---------------------------------------------------------------- 焊道
   const seams = {};
+  const seamMaterials = Object.fromEntries(Object.entries(LAYERS).map(([key, L]) => [key, mat(L.color, L.roughness ?? .5, 0, {
+    vertexColors: !!L.shades, ...(key === 'rod' ? { transparent: true, opacity: .9 } : {}),
+    ...(L.emissive ? { emissive: L.emissive, emissiveIntensity: L.fx ? .9 : .25 } : {}),
+  })]));
   for (const s of SEAMS) {
     const at = seamPath(s, circStart), N = s.kind === 'circ' ? 360 : 60, layers = {};
     for (const [key, L] of Object.entries(LAYERS)) {
-      const m = mat(L.color, L.roughness ?? .5, 0, L.emissive ? { emissive: L.emissive, emissiveIntensity: L.fx ? .9 : .35 } : {});
-      const o = mesh(stripGeometry(at, N, L.profile), m, `seam-${s.id}-${key}`); o.castShadow = false;
+      const geo = stripGeometry(at, N, L.profile);
+      if (L.shades) {
+        const colors = new Float32Array(geo.attributes.position.count * 3), c = new THREE.Color();
+        for (let j = 0; j < geo.attributes.position.count; j++) c.setHex(L.shades[j % L.profile.length]).toArray(colors, j * 3);
+        geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      }
+      const o = mesh(geo, seamMaterials[key], `seam-${s.id}-${key}`); o.castShadow = false;
       if (L.fx) o.userData.fx = true;                                       // 規劃軌跡是畫面上的虛擬線，不是實體
       layers[key] = o;
     }
-    seams[s.id] = { seam: s, at, layers, N };
+    const hotMat = new THREE.MeshBasicMaterial({ color: 0xff9749, transparent: true, opacity: .35, depthWrite: false, side: THREE.DoubleSide, clippingPlanes: planes, vertexColors: true });
+    const hotGeo = stripGeometry(at, N, [[-12, 3.9], [0, 4.5], [12, 3.9]]);
+    const hotColors = new Float32Array(hotGeo.attributes.position.count * 3); hotGeo.setAttribute('color', new THREE.BufferAttribute(hotColors, 3));
+    const hot = mesh(hotGeo, hotMat, `hot-zone-${s.id}`); hot.userData.fx = true; hot.castShadow = false;
+    seams[s.id] = { seam: s, at, layers, N, hot };
   }
   // 模擬缺陷（兆赫波掃到才顯示）：紅圈＋短線標示疑似氣孔位置
   const ds = seams[defect.seam], dp = ds.at(defect.u);
@@ -119,17 +191,30 @@ export function createTank({ circStart = 0, defect = { seam: 'C2', u: .62 } } = 
   mark.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dp.n); mark.visible = false; spin.add(mark);
 
   // 每道焊道的進度（0～1）：s 定位、g 開槽、r 焊條、f 削平、b 焊帶、k 刮平、i 檢測；各層只畫自己負責的區段，避免重疊面
-  function setSeam(id, { s: sc = 0, g = 0, r = 0, f = 0, b = 0, k = 0, i = 0 }) {
+  function setSeam(id, { s: sc = 0, g = 0, r = 0, f = 0, b = 0, k = 0, i = 0 }, tool = {}) {
     const S = seams[id], N = S.N, seg = u => Math.round(Math.max(0, Math.min(1, u)) * N);
     const show = (key, u0, u1) => { const o = S.layers[key], a = seg(u0), z = Math.max(a, seg(u1)), per = o.geometry.userData.per; o.geometry.setDrawRange(a * per, (z - a) * per); o.visible = z > a; };
     show('path', g, sc); show('gap', g, 1); show('groove', r, g); show('rod', f, r); show('flat', b, f); show('belt', k, b); show('scraped', i, k); show('ok', 0, Math.min(i, k));
     if (id === defect.seam) mark.visible = i >= defect.u;
+    const progress = tool.held === 'rod' ? r : tool.held === 'belt' ? b : 0;
+    S.hot.visible = !!tool.fx && progress > 0 && progress < 1;
+    if (S.hot.visible) {
+      const length = S.seam.kind === 'circ' ? Math.PI * 2 * LINER_R : S.seam.y1 - S.seam.y0 - 32;
+      const end = seg(progress), start = Math.max(0, end - Math.ceil(65 / length * N)), per = S.hot.geometry.userData.per;
+      S.hot.geometry.setDrawRange(start * per, (end - start) * per);
+      const colors = S.hot.geometry.attributes.color;
+      for (let j = start; j <= end; j++) for (let q = 0; q < 3; q++) {
+        const fade = (j - start) / Math.max(1, end - start), edge = q === 1 ? 1 : .3;
+        colors.setXYZ(j * 3 + q, .22 + .78 * fade * edge, .14 + .65 * fade * edge, .12 + .36 * fade * edge);
+      }
+      colors.needsUpdate = true;
+    }
   }
   for (const s of SEAMS) setSeam(s.id, {});
 
   // 剖切：plan 給世界座標的平面（法向量朝保留側）；off 時平面推到無限遠
   let cutPlane = null;
-  function setCut(on, plane = cutPlane) { cutPlane = plane; if (on && plane) planes[0].copy(plane); else planes[0].set(new THREE.Vector3(0, 0, -1), 1e6); }
+  function setCut(on, plane = cutPlane) { cutPlane = plane; cutFaces.visible = !!(on && plane); if (on && plane) { planes[0].copy(plane); updateCutFaces(plane); } else planes[0].set(new THREE.Vector3(0, 0, -1), 1e6); }
   // 透視：桶身、襯裡、人孔與管腳半透明（焊道維持不透明），看得到桶內作業但桶仍是完整的
   const shellMats = [M.sus, M.ptfe, M.flange, M.leg];
   const base = new Map(shellMats.map(m => [m, { opacity: m.opacity, transparent: m.transparent, depthWrite: m.depthWrite }]));

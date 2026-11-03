@@ -12,6 +12,7 @@ import { lightCurtain } from '@core/models/sensors.js';
 import { frl } from '@core/models/motion.js';
 import { TANK } from './spec.js';
 import { rackSlot } from './tools.js';
+import { addRollDetails, addTurntableDetails, addGantryDetails } from './details.js';
 
 const P = { paint: std(0x2f5d8a, .5, .35), yellow: MAT.yellow, dark: MAT.steelDark, rubber: std(0x2a2d31, .85, 0), pu: std(0xd9a441, .7, .05), sling: std(0x3a8f4f, .8, 0) };
 const g = (name, parent) => { const o = new THREE.Group(); o.name = name; if (parent) parent.add(o); return o; };
@@ -103,6 +104,7 @@ function planRoll(scene) {
   const per = periphery(scene, { x: -3600, z: 2200, curtain: [{ pos: [-1300, 0, 1900], rotY: 0 }] });
   const crane = hook(scene);
   const slingAt = [xb - 1290 + 300, xb - 300];
+  const updateDetails = addRollDetails({ pos, rings, carriage, gx, beamY, Hc });
 
   return {
     key: 'roll', Hc, frameW, psi: Math.PI, rackPose: { r: 560, d: 450, Z: [1, 0, 0], X: [0, 1, 0], lift: 'arm', up: 300 },
@@ -113,7 +115,7 @@ function planRoll(scene) {
       ctx.slots = ctx.tools.map((_, i) => ({ s: ctx.sOut + 120 + i * 280, lat: 0 }));
     },
     rackRoot: rack,
-    setCarrier(s) { carriage.position.x = xb - s - tipX; },
+    setCarrier(s) { carriage.position.x = xb - s - tipX; updateDetails(); },
     setSpin(phi, tank) { tank.spin.rotation.y = phi; for (const r of rings) r.ring.rotation.x = -phi; },
     // 上料：k 1→0 吊鉤把臥放的桶放進下半環；open 0→1 上半環張開；clamp 0→1 夾緊（夾墊從 40 mm 外推到貼桶身）
     setLoad({ k, open, clamp }, tank) {
@@ -127,8 +129,8 @@ function planRoll(scene) {
     periphery: per,
     views: {
       iso: [[-5200, 4200, 6200], [-900, 900, 0]],
-      inside: [[-700, 3300, 2600], [-100, 700, 0]],
-      weld: [[300, 2300, 1500], [-200, 650, 0]],
+      inside: [[-250, 2650, 1900], [-70, 1000, 0]],
+      weld: [[180, 1940, 1100], [-160, 640, 0]],
       rack: [[-3000, 2200, 3200], [-2600, 900, 0]],
       top: [[-1800, 11000, 10], [-1800, 0, 0]],
     },
@@ -184,6 +186,7 @@ function planTurntable(scene) {
   const per = periphery(scene, { x: -3900, z: 2300, curtain: [{ pos: [-1500, 0, 2000] }] });
   const crane = hook(scene);
   const lugR = 420, lugY = TANK.straight + 70;
+  const updateDetails = addTurntableDetails({ pos, table, col, boom, slide, y0 });
 
   return {
     key: 'turntable', frameW, psi: -Math.PI / 2, rackPose: { r: 250, d: 700, Z: [0, 1, 0], X: [-1, 0, 0], lift: 'carrier', up: 380 },
@@ -193,7 +196,7 @@ function planTurntable(scene) {
       ctx.slots = ctx.tools.map((_, i) => ({ s: 1300 + this.rackPose.d - y0, lat: -1150 - i * 240 }));   // 結合面高 1300
     },
     rackRoot: rack,
-    setCarrier(s, lat) { boom.position.set(0, y0 + s + drop, 0); slide.position.x = lat; },
+    setCarrier(s, lat) { boom.position.set(0, y0 + s + drop, 0); slide.position.x = lat; updateDetails(); },
     setSpin(phi, tank) { tank.spin.rotation.y = phi; table.rotation.y = phi; },
     setLoad({ k }, tank) {
       tank.frame.position.set(0, y0 + k * 1500, 0);
@@ -205,8 +208,8 @@ function planTurntable(scene) {
     periphery: per,
     views: {
       iso: [[-3600, 4600, 6600], [-900, 2000, 0]],
-      inside: [[700, 3200, 3300], [0, 1800, -150]],
-      weld: [[500, 2600, 1900], [0, 1700, -300]],
+      inside: [[250, 2600, 2300], [0, 1750, -120]],
+      weld: [[350, 2200, 1300], [0, 1650, -340]],
       rack: [[-1000, 2600, 2600], [-1600, 1500, -250]],
       top: [[-1300, 12000, 10], [-1300, 0, 0]],
     },
@@ -233,6 +236,7 @@ function planCobot(scene) {
   const ram = verticalCarrier(cross, { y0, ramLen, name: 'ram' });
   const rack = mod(g('tool-rack', scene), 'tool-rack');
   const per = periphery(scene, { x: -3400, z: 2600, curtain: [] });
+  const updateDetails = addGantryDetails({ gantry, cross, ram, H, xs, zs });
 
   let gx = 0;
   return {
@@ -243,15 +247,15 @@ function planCobot(scene) {
       ctx.slots = ctx.tools.map((_, i) => ({ s: 1300 + this.rackPose.d - y0, lat: -1100 - i * 240 }));
     },
     rackRoot: rack,
-    setCarrier(s, lat) { cross.position.x = lat; ram.position.y = y0 + s; },
+    setCarrier(s, lat) { cross.position.x = lat; ram.position.y = y0 + s; updateDetails(); },
     setSpin(phi, tank) { tank.spin.rotation.y = 0; },
     // 上料：門架從東側推進（k 1→0），定位腳下降（clamp）
     setLoad({ k, clamp }) { gantry.position.x = k * 4200; gx = k; for (const f of feet) f.position.y = 150 - clamp * 85; },
     periphery: per,
     views: {
       iso: [[-3200, 5200, 7400], [-300, 2200, 0]],
-      inside: [[700, 3000, 3300], [0, 1500, -150]],
-      weld: [[500, 2000, 1900], [0, 1200, -300]],
+      inside: [[250, 2300, 2300], [0, 1450, -120]],
+      weld: [[350, 1900, 1300], [0, 1350, -340]],
       rack: [[-900, 2700, 2700], [-1500, 1500, -250]],
       top: [[0, 13000, 10], [0, 0, 0]],
     },

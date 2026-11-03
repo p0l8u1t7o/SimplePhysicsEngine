@@ -128,7 +128,8 @@ const weldCam = new THREE.PerspectiveCamera(38, 1.5, 10, 6000);
 function aimWeldCam() {
   const tcp = project.focus(), f = project.tank.frame, axis = f.localToWorld(V(0, 0, 0)).sub(f.localToWorld(V(0, 1, 0))).normalize();
   const p = project.tank.frame.worldToLocal(tcp.clone()), radial = f.localToWorld(V(p.x, p.y, p.z)).sub(f.localToWorld(V(0, p.y, 0))).normalize();
-  weldCam.position.copy(tcp).addScaledVector(radial, -330).addScaledVector(axis, -260);
+  const tangent = new THREE.Vector3().crossVectors(axis, radial).normalize();
+  weldCam.position.copy(tcp).addScaledVector(radial, -390).addScaledVector(axis, -180).addScaledVector(tangent, 160);
   weldCam.up.copy(axis.clone().negate()); weldCam.lookAt(tcp);
 }
 function render() {

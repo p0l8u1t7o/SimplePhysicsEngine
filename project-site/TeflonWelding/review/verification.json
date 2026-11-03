@@ -29,11 +29,11 @@
       "ok": true,
       "total": 307.6,
       "follow": 0.16,
-      "minGapInside": 9.5,
+      "minGapInside": 6.8,
       "tightest": {
-        "t": 236,
-        "mesh": "tool-scrape",
-        "y": 454
+        "t": 159.6,
+        "mesh": "hot-air upper / jacket",
+        "y": 1446
       },
       "failures": []
     }

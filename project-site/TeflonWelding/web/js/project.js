@@ -11,6 +11,7 @@ import { createWelderArm, STOW } from './robot.js';
 import { buildPlan } from './plans.js';
 import { MAT } from '@core/geom/materials.js';
 import { block } from '@core/geom/shapes.js';
+import { addArmServices, addPeripheryDetails, addExtraction } from './details.js';
 
 export { PLANS };
 export const STATIONS = ['上料定位', ...PROCESS.map(p => p.name), '卸料'];
@@ -22,7 +23,7 @@ export function createProject({ scene, plan: planKey = 'roll' }) {
   const plan = buildPlan(meta.key, scene);
 
   // ---------------------------------------------------------------- 桶
-  const tank = createTank({ circStart: CIRC_START });
+  const tank = createTank({ circStart: CIRC_START, craneLugs: meta.key === 'turntable' });
   tank.frame.userData.module = 'tank'; scene.add(tank.frame);
   tank.frame.position.copy(plan.frameW.pos); tank.frame.quaternion.copy(plan.frameW.quat);
 
@@ -41,6 +42,9 @@ export function createProject({ scene, plan: planKey = 'roll' }) {
   const rackUp = RP.lift === 'arm' ? W.solve([RP.r - LIFT * RP.Z[0], RP.d - LIFT * RP.Z[1], 0], RP.Z, RP.X, [rack.pose], W.cplg) : rack;
   rackUp.pose = W.near(rackUp.pose, rack.pose);
   const poses = { ...W.poses, rack, rackUp };
+  addArmServices(W.arm, meta.key === 'cobot');
+  const updatePeriphery = addPeripheryDetails(scene, plan.periphery, meta.key);
+  const updateExtraction = addExtraction(scene, plan);
 
   // 工具架格位：載具到格位、手臂在取放姿態時結合面的世界位置
   const toolsObj = createTools(), toolGroup = new THREE.Group(); toolGroup.name = 'tools'; toolGroup.userData.module = 'tools'; scene.add(toolGroup);
@@ -184,6 +188,22 @@ export function createProject({ scene, plan: planKey = 'roll' }) {
     go(T.load, 4, { k: 1, open: 1 }, A('門架推往下一個桶'));
   }
 
+  // 小零件（外接球半徑 < 120 mm：螺栓、接頭、感測器、管夾）不投影：陰影貼圖每個投影網格多一次 draw call，手機幀率吃不消
+  scene.updateMatrixWorld(true);
+  const ws = new THREE.Vector3();
+  scene.traverse(m => {
+    if (!m.isMesh || !m.castShadow || !m.geometry) return;
+    if (!m.geometry.boundingSphere) m.geometry.computeBoundingSphere();
+    if (m.geometry.boundingSphere.radius * m.getWorldScale(ws).x < 120) m.castShadow = false;
+  });
+  // 周邊、護網、抽氣與管線（含手臂上的管束）不投影：畫面上陰影幾乎看不到，卻佔掉手機約兩成幀率
+  scene.traverse(m => {
+    if (!m.isMesh) return;
+    let quiet = !!m.userData.routingHardware;
+    for (let q = m; q && !quiet; q = q.parent) quiet = ['periphery', 'safety', 'extraction'].includes(q.userData.module) || !!q.userData.routingHardware;
+    if (quiet) m.castShadow = false;
+  });
+
   const total = tl.total;
   const stationStart = STATIONS.map((_, k) => Math.min(...tl.events.filter(e => e.station === k).map(e => e.start)));
 
@@ -197,12 +217,15 @@ export function createProject({ scene, plan: planKey = 'roll' }) {
     plan.setSpin(st.spin.phi, tank);
     plan.setCarrier(st.carrier.s, st.carrier.lat);
     W.set(st.arm);
-    for (const s of SEAMS) tank.setSeam(s.id, st['seam-' + s.id]);
+    for (const s of SEAMS) tank.setSeam(s.id, st['seam-' + s.id], st.tool);
+    updatePeriphery(st); updateExtraction(st.load.k);
     scene.updateMatrixWorld(true);
     for (const [key, tool] of Object.entries(toolsObj)) {
       const m = st.tool.held === key ? W.cplg.matrixWorld : slotM[key];
       m.decompose(tool.root.position, tool.root.quaternion, tool.root.scale);
-      tool.set(st.tool.held === key && st.tool.fx > .5);
+      const field = FIELD[key === 'cam' ? 'scan' : key];
+      const travel = SEAMS.reduce((sum, seam) => sum + st['seam-' + seam.id][field] * seamLength(seam) / 1000, 0);
+      tool.set(st.tool.held === key && st.tool.fx > .5, travel);
     }
     if (cutOn) { cutWorld.copy(plan.cut).applyMatrix4(tank.frame.matrixWorld); tank.setCut(true, cutWorld); } else tank.setCut(false);
     return st;
