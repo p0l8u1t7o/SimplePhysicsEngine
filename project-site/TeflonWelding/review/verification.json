@@ -19,24 +19,6 @@
       },
       "failures": []
     },
-    "roll·極端排版": {
-      "ok": true,
-      "total": 291.8,
-      "follow": 0.05,
-      "minGapInside": 16.8,
-      "minNeckGap": 37.8,
-      "seamLayout": {
-        "c1": 250,
-        "c2": 1000,
-        "nl": 2
-      },
-      "tightest": {
-        "t": 181.9,
-        "mesh": "pfa-tape",
-        "y": 1015
-      },
-      "failures": []
-    },
     "turntable": {
       "ok": true,
       "total": 322.5,
@@ -55,24 +37,6 @@
       },
       "failures": []
     },
-    "turntable·極端排版": {
-      "ok": true,
-      "total": 345.9,
-      "follow": 0.05,
-      "minGapInside": 14.4,
-      "minNeckGap": 14.4,
-      "seamLayout": {
-        "c1": 250,
-        "c2": 1000,
-        "nl": 2
-      },
-      "tightest": {
-        "t": 17.9,
-        "mesh": "mast-head",
-        "y": 1542
-      },
-      "failures": []
-    },
     "cobot": {
       "ok": true,
       "total": 324.9,
@@ -88,24 +52,6 @@
         "t": 193.2,
         "mesh": "pfa-tape",
         "y": 435
-      },
-      "failures": []
-    },
-    "cobot·極端排版": {
-      "ok": true,
-      "total": 351.9,
-      "follow": 0.16,
-      "minGapInside": 16.8,
-      "minNeckGap": 17.8,
-      "seamLayout": {
-        "c1": 250,
-        "c2": 875,
-        "nl": 2
-      },
-      "tightest": {
-        "t": 215.8,
-        "mesh": "pfa-tape",
-        "y": 265
       },
       "failures": []
     }

@@ -17,7 +17,9 @@ out.estimate = { metres: +out.estimate.metres.toFixed(2), hours: +(out.estimate.
 
 // 每個方案跑預設排版，再跑一次極端排版（環縫在可調範圍兩端、兩道縱縫）
 const EXTREME = { c1: 0, c2: 99999, nl: 2 };                     // 夾到各方案可調範圍的兩端
-for (const [plan, opts] of ['roll', 'turntable', 'cobot'].flatMap(k => [[k, {}], [k + '·極端排版', EXTREME]])) {
+// 快速檢查只跑預設排版；tools/verify-extreme.mjs（完整檢查）跑極端排版
+const EXTREME_ONLY = process.env.TW_VERIFY === 'extreme';
+for (const [plan, opts] of ['roll', 'turntable', 'cobot'].map(k => EXTREME_ONLY ? [k + '·極端排版', EXTREME] : [k, {}])) {
   const scene = new THREE.Scene(), p = createProject({ scene, plan: plan.split('·')[0], ...opts }), failures = [], SEAMS = p.seams;
   const tl = p.timeline, v = new THREE.Vector3(), v2 = new THREE.Vector3(), tcp = new THREE.Vector3();
 
@@ -90,6 +92,6 @@ for (const [plan, opts] of ['roll', 'turntable', 'cobot'].flatMap(k => [[k, {}],
 }
 
 mkdirSync(new URL('../review/', import.meta.url), { recursive: true });
-writeFileSync(new URL('../review/verification.json', import.meta.url), JSON.stringify(out, null, 2) + '\n');
+writeFileSync(new URL(EXTREME_ONLY ? '../review/verification-extreme.json' : '../review/verification.json', import.meta.url), JSON.stringify(out, null, 2) + '\n');
 console.log(JSON.stringify(out, null, 1));
 process.exit(out.ok ? 0 : 1);

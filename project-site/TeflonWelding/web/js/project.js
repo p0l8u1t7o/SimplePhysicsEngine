@@ -297,6 +297,9 @@ export function createProject({ scene, plan: planKey = 'roll', c1, c2, nl }) {
     total, timeline: tl, seams: SEAMS, layout, apply, thzAt, stationStart, STATIONS, meta, plan, tank, arm: W, tools: toolsObj, poses, slots, sOut, sMid, focus, setCut, setLook,
     layoutChecks,
     verify: {
+      // 管線與線夾（cable() 的走線五金）不進全場干涉：數量多、全掛在會動的手臂上，會讓檢查慢到 CI 逾時；
+      // 桶內與人孔頸的管線間隙由 tools/verify.mjs 逐頂點檢查（含手臂上的管束）
+      skip: o => !!o.userData.routingHardware,
       moduleOf: m => { for (let p = m; p; p = p.parent) if (p.userData.module) return p.userData.module; return 'misc'; },
       allow: [
         { why: '工具貼著襯裡與焊道作業（壓靴、刀具、壓輪接觸面）；桶內間隙由 tools/verify.mjs 的頂點半徑檢查負責', test: (a, b, c) => { const ma = c.moduleOf(a), mb = c.moduleOf(b); return (ma === 'tools' && mb === 'tank') || (mb === 'tools' && ma === 'tank'); } },

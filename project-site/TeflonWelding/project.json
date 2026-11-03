@@ -8,7 +8,9 @@
       "tools/verify.mjs",
       "tools/verify-details.mjs"
     ],
-    "full": []
+    "full": [
+      "tools/verify-extreme.mjs"
+    ]
   },
   "variants": [
     {
