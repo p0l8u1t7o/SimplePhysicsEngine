@@ -37,6 +37,7 @@ node ../../core/tools/check.mjs "TeflonWelding" --quick  # 部署前快速檢查
 | `web/js/plans.js` | 三個方案的機構：迴轉架／轉台／移動門架、伸臂／立柱懸臂／Z 伸縮柱、上料吊鉤、周邊（電控、熱風控制、兆赫波主機） |
 | `web/js/details.js` | 三案機構細節、拖鏈、手臂氣管／電源／光纖、旋轉接頭、側吸罩與排氣管、送風機、護網、HMI 焊道狀態；新增外觀不修改排程 |
 | `web/js/project.js` | 組場景、取放工具姿態與工具架格位、時間軸（上料 → 6 道製程 × 各焊道（相機定位後插入軌跡規劃）→ 卸料）、`apply(t)`、空間檢核、全場檢查設定 |
+| `web/js/thz-view.js` | 兆赫波畫面：A-scan 回波波形（菲涅耳反射係數＋時間差模型）、沿焊道 B-scan、各焊道判定（NG／補焊／複檢 OK） |
 | `web/js/main.js` | 舞台、方案切換、剖切開關、視角、標籤、焊道狀態表、焊點特寫相機、`exposeSim`、錄影 |
 | `tools/verify.mjs` | 三方案各跑預設與極端排版（環縫夾到可調範圍兩端、兩道縱縫）：TCP 跟隨焊道、桶內間隙（逐頂點對 `wallAt`）、製程順序；結果寫 `review/verification.json` |
 | `tools/verify-details.mjs` | 三案的透視／剖切／實體切換、切面跟隨、共用材質、七道工序效果、跳播旋轉、缺陷標記與法蘭螺栓實例位置；結果寫 `review/details-verification.json` |

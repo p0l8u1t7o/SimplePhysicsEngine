@@ -4,7 +4,7 @@
 // 手臂一律 J1 與桶軸同軸、從人孔伸入（伸直穿過人孔，進桶後展開到退刀姿態）；環縫由桶轉（A、B）或 J1 繞圈（C）完成，縱縫由載具沿桶軸移動完成。
 import * as THREE from 'three';
 import { createTimeline, linear } from '@core/anim/track.js';
-import { TANK, NECK_CLEAR, PROCESS, TOOLS, PLANS, DEMO, FIELD, seamLength, makeSeams, seamLayout } from './spec.js';
+import { TANK, NECK_CLEAR, PROCESS, TOOLS, PLANS, DEMO, FIELD, THZ, HOT_AIR, seamLength, makeSeams, seamLayout } from './spec.js';
 import { createTank, wallAt } from './tank.js';
 import { createTools, rackSlot, RACK_DEPTH } from './tools.js';
 import { createWelderArm, STOW } from './robot.js';
@@ -14,7 +14,7 @@ import { block } from '@core/geom/shapes.js';
 import { addArmServices, addPeripheryDetails, addExtraction } from './details.js';
 
 export { PLANS };
-export const STATIONS = ['上料定位', ...PROCESS.map(p => p.name), '卸料'];
+export const STATIONS = ['上料定位', ...PROCESS.map(p => p.name), '補焊複檢', '卸料'];
 const CIRC_START = Math.PI / 2;                     // 環縫起點（桶座標方位）：離縱縫 90°，不在 T 形接頭起焊
 const D = 180 / Math.PI;
 
@@ -75,6 +75,7 @@ export function createProject({ scene, plan: planKey = 'roll', c1, c2, nl }) {
     arm: tl.track('arm', { ...STOW }),
     spin: tl.track('spin', { phi: 0 }),
     tool: tl.track('tool', { held: '', fx: 0 }),
+    repair: tl.track('repair', { r: 0, c: 0 }),             // 缺陷處補焊（r）與複檢（c）進度
   };
   for (const s of SEAMS) T[s.id] = tl.track('seam-' + s.id, Object.fromEntries(Object.values(FIELD).map(k => [k, 0])));
   let t = 0;
@@ -123,55 +124,70 @@ export function createProject({ scene, plan: planKey = 'roll', c1, c2, nl }) {
   };
   const lock = (key, text) => { go(T.tool, .5, { held: key }, A(text, key ? '快換盤鎖定' : '快換盤釋放')); };
 
-  // ---- 每道製程
-  PROCESS.forEach((P, pi) => {
-    station = pi + 1;
-    const i = TOOLS.findIndex(x => x.key === P.tool), tname = TOOLS[i].name;
-    // 取工具
-    atSlot(i, `取${tname}`); lock(P.tool, `取${tname}`); leaveSlot(`取${tname}`);
-    // 伸直、到人孔上方、伸入
+  // ---- 一道焊道走一趟（u0～u1 為焊道參數範圍，局部補焊與複檢只走缺陷附近）：定位 → 下刀 → 加工 → 退刀
+  // prog：要推進的進度（track、field）；A／B 環縫由桶轉、C 由 J1 繞；縱縫由載具沿桶軸走
+  const seamPass = (S, { u0 = 0, u1 = 1, label, sub, dur, prog }) => {
+    const circ = S.kind === 'circ', yAt = u => S.y0 + 16 + (S.y1 - S.y0 - 32) * u;
+    const sStart = circ ? S.y + W.d : yAt(u0) + W.d, sEnd = circ ? sStart : yAt(u1) + W.d;
+    const theta0 = circ ? CIRC_START + 2 * Math.PI * u0 : S.theta;          // 起點方位
+    const tuckAt = { ...poses.tuck.pose }, weldAt = { ...(circ ? poses.weldC.pose : poses.weldL.pose) };
+    let phi0 = T.spin.state.phi, j10 = j1Base;
+    if (meta.spin === 'tank') {
+      phi0 = nearAngle(theta0 - plan.psi, T.spin.state.phi);
+      go(T.carrier, .9, { s: sStart }, A(`${label}：定位`, circ ? '載具到環縫高度' : '載具到縱縫起點'));
+      if (Math.abs(phi0 - T.spin.state.phi) > 1e-3) with_(T.spin, .9, { phi: phi0 });
+    } else {
+      // C：J1 相對焊接姿態的偏移（整圈環縫從 −180° 走到 +180°；縱縫取 ±180° 內）
+      const off = circ ? -180 + 360 * u0 : Math.atan2(Math.sin(theta0 - plan.psi), Math.cos(theta0 - plan.psi)) * D;
+      j10 = j1Base + off; tuckAt.j1 = j10; weldAt.j1 = j10;
+      go(T.carrier, .9, { s: sStart }, A(`${label}：定位`, circ ? '載具到環縫高度' : '載具到縱縫起點'));
+      with_(T.arm, .9, pose(tuckAt));
+    }
+    go(T.arm, DEMO.approach, pose(weldAt), A(`${label}：下刀`, '工具貼上焊道'));
+    go(T.tool, 0, { fx: 1 });
+    if (circ) {
+      if (meta.spin === 'tank') go(T.spin, dur, { phi: phi0 + 2 * Math.PI * (u1 - u0) }, { ...A(label, sub), ease: linear });
+      else go(T.arm, dur, { j1: j10 + 360 * (u1 - u0) }, { ...A(label, sub + '｜J1 繞桶軸'), ease: linear });
+    } else go(T.carrier, dur, { s: sEnd }, { ...A(label, sub), ease: linear });
+    with_(prog.track, dur, { [prog.field]: 1 }, { ease: linear });
+    go(T.tool, 0, { fx: 0 });
+    go(T.arm, DEMO.approach * .8, pose({ ...tuckAt, j1: T.arm.state.j1 }), A(`${label}：退刀`));
+    if (meta.spin === 'j1') go(T.arm, .6, { j1: j1Base }, A(`${label}：退刀`, 'J1 回正'));
+  };
+  // ---- 取工具 → 伸入 → body() → 退出 → 還工具
+  const visit = (toolKey, body, after) => {
+    const i = TOOLS.findIndex(x => x.key === toolKey), tname = TOOLS[i].name;
+    atSlot(i, `取${tname}`); lock(toolKey, `取${tname}`); leaveSlot(`取${tname}`);
     go(T.arm, 1.4, pose(STOW), A('手臂伸直（穿人孔姿態）', `人孔襯裡後內徑 ${Math.round(NECK_CLEAR * 2)} mm`));
     moveCarrier({ s: sOut, lat: 0 }, '移到人孔上方');
     go(T.carrier, DEMO.enter, { s: sMid }, A('從人孔伸入桶內', '伸直狀態沿桶軸進入'));
     go(T.arm, DEMO.approach * 1.3, pose(poses.tuck.pose), A('在桶內展開到退刀姿態'));
-    // 焊道
-    for (const S of SEAMS) {
-      const len = seamLength(S) / 1000, min = len / P.speed, label = `${P.name}：${S.name}`;
-      const sub = `${P.note}｜實際 ${len.toFixed(2)} m、約 ${min.toFixed(1)} 分`;
-      const circ = S.kind === 'circ', sStart = circ ? S.y + W.d : S.y0 + 16 + W.d, sEnd = circ ? sStart : S.y1 - 16 + W.d;
-      // 定位：載具到焊道高度；A／B 桶轉到起點，C 由 J1 轉到起點
-      const tgtTheta = circ ? CIRC_START : S.theta;                  // 起點方位
-      const tuckAt = { ...poses.tuck.pose }, weldAt = { ...(circ ? poses.weldC.pose : poses.weldL.pose) };
-      let phi0 = T.spin.state.phi;
-      if (meta.spin === 'tank') {
-        phi0 = nearAngle(tgtTheta - plan.psi, T.spin.state.phi);
-        go(T.carrier, .9, { s: sStart }, A(`${label}：定位`, circ ? '載具到環縫高度' : '載具到縱縫起點'));
-        if (Math.abs(phi0 - T.spin.state.phi) > 1e-3) with_(T.spin, .9, { phi: phi0 });
-      } else {
-        const off = (circ ? -Math.PI : Math.atan2(Math.sin(tgtTheta - plan.psi), Math.cos(tgtTheta - plan.psi))) * D;   // C：J1 相對焊接姿態的偏移（環縫從 −180° 走到 +180°；縱縫取 ±180° 內）
-        tuckAt.j1 = j1Base + off; weldAt.j1 = j1Base + off;
-        go(T.carrier, .9, { s: sStart }, A(`${label}：定位`, circ ? '載具到環縫高度' : '載具到縱縫起點'));
-        with_(T.arm, .9, pose(tuckAt));
-      }
-      go(T.arm, DEMO.approach, pose(weldAt), A(`${label}：下刀`, '工具貼上焊道'));
-      go(T.tool, 0, { fx: 1 });
-      const dur = (circ ? DEMO.circ : DEMO.long) * (P.demo ?? 1), field = FIELD[P.key];
-      if (circ) {
-        if (meta.spin === 'tank') go(T.spin, dur, { phi: phi0 + 2 * Math.PI }, { ...A(label, sub), ease: linear });
-        else go(T.arm, dur, { j1: j1Base + 180 }, { ...A(label, sub + '｜J1 繞桶軸一圈'), ease: linear });
-      } else go(T.carrier, dur, { s: sEnd }, { ...A(label, sub), ease: linear });
-      with_(T[S.id], dur, { [field]: 1 }, { ease: linear });
-      go(T.tool, 0, { fx: 0 });
-      go(T.arm, DEMO.approach * .8, pose({ ...tuckAt, j1: T.arm.state.j1 }), A(`${label}：退刀`));
-      if (meta.spin === 'j1') go(T.arm, .6, { j1: j1Base }, A(`${label}：退刀`, 'J1 回正'));
-    }
-    // 退出、還工具
+    body();
     go(T.carrier, .9, { s: sMid }, A('回到展開位置'));
     go(T.arm, DEMO.approach * 1.3, pose(STOW), A('手臂伸直'));
     go(T.carrier, DEMO.enter, { s: sOut }, A('從人孔退出'));
-    if (P.key === 'scan') go(T.tool, DEMO.plan, {}, A('軌跡規劃', '由點雲算出各焊道的中心線與板邊高低差，產生各工具的軌跡（姿態、拖嘴角度、壓輪位置）；焊道上的藍線是規劃結果'));
+    after?.();
     atSlot(i, `放回${tname}`); lock('', `放回${tname}`); leaveSlot(`放回${tname}`);
+  };
+
+  // ---- 每道製程：全部焊道各走一趟
+  PROCESS.forEach((P, pi) => {
+    station = pi + 1;
+    visit(P.tool, () => {
+      for (const S of SEAMS) {
+        const len = seamLength(S) / 1000, min = len / P.speed;
+        seamPass(S, { label: `${P.name}：${S.name}`, sub: `${P.note}｜實際 ${len.toFixed(2)} m、約 ${min.toFixed(1)} 分`, dur: (S.kind === 'circ' ? DEMO.circ : DEMO.long) * (P.demo ?? 1), prog: { track: T[S.id], field: FIELD[P.key] } });
+      }
+    }, P.key === 'scan' ? () => go(T.tool, DEMO.plan, {}, A('軌跡規劃', '由點雲算出各焊道的中心線與板邊高低差，產生各工具的軌跡（姿態、拖嘴角度、壓輪位置）；焊道上的藍線是規劃結果')) : null);
   });
+
+  // ---- 兆赫波判定 NG → 局部補焊 → 複檢（模擬：上環縫一處氣孔）
+  station = PROCESS.length + 1;
+  const DS = SEAMS.find(s => s.id === THZ.defect.seam), du = THZ.defect.u, half = THZ.repairHalf / seamLength(DS);
+  go(T.tool, 2, {}, A(`兆赫波判定 NG：${DS.name}一處多一道回波`, `位置約 ${Math.round(du * 360)}°（自起點）；回波時間落在 PFA 焊層內、相位反轉 → 判定氣孔；其餘焊道 OK`));
+  visit('belt', () => seamPass(DS, { u0: du - half, u1: du + half, label: `局部補焊：${DS.name}缺陷處`, sub: `熱風 ${HOT_AIR.temp} °C 重熔缺陷處並補一段 PFA 焊帶（前後各 ${THZ.repairHalf} mm）`, dur: 2.4, prog: { track: T.repair, field: 'r' } }));
+  visit('thz', () => seamPass(DS, { u0: du - half, u1: du + half, label: `複檢：${DS.name}缺陷處`, sub: '兆赫波重新掃描補焊段：多餘回波消失、焊層厚度在規格內 → OK', dur: 2.2, prog: { track: T.repair, field: 'c' } }),
+    () => go(T.tool, 1.5, {}, A('複檢 OK：全部焊道通過', '檢測紀錄（波形、B-scan、位置）存檔，隨桶出貨')));
 
   // ---- S7 卸料
   station = STATIONS.length - 1;
@@ -220,6 +236,7 @@ export function createProject({ scene, plan: planKey = 'roll', c1, c2, nl }) {
     plan.setCarrier(st.carrier.s, st.carrier.lat);
     W.set(st.arm);
     for (const s of SEAMS) tank.setSeam(s.id, st['seam-' + s.id], st.tool);
+    tank.setRepair(st.repair, st['seam-' + DS.id].i >= du);
     updatePeriphery(st); updateExtraction(st.load.k);
     scene.updateMatrixWorld(true);
     for (const [key, tool] of Object.entries(toolsObj)) {
@@ -234,6 +251,17 @@ export function createProject({ scene, plan: planKey = 'roll', c1, c2, nl }) {
   }
   function setCut(on) { cutOn = on; }
   function setLook(mode) { cutOn = mode === 'cut'; tank.setGhost(mode === 'xray'); }
+
+  // 兆赫波畫面用的狀態：正在掃描的焊道與位置（全線掃描或複檢）、缺陷是否已掃到、補焊與複檢進度
+  function thzAt(time) {
+    const st = tl.sample(time), scanning = st.tool.held === 'thz' && st.tool.fx > .5;
+    let seam = null, u = 0, recheck = false;
+    if (scanning) {
+      for (const S of SEAMS) { const a = T[S.id].active(time); if (a && a.end.i === 1 && a.initial.i < 1) { seam = S; u = st['seam-' + S.id].i; } }
+      const rc = T.repair.active(time); if (rc && rc.end.c === 1 && rc.initial.c < 1) { seam = DS; u = du - half + 2 * half * st.repair.c; recheck = true; }
+    }
+    return { st, scanning, seam, u, recheck, found: st['seam-' + DS.id].i >= du, repair: st.repair.r, checked: st.repair.c, defect: { seam: DS, u: du, half } };
+  }
 
   // 目前焊點（給鏡頭追隨）：TCP 世界位置
   const focus = () => W.tcp.getWorldPosition(new THREE.Vector3());
@@ -266,7 +294,7 @@ export function createProject({ scene, plan: planKey = 'roll', c1, c2, nl }) {
   }
 
   return {
-    total, timeline: tl, seams: SEAMS, layout, apply, stationStart, STATIONS, meta, plan, tank, arm: W, tools: toolsObj, poses, slots, sOut, sMid, focus, setCut, setLook,
+    total, timeline: tl, seams: SEAMS, layout, apply, thzAt, stationStart, STATIONS, meta, plan, tank, arm: W, tools: toolsObj, poses, slots, sOut, sMid, focus, setCut, setLook,
     layoutChecks,
     verify: {
       moduleOf: m => { for (let p = m; p; p = p.parent) if (p.userData.module) return p.userData.module; return 'misc'; },
@@ -275,6 +303,7 @@ export function createProject({ scene, plan: planKey = 'roll', c1, c2, nl }) {
         { why: '桶是中空迴轉體，有向包圍盒包住整個內部；手臂、載具在桶內的間隙由 tools/verify.mjs 逐頂點檢查', test: (a, b, c) => { const ma = c.moduleOf(a), mb = c.moduleOf(b); return (ma === 'tank') !== (mb === 'tank') && ['robot', 'boom', 'gantry', 'tools'].includes(ma === 'tank' ? mb : ma) && ['shell', 'liner', 'manway', 'manway-liner'].includes((ma === 'tank' ? a : b).name); } },
         { why: '工具掛在手臂快換盤上（只限兩側快換盤的結合面）', test: (a, b, c) => { const ma = c.moduleOf(a), mb = c.moduleOf(b); return ((ma === 'tools' && mb === 'robot') || (mb === 'tools' && ma === 'robot')) && (a.name === 'tool-coupling' || b.name === 'tool-coupling') && (a.name === 'atc-body' || b.name === 'atc-body' || a.name === 'flange' || b.name === 'flange'); } },
         { why: '工具放在工具架托叉上', test: (a, b, c) => { const ma = c.moduleOf(a), mb = c.moduleOf(b); return (ma === 'tools' && mb === 'tool-rack') || (mb === 'tools' && ma === 'tool-rack'); } },
+        { why: '迴轉環在托輪上滾動（滾動接觸；半環的包圍盒很大，停在某些角度時會被當成穿插）', test: (a, b) => { const n = [a.name, b.name]; return n.includes('support-roller') && n.some(x => x === 'ring-upper' || x === 'ring-lower'); } },
         { why: '迴轉架夾墊、轉台定位塊夾住桶身／桶腳', test: (a, b, c) => { const ma = c.moduleOf(a), mb = c.moduleOf(b); return (ma === 'positioner' && mb === 'tank') || (mb === 'positioner' && ma === 'tank'); } },
         { why: '吊帶掛在桶身／吊耳上', test: (a, b, c) => { const ma = c.moduleOf(a), mb = c.moduleOf(b); return (ma === 'crane' && mb === 'tank') || (mb === 'crane' && ma === 'tank'); } },
       ],

@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { finished } from '@core/geom/materials.js';
 import { decal } from '@core/geom/shapes.js';
-import { TANK, LINER_R, SEAMS, headGeometry, headHeight } from './spec.js';
+import { TANK, LINER_R, SEAMS, THZ, headGeometry, headHeight, seamLength } from './spec.js';
 
 const std = (color, roughness, metalness, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness, metalness, side: THREE.DoubleSide, ...extra });
 
@@ -63,7 +63,7 @@ const LAYERS = {
   ok: { profile: [[-15, .7], [-12.5, 1.9], [-6, 2.3], [6, 2.3], [12.5, 1.9], [15, .7]], color: 0xffffff, roughness: .3, emissive: 0x1d6b40, shades: [0xcee3ae, 0x70b8a2, 0x31bd70, 0x3bd57c, 0x83c3a0, 0xc3dda9] },
 };
 
-export function createTank({ circStart = 0, seams: seamList = SEAMS, defect = { seam: 'C2', u: .62 }, craneLugs = false } = {}) {
+export function createTank({ circStart = 0, seams: seamList = SEAMS, defect = THZ.defect, craneLugs = false } = {}) {
   const frame = new THREE.Group(); frame.name = 'tank';
   const spin = new THREE.Group(); spin.name = 'tank-spin'; spin.userData.cableHost = false; frame.add(spin);
   const planes = [new THREE.Plane(new THREE.Vector3(0, 0, -1), 1e6)];       // 預設不切；setCut 設定
@@ -188,12 +188,25 @@ export function createTank({ circStart = 0, seams: seamList = SEAMS, defect = { 
   mark.name = 'thz-defect'; mark.userData.fx = true; mark.position.copy(dp.p).addScaledVector(dp.n, 4);
   mark.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dp.n); mark.visible = false; spin.add(mark);
 
+  // 缺陷處補焊段（虛擬疊層，標示補焊範圍）：缺陷前後各 THZ.repairHalf mm，r 0→1 時沿焊道長出來
+  const half = THZ.repairHalf / seamLength(ds.seam), pu0 = defect.u - half;
+  const patchMat = new THREE.MeshBasicMaterial({ color: 0xffb547, transparent: true, opacity: .75, depthWrite: false, clippingPlanes: planes });
+  const patch = new THREE.Mesh(stripGeometry(u => ds.at(pu0 + 2 * half * u), 40, [[-11, 3.6], [0, 4.1], [11, 3.6]]), patchMat);
+  patch.name = 'repair-patch'; patch.userData.fx = true; patch.visible = false; spin.add(patch);
+  // 判定狀態：掃到缺陷 → 紅圈（NG）；補焊中與補焊後未複檢 → 橘；複檢通過 → 綠圈、補焊段轉綠
+  function setRepair({ r = 0, c = 0 } = {}, found = false) {
+    mark.visible = found;
+    mark.material.color.setHex(c >= 1 ? 0x3dd68c : r > 0 ? 0xffb020 : 0xff3b3b);
+    const n = Math.round(Math.min(1, r) * 40), per = patch.geometry.userData.per;
+    patch.visible = n > 0; patch.geometry.setDrawRange(0, n * per);
+    patchMat.color.setHex(c >= 1 ? 0x3dd68c : 0xffb547);
+  }
+
   // 每道焊道的進度（0～1）：s 定位、g 開槽、r 焊條、f 削平（刮平）、b 焊帶、i 檢測；各層只畫自己負責的區段，避免重疊面
   function setSeam(id, { s: sc = 0, g = 0, r = 0, f = 0, b = 0, i = 0 }, tool = {}) {
     const S = seams[id], N = S.N, seg = u => Math.round(Math.max(0, Math.min(1, u)) * N);
     const show = (key, u0, u1) => { const o = S.layers[key], a = seg(u0), z = Math.max(a, seg(u1)), per = o.geometry.userData.per; o.geometry.setDrawRange(a * per, (z - a) * per); o.visible = z > a; };
     show('path', g, sc); show('gap', g, 1); show('groove', r, g); show('rod', f, r); show('flat', b, f); show('belt', i, b); show('ok', 0, Math.min(i, b));
-    if (id === defect.seam) mark.visible = i >= defect.u;
     const progress = tool.held === 'rod' ? r : tool.held === 'belt' ? b : 0;
     S.hot.visible = !!tool.fx && progress > 0 && progress < 1;
     if (S.hot.visible) {
@@ -223,7 +236,7 @@ export function createTank({ circStart = 0, seams: seamList = SEAMS, defect = { 
     }
   }
 
-  return { frame, spin, seams, setSeam, setCut, setGhost, materials: clipped, legs, defectAt: dp };
+  return { frame, spin, seams, setSeam, setRepair, setCut, setGhost, materials: clipped, legs, defectAt: dp };
 }
 
 // 桶座標中某高度 y 的實體壁（給工具與手臂的間隙檢查）：回傳 [內半徑（襯裡表面）, 外半徑]；人孔、出口頸以外的區域回傳 null

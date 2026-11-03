@@ -3,7 +3,7 @@
   "plans": {
     "roll": {
       "ok": true,
-      "total": 220.3,
+      "total": 268.4,
       "follow": 0.05,
       "minGapInside": 16.8,
       "tightest": {
@@ -15,7 +15,7 @@
     },
     "roll·極端排版": {
       "ok": true,
-      "total": 243.7,
+      "total": 291.8,
       "follow": 0.05,
       "minGapInside": 16.8,
       "tightest": {
@@ -27,7 +27,7 @@
     },
     "turntable": {
       "ok": true,
-      "total": 259.9,
+      "total": 322.5,
       "follow": 0.05,
       "minGapInside": 16.8,
       "tightest": {
@@ -39,7 +39,7 @@
     },
     "turntable·極端排版": {
       "ok": true,
-      "total": 283.3,
+      "total": 345.9,
       "follow": 0.05,
       "minGapInside": 14.4,
       "tightest": {
@@ -51,7 +51,7 @@
     },
     "cobot": {
       "ok": true,
-      "total": 263.3,
+      "total": 324.9,
       "follow": 0.16,
       "minGapInside": 6.8,
       "tightest": {
@@ -63,7 +63,7 @@
     },
     "cobot·極端排版": {
       "ok": true,
-      "total": 290.3,
+      "total": 351.9,
       "follow": 0.16,
       "minGapInside": 6.8,
       "tightest": {

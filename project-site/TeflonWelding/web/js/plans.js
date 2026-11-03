@@ -44,7 +44,8 @@ function hook(scene) {
     // pos：吊鉤世界位置；ends：兩條吊帶下端（世界座標）
     set(pos, ends) {
       h.position.copy(pos);
-      lines.forEach((m, i) => { const A = new THREE.Vector3(0, -110, 0), B = ends[i].clone().sub(pos); m.scale.y = A.distanceTo(B); m.position.copy(A).add(B).multiplyScalar(.5); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), B.clone().sub(A).normalize()); });
+      // 兩條吊帶上端錯開 ±45，不在吊鉤下互相穿插
+      lines.forEach((m, i) => { const A = new THREE.Vector3(i ? 45 : -45, -110, 0), B = ends[i].clone().sub(pos); m.scale.y = A.distanceTo(B); m.position.copy(A).add(B).multiplyScalar(.5); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), B.clone().sub(A).normalize()); });
     },
   };
 }

@@ -6,7 +6,8 @@ import { createStage, exposeSim } from '@core/ui/stage.js';
 import { createPlayer } from '@core/ui/player.js';
 import { createViewerWorkspace } from '@core/ui/viewer-workspace.js';
 import { createProject, STATIONS, PLANS } from './project.js';
-import { PROCESS, HOT_AIR, TANK, NECK_CLEAR, FIELD, TOOLS, COMPARE, cycleEstimate, seamLength } from './spec.js';
+import { PROCESS, HOT_AIR, TANK, NECK_CLEAR, FIELD, TOOLS, COMPARE, THZ, cycleEstimate, seamLength } from './spec.js';
+import { drawThz, seamVerdicts } from './thz-view.js';
 
 const qp = new URLSearchParams(location.search), movie = qp.has('movie');
 const $ = id => document.getElementById(id);
@@ -108,7 +109,9 @@ $('checkCount').textContent = `${checks.filter(r => r.ok).length} / ${checks.len
 const seamBox = $('seams');
 seamBox.innerHTML = `<table><tr><th></th>${PROCESS.map(p => `<th>${p.name.replace(' ', '').slice(0, 2)}</th>`).join('')}</tr>${SEAMS.map(s => `<tr data-seam="${s.id}"><td>${s.name}</td>${PROCESS.map(p => `<td><i data-p="${p.key}"></i></td>`).join('')}</tr>`).join('')}</table>`;
 const bars = SEAMS.flatMap(s => PROCESS.map(p => ({ seam: s.id, field: FIELD[p.key], el: seamBox.querySelector(`tr[data-seam="${s.id}"] i[data-p="${p.key}"]`), v: -1 })));
-const defectEl = $('defect');
+const defectEl = $('defect'), verdictEl = $('thzVerdict');
+let verdictHtml = '';
+$('thzPrinciple').innerHTML = `<p>探頭打出 0.1～3 THz 的皮秒脈衝。PTFE／PFA 對兆赫波幾乎透明、SUS 全反射，每個介面（折射率改變處）各反射一個回波；回波時間差 Δt 換算厚度 d = c·Δt／2n。</p><p>PFA 焊層與 PTFE 折射率幾乎相同（${THZ.n.pfa}／${THZ.n.ptfe}），熔合良好時交界幾乎沒有回波；氣孔或未熔合是一層空氣（n = 1），會多出一道相位反轉的強回波。</p><ul class="crit">${THZ.criteria.map(c => `<li>${c}</li>`).join('')}</ul>`;
 let shown = '';
 function updatePanels(T) {
   const act = timeline.activity(T).filter(s => s.action), last = events.filter(e => e.start <= T + 1e-6).at(-1), station = last?.station ?? 0;
@@ -126,8 +129,11 @@ function updatePanels(T) {
     const v = Math.round(st['seam-' + b.seam][b.field] * 100);
     if (v !== b.v) { b.v = v; b.el.style.setProperty('--v', v / 100); b.el.className = v >= 100 ? 'done' : v > 0 ? 'run' : ''; }
   }
-  const def = !(st['seam-C2'].i >= .62);
+  const def = !(st['seam-' + THZ.defect.seam].i >= THZ.defect.u);
   if (defectEl.hidden !== def) defectEl.hidden = def;
+  // 兆赫波判定（文字有變才更新）
+  const vt = seamVerdicts(project.thzAt(T), SEAMS).map(v => `<li><span>${v.s.name}</span><b style="color:${v.color}">${v.text}</b></li>`).join('');
+  if (vt !== verdictHtml) { verdictHtml = vt; verdictEl.innerHTML = vt; }
 }
 
 // ---------------------------------------------------------------- 播放列
@@ -148,9 +154,19 @@ function aimWeldCam() {
   weldCam.position.copy(tcp).addScaledVector(radial, -390).addScaledVector(axis, -180).addScaledVector(tangent, 160);
   weldCam.up.copy(axis.clone().negate()); weldCam.lookAt(tcp);
 }
+// 相機視窗來源：焊點特寫（3D）／兆赫波波形（2D）；自動時，兆赫波檢測到卸料前顯示波形
+let source = 'auto';
+workspace.setSources([{ id: 'weld', label: '焊點特寫（桶內）' }, { id: 'thz', label: '兆赫波波形與判定' }], { onChange: v => { source = v; } });
+const thzStart = stationStart[STATIONS.indexOf('兆赫波檢測')], thzEnd = stationStart[STATIONS.indexOf('卸料')];
 function render() {
-  aimWeldCam();
-  workspace.renderCamera({ renderer, scene, camera: weldCam, title: '焊點特寫（桶內）', result: ui.action.textContent, marks: { time: player.T } });
+  const show = source === 'auto' ? (player.T >= thzStart && player.T < thzEnd ? 'thz' : 'weld') : source;
+  if (show === 'thz') {
+    const z = project.thzAt(player.T);
+    workspace.renderImage({ draw: (ctx, w, h) => drawThz(ctx, w, h, z, SEAMS), title: '兆赫波檢測（反射式時域）', result: ui.action.textContent, aspect: 1.45, time: player.T });
+  } else {
+    aimWeldCam();
+    workspace.renderCamera({ renderer, scene, camera: weldCam, title: '焊點特寫（桶內）', result: ui.action.textContent, marks: { time: player.T } });
+  }
   workspace.renderOverview(renderer, scene);
 }
 
