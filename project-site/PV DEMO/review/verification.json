@@ -1,0 +1,13 @@
+{
+  "ok": true,
+  "total": 61,
+  "panels": 480,
+  "kwp": 120,
+  "peakKw": 102.5,
+  "peakAt": 27,
+  "energyKwh": 720.2,
+  "yieldHours": 6,
+  "cloudDip": 0.51,
+  "morningTowerShaded": 20,
+  "failures": []
+}
