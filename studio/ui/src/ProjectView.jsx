@@ -10,7 +10,7 @@ const TABS = [['progress', '進度'], ['questions', '問題'], ['proposal', '提
 // 依專案組成顯示的分頁（評估平台 Q6）：可行性只在有「評估＋成本」時、3D 的分頁只在有「3D 動畫」時
 const TAB_NEEDS = { assess: 'assess', review: '3d', preview: '3d', shots: '3d', compare: '3d' };
 const min = s => `${(s / 60).toFixed(1)} 分`;
-const RENDER_RESULT = { accepted: '已接受', reverted: '已整批還原', 'accepted-with-failures': '已接受（守門未全過）' };
+const RENDER_RESULT = { accepted: '已接受', reverted: '已整批還原', 'accepted-with-failures': '已接受（守門未全過）', skipped: '使用者選擇不補強' };
 
 // 專案成員（依專案分權限）：有成員時只有成員與管理者能執行與修改；沒有成員的專案所有一般帳號都能動。擁有者與管理者可以改名單
 function Members({ id, onChange }) {

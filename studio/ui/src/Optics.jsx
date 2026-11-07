@@ -45,8 +45,13 @@ export function Optics({ projects, catalogPort }) {
   }, []);
   const loadSetups = useCallback(() => project && api.aoiList(project).then(r => setSetups(r.setups)).catch(e => setMsg('✗ ' + e.message)), [project]);
   useEffect(() => { loadSetups(); setCmp(new Set()); }, [loadSetups]);
-  useEffect(() => { if (!waitN) return; if (setups.length >= waitN) { setWaitN(0); setMsg('✓ 光學代理的方案已加進清單'); return; } const t = setTimeout(loadSetups, 4000); return () => clearTimeout(t); }, [waitN, setups, loadSetups]);
-  const askAgent = async () => { setMsg(''); try { await api.run(project, { cmd: 'optics', text: ask }); setWaitN(setups.length + 2); setAsk(''); setMsg('✓ 已排進代理佇列：光學角色提 2～3 個方案，通過檢查後會出現在方案清單（幾分鐘）'); } catch (e) { setMsg('✗ ' + e.message); } };
+  // 等光學代理交方案：換專案就不再等；代理失敗或被停止時方案數不會增加，等太久就放棄，不要一直停用「送出」
+  const waitSince = useRef(0), WAIT_MAX = 20 * 60000;
+  useEffect(() => { setWaitN(0); }, [project]);
+  useEffect(() => { if (!waitN) return; if (setups.length >= waitN) { setWaitN(0); setMsg('✓ 光學代理的方案已加進清單'); return; }
+    if (Date.now() - waitSince.current > WAIT_MAX) { setWaitN(0); setMsg('✗ 光學代理 20 分鐘內沒有交出方案（可能失敗或被停止），請看專案頁的執行輸出'); return; }
+    const t = setTimeout(loadSetups, 4000); return () => clearTimeout(t); }, [waitN, setups, loadSetups]);
+  const askAgent = async () => { setMsg(''); try { await api.run(project, { cmd: 'optics', text: ask }); waitSince.current = Date.now(); setWaitN(setups.length + 2); setAsk(''); setMsg('✓ 已排進代理佇列：光學角色提 2～3 個方案，通過檢查後會出現在方案清單（幾分鐘）'); } catch (e) { setMsg('✗ ' + e.message); } };
   // 即時計算（停止輸入 300 ms 後），結果也送給 3D 檢視
   useEffect(() => {
     const t = setTimeout(() => api.opticsEval(cur.data).then(r => { setRes(r); frame.current?.contentWindow?.postMessage({ type: 'optics', setup: r.setup }, '*'); }).catch(e => setMsg('✗ ' + e.message)), 300);

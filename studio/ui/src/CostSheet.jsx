@@ -15,8 +15,12 @@ const BLANK = { kind: 'part', part: null, line: '', section: '', grp: '', nature
 
 // 新增或編輯一行：元件（挑選）、工程人日、客製件
 function ItemForm({ item, onSave, onCancel }) {
-  const [f, setF] = useState(() => item ? { ...BLANK, ...item, kind: item.labor ? 'labor' : item.part_id ? 'part' : 'custom', part: item.part_id ? { id: item.part_id, code: item.code, name: item.name } : null,
-    qty: String(item.qty), unit_price: item.source === 'version' || item.source === 'labor' ? '' : String(item.price ?? ''), grade: item.flags?.includes('noGrade') ? '' : item.grade } : BLANK);
+  // 元件行的名稱、規格、型號、單位、等級用這一行自己存的值（item.own）預填：顯示值是元件版本快照，整包送回去會變成固定值，升版後也不會跟著變
+  const own = item?.part_id && item.own ? item.own : null;
+  const [f, setF] = useState(() => item ? { ...BLANK, ...item, ...(own ? { name: own.name, spec: own.spec, model: own.model, unit: own.unit } : {}),
+    kind: item.labor ? 'labor' : item.part_id ? 'part' : 'custom', part: item.part_id ? { id: item.part_id, code: item.code, name: item.name } : null,
+    qty: String(item.qty), unit_price: item.source === 'version' || item.source === 'labor' ? '' : String(item.price ?? ''),
+    grade: own ? own.grade : item.flags?.includes('noGrade') ? '' : item.grade } : BLANK);
   const [msg, setMsg] = useState('');
   const set = (k, v) => { setMsg(''); setF(x => ({ ...x, [k]: v })); };
   async function save() {
@@ -118,7 +122,8 @@ export function CostSheet({ id, canEdit }) {
         {canEdit && !form && <div className="bar"><button onClick={() => setForm('new')}>＋ 加一行</button></div>}
       </section>
     </>}
-    {form && <ItemForm item={form === 'new' ? null : form} onCancel={() => setForm(null)}
+    {/* key：換編輯另一行時重新建立表單，不然 useState 還留著上一行的值，儲存會把上一行的內容寫進這一行 */}
+    {form && <ItemForm key={form === 'new' ? 'new' : form.id} item={form === 'new' ? null : form} onCancel={() => setForm(null)}
       onSave={v => (form === 'new' ? api.addBomItem(id, v) : api.updateBomItem(id, form.id, v)).then(() => { setForm(null); return load(); })} />}
 
     {d && <section className="card form"><h3>費率與匯率</h3>

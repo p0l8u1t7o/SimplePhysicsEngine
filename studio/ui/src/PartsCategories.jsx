@@ -69,7 +69,8 @@ export function CategoryEditor({ target, tree, fieldTypes, onClose, onChanged })
   async function save() {
     await act(async () => {
       const c = isNew ? await api.saveCategory(null, form) : await api.saveCategory(target.id, form);
-      if (!isNew) await api.saveCategoryFields(c.id, fields.map(f => ({ ...f, options: f.type === 'select' ? f.options : '' })));
+      // 編輯器只讓改欄位名稱（key）；label 不送，由伺服器用 key（不然改名後顯示的還是舊名稱）
+      if (!isNew) await api.saveCategoryFields(c.id, fields.map(({ label, ...f }) => ({ ...f, options: f.type === 'select' ? f.options : '' })));
       onClose();
     });
   }

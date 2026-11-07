@@ -61,7 +61,7 @@ function Attachments({ part, system, onChanged }) {
   async function upload(list) {
     const bad = list.map(check).filter(Boolean);
     if (bad.length) { setMsg('✗ ' + bad.join('；')); return; }
-    await act(async () => { for (const f of list) { setMsg(`上傳 ${f.name}…`); await api.uploadPartFile(part.id, f); } });
+    await act(async () => { for (const f of list) { setMsg(`上傳 ${f.name}…`); await api.uploadPartFile(part.id, f); } setMsg(`✓ 已上傳 ${list.length} 個檔案`); });
   }
   return <section className="card"><h3>附件<span className="chip">{part.files.length}</span></h3>
     <p className="mute hint">報價單、圖片、型錄、CAD 檔都可以放（同一個檔只存一份）。上限：一般附件 {values?.['attachment.maxMB'] ?? '…'} MB、CAD 檔 {values?.['attachment.cadMaxMB'] ?? '…'} MB，管理者可以在「設定」的系統設定調整。報價單可以對應一筆價格紀錄；圖片可以設成封面，清單上沒有 3D 模型的元件會用它當縮圖。</p>
@@ -116,7 +116,12 @@ function PartEditor({ id, facets, suppliers, models, system, readOnly, projectNa
     try { const p = await api.savePart(part?.id, { ...form, category_id: form.category_id === '' ? null : form.category_id, attrs: merged() }); fill(p); setMsg('✓ 已儲存'); onChanged(p.id); }
     catch (err) { setMsg('✗ ' + err.message); }
   }
-  const reload = async () => { await load(); onChanged(part.id); };
+  // 子動作（附件、價格、關聯件、補全）做完重新載入：表單有未儲存的修改時只更新元件資料，不要用伺服器的值蓋掉使用者正在改的欄位
+  const reload = async () => {
+    if (dirty) { try { setPart(await api.part(id)); setMsg('✓ 已更新；上面還有未儲存的修改，記得按「儲存」'); } catch (e) { setMsg('✗ ' + e.message); } }
+    else await load();
+    onChanged(part.id);
+  };
   const record = kind => ({
     onSave: async row => { await api.saveRecord(kind, part.id, row.id, row); await reload(); },
     onDelete: async rid => { await api.deleteRecord(kind, rid); await reload(); },

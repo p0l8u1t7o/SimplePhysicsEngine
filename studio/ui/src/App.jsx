@@ -74,7 +74,7 @@ function Shell({ me, onAuthChange }) {
                 <span className={`chip ${p.running ? 'run' : p.stage === 'done' ? 'ok' : ''}`}>{p.running ? '執行中' : (p.segment === 2 ? '第二段 · ' : '') + (STAGE[p.stage] || p.stage)}</span>
                 {p.pending > 0 && <span className="chip warn">{p.pending} 個問題</span>}
                 {p.bomNewer > 0 && <span className="chip warn" title="成本表裡有元件出了新版（金額還是用鎖定的版本）">{p.bomNewer} 個元件有新版</span>}
-                {p.render && <span className="chip">補強{p.render === 'accepted' ? '已接受' : p.render === 'reverted' ? '已還原' : ''}</span>}
+                {p.render && <span className="chip">補強{p.render === 'accepted' ? '已接受' : p.render === 'reverted' ? '已還原' : p.render === 'skipped' ? '略過' : ''}</span>}
                 <span>{p.round} 輪</span>
               </div>
             </button>

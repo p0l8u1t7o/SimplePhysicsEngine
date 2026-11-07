@@ -4,8 +4,8 @@ import { api, STAGE, ROLE } from './api.js';
 import { Icon } from './icons.jsx';
 import { ChartCard, StatTile, BarList, Columns, Ring, Meter, SERIES, num } from './charts.jsx';
 
-const STAGE_ORDER = ['plan', 'build', 'change', 'check', 'fix', 'review', 'review-fix', 'render', 'render-guard', 'render-revise', 'paused', 'done'];
-const RENDER = { accepted: '已接受', reverted: '已還原', 'accepted-with-failures': '已接受（守門未全過）' };
+const STAGE_ORDER = ['plan', 'optics-design', 'assess-revise', 'build', 'change', 'check', 'fix', 'review', 'review-fix', 'render', 'render-guard', 'render-revise', 'paused', 'done'];
+const RENDER = { accepted: '已接受', reverted: '已還原', 'accepted-with-failures': '已接受（守門未全過）', skipped: '不補強' };
 const CLI = { claude: 'Claude Code', codex: 'Codex' };
 const mins = s => s / 60;
 const dur = s => s >= 3600 ? `${(s / 3600).toFixed(1)} 小時` : s >= 60 ? `${(s / 60).toFixed(1)} 分` : `${Math.round(s)} 秒`;

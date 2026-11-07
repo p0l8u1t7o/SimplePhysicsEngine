@@ -10,7 +10,8 @@ export function QuestionCard({ projectId, q, suggest = [], onDone }) {
   const [items, setItems] = useState(() => suggest.map(x => x.id));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const toggle = i => setSel(s => q.multiSelect ? (s.includes(i) ? s.filter(x => x !== i) : [...s, i]) : [i]);
+  // 勾選項時先拿掉「其他」（-1）：兩者同時勾著時送出只會送文字，勾的選項會被丟掉
+  const toggle = i => setSel(s0 => { const s = s0.filter(x => x !== -1); return q.multiSelect ? (s.includes(i) ? s.filter(x => x !== i) : [...s, i]) : [i]; });
 
   async function send() {
     setBusy(true); setError('');

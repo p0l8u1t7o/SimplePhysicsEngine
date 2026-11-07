@@ -375,7 +375,7 @@ td.ops button { min-height: 28px; padding: 0 11px; margin-left: 4px; font-size: 
 @media (max-width: 860px) {
   .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); padding: 0; }
   .side { border-radius: 0; padding: 12px 0 30px; max-height: 38vh; }
-  .brand { padding: 0 16px 8px; } .nav { grid-auto-flow: column; padding: 0 8px 8px; } .nav button { justify-content: center; } .nav button.on::after { display: none; }
+  .brand { padding: 0 16px 8px; } .nav { grid-auto-flow: column; padding: 0 8px 8px; overflow-x: auto; min-width: 0; }   /* 按鈕多時在導覽列內捲動，不要撐寬整頁 */ .nav button { justify-content: center; } .nav button.on::after { display: none; }
   .side-foot { padding: 8px 16px 0; } .side-foot .ws { display: none; }
   .main { margin: -22px 0 0; border-radius: 22px 22px 0 0; box-shadow: none; }
   .topbar { padding: 12px 14px 10px; } .tools button.state { display: none; }

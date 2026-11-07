@@ -136,7 +136,7 @@ export function useEvents(handlers) {
 
 export const STAGE = {
   plan: '規劃', build: '開發', check: '檢查', fix: '修正', review: '審查', 'review-fix': '修正必修', render: '補強',
-  'render-guard': '守門檢查', 'render-revise': '補強調整', 'assess-revise': '修改評估', change: '修改', paused: '暫停', done: '完成',
+  'render-guard': '守門檢查', 'render-revise': '補強調整', 'assess-revise': '修改評估', 'optics-design': '光學方案', change: '修改', paused: '暫停', done: '完成',
 };
 export const ROLE = { plan: '規劃', build: '開發', fix: '修正', review: '審查', render: '補強' };
 // 評估報告的下載網址（html｜pdf｜md）
