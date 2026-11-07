@@ -33,7 +33,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 26
 
       # imports、structure、names、determinism、layout、scene（干涉＋閃爍）、electrical、physics、bom、core 檢查、各專案 checks.quick
       - name: Quick checks

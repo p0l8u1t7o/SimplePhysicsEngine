@@ -3,7 +3,7 @@
     powershell -ExecutionPolicy Bypass -File scripts\setup.ps1            # 檢查 Node／瀏覽器／Git，安裝 git hook，跑快速檢查
     powershell -ExecutionPolicy Bypass -File scripts\setup.ps1 -All       # 另外建立 Python 環境、下載 ffmpeg
   選項：
-    -Python        建立 .venv（Python 3.12）並安裝 requirements.txt
+    -Python        建立 .venv（Python 3.14）並安裝 requirements.txt
     -Ffmpeg        下載支援 NVENC 的 ffmpeg／ffprobe 到共用的 tools/bin（錄影用，不進版控）
     -FfmpegZip <p> 改用本機已下載的 zip（內含 bin/ffmpeg.exe、bin/ffprobe.exe）
     -SkipCheck     不跑 node core/tools/check.mjs --quick
@@ -76,13 +76,19 @@ if ($Python) {
   Step 'Python 環境（.venv）'
   $py = $null
   if (Get-Command py -ErrorAction SilentlyContinue) {
-    try { & py -3.12 -c "import sys" 2>$null; if ($LASTEXITCODE -eq 0) { $py = @('py', '-3.12') } } catch { }
+    try { & py -3.14 -c "import sys" 2>$null; if ($LASTEXITCODE -eq 0) { $py = @('py', '-3.14') } } catch { }
   }
   if (-not $py -and (Get-Command python -ErrorAction SilentlyContinue)) { $py = @('python') }
   if (-not $py) {
     $problems += 'Python'
-    Warn '找不到 Python 3.12。安裝：winget install Python.Python.3.12'
+    Warn '找不到 Python 3.14。安裝：winget install Python.Python.3.14'
   } else {
+    # 必須是一般版（有 GIL），不要 free-threaded 的 3.14t
+    $exe0 = $py[0]; $rest0 = @(); if ($py.Count -gt 1) { $rest0 = $py[1..($py.Count - 1)] }
+    $gil = (& $exe0 @rest0 -c "import sys; print(getattr(sys, '_is_gil_enabled', lambda: True)())" 2>$null | Out-String).Trim()
+    if ($gil -ne 'True') { Warn "選到的 Python 是 free-threaded 版（3.14t），請改用一般版：$($py -join ' ')" }
+  }
+  if ($py) {
     $venvPy = Join-Path $Root '.venv\Scripts\python.exe'
     if (-not (Test-Path $venvPy)) {
       $exe = $py[0]; $rest = @(); if ($py.Count -gt 1) { $rest = $py[1..($py.Count - 1)] }

@@ -17,8 +17,8 @@
 
 - 安裝：`powershell -ExecutionPolicy Bypass -File scripts\setup.ps1 [-All]`（會一併安裝 git hook），需求見 `REQUIREMENTS.md`。
 - 啟動網頁：`scripts\start.cmd`（不帶參數只開 vs3d 介面 8780；`-Site` 展示網站 8770、`-All` 兩個都開、`-Station <名稱>` 開某一站），停止：`scripts\stop.cmd`。腳本一律放在 `scripts/`，`.ps1` 存成 UTF-8 BOM。
-- **3D 專案只需要 Node.js 22 以上**（開發機 24.21），沒有 npm 套件；three.js 放在 `core/vendor/`。瀏覽器檢查用 Chrome 或 Edge（可設 `CHROME_PATH`）。
-- Python 3.12 ＋ `requirements.txt` 只給選用工具用（錄影稽核、電路圖、視覺採購品項表）；成本表已改在 3D工作室平台維護與匯出。
+- **3D 專案只需要 Node.js 22 以上**（開發機 26.13.0），沒有 npm 套件；three.js 放在 `core/vendor/`。瀏覽器檢查用 Chrome 或 Edge（可設 `CHROME_PATH`）。
+- Python 3.14（一般版，不要 `3.14t`）＋ `requirements.txt` 只給選用工具用（錄影稽核、電路圖、視覺採購品項表）；成本表已改在 3D工作室平台維護與匯出。
 - Node 端跑 core 模組要加 `--import ./core/tools/register.mjs`（解析 `three` 與 `@core/`）。`core/tools/run.mjs` 會自動加上。
 - Shell 是 Windows 上的 Git Bash 或 PowerShell 5.1。
 - **與 AutoSequence 同機開發時，整機 CPU 不得超過 80%**（使用者 2026-10-21 要求）：完整檢查、`shots.mjs`、`scene-dump.mjs`、`ui-check.mjs`、長時間的鎖步聯調經 `powershell -NoProfile -File "D:\Working Space\AutoSequence\temp\cpu-cap.ps1" -Percent 50 -Command "<指令>"` 執行（所有包裝行程共用一個上限；`-Command` 一次只放一個指令，不要用 `;` 串接），重工作一次只跑一個。找不到 `cpu-cap.ps1` 時先問，不要改寫 AutoSequence 的檔案。

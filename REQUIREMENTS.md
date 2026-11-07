@@ -11,7 +11,7 @@ powershell -ExecutionPolicy Bypass -File scripts\setup.ps1 -All     # 另外建�
 
 | 項目 | 版本 | 用途 | 安裝 |
 |---|---|---|---|
-| Node.js | 22 以上（開發機 24.21，CI 用 22；studio 的元件資料庫要 22.13 以上） | 本機伺服器、統一檢查、截圖、Pages 建置、studio 命令列；**3D 專案與 core 不需要 npm 套件** | `winget install OpenJS.NodeJS.LTS` |
+| Node.js | 22 以上（開發機 26.13.0，CI 用 26；studio 的元件資料庫要 22.13 以上） | 本機伺服器、統一檢查、截圖、Pages 建置、studio 命令列；**3D 專案與 core 不需要 npm 套件** | `winget install OpenJS.NodeJS.LTS` |
 | Chrome 或 Edge | 近期版本 | 瀏覽器檢查（`ui-check`、`shots`、各專案 browser 檢查）用 DevTools Protocol 驅動無頭瀏覽器 | Windows 內建 Edge 即可；其他路徑設環境變數 `CHROME_PATH` |
 | Git | 任何近期版本 | 版控；回歸比對用 `git worktree` 拍基準截圖 | `winget install Git.Git` |
 
@@ -23,7 +23,7 @@ vs3d 網頁介面（`studio/ui/`，React＋Vite）是唯一用到 npm 套件的�
 
 | 項目 | 需要的工具 | 安裝 |
 |---|---|---|
-| Python 3.12＋`requirements.txt` | 錄影稽核與驗證（`tools/movie-export`）、電路圖（`tools/circuit-drawings`）、回收物分揀的視覺品項表（`project-site/RecycleSorter/tools/build_vision_items.py`）、`core/tools/compare-review.py` | `setup.ps1 -Python`（建立 `.venv` 並安裝） |
+| Python 3.14（一般版，不要 free-threaded 的 `3.14t`）＋`requirements.txt` | 錄影稽核與驗證（`tools/movie-export`）、電路圖（`tools/circuit-drawings`）、回收物分揀的視覺品項表（`project-site/RecycleSorter/tools/build_vision_items.py`）、`core/tools/compare-review.py` | `setup.ps1 -Python`（建立 `.venv` 並安裝） |
 | ffmpeg／ffprobe（支援 NVENC 的 Windows 版） | MP4 錄影輸出（`core/tools/export-mp4.mjs`、影片驗證） | `setup.ps1 -Ffmpeg` 下載到共用的 `tools/bin/`（不進版控）；也可用 `-FfmpegZip <本機 zip>` |
 | Automation-Schema（相鄰 checkout，指定 tag） | 數位孿生 server（`core/tools/twin.mjs`）與它的檢查：協定驗證、mdHash；SPE 不複製它的任何檔案 | 在 SPE 旁邊 `git clone <Automation-Schema> ..\Automation-Schema`，再 `git -C ..\Automation-Schema checkout <tag>`（tag 見 `core/twin/automation-schema.lock.json`）；`setup.ps1` 會檢查並提示。驗證工具 `validate.py` 另需 uv |
 | 中文 TrueType 字型 | 電路圖 PDF（reportlab） | 預設 `C:/Windows/Fonts/msjh.ttc`（微軟正黑體）；其他字型設 `CIRCUIT_FONT` |
