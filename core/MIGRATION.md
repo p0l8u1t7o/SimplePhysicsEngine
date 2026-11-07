@@ -229,6 +229,13 @@ Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs
 
 七站 91 張基準回歸超過門檻 0 張；本站 31 張事件畫面與三場型高低畫質／深度模式逐圖檢視，外觀變更為預期。CCTV／LPR 子畫面及缺檔降級另有瀏覽器檢查。量測、圖檔位置與限制見 `project-site/ParkingEMS/review/cinematic-render.md`。
 
+## 2026-11-08：core 1.20.4 REQUESTS 的四個小需求
+
+- `ui/stage.js`：`createStage({ envIntensity })`（預設 1，外觀不變）＋`stage.setEnvIntensity(k)`，用 r187 的 `scene.environmentIntensity` 調整整體環境光（室外大場景陰影不被洗掉、日夜變化），不必逐材質改 `envMapIntensity`。
+- `models/drum-200l.js`：`drumJaws(parent, armTo, stroke, { arc = 1.4, segments = 20 })`。ChemicalTankWashing 的窄爪 `narrowJaws` 改用它（30°、8 段，幾何與原本站內畫的相同：scene-dump 完全相同、截圖 0 張超過門檻）。
+- `geom/materials.js` 的 `MAT.expandedMesh` 與 `geom/shapes.js` 的 `meshPanel(parent, a, b, { cell = 60, thickness = 6 })`：擴張網護板（菱形網目貼圖、依實際尺寸換算 UV）。RecycleSorter 的 `meshGuard`／`guard` 改用它（scene-dump 相同、截圖 0 張超過門檻）。
+- `electrical/electrical-inspector.js` 的「聚焦元件」：鏡頭放在元件正面（元件群組本地 +Z 轉到世界的方向），之前固定在世界 +Z 側。沒有旋轉的元件和之前完全相同；RecycleSorter 拿掉翻到正面的暫代（21 個元件聚焦後鏡頭都在正面）。
+
 ## 2026-11-08：core 1.20.3 線材端點接入只放行端點附近
 
 - `verify/scene.mjs` 的線材端點放行（REQUESTS「全場檢查的『線材端點接入』放行範圍太大」）：之前一條線只要一端落在對方外框（放大「半徑＋30 mm」）裡，整對就放行，長線沿線的穿插、兩條線在共用立管裡互相穿過都看不到。改成確定有穿插之後再看位置：端點附近「半徑＋30 mm」以外的取樣點都不在對方體內才放行（`ALLOW` 的規則多一種 `late`，在頂點複核之後判斷）。全站檢查因此多抓到 MilitaryGradePC 1 筆、RecycleSorter 45 筆，都是真的線材重疊或穿過骨架，已在站裡改線路（沒有加 allow）。
@@ -370,6 +377,7 @@ Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs
 
 | 版本 | 日期 | 內容 |
 |---|---|---|
+| 1.20.4 | 2026-11-08 | `createStage({ envIntensity })`、`drumJaws` 的 `arc`、`MAT.expandedMesh`／`meshPanel`、檢視器依元件朝向聚焦 |
 | 1.20.3 | 2026-11-08 | `scene` 線材端點接入只放行端點附近 |
 | 1.20.2 | 2026-11-07 | 影片 `simulationStart`；`verify.solar.energy` 全年發電列；光伏共用模型 `models/pv.js`（`pvModule`、`pvArray`、`stringInverter`）＋支架登記到目錄；結構範例改用 DSM 地形；截圖回歸的視角清單改讀頁面；`scene` 曲面件沿邊取樣；`hasDom()`；`codeReader` 機身名稱；`conveyor` 側樑 `skip`；追日的積雪收藏；3D Tiles（`geo/tiles.js`，含 DRACO／KTX2／meshopt 解碼器）；VM-60B1 前臂端蓋縮小；流體 `sleep`；圓桶的連續碰撞；GeoTIFF 的 JPEG 圖塊；`verify.solar.structure` |
 | 1.20.1 | 2026-11-07 | 巡檢疑點修正（twinUrl、clampable、Track.end、axisWindow、localeCompare、stage stop／dispose、scope-guard 長路徑、interference sourceHash、ui-check 標籤、movie verify）；`solar/precision.js` 高精度門檻；`robot/payload.js` 從 3D 模型估負載 |

@@ -116,14 +116,15 @@ export function createDrumInstances(count) {
 
 // 夾桶爪：兩片弧形 PU 爪由局部 ±X 側夾住桶身；局部 +Y 為桶軸、原點在桶中心。
 // armTo：手臂夾爪的連桿往局部 −Z 接回本體（龍門夾爪由上方吊桿連接，不需要）。
-export function drumJaws(parent, armTo = null, stroke = 130) {
+// arc：每片爪的弧度（預設 1.4 rad ≈ 80°；從 2×2 棧板夾桶時用窄爪，例如 30°，避免掃到同板相鄰的桶）；segments：圓弧分段
+export function drumJaws(parent, armTo = null, stroke = 130, { arc = 1.4, segments = 20 } = {}) {
   const jaws = [];
   for (const s of [-1, 1]) {
     const g = new THREE.Group(); parent.add(g);
-    const a0 = s > 0 ? Math.PI / 2 - .7 : -Math.PI / 2 - .7;
-    const pad = new THREE.Mesh(new THREE.CylinderGeometry(DRUM.R + 12, DRUM.R + 12, 420, 20, 1, true, a0, 1.4), MAT.pu);
+    const a0 = (s > 0 ? Math.PI / 2 : -Math.PI / 2) - arc / 2;
+    const pad = new THREE.Mesh(new THREE.CylinderGeometry(DRUM.R + 12, DRUM.R + 12, 420, segments, 1, true, a0, arc), MAT.pu);
     pad.material.side = THREE.DoubleSide; pad.castShadow = true; g.add(pad);
-    const back = new THREE.Mesh(new THREE.CylinderGeometry(DRUM.R + 32, DRUM.R + 32, 440, 20, 1, true, a0 - .02, 1.44), MAT.steel);
+    const back = new THREE.Mesh(new THREE.CylinderGeometry(DRUM.R + 32, DRUM.R + 32, 440, segments, 1, true, a0 - .02, arc + .04), MAT.steel);
     back.castShadow = true; g.add(back);
     if (armTo !== null) for (const y of [-150, 150]) {
       const arm = new THREE.Mesh(new THREE.BoxGeometry(40, 70, -armTo), MAT.steel); arm.castShadow = true;

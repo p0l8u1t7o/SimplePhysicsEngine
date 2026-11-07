@@ -7,6 +7,7 @@
 //   decal／plate／floorText／textTexture                文字貼紙、直立面板文字、地面文字、文字貼圖
 // 材質用 core/geom/materials.js 的 MAT；parent 可為 null（只建網格不加入場景）。
 import * as THREE from 'three';
+import { MAT } from './materials.js';
 
 export const D2R = Math.PI / 180;
 // 有沒有 document：呼叫當下判斷（hasDom）。檢查腳本可能先 import 模型、之後才補 document，載入時就決定的常數會讓貼紙、標籤不建立。
@@ -19,6 +20,18 @@ const shade = m => { m.castShadow = m.receiveShadow = true; return m; };
 export function block(parent, size, pos, material) {
   const m = shade(new THREE.Mesh(new THREE.BoxGeometry(...size), material));
   m.position.set(...pos); parent?.add(m); return m;
+}
+/**
+ * 擴張網護板（core 1.20.4）：a、b 是兩個對角點，厚度為 0 的那一軸就是護板平面（實際做成 thickness 厚的板）；
+ * UV 依實際尺寸換算（cell mm 一格網目），直立的板 u 沿水平、v 沿高度。回傳網格（name 'mesh guard'，不投影）。
+ */
+export function meshPanel(parent, a, b, { cell = 60, thickness = 6, material = MAT.expandedMesh, name = 'mesh guard' } = {}) {
+  const size = [0, 1, 2].map(k => Math.max(thickness, Math.abs(b[k] - a[k]))), pos = [0, 1, 2].map(k => (a[k] + b[k]) / 2);
+  const m = block(parent, size, pos, material), p = m.geometry.attributes.position, uv = m.geometry.attributes.uv;
+  const flat = size[1] <= thickness && size[0] > thickness && size[2] > thickness;      // 水平的板（頂蓋）：u 沿 X、v 沿 Z
+  const u = flat ? 0 : size[0] > thickness ? 0 : 2, v = flat ? 2 : 1;
+  for (let i = 0; i < p.count; i++) uv.setXY(i, p.getComponent(i, u) / cell, p.getComponent(i, v) / cell);
+  m.castShadow = false; m.name = name; return m;
 }
 export function blockBetween(parent, [x0, y0, z0], [x1, y1, z1], material) {
   return block(parent, [Math.abs(x1 - x0), Math.abs(y1 - y0), Math.abs(z1 - z0)], [(x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2], material);

@@ -7,7 +7,7 @@
 | 路徑 | 內容 |
 |---|---|
 | `vendor/` | three.js r187（`three.module.js`＋`three.core.js`，r171 起拆成兩個檔，`three.module.js` 以相對路徑引用 `three.core.js`）與 addons，全站只有這一份；`rapier/`：Rapier 決定性版 0.21（剛體動力學，WebAssembly 內嵌，只由 `physics/` 引用）；`mujoco/`：MuJoCo 4.0.0（手臂動力學，wasm 瘦身後 gzip 內嵌，只由 `robot/dynamics.js` 引用） |
-| `geom/` | `shapes.js`（統一形狀：block／blockBetween／cylinder／rod／tube／pipe／profile／rounded／bevelBox／screw／decal／plate／floorText）、`materials.js`（共用材質表 MAT）、`hardware.js`（倒角外殼、螺栓、腳座、馬達、感測器…）、`environment.js`（地面 `floor()`）、`finish.js`、`surfaces.js`、`perforated.js` |
+| `geom/` | `shapes.js`（統一形狀：block／blockBetween／cylinder／rod／tube／pipe／profile／rounded／bevelBox／screw／decal／plate／floorText／meshPanel 擴張網護板）、`materials.js`（共用材質表 MAT，含 `MAT.expandedMesh`）、`hardware.js`（倒角外殼、螺栓、腳座、馬達、感測器…）、`environment.js`（地面 `floor()`）、`finish.js`、`surfaces.js`、`perforated.js` |
 | `robot/` | `kinematics.js`：6 軸阻尼最小平方 IK（參數可調）；`reach.js`：手臂可達檢查（IK 或工作空間包絡，回傳 layoutChecks 的列）；`dynamics.js`：MuJoCo 逆動力學（沿關節軌跡算各軸扭矩、負載的手腕力矩與慣量、對上限的比例，回傳 layoutChecks 的列；參數在 `dynamics/<手臂>.js`，目前有 VS-068，質量與扭矩上限是估計值）；`payload.js`：從 3D 工具模型估負載（`estimatePayload`、`combinePayloads`，給 `verify.dynamics` 用） |
 | `models/` | 共用模型庫：每個模型有 `meta`（名稱、分類、可調參數、可動狀態、用法）與 `create(params) → { root, set(state) }`，在 `models/index.js` 登記；`models/parts.js`：`fromPart(元件編號)` 用元件庫的模型與參數建立並標 `partRef`、`tagPart`；目錄頁 `/core/catalog/` 可預覽、調參與搜尋。共 85 個，清單見下方「共用模型」 |
 | `migrations/` | 各版共用模型的換用對照（各站把自己畫的零件換成共用模型時照著改）：`1.10.0-vision.md`、`1.10.0-motion.md`、`1.10.0-equipment.md`、`1.10.0-transport.md`；1.9.0 的對照表在 `MIGRATION.md` |
@@ -171,7 +171,8 @@ export function createProject({ scene, headless }) {
 const stage = createStage({ canvas, exposure: .86, fog: [5000, 11000], logDepth: true,
   camera: { fov: 40, near: 2, far: 20000 }, controls: { minDistance: 8, maxDistance: 7000 },
   envLight: 220, sun: { position, target, shadow: { mapSize, camera, bias, normalBias } }, fill: { … },
-  extraLights: [{ color, intensity, position, target, shadow }] });
+  extraLights: [{ color, intensity, position, target, shadow }],
+  envIntensity: 1 });                         // 環境光整體強度；室外大場景 0.3～0.6，stage.setEnvIntensity(k) 隨太陽高度改
 stage.loop(dt => { /* 推進時間、更新面板 */ return changed; }, { render: drawEverything });
 exposeSim({ seekTo, setView, views, total, play, pause, get T() { return T; } });
 ```

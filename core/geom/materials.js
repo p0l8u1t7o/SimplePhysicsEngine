@@ -33,6 +33,18 @@ export const MAT = {
   red: std(0xff4d4d, .4, 0, { emissive: 0xff4d4d, emissiveIntensity: .8 }),
   amber: std(0xffb020, .4, 0, { emissive: 0xffb020, emissiveIntensity: .8 }),
 };
+// 擴張網護板（core 1.20.4，原 RecycleSorter 的 meshGuard）：線條不透明、網目透明的菱形貼圖，遠看是一層薄紗；
+// 貼圖一格 = UV 1，用 shapes.js 的 meshPanel 依實際尺寸換算 UV（所有護板共用這個材質）。半透明的 MAT.mesh 近看沒有網目。
+MAT.expandedMesh = (() => {
+  const n = 32, data = new Uint8Array(n * n * 4);
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const d = Math.min(Math.abs((x + y) % n - n / 2), Math.abs((x - y + n) % n - n / 2));
+    data.set([150, 160, 168, d < 1.25 ? 150 : 0], (y * n + x) * 4);
+  }
+  const map = new THREE.DataTexture(data, n, n); map.wrapS = map.wrapT = THREE.RepeatWrapping;
+  map.magFilter = THREE.LinearFilter; map.minFilter = THREE.LinearMipmapLinearFilter; map.generateMipmaps = true; map.needsUpdate = true;
+  return new THREE.MeshStandardMaterial({ map, transparent: true, depthWrite: false, side: THREE.DoubleSide, roughness: .6, metalness: .4 });
+})();
 
 // 帶細紋的材質（拉絲金屬 'metal'、塑膠霧面 'polymer'）：回傳快取的複本，不改動共用材質
 const finishedCache = new Map();

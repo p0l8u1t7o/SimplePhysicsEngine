@@ -98,22 +98,7 @@ function setView(name, instant = false, automatic = false) {
 document.querySelectorAll('.views [data-view]').forEach(x => x.onclick = () => setView(x.dataset.view));
 const electrical = createElectricalInspector({ scene, camera, controls, canvas,
   title: '回收物自動分揀展示機', onEnter: () => setView('electrical', true), onExit: () => setView('overview', true) });
-// core 的電控檢視器「聚焦元件」固定把鏡頭放在元件的世界 +Z 側；本站的元件都不朝 +Z（DENSO 系統盤在側板上朝 −X，控制器與 ABB 盤朝 −Z），
-// 所以聚焦之後把鏡頭改放到該元件的正面（元件群組的本地 +Z 方向）。暫代，已登記 core/REQUESTS.md。
-{
-  const devices = []; scene.traverse(o => { if (o.userData.electrical) devices.push(o); });   // 與檢視器內部同樣的走訪順序
-  const facing = new THREE.Vector3();
-  const flip = () => {
-    const d = devices[+document.querySelector('#electrical-inspector select')?.value || 0]; if (!d) return;
-    const t = controls.target, dist = camera.position.distanceTo(t);
-    d.getWorldDirection(facing);
-    camera.position.copy(t).addScaledVector(facing, dist * .97).add(new THREE.Vector3(0, dist * .22, 0));
-    controls.update(); stage.invalidate();
-  };
-  const panel = document.getElementById('electrical-inspector');
-  panel?.querySelector('[data-focus]')?.addEventListener('click', flip);
-  panel?.querySelector('select')?.addEventListener('change', flip);
-}
+// 「聚焦元件」依元件朝向取景由 core 處理（1.20.4 起；之前本站在這裡把鏡頭翻到元件正面暫代）
 const visionOverlay = createVisionOverlay();
 const cameraToggle = document.querySelector('.viewer-tools [aria-label="顯示／隱藏相機視窗"]');
 workspace.setSources([{ id: 'CAM1', label: '後段 CAM-L 立體左眼' }, { id: 'CAM2', label: '後段 CAM-R 立體右眼' },

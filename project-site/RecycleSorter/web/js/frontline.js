@@ -4,7 +4,7 @@
 // （上層：既有 ABB 盤、OmniCore C30 與 RC8A 的鐵架、DENSO 系統盤；下層：空壓機與儲氣筒）。
 // 尺寸全部是照片目測的示意值；這裡只建固定設備與手臂模型，皮帶本體、排程與每個時間點的姿態在 project.js。
 import * as THREE from 'three';
-import { block, blockBetween, cylinder, plate, pipe, decal } from '@core/geom/shapes.js';
+import { block, blockBetween, cylinder, plate, pipe, decal, meshPanel } from '@core/geom/shapes.js';
 import { MAT, std, finished } from '@core/geom/materials.js';
 import { foot } from '@core/geom/hardware.js';
 import { create as visionCamera } from '@core/models/camera.js';
@@ -23,25 +23,8 @@ export const CAB_BODY = std(0x86a9cf, .62, .2);                                 
 const BIN = std(0x2f4a3d, .8, .05), STRIP = std(0xd9b44c, .55, 0, { transparent: true, opacity: .6 });
 const LED_ON = std(0xffffff, .3, 0, { emissive: 0xffffff, emissiveIntensity: 1.1 });
 
-// 擴張網護板：線條不透明、網目透明的貼圖（遠看是一層薄紗）。UV 依實際尺寸換算，所有護板共用一個材質。
-const meshGuard = (() => {
-  const n = 32, data = new Uint8Array(n * n * 4);
-  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
-    const d = Math.min(Math.abs((x + y) % n - n / 2), Math.abs((x - y + n) % n - n / 2));
-    data.set([150, 160, 168, d < 1.25 ? 150 : 0], (y * n + x) * 4);
-  }
-  const map = new THREE.DataTexture(data, n, n); map.wrapS = map.wrapT = THREE.RepeatWrapping;
-  map.magFilter = THREE.LinearFilter; map.minFilter = THREE.LinearMipmapLinearFilter; map.generateMipmaps = true; map.needsUpdate = true;
-  return new THREE.MeshStandardMaterial({ map, transparent: true, depthWrite: false, side: THREE.DoubleSide, roughness: .6, metalness: .4 });
-})();
-/** 護板：a、b 是兩個對角點，其中一軸厚度為 0 的那一面就是護板平面（實際做成 6 mm 厚的板） */
-function guard(parent, a, b) {
-  const size = [0, 1, 2].map(k => Math.max(6, Math.abs(b[k] - a[k]))), pos = [0, 1, 2].map(k => (a[k] + b[k]) / 2);
-  const m = block(parent, size, pos, meshGuard), p = m.geometry.attributes.position, uv = m.geometry.attributes.uv;
-  const u = size[0] > 6 ? 0 : 2;
-  for (let i = 0; i < p.count; i++) uv.setXY(i, p.getComponent(i, u) / 60, p.getY(i) / 60);
-  m.castShadow = false; m.name = 'mesh guard'; return m;
-}
+// 擴張網護板：core 的 meshPanel＋MAT.expandedMesh（core 1.20.4 起，原本站內的 meshGuard／guard，外觀相同）
+const guard = (parent, a, b) => meshPanel(parent, a, b);
 
 /**
  * 導料板一組（兩片斜板＋托架）：開口與中心線照 schedule.js 的 laneAt()，所以板面和工件走的通道是同一份定義。

@@ -52,6 +52,7 @@ function buildStage({
   logDepth = true,                                              // 大場景（m 級）建議開；近裁切面很小時可關
   camera: cam = {}, controls: ctl = {},
   envLight = null, envBlur = .04,                              // envLight：RoomEnvironment 點光強度（SSD／快門站用 220）
+  envIntensity = 1,                                             // 環境光（RoomEnvironment）整體強度：室外大場景調低（0.3～0.6）陰影才不會被洗掉；stage.setEnvIntensity(k) 可隨太陽高度改
   hemi = { sky: 0xbfd4ff, ground: 0x2a2f36, intensity: .6 },
   sun = { color: 0xffffff, intensity: 1.5, position: [-1500, 3200, 1800], target: [0, 0, 0], shadow: { mapSize: 2048 } },
   fill = { color: 0x9fb8ff, intensity: .5, position: [1800, 1500, -1800] },
@@ -76,6 +77,7 @@ function buildStage({
   room.position.y = 0; room.updateMatrixWorld(true);
   if (envLight != null) room.traverse(o => { if (o.isPointLight) o.intensity = envLight; });
   scene.environment = pmrem.fromScene(room, envBlur).texture; room.dispose(); pmrem.dispose();
+  scene.environmentIntensity = envIntensity;
 
   const camera = new THREE.PerspectiveCamera(cam.fov ?? 40, 1, cam.near ?? 2, cam.far ?? 20000);
   const controls = new OrbitControls(camera, canvas);
@@ -224,7 +226,9 @@ function buildStage({
   // dispose()：停下來並移除 resize 監聽（頁面內換場景、重建舞台時用）
   function dispose() { stop(); removeEventListener('resize', resize); }
 
-  const stage = { renderer, scene, camera, controls, lights, qp, addLabel, updateLabels, labels, goTo, cancelTween, shiftView, get tweening() { return tweening(); }, get fitScale() { return fitScale; }, resize, render, invalidate, loop, stop, dispose, clock, useLog };
+  // 環境光強度（日夜變化、室外場景）：r187 的 scene.environmentIntensity，所有材質一起調，不用逐材質改 envMapIntensity
+  function setEnvIntensity(k) { scene.environmentIntensity = Math.max(0, +k || 0); invalidate(); }
+  const stage = { renderer, scene, camera, controls, lights, qp, setEnvIntensity, addLabel, updateLabels, labels, goTo, cancelTween, shiftView, get tweening() { return tweening(); }, get fitScale() { return fitScale; }, resize, render, invalidate, loop, stop, dispose, clock, useLog };
   // 效能量測（core/tools/perf-check.mjs）從這裡讀 renderer.info
   (globalThis.__coreStages ||= []).push(stage);
   return stage;

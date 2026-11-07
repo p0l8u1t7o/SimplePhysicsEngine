@@ -33,7 +33,9 @@ export function createElectricalInspector({scene,camera,controls,canvas,onEnter,
     if(!selected)return;const previous=mode;onEnter();displayMode(previous==='shell'?'cutaway':previous);
     scene.updateMatrixWorld(true);const b=new THREE.Box3().setFromObject(selected),center=b.getCenter(new THREE.Vector3()),size=b.getSize(new THREE.Vector3());
     const distance=Math.max(size.y,size.x/Math.max(.5,camera.aspect))/(2*Math.tan(THREE.MathUtils.degToRad(camera.fov/2)))*1.65+size.z/2;
-    controls.target.copy(center);camera.position.copy(center).add(new THREE.Vector3(size.x*.12,size.y*.10,distance));camera.near=.5;camera.updateProjectionMatrix();controls.update();
+    // 鏡頭放在元件的正面（元件群組本地 +Z 轉到世界的方向；core 1.20.4 起，之前固定在世界 +Z 側）。沒有旋轉的元件和之前完全相同
+    const facing=selected.getWorldQuaternion(new THREE.Quaternion());
+    controls.target.copy(center);camera.position.copy(center).add(new THREE.Vector3(size.x*.12,size.y*.10,distance).applyQuaternion(facing));camera.near=.5;camera.updateProjectionMatrix();controls.update();
   }
   toggle.onclick=()=>{if(panel.hidden){onEnter();show();}else{onExit();hide();}};
   panel.querySelector('[data-close]').onclick=()=>{onExit();hide();toggle.focus();};

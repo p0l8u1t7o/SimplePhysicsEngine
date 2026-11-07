@@ -30,25 +30,6 @@
 - 期望：InstancedMesh 逐個實例展開成有向包圍盒（數量多時只取外框）；薄件（任一邊 < 取樣間距）改用線段對方塊的相交測試，或取樣間距依對方最薄的邊縮小
 - 影響：所有用拖鏈、InstancedMesh 陣列（光伏板、料件）的站
 
-### 室外場景的環境光強度
-- 提出：PV DEMO（2026-11-04；該站已於 2026-11-07 移除，暫代程式留在 commit `ad4b816`）
-- 暫代：`project-site/PV DEMO/web/js/main.js`（見 `ad4b816`）的 `envMats`（逐材質設 `envMapIntensity`，隨太陽高度變化）
-- 現象：stage 固定載入 RoomEnvironment，室外大場景（mm 單位、數十公尺）陰影對比被洗掉；r160 沒有 `scene.environmentIntensity`（core 1.18.0 升到 r187 後已經有了，可以直接用它實作）
-- 期望介面：`createStage({ envIntensity })`＋`stage.setEnvIntensity(k)`（或 look 加 `outdoor`）
-- 影響：ParkingEMS、其他室外或日夜變化的站
-
-### 電控檢視器「聚焦元件」要依元件朝向取景
-- 提出：RecycleSorter（2026-10-05）
-- 暫代：`project-site/RecycleSorter/web/js/main.js` 的 `flip()`（緊接在 `createElectricalInspector` 之後的區塊）——在檢視器的「元件特寫」按鈕與元件選單上再掛一個事件，聚焦之後把鏡頭改放到元件群組本地 +Z 的方向
-- 期望介面：`core/electrical/electrical-inspector.js` 的 `focus()` 用元件的世界朝向（`getWorldDirection`）取景；目前固定把鏡頭放在元件包圍盒的世界 +Z 側
-- 影響：盤面不是朝 +Z 的站（本站的系統盤裝在既有電控櫃的側板上朝 −X，控制器朝 −Z）；`robotController()` 的面板朝向也固定是本地 +Z，本站用轉 180° 的安裝座暫代
-
-### 擴張網護板材質
-- 提出：RecycleSorter（2026-10-05）
-- 暫代：`project-site/RecycleSorter/web/js/frontline.js` 的 `meshGuard` 材質與 `guard(parent, a, b)`（網目貼圖依實際尺寸換算 UV，所有護板共用一個材質）
-- 期望介面：`@core/geom/materials.js` 的 `MAT.expandedMesh`（或 `meshPanel(parent, a, b, { cell })`）
-- 影響：有圍籬或網籠的站（目前各站用半透明的 `MAT.mesh`，近看沒有網目）
-
 ### ABB OmniCore C30 控制器與 DSQC I/O 的電控元件外觀
 - 提出：core 1.10.0 整合（2026-10-05，RecycleSorter 的既有分選站；已拍板不做成 `core/models`，因為它們是電控元件）
 - 暫代：`project-site/RecycleSorter/web/js/frontline.js` 的 `abbDevice()` 與其後的 DSQC 2000（`CTM1`）、OmniCore C30（`ABB1`）兩段在站內自己畫（`userData.electrical`、`electricalBody`；機身置中、轉 180° 朝門）。RC8A 用 core 的 `robotController()`，放進 `electrical.js` 轉 180° 的安裝座 `RC1 安裝座`
@@ -97,13 +78,6 @@
 - 暫代：`project-site/ChemicalTankWashing/web/js/filling.js` 的 `person()`（工作服、安全帽，兩臂各一個可轉的群組）；擦拭人員放在場景頂層的 `people` 群組，全場檢查會對所有設備檢查
 - 期望介面：`core/models/` 的 `operator.create({ color, helmet })`，`set({ walk, armL, armR })` 或 `pose('stand'|'wipe'|'press')`；身高、肩寬可參數化
 - 影響：需要表現人工作業的站（擦拭、上下料、目檢）；ParkingEMS 的人物、RecycleSorter 的作業員
-
-### `drumJaws` 加爪片寬度選項
-- 提出：ChemicalTankWashing（2026-10-31）
-- 現象：`core/models/drum-200l.js` 的 `drumJaws()` 每片爪約 80°（1.4 rad）。從 2×2 棧板夾桶時，不管轉到哪個方位，爪片邊緣都會掃到同板相鄰的桶（本站量到最多約 110 mm，被「桶整個放行」蓋住）。
-- 暫代：`project-site/ChemicalTankWashing/web/js/drum.js` 的 `narrowJaws(parent, stroke)`（每片 30°，`JAW_ARC`），夾爪轉 ±45° 對準對角；`tools/verify.mjs` 檢查夾爪對同板的桶
-- 期望介面：`drumJaws(parent, armTo, stroke, { arc })`，預設維持 1.4 rad（現有外觀不變）
-- 影響：用 `drumJaws` 從棧板夾桶的站
 
 ### 桶裝填裝頭（灌裝槍＋鎖蓋頭換位）
 - 提出：ChemicalTankWashing（2026-10-31）

@@ -1,7 +1,7 @@
 // 200 L 閉口 HDPE 桶：模型在共用模型庫（core/models/drum-200l.js）。
 // 本站另加旋蓋面 3 張標籤（1 張無條碼＋2 張條碼，條碼讀值與側標相同），避開 2"（+X）與 3/4"（−X）桶塞。
 import * as THREE from 'three';
-import { DRUM, DRUM_GEO, createDrum as coreDrum, createDrumInstances as coreDrumInstances } from '@core/models/drum-200l.js';
+import { DRUM, DRUM_GEO, createDrum as coreDrum, createDrumInstances as coreDrumInstances, drumJaws } from '@core/models/drum-200l.js';
 import { HAS_DOM } from '@core/geom/shapes.js';
 import { MAT } from '@core/geom/materials.js';
 export * from '@core/models/drum-200l.js';
@@ -67,20 +67,8 @@ export function addTopLabels(drum, id = drum.id) {
   return { group: g, set(n) { const k = n === true ? 3 : +n || 0; g.visible = k > 0; g.children.forEach((c, i) => { c.visible = i < k; }); } };
 }
 
-// 窄弧夾爪（從 2×2 棧板夾桶用）：兩片爪對向，每片 JAW_ARC 寬，中心在局部 ±X；core 的 drumJaws 每片約 80°，
-// 夾棧板上的桶時不管轉到哪個方位，爪片邊緣都會掃到同板相鄰的桶。窄爪轉到對角（棧板外側與對角桶方向）就不會碰到。
+// 窄弧夾爪（從 2×2 棧板夾桶用）：core 的 drumJaws 每片約 80°，夾棧板上的桶時不管轉到哪個方位，爪片邊緣都會掃到同板相鄰的桶；
+// 每片 JAW_ARC 寬、轉到對角（棧板外側與對角桶方向）就不會碰到。core 1.20.4 起用 drumJaws 的 arc 選項（原本站內自己畫，幾何相同）。
 // 局部 +Y 為桶軸、原點在桶中心；set(v)：1 夾緊、0 全開（每片往外 stroke mm）。
 export const JAW_ARC = 30 * Math.PI / 180;
-export function narrowJaws(parent, stroke = 90) {
-  const jaws = [];
-  for (const s of [-1, 1]) {
-    const g = new THREE.Group(); parent.add(g);
-    const a0 = (s > 0 ? Math.PI / 2 : -Math.PI / 2) - JAW_ARC / 2;
-    const pad = new THREE.Mesh(new THREE.CylinderGeometry(DRUM.R + 12, DRUM.R + 12, 420, 8, 1, true, a0, JAW_ARC), MAT.pu);
-    pad.material.side = THREE.DoubleSide; pad.castShadow = true; g.add(pad);
-    const back = new THREE.Mesh(new THREE.CylinderGeometry(DRUM.R + 32, DRUM.R + 32, 440, 8, 1, true, a0 - .02, JAW_ARC + .04), MAT.steel);
-    back.castShadow = true; g.add(back);
-    jaws.push({ g, s });
-  }
-  return { set(v) { for (const { g, s } of jaws) g.position.x = s * (1 - v) * stroke; } };
-}
+export const narrowJaws = (parent, stroke = 90) => drumJaws(parent, null, stroke, { arc: JAW_ARC, segments: 8 });
