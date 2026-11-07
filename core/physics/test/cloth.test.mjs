@@ -54,3 +54,33 @@ test('取樣在格點上等於記錄值；顯示的位置與法線都是有限�
   assert.equal(view.mesh.name, 'physics:小布'); assert.ok(view.root.userData.physics);
   view.dispose();
 });
+
+// 自我碰撞：把地上的布對摺（v1 邊抬起、翻到 v0 那側放下），沒開的話上層會穿過下層貼到地面；開了要保持約 2·radius
+test('布料自我碰撞：對摺時上層不穿過下層；不開時結果和之前相同', () => {
+  const fold = self => ({ name: 'fold', size: [600, 600], segments: [12, 12], origin: [0, 3, 0], duration: 3, settle: 0, bend: 5, friction: 0.6,
+    colliders: [{ shape: 'plane', y: 0 }], pins: [{ edge: 'v1', until: 2.1, move: t => { const u = Math.min(1, t / 2); return [0, 260 * Math.sin(Math.PI * u) + 60 * u, -540 * u]; } }],
+    ...(self ? { selfCollision: true } : {}) });
+  const off = bakeCloth(fold(false)), on = bakeCloth(fold(true)), again = bakeCloth(fold(true));
+  assert.equal(on.stats.hash, again.stats.hash, '開了自我碰撞也是決定性的');
+  assert.equal(off.stats.selfMin, undefined);
+  // 結束時：同一個 (x, z) 附近上下兩層的高度差。找 y 最高的 10% 節點，看它們正下方最近的下層節點
+  const gap = b => {
+    const P = clothSampler(b)(b.duration), N = b.nodes, ys = [];
+    for (let k = 0; k < N; k++) ys.push(P[k * 3 + 1]);
+    let worst = Infinity;
+    for (let k = 0; k < N; k++) {
+      if (P[k * 3 + 1] < 15) continue;                                   // 上層（離地 > 15 mm）
+      for (let m = 0; m < N; m++) {
+        if (P[m * 3 + 1] > 15) continue;                                 // 下層（貼地）
+        const dx = P[k * 3] - P[m * 3], dz = P[k * 3 + 2] - P[m * 3 + 2];
+        if (dx * dx + dz * dz < 20 * 20) worst = Math.min(worst, P[k * 3 + 1] - P[m * 3 + 1]);
+      }
+    }
+    return { worst, upper: ys.filter(y => y >= 15).length };
+  };
+  const g1 = gap(on), g0 = gap(off), R = on.stats.selfRadius;
+  assert.ok(g1.upper > 20, `開了自我碰撞要有上層：${g1.upper} 個節點離地 > 15 mm`);
+  assert.ok(g1.worst > 1.5 * R, `上下層間距 ${g1.worst.toFixed(1)} mm 應 > 1.5 × radius（${R.toFixed(1)}）`);
+  assert.ok(g0.upper < g1.upper, `不開時上層會穿下去貼地（離地節點 ${g0.upper} 個，開了 ${g1.upper} 個）`);
+  assert.ok(on.stats.maxStretch < 0.1, `伸長 ${on.stats.maxStretch}`);
+});

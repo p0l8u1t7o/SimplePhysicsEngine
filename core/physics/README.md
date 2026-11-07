@@ -129,10 +129,11 @@ const view = createClothView(tarp, { color: 0x2f7d5b }); scene.add(view.root);  
 | `pins: [{ node \| nodes \| edge: 'u0'\|'u1'\|'v0'\|'v1' \| corners, pos?, move?, until? }]` | `pos`（單一節點的絕對位置，可為函式）、`move`（整組相對起始位置的位移函式）、`until` 之後放開 |
 | `colliders` | `collide.js` 的形狀；會動的碰撞體（`pos` 是函式）摩擦以碰撞體為參考（被移動的板子帶著走） |
 | `wind: { velocity, drag = 2 }` | 每個節點依面積加權法向受「法向相對風速 × drag」的加速度 |
+| `selfCollision: true | { radius }` | 自我碰撞：不相鄰的節點（靜止時距離 ≥ 2·radius）保持 2·radius；radius 預設 0.45 × 格距；空間雜湊、依節點編號順序（決定性）。摺疊、堆疊時才開：600 mm 布對摺的測試慢約 3.4 倍，上層停在下層上方約 2·radius（不開時大部分節點穿下去貼地）。stats 多 `selfRadius`、`selfMin` |
 
 結果：`{ kind: 'cloth', data（Float32，frames × 節點 × 3）, segments, stats: { nodes, constraints, steps, maxStretch, minY, maxPenetration, hash, ms } }`；`clothStats(b, { region })` 另外給結束時的外框與落在 region 的節點比例。
 
-限制：布和布自己不碰撞（摺疊多層會穿過自己）；碰撞以節點計（細的邊角會從網格之間穿過，`thickness` 要大於物體的尖角）；彎曲是「隔一點的距離」近似；沒有撕裂。
+限制：自我碰撞只在節點之間（`selfCollision`），網格的邊與面沒有連續碰撞，摺得很快或格子很粗時還是可能穿過；碰撞以節點計（細的邊角會從網格之間穿過，`thickness` 要大於物體的尖角）；彎曲是「隔一點的距離」近似；沒有撕裂。
 
 ### 流體 `bakeFluid(spec)`
 

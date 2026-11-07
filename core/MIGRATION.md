@@ -232,6 +232,7 @@ Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs
 ## 2026-11-07：core 1.20.0 布料、粒子流體、天候、外部 CFD、LAZ、站層日照與動力學檢查、鋼構與日照對齊
 
 - **布料與粒子流體**（`physics/cloth.js`、`fluid.js`、共用碰撞 `collide.js`；原型在本機 `TEMP/physx-dev/`）：XPBD 布料（釘點可移動或放開、側風）、PBF 粒子流體（噴嘴與流量、開口方槽、圓桶、移除區；畫面用，不是 CFD）。`verify/physics.mjs` 依 `kind` 重烘比雜湊：布料檢查伸長率（`clothStretchTol` 0.05）、流體檢查密度誤差（`densityTol` 0.05）、鄰居溢位、留在容器內的比例（`containTol` 0.98）；只用線材、布料、流體的站不載入 Rapier。物理範例加「篷布覆蓋」「噴嘴注入方槽」，七個情境 Node 與無頭 Chrome 逐位元相同。
+- 布料加選用的自我碰撞 `selfCollision`（節點之間，空間雜湊、決定性；不開時結果不變）。
 - **天候**（`weather/`）：雨雪粒子（位置直接由時間算，可以任意跳）、板面積雪與滑落（Marion 2013）與發電損失、雪與風載重的規範形式估算（標 `estimate`）、板面逕流。
 - **鋼構與日照對齊**（`structure/solar-frame.js`）：`solarFrame()` 把 structure 的本地座標（列與追日軸沿 +X）轉到 core/solar 的世界座標（X 東、Z 南）；南北軸追日的 yaw = −90°，轉角 φ 就是 solar 的 θ（測試逐片對照 `trackerArray` 與 3D 實例）。`/core/examples/structure/` 的追日改成南北軸、依太陽轉（回溯／不回溯／手動），並和固定式、地形一起算遮陰；原本手動轉角的拉桿保留。
 - **積雪損失接全年發電**：`solar/energy.js` 的 `simulate` 加選用的 `hourlyLoss`（逐筆額外直流損失，遮陰之後、變流器之前扣，`annual.hourlyLossKWh`；沒給時逐位元不變），`readEPW` 多讀第 30 欄雪深 `snowDepth`；`weather/snow.js` 加 `snowLossSeries`（天候檔 → 逐時積雪損失）。

@@ -14,7 +14,9 @@
 //     pins: [{ node: [i, j] | nodes: [[i, j], …] | edge: 'u0'|'u1'|'v0'|'v1' | corners: true,
 //              pos?: [x, y, z] | t => [x, y, z]（只能配單一節點：絕對位置）, move?: t => [dx, dy, dz]（相對起始位置的位移，整組一起動）, until?: 放開的時間（s） }],
 //     colliders: collide.js 的形狀（plane、box、sphere、cylinder、tank、drum；pos 可以是 t => [x, y, z]）,
-//     wind?: { velocity: [x, y, z] | t => [x, y, z]（mm/s）, drag = 2（1/s，法向相對風速的拖曳率） } }
+//     wind?: { velocity: [x, y, z] | t => [x, y, z]（mm/s）, drag = 2（1/s，法向相對風速的拖曳率） },
+//     selfCollision?: true | { radius }（自我碰撞：不相鄰的節點保持 2·radius；預設 radius = 0.45 × 格距；摺疊、堆疊時才需要，較慢） }
+//   有 selfCollision 時 stats 多 selfRadius、selfMin（記錄的畫格裡，範圍內最近的一對不相鄰節點距離；null 表示都沒有靠近）
 // 節點編號：(i, j) → j * (nu + 1) + i；i 沿 u（寬）、j 沿 v（長）。
 // 決定性：解算器只用加減乘除與 Math.sqrt，Float64 固定順序；pins、colliders、wind 的函式在 Node 與瀏覽器都是 V8。
 import * as THREE from 'three';
@@ -112,6 +114,39 @@ export function bakeCloth(spec) {
     }
   }
 
+  // 自我碰撞（選用）：節點之間保持 2·radius 的距離，靜止時本來就靠近的（相鄰、對角、隔一點）不算。
+  // 空間雜湊格邊長 2·radius；桶依節點編號順序建、依編號順序走訪，結果只看整數與固定順序（決定性）。
+  const sc = spec.selfCollision ? { radius: (typeof spec.selfCollision === 'object' && spec.selfCollision.radius) || 0.45 * Math.min(W / nu, H / nv) } : null;
+  let selfMin = Infinity;
+  function selfCollide(measure = false) {
+    const R2 = 2 * sc.radius, cell = R2, grid = new Map(), key = (x, y, z) => (Math.imul(x, 73856093) ^ Math.imul(y, 19349663) ^ Math.imul(z, 83492791)) | 0;
+    const ci = new Int32Array(N * 3);
+    for (let i = 0; i < N; i++) {
+      const k = i * 3, x = Math.floor(p[k] / cell), y = Math.floor(p[k + 1] / cell), z = Math.floor(p[k + 2] / cell);
+      ci[k] = x; ci[k + 1] = y; ci[k + 2] = z;
+      const h = key(x, y, z); let b = grid.get(h); if (!b) grid.set(h, b = []); b.push(i);
+    }
+    for (let i = 0; i < N; i++) {
+      const k = i * 3;
+      for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) {
+        const b = grid.get(key(ci[k] + dx, ci[k + 1] + dy, ci[k + 2] + dz)); if (!b) continue;
+        for (const j of b) {
+          if (j <= i) continue;
+          const m = j * 3, rx = rest0[m] - rest0[k], ry = rest0[m + 1] - rest0[k + 1], rz = rest0[m + 2] - rest0[k + 2];
+          if (rx * rx + ry * ry + rz * rz < R2 * R2 * 1.0001) continue;                 // 靜止時就在範圍內的鄰居
+          const ex = p[m] - p[k], ey = p[m + 1] - p[k + 1], ez = p[m + 2] - p[k + 2], d2 = ex * ex + ey * ey + ez * ez;
+          if (d2 >= R2 * R2) continue;
+          const d = Math.sqrt(d2);
+          if (measure) { if (d < selfMin) selfMin = d; continue; }
+          const wi = w[i], wj = w[j], ws = wi + wj; if (ws === 0 || d < 1e-9) continue;
+          const s = (R2 - d) / (d * ws);
+          p[k] -= wi * s * ex; p[k + 1] -= wi * s * ey; p[k + 2] -= wi * s * ez;
+          p[m] += wj * s * ex; p[m + 1] += wj * s * ey; p[m + 2] += wj * s * ez;
+        }
+      }
+    }
+  }
+
   let maxPen = 0;
   function step(t) {
     moveColliders(colliders, t);
@@ -134,6 +169,7 @@ export function bakeCloth(spec) {
     }
     for (const gr of G) gr.lam.fill(0);
     for (let it = 0; it < iters; it++) for (const gr of G) solve(gr);
+    if (sc) selfCollide();
     for (let i = 0; i < N; i++) if (w[i] !== 0) pushOut(colliders, p, prev, i, r, mu);
     for (let i = 0; i < N; i++) { const k = i * 3; v[k] = (p[k] - prev[k]) / h; v[k + 1] = (p[k + 1] - prev[k + 1]) / h; v[k + 2] = (p[k + 2] - prev[k + 2]) / h; }
   }
@@ -154,6 +190,7 @@ export function bakeCloth(spec) {
       if (p[i * 3 + 1] < minY) minY = p[i * 3 + 1];
       if (w[i] !== 0) { const d = pushOut(colliders, p, null, i, r, 0, true); if (d > maxPen) maxPen = d; }
     }
+    if (sc) selfCollide(true);
   };
   for (let s = 0; s < steps; s++) { if (s % every === 0) record(); advance(s * dt); }
   if (f < frames) record();
@@ -162,7 +199,8 @@ export function bakeCloth(spec) {
   const constraints = G.reduce((a, gr) => a + gr.n, 0);
   return { kind: 'cloth', spec, dt, hz, duration, frames, nodes: N, segments: [nu, nv], thickness: r, data,
     stats: { bodies: 1, nodes: N, constraints, steps, maxStretch: Math.round(maxStretch * 1e4) / 1e4, minY: Math.round(minY * 10) / 10,
-      maxPenetration: Math.round(maxPen * 1000) / 1000, peakPenetration: Math.round(maxPen * 1000) / 1000, ms, hash } };
+      maxPenetration: Math.round(maxPen * 1000) / 1000, peakPenetration: Math.round(maxPen * 1000) / 1000, ms, hash,
+      ...(sc ? { selfRadius: sc.radius, selfMin: Number.isFinite(selfMin) ? Math.round(selfMin * 100) / 100 : null } : {}) } };
 }
 
 export function clothSampler(b) {
