@@ -309,12 +309,20 @@ export function createCarport(name, cp) {
     for(const x of cp.cols.filter(x=>x>=bx0&&x<bx1)){
       // 天溝集水管沿樑側接回柱側落水管，屋面就位後才裝配。
       const drain=grp('canopy drain assembly',bay);drain.userData.installAfterPlacement=true;
-      const px=x-bxc+210,top=gy-180;
-      cylinder(drain,42,top-70,[px,(top+70)/2,cp.zLine],M.galv,'y',12).name='carport downpipe';
-      const a=new THREE.Vector3(px,top,cp.zLine),b=new THREE.Vector3(px,gy-42,gz),delta=b.clone().sub(a);
-      const run=cylinder(drain,42,delta.length(),a.clone().add(b).multiplyScalar(.5).toArray(),M.galv,'y',12);
-      run.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),delta.normalize());run.name='gutter collector pipe';
-      for(const y of [700,top-400])box(drain,'downpipe bracket',[75,35,110],[px,y,cp.zLine],M.galv);
+      // 落水管貼柱（離柱心 210）下到柱腳板上方，再以 45° 偏移彎轉出到基礎墩外（離柱心 370，離墩邊 28 mm）垂直入地排水，
+      // 不穿柱腳板（440 見方）與基礎墩（600 見方）。
+      const px=x-bxc+210,px2=x-bxc+370,top=gy-180,bend=650,drop=bend-(px2-px);
+      const pipe=(name,p,q,ext=0)=>{
+        const a=new THREE.Vector3(...p),b=new THREE.Vector3(...q),d=b.clone().sub(a).normalize();
+        a.addScaledVector(d,-ext);b.addScaledVector(d,ext);
+        const m=cylinder(drain,42,a.distanceTo(b),a.clone().add(b).multiplyScalar(.5).toArray(),M.galv,'y',12);
+        m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d);m.name=name;return m;
+      };
+      pipe('carport downpipe',[px,top,cp.zLine],[px,bend,cp.zLine],17);
+      pipe('downpipe offset',[px,bend,cp.zLine],[px2,drop,cp.zLine],17);
+      pipe('carport downpipe',[px2,drop,cp.zLine],[px2,-50,cp.zLine],17);
+      pipe('gutter collector pipe',[px,top,cp.zLine],[px,gy-42,gz]);
+      for(const y of [1000,top-400])box(drain,'downpipe bracket',[75,35,110],[px,y,cp.zLine],M.galv);
     }
     bay.userData.range = [bx0, bx1]; bays.push(bay);
   }
