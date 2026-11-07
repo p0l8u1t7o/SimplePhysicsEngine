@@ -129,11 +129,15 @@ export function createLine(scene, { frames = true } = {}) {
   const frame0 = up.z0 + 500, roll0 = up.z0 + 570;                                       // 輸送架從翻桶機南側軸承座之後開始
   // core 的滾筒輸送線模型（滾筒＋軸承座、側樑、支腳）；開蓋站那一段（skip）是旋轉台。
   // root 只移 X：滾筒的本地 y／z 就是站的座標（tools/verify-detail.mjs 直接讀）
+  // 側樑在開蓋站斷開（旋轉台是插在兩段輸送之間的獨立模組）：桶蓋收集桶在 +X 側樑的位置，整支側樑會穿過收集桶。
+  // 模型的側樑不能分段，所以 frame: false，由站照模型的尺寸（寬 50、高 150、offset 380）分兩段畫；斷口兩端落在支腳上
   const uc = conveyor({ axis: 'z', span: [frame0, up.z1], width: 700, height: up.top, roller: 30,
     rollers: { from: roll0, to: up.z1, pitch: 120, skip: [[DECAP.z, 370]] },
-    brackets: { size: [26, 68, 70], offset: 357, y: up.top - 36 }, frame: { offset: 380, y: up.top - 70 },
-    legs: { positions: { from: up.z0 + 600, to: up.z1, pitch: 900 }, size: [60, up.top - 140, 60], foot: false } });
+    brackets: { size: [26, 68, 70], offset: 357, y: up.top - 36 }, frame: false,
+    legs: { positions: { from: up.z0 + 600, to: up.z1, pitch: 900 }, size: [60, up.top - 140, 60], offset: 380, foot: false } });
   uc.root.position.x = up.x; group.add(uc.root);
+  for (const [z0, z1] of [[frame0, DECAP.z - DECAP.beamGap], [DECAP.z + DECAP.beamGap, up.z1]])
+    for (const s of [-1, 1]) block(uc.root, [50, 150, z1 - z0], [s * 380, up.top - 70, (z0 + z1) / 2], MAT.steel);
   const uprightRollers = uc.rollers;
   uc.rollers.forEach((mesh, i) => rollers.push({ mesh, axis: 'x', radius: 30, along: uc.positions[i] }));
   for (const [z0, z1] of [[frame0, up.pick - 350], [up.pick + 350, up.place - 350], [up.place + 350, up.z1]])
@@ -211,11 +215,12 @@ export function createLine(scene, { frames = true } = {}) {
   const ringLight = camD.ring, decapCam = camD.camera, decapFlash = camD.light;
   // 桶蓋收集桶（斜槽）
   const bin = new THREE.Group(); bin.position.set(dc.bin.x, 0, dc.bin.z); group.add(bin);
-  // 桶高 560：桶口低於立放輸送側導引（底面 y 607）
-  cylinder(bin, 230, 560, [0, 280, 0], MAT.ppSolid, 'y', 24, 200);
-  cylinder(bin, 210, 10, [0, 562, 0], MAT.hole, 'y', 28);
-  const capPile = []; for (let i = 0; i < 8; i++) { const c = cylinder(bin, i % 2 ? 18 : 36, 16, [(i % 3 - 1) * 70, 500 + Math.floor(i / 3) * 18, ((i * 7) % 5 - 2) * 40], MAT.cap, 'y', 28); c.visible = false; capPile.push(c); }
-  plate(group, ['桶蓋收集'], 380, 110, [dc.bin.x, 460, dc.bin.z + 222], 0, { w: 512, h: 150 });
+  // 桶高 560：桶口低於立放輸送側導引（底面 y 607）。桶徑見 layout.js DECAP.bin（避開旋轉台盤面與伺服馬達）
+  const bn = dc.bin;
+  cylinder(bin, bn.r, bn.h, [0, bn.h / 2, 0], MAT.ppSolid, 'y', 24, bn.rTop);
+  cylinder(bin, bn.rTop + 10, 10, [0, bn.h + 2, 0], MAT.hole, 'y', 28);
+  const capPile = []; for (let i = 0; i < 8; i++) { const c = cylinder(bin, i % 2 ? 18 : 36, 16, [(i % 3 - 1) * 55, 500 + Math.floor(i / 3) * 18, ((i * 7) % 5 - 2) * 30], MAT.cap, 'y', 28); c.visible = false; capPile.push(c); }
+  plate(group, ['桶蓋收集'], 300, 110, [bn.x, 460, bn.z + bn.r + 5], 0, { w: 512, h: 150 });
 
   section('fence');
   // ---------------------------------------------------------------- 圍籬
@@ -309,7 +314,7 @@ export function createLine(scene, { frames = true } = {}) {
         r.mesh.rotation[r.axis === 'z' ? 'y' : 'x'] = d ? -d[key] / r.radius : 0;
       }
     },
-    mechanical: { rotRollers, uprightRollers, tableRollers, turntable, weigher, cradle, actuator, piston, upClamp, dcClamp },
+    mechanical: { rotRollers, uprightRollers, tableRollers, turntable, turntableModel: tt, capBin: bin, weigher, cradle, actuator, piston, upClamp, dcClamp },
     group: root, front, cell, fences, fenceGroups: [fencesF, fencesC], labelCam, decapCam, gantryPivot, cradle, padLabel,
     setGantry({ x, z, y, tilt: t, jaw, rot = 0 }) {
       bridge.position.x = x; trolley.position.z = z;

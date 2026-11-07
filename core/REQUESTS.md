@@ -16,6 +16,19 @@
 
 ## 待處理
 
+### `conveyor` 的側樑能在插入的模組處斷開
+- 提出：ChemicalTankWashing（2026-11-07）
+- 暫代：`project-site/ChemicalTankWashing/web/js/line.js` 的立放輸送用 `frame: false`，站內照原尺寸畫兩段側樑（開蓋站斷開 ±340 mm）
+- 期望介面：`conveyor` 的 `frame` 加 `skip: [[中心, 半寬]…]`
+- 影響：輸送線中間插旋轉台、秤重台等獨立模組的站
+
+### `scene` 干涉檢查的三個盲點
+- 提出：ChemicalTankWashing（2026-11-07，量測時發現側樑整支穿過收集桶卻是 0 筆）
+- 現象：(a) 曲面件複核 `vertexInside` 只看頂點，長方塊穿過圓柱、兩邊都沒有頂點落在對方裡面時漏報；(b) 會改 scale 的子網格（液面、視管）被當成移動件，對同一安裝群組的固定件全部放行；(c) 同一工位的固定件之間不比
+- 暫代：站的 `tools/verify-detail.mjs` 用表面取樣點直接量淨距
+- 期望：(a) 沿邊加密取樣；(b)(c) 讓站宣告某些固定件之間要比，或對不改 scale 的外掛件照常檢查。改之前要先拍全站基準並逐站比對（可能抓出新的真問題）
+- 影響：所有站
+
 ### 室外場景的環境光強度
 - 提出：PV DEMO（2026-11-04；該站已於 2026-11-07 移除，暫代程式留在 commit `ad4b816`）
 - 暫代：`project-site/PV DEMO/web/js/main.js`（見 `ad4b816`）的 `envMats`（逐材質設 `envMapIntensity`，隨太陽高度變化）

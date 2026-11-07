@@ -1,5 +1,5 @@
 {
-  "meshObjects": 4589,
+  "meshObjects": 4591,
   "instancedObjects": 191,
   "drawnInstances": 4133,
   "expandedDetailParts": 2507,
@@ -19,7 +19,7 @@
     "scope": "AGV 淨距為新設施低於 2200 mm 部分的保守俯視 AABB 下界，另以多邊形驗證；0.5 s 取樣，不是現場安全認證。"
   },
   "ok": true,
-  "meshes": 6814,
+  "meshes": 6816,
   "moving": 650,
   "joints": 197,
   "samples": 2579,

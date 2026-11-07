@@ -60,6 +60,46 @@ check('四槽不嵌入防溢堤',Object.values(tankWallGaps).every(g=>g>=0),tank
 const tt=Object.entries(WASTE.tanks), tankGaps=[];
 for(let i=0;i<tt.length;i++)for(let j=i+1;j<tt.length;j++){const [ak,a]=tt[i],[bk,b]=tt[j];tankGaps.push({pair:ak+'/'+bk,mm:Math.hypot(a.x-b.x,a.z-b.z)-a.r-b.r});}
 check('酸鹼與回收清水槽互不相交',tankGaps.every(g=>g.mm>=0),tankGaps);
+
+// 安裝關係放行蓋住的地方另外直接量：全場檢查（scene）把會改 scale 的液面、視管當成裝在 util 群組上的移動件，
+// 對同群組固定件一律放行；同一工位的固定件之間也不比，所以視管插進鄰槽、收集桶插進旋轉台都不會報（2026-11-07 前就是這樣漏掉的）。
+// 這裡用畫面同一份網格的表面取樣點（頂點＋每條三角形邊至少 8 等分、間距不超過 20 mm），對鄰槽槽體（解析圓柱）與堤牆、收集桶（解析錐台）量淨距。
+const CLEAR = 10;   // 外掛件、相鄰設備的最小淨距（mm）
+// 長邊依 20 mm 間距加密：長樑穿過小件時，只取頂點會取不到落在小件裡的點
+const surfacePts = mesh => {
+  mesh.updateWorldMatrix(true,false);
+  const g=mesh.geometry, a=g.attributes.position, idx=g.index, n=idx?idx.count:a.count, I=k=>idx?idx.getX(k):k, out=[];
+  const P=i=>v(a.getX(i),a.getY(i),a.getZ(i)).applyMatrix4(mesh.matrixWorld);
+  for(let k=0;k+2<n;k+=3){const t=[P(I(k)),P(I(k+1)),P(I(k+2))];for(let e=0;e<3;e++){const q=t[(e+1)%3],seg=Math.max(8,Math.ceil(t[e].distanceTo(q)/20));for(let s=0;s<seg;s++)out.push(t[e].clone().lerp(q,s/seg));}}
+  return out;
+};
+// 直立錐台（r 底半徑、rTop 頂半徑、y0～y1）外的淨距；負值是插入深度。y 範圍外的點不算
+const frustumGap = (pts,c) => { let g=Infinity; for(const p of pts) if(p.y>=c.y0&&p.y<=c.y1) g=Math.min(g,Math.hypot(p.x-c.x,p.z-c.z)-(c.r+((c.rTop??c.r)-c.r)*(p.y-c.y0)/(c.y1-c.y0))); return g; };
+// 軸對齊方塊外的淨距；在方塊內時回傳負的最短脫出距離
+const boxGap = (pts,b) => { let g=Infinity; for(const p of pts){const dx=Math.max(b.min.x-p.x,p.x-b.max.x),dy=Math.max(b.min.y-p.y,p.y-b.max.y),dz=Math.max(b.min.z-p.z,p.z-b.max.z),m=Math.max(dx,dy,dz);g=Math.min(g,m>0?Math.hypot(Math.max(dx,0),Math.max(dy,0),Math.max(dz,0)):m);} return g; };
+const meshesOf = root => { const out=[]; root.traverse(o=>{ if(o.isMesh&&o.geometry?.attributes?.position) out.push(o); }); return out; };
+scene.updateMatrixWorld(true);
+const bundWalls=wash.util.children.filter(c=>c.isMesh&&c.material===MAT.steelOrange&&c.geometry.type==='BoxGeometry'&&Math.abs(c.geometry.parameters.height-300)<.01).map(c=>new THREE.Box3().setFromObject(c));
+const tankAttach={};
+for(const [k,{model}] of Object.entries(wash.tanks)){
+  const parts=meshesOf(model.root).filter(o=>o!==model.shell).map(surfacePts), r={}, low=f=>+Math.min(...parts.map(f)).toFixed(1);
+  for(const [j,t] of Object.entries(WASTE.tanks)) if(j!==k) r['TK-'+j]=low(pts=>frustumGap(pts,{x:t.x,z:t.z,r:t.r,y0:40,y1:40+t.h}));
+  bundWalls.forEach((b,i)=>{ r['堤牆'+['北','南','西','東'][i]]=low(pts=>boxGap(pts,b)); });
+  tankAttach['TK-'+k]=Object.fromEntries(Object.entries(r).filter(([,g])=>g<300));   // 只列 300 mm 內的鄰近件
+}
+check('儲槽外掛件淨距（視管、接頭、刻度、束帶、頂蓋對鄰槽與堤牆 ≥ 10 mm）',bundWalls.length===4&&Object.values(tankAttach).every(o=>Object.values(o).every(g=>g>=CLEAR)),{walls:bundWalls.length,mm:tankAttach});
+// 開蓋站：萬向球旋轉台（盤面、球座、萬向球、迴轉支承、伺服馬達）對桶蓋收集桶；轉盤每 15° 取樣
+const bin=m.capBin, binBody=bin.children.find(c=>c.isMesh&&c.geometry.type==='CylinderGeometry'), bp=binBody.geometry.parameters;
+const binF={x:bin.position.x,z:bin.position.z,r:bp.radiusBottom,rTop:bp.radiusTop,y0:binBody.position.y-bp.height/2,y1:binBody.position.y+bp.height/2};
+let ttGap=Infinity;
+for(let a=0;a<360;a+=15){ m.turntableModel.set({angle:a}); scene.updateMatrixWorld(true); for(const o of meshesOf(m.turntableModel.root)) ttGap=Math.min(ttGap,frustumGap(surfacePts(o),binF)); }
+m.turntableModel.set({angle:0}); scene.updateMatrixWorld(true);
+check('開蓋旋轉台與桶蓋收集桶分離（≥ 10 mm）',ttGap>=CLEAR,{mm:+ttGap.toFixed(1),bin:DECAP.bin});
+// 收集桶周邊的固定件（輸送側樑、支腳、軸承座、側導引、框架立柱、光柵）：外框與收集桶外框相交的，逐點量
+const binBox=new THREE.Box3().setFromObject(binBody).expandByScalar(CLEAR), near=[];
+line.cell.traverse(o=>{ if(!o.isMesh) return; for(let p=o;p;p=p.parent) if(p===bin||p===m.turntableModel.root) return;
+  if(!binBox.intersectsBox(new THREE.Box3().setFromObject(o))) return; near.push({mesh:(o.name||o.geometry.type),mm:+frustumGap(surfacePts(o),binF).toFixed(1)}); });
+check('輸送側樑與周邊固定件不穿過桶蓋收集桶（≥ 10 mm）',near.every(n=>n.mm>=CLEAR),{near});
 const pipeWallHits=[], fenceGaps=[], bundGaps=[];
 for(const [name,p]of Object.entries(wash.pipes))for(let i=1;i<p.points.length;i++){
   const a=v(...p.points[i-1]),b=v(...p.points[i]),d=b.clone().sub(a),length=d.length();

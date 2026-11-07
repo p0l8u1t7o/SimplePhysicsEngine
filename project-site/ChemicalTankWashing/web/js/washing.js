@@ -6,7 +6,7 @@ import { BOOTH, WASTE, CLEAN, FRAME, PIPE_JOINT, toWorld } from './layout.js';
 import { block, blockBetween, cylinder, flowTexture, pipe, plate } from '@core/geom/shapes.js';
 import { MAT } from '@core/geom/materials.js';
 import { flange, gauge, bolts, motor } from '@core/geom/hardware.js';
-import { airKnife, sprayLance, hotAirBlower, vacuumPump, centrifugalPump, diaphragmPump, valve, transferCoupling } from '@core/models/equipment-process.js';
+import { airKnife, sprayLance, hotAirBlower, vacuumPump, storageTank, centrifugalPump, diaphragmPump, valve, transferCoupling } from '@core/models/equipment-process.js';
 import { linearAxis } from '@core/models/motion.js';
 import { detailBoxes } from './render-details.js';
 
@@ -125,20 +125,16 @@ export function createWashing(scene, { frames = true } = {}) {
   for (const [w, d, x, z] of [[bx1 - bx0, bw, (bx0 + bx1) / 2, bz0 + bw / 2], [bx1 - bx0, bw, (bx0 + bx1) / 2, bz1 - bw / 2], [bw, bz1 - bz0, bx0 + bw / 2, (bz0 + bz1) / 2], [bw, bz1 - bz0, bx1 - bw / 2 - 40, (bz0 + bz1) / 2]]) block(group, [w, 300, d], [x, 150, z], MAT.steelOrange);   // 東堤牆內退 40 mm，讓出清洗區圍籬立柱
   const tanks = {};
   for (const [k, t] of Object.entries(WASTE.tanks)) {
-    const shell = cylinder(group, t.r, t.h, [t.x, 40 + t.h / 2, t.z], MAT.tankW, 'y', 36); shell.castShadow = false;
-    cylinder(group, t.r + 5, 30, [t.x, 40 + t.h + 15, t.z], MAT.ppSolid, 'y', 36);
-    const liquid = cylinder(group, t.r - 25, 1, [t.x, 50, t.z], k === 'WA' ? MAT.tankWaste : k === 'WB' ? MAT.tankAlkali : k === 'R' ? MAT.tankClean : MAT.tankFresh, 'y', 32);
-    plate(group, [t.name, `${t.cap} L`], Math.max(700, t.r * 1.8), 230, [t.x, t.h + 330, t.z - t.r - 10], Math.PI, { w: 640, h: 210 });
-    // 外置液位視管，實物模式也能看液位；法蘭、維修蓋與束帶。
-    const sight = cylinder(group, 12, 1, [t.x, 80, t.z - t.r - 18], k === 'WA' ? MAT.tankWaste : k === 'WB' ? MAT.tankAlkali : MAT.tankClean, 'y', 10);
-    for (const yy of [95, t.h - 20]) cylinder(group, 21, 32, [t.x, yy, t.z - t.r - 18], MAT.steelDark, 'y', 28);
-    for (let yy = 160; yy < t.h; yy += 200) block(group, [42, 4, 4], [t.x + 33, yy, t.z - t.r - 17], MAT.black);
-    cylinder(group, Math.min(t.r * .45, 165), 45, [t.x - t.r * .35, t.h + 75, t.z], MAT.ppDark, 'y', 28);
-    flange(group, t.x, t.h + 55, t.z, 58);
-    for (const yy of [t.h * .28, t.h * .7]) {
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(t.r + 2, 7, 6, 48), MAT.ppDark); ring.rotation.x = Math.PI / 2; ring.position.set(t.x, yy + 40, t.z); group.add(ring);
-    }
-    tanks[k] = { t, liquid, sight };
+    // PE 儲槽：core 的 pe-tank 模型（槽體、頂蓋環、液面、外置液位視管與接頭、刻度、人孔、法蘭、束帶、標示牌）；
+    // 原點在槽軸線與地面交點，槽底在 y = 40（底板厚，模型預設 base）。視管組依 WASTE.tanks 的 sight 轉向
+    const tk = storageTank.create({
+      radius: t.r, height: t.h, sightAngle: t.sight ?? 0, name: `pe-tank ${k}`,
+      liquidMaterial: k === 'WA' ? MAT.tankWaste : k === 'WB' ? MAT.tankAlkali : k === 'R' ? MAT.tankClean : MAT.tankFresh,
+      sightMaterial: k === 'WA' ? MAT.tankWaste : k === 'WB' ? MAT.tankAlkali : MAT.tankClean,
+      label: { lines: [t.name, `${t.cap} L`] },
+    });
+    tk.root.position.set(t.x, 0, t.z); group.add(tk.root);
+    tanks[k] = { t, model: tk, liquid: tk.liquid, sight: tk.sight };
   }
   // 泵：P-1 沖洗泵（多段離心，PVDF 接液）、P-2 氣動隔膜泵（集液槽送出）
   const [p1x, p1z] = WASTE.pumpRinse, [p2x, p2z] = WASTE.pumpDrain;
@@ -192,7 +188,7 @@ export function createWashing(scene, { frames = true } = {}) {
       } else stream.visible = false;
       pool.visible = pl > 0; pool.scale.setScalar(Math.max(.2, pl));
       sumpLevel.scale.y = Math.max(1, sump * 200); sumpLevel.position.y = 10 + sumpLevel.scale.y / 2;
-      if (lv) for (const k of ['WA', 'WB', 'R', 'F']) { const { t, liquid, sight } = tanks[k], h = Math.max(1, (lv[k] / t.cap) * (t.h - 40)); liquid.scale.y = h; liquid.position.y = 50 + h / 2; sight.scale.y = Math.max(1, h - 40); sight.position.y = 80 + sight.scale.y / 2; }
+      if (lv) for (const k of ['WA', 'WB', 'R', 'F']) { const { t, model } = tanks[k]; model.set({ level: lv[k] / t.cap }); }
       for (const [k, p] of Object.entries(pipes)) p.setFlow(!!flows[k] || (k === 'supplyRun' && !!flows.supply) || (k === 'sumpRun' && !!flows.sump));
     },
     tick(time) { for (const p of Object.values(pipes)) p.tick(time); streamTex.offset.y = -time * 3; spray.rotation.y = time * 3; },

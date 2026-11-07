@@ -113,7 +113,11 @@ export const LABEL = {
 export const UPENDER = { pivot: [11000, LYING.y - DRUM.R, LYING.z] };
 // 立放輸送（cell）：翻桶後在邏輯座標往南（世界往北）；手臂在取桶位取下、洗完放回同一條線的下游
 export const UPRIGHT = { x: 11000 + DRUM.R, top: LYING.y - DRUM.R, z0: LYING.z, decap: 10800, pick: 12400, place: 13400, handoff: 15000, z1: 15350, speed: 300 };
-export const DECAP = { z: UPRIGHT.decap, camY: 2500, safeY: 1750, bin: { x: 11780, z: UPRIGHT.decap }, rail: 760 };   // rail：XY 模組 Z 向導軌距中心線
+// bin：桶蓋收集桶（錐形，底半徑 r、口半徑 rTop、高 h）。原本底 230／口 200 會插進萬向球旋轉台盤面約 50 mm、伺服馬達約 19 mm，
+// 立放輸送的 +X 側樑也整支穿過桶身；往 +X 移又會讓 X 軸滑座撞上 Z 向導軌（滑座行程上限 bin.x ≈ 11792），
+// 所以位置不動、改成小一號的桶（約 37 L），側樑在開蓋站斷開 ±beamGap（斷口兩端落在 z 10300、11200 的支腳上）。
+// 淨距見 tools/verify-detail.mjs「開蓋旋轉台與桶蓋收集桶分離」「輸送側樑不穿過桶蓋收集桶」
+export const DECAP = { z: UPRIGHT.decap, camY: 2500, safeY: 1750, bin: { x: 11780, z: UPRIGHT.decap, r: 155, rTop: 135, h: 560 }, beamGap: 340, rail: 760 };   // rail：XY 模組 Z 向導軌距中心線
 
 // 清洗手臂與沖洗站（cell）
 export const ROBOT = { x: 9400, z: 12000, name: 'FANUC R-2000iC/165F', grip: 250 + DRUM.R };
@@ -169,13 +173,16 @@ export const GANTRY_FENCE = [[2900, 8950], [6700, 8950], [6700, 10550], [2900, 1
 export const GANTRY_GATE = [PALLET_STATION.x, 10550];   // AGV 送棧板的入口（邏輯南側，世界也是南側）
 
 // 廢液回收（util）：防溢堤內四槽與兩台泵；酸、鹼殘液依讀到的桶號分流到兩個廢液槽
+// sight：液位視管組繞槽軸轉的角度（rad，0＝在 −Z 側，正值往 −X 轉；core pe-tank 的 sightAngle）。
+// TK-R 與 TK-F 南北相鄰、槽壁只隔 20 mm，TK-R 北側離堤牆也只有 20 mm，視管（含接頭）外凸 39 mm 放在 −Z 側會插進
+// TK-R 槽體與北堤牆；兩槽都轉 45° 到西北側（朝 waste 視角），淨距見 tools/verify-detail.mjs「儲槽外掛件淨距」
 export const WASTE = {
   bund: [3300, 13950, 7000, 15420], wall: 30,
   tanks: {
-    WA: { x: 3950, z: 14690, r: 550, h: 1800, cap: 1600, init: 520, name: 'TK-WA 酸性廢液槽' },
-    WB: { x: 5150, z: 14690, r: 550, h: 1800, cap: 1600, init: 380, name: 'TK-WB 鹼性廢液槽' },
-    R: { x: 6200, z: 14400, r: 400, h: 1600, cap: 800, init: 380, name: 'TK-R 回收沖洗水槽' },
-    F: { x: 6200, z: 15100, r: 280, h: 1500, cap: 350, init: 260, name: 'TK-F 清水暫存槽' },
+    WA: { x: 3950, z: 14690, r: 550, h: 1800, cap: 1600, init: 520, sight: 0, name: 'TK-WA 酸性廢液槽' },
+    WB: { x: 5150, z: 14690, r: 550, h: 1800, cap: 1600, init: 380, sight: 0, name: 'TK-WB 鹼性廢液槽' },
+    R: { x: 6200, z: 14400, r: 400, h: 1600, cap: 800, init: 380, sight: Math.PI / 4, name: 'TK-R 回收沖洗水槽' },
+    F: { x: 6200, z: 15100, r: 280, h: 1500, cap: 350, init: 260, sight: Math.PI / 4, name: 'TK-F 清水暫存槽' },
   },
   pumpRinse: [6830, 14300], pumpDrain: [6830, 14950], rinseL: 20,
 };

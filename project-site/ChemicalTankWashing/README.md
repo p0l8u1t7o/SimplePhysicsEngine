@@ -170,7 +170,7 @@ node --import ../../core/tools/register.mjs tools/verify.mjs
 node --import ../../core/tools/register.mjs tools/verify-detail.mjs
 ```
 
-結果見 [review/detail-verification.json](review/detail-verification.json)。19 項檢查涵蓋貼標輥相切、翻桶托架、轉盤／固定滾輪、秤台整段行程、槽體／防溢堤、PP 板穿管孔、越過沖洗站背面圍籬的配管、越過防溢堤的清運管、雙槍孔徑與桶內間隙、噴洗聯鎖、液位，以及分線輸送穿過共用牆的開口。清洗線在邏輯座標檢查（`frames: false`），跨框架配管另建世界座標的一份檢查。
+結果見 [review/detail-verification.json](review/detail-verification.json)。22 項檢查涵蓋貼標輥相切、翻桶托架、轉盤／固定滾輪、秤台整段行程、槽體／防溢堤、儲槽外掛件（視管、接頭、刻度、束帶）對鄰槽與堤牆、開蓋旋轉台與輸送側樑對桶蓋收集桶（後兩類用網格表面取樣點直接量，淨距 ≥ 10 mm；全場 `scene` 檢查對同一安裝群組的移動件與同一工位的固定件會放行，量不到這些）、PP 板穿管孔、越過沖洗站背面圍籬的配管、越過防溢堤的清運管、雙槍孔徑與桶內間隙、噴洗聯鎖、液位，以及分線輸送穿過共用牆的開口。清洗線在邏輯座標檢查（`frames: false`），跨框架配管另建世界座標的一份檢查。
 
 ### 清洗夾具（`tools/verify-gripper.mjs`）
 
@@ -243,8 +243,8 @@ IBC 區、填裝線尾及廢液防溢堤北側各設沖淋／洗眼站，另有�
 | `plant.js` | `transport-handling.js` 的 `pallet` |
 | `plant-services.js` | `indicators.js` 的 `estop`；另重用 core 的 `hardware.motor`、`hardware.sensor`、形狀、材質與離線標牌；梯式線槽、沖淋洗眼站、滅火器與捲盤為站內示意加工件 |
 | `line.js` | `transport.js` 的 `vRollerConveyor`、`ballTurntable`；`conveyor.js`；`equipment-process.js` 的 `labeler`、`upender`、`weighIndicator`；`motion.js` 的 `loadCell`、`airCylinder`、`linearAxis`、`nutrunner`；`vision.js` 的 `visionCamera`；`lights.js` 的 `barLight`；`sensors.js` 的 `lightCurtain`；`indicators.js` 的 `signalTower`、`hmi` |
-| `washing.js` | `equipment-process.js` 的 `airKnife`、`sprayLance`、`hotAirBlower`、`vacuumPump`、`centrifugalPump`、`diaphragmPump`、`valve`、`transferCoupling`；`motion.js` 的 `linearAxis` |
+| `washing.js` | `equipment-process.js` 的 `airKnife`、`sprayLance`、`hotAirBlower`、`vacuumPump`、`storageTank`（`pe-tank`，PE 儲槽 ×4）、`centrifugalPump`、`diaphragmPump`、`valve`、`transferCoupling`；`motion.js` 的 `linearAxis` |
 | `filling.js` | `conveyor.js`；`vision.js` 的 `codeReader`；`motion.js` 的 `nutrunner`；`indicators.js` 的 `signalTower`；`transport-handling.js` 的 `pallet` |
 | `drum.js`、`layout.js` | `drum-200l.js` |
 
-站內自畫的（加工件或站專用機構）：清洗夾具、沖洗隔間與集液漏斗、PE 儲槽與防溢堤、貼標旋轉輥、橫躺線側板與立放線護欄、梳齒秤台、管線法蘭與泵壓表、開蓋夾緊護板、頂面貼標門型架、填裝架與填裝頭、組板龍門、料倉（IBC 示意）、作業員。core 沒有的模型（填裝頭、作業員）之後可登記 `core/REQUESTS.md` 共用。
+站內自畫的（加工件或站專用機構）：清洗夾具、沖洗隔間與集液漏斗、防溢堤、桶蓋收集桶、立放輸送在開蓋站斷開的側樑、貼標旋轉輥、橫躺線側板與立放線護欄、梳齒秤台、管線法蘭與泵壓表、開蓋夾緊護板、頂面貼標門型架、填裝架與填裝頭、組板龍門、料倉（IBC 示意）、作業員。core 沒有的模型（填裝頭、作業員）之後可登記 `core/REQUESTS.md` 共用。
