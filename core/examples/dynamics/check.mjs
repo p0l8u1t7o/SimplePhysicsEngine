@@ -56,6 +56,12 @@ const direct = await inverseDynamics(S, Array.from({ length: 401 }, (_, i) => ({
 if (normal.arms[0]?.hash !== direct.hash) fails.push(`站層：同一段軌跡的扭矩雜湊應和直接呼叫相同（${normal.arms[0]?.hash} / ${direct.hash}）`);
 if (!heavy.ok || !heavy.warnings.some(w => /負載質量/.test(w))) fails.push('站層：9 kg 超過型錄 7 kg，應該只警告（ok 仍為 true）');
 if (typo.ok) fails.push('站層：型號不存在應該擋下');
+// 倒裝（基座座標的重力朝 +Y）：靜止保持扭矩和正裝同大小；基座方向會變時要有警告列
+const hang = await verifyDynamics(proj({ payload: PAYLOAD, gravity: [0, 9.81, 0] })), turning = await verifyDynamics(proj({ payload: PAYLOAD, gravity: t => [9.81 * Math.sin(t / 4), -9.81 * Math.cos(t / 4), 0] }));
+const hold = r => +/靜止保持最大 ([\d.]+)/.exec(r.rows.find(x => x.name === 'J2 峰值扭矩').note)[1];
+if (Math.abs(hold(hang) - hold(normal)) > 0.2) fails.push(`站層：倒裝的 J2 靜止保持 ${hold(hang)} 應和正裝 ${hold(normal)} 同大小`);
+if (hang.arms[0].hash === normal.arms[0].hash) fails.push('站層：倒裝的扭矩應該和正裝不同（重力沒有傳進 MuJoCo？）');
+if (!turning.warnings.some(w => /基座重力方向/.test(w))) fails.push('站層：基座方向會變時應該有警告列');
 
 console.log(`${fails.length ? '✗' : '✓'} dynamics：靜態扭矩與手算差 ${worst.toExponential(1)} N·m；合成軌跡 ${samples.length} 點兩次相同（${a.hash}）；J2 峰值 ${a.peak.j2.tau.toFixed(1)} N·m（靜止保持 ${a.peak.j2.gravity.toFixed(1)}）、負載 2 kg 的 J5 力矩 ${a.wrist.moment.j5.toFixed(2)} N·m；站層 verify.dynamics 略過、警告、擋錯都正確`);
 for (const f of fails) console.log('   ' + f);

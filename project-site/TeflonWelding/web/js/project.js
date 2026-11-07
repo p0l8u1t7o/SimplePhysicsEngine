@@ -311,6 +311,14 @@ export function createProject({ scene, plan: planKey = 'roll', c1, c2, nl }) {
         { why: '吊帶掛在桶身／吊耳上', test: (a, b, c) => { const ma = c.moduleOf(a), mb = c.moduleOf(b); return (ma === 'crane' && mb === 'tank') || (mb === 'crane' && ma === 'tank'); } },
       ],
       envelope: ['robot'],
+      // 手臂動力學（core/verify/dynamics.mjs，只警告）：只有 VS-068 的方案有動力學參數（COBOTTA PRO 900 還沒有，略過）。
+      // 手臂倒裝在桶內（基座 Rx(π)），重力換到基座座標；負載是估計值（待確認）：快換盤＋最重的工具（焊接或兆赫波）約 3.5 kg，
+      // 質心取法蘭前 180 mm（快換盤 30 mm＋工具長 300 mm 的一半）；焊接壓力與管束拉力不在內。
+      dynamics: meta.arm !== 'vs068' ? undefined : {
+        arms: [{ name: 'VS-068', spec: 'denso-vs068', payload: { mass: 3.5, com: [0, 0, 180] }, step: 0.05,
+          sample: t => { apply(t); return { ...W.arm.q }; },
+          gravity: t => { apply(t); W.arm.root.updateWorldMatrix(true, false); return new THREE.Vector3(0, -9.81, 0).applyQuaternion(W.arm.root.getWorldQuaternion(new THREE.Quaternion()).invert()).toArray(); } }],
+      },
     },
   };
 }

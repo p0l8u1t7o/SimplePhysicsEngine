@@ -241,7 +241,7 @@ Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs
 - **站層的日照檢查 `solar`**（`verify/solar.mjs`）：`project.verify.solar` 宣告固定式或追日陣列時，檢查冬至列間遮陰、排距 90% 的對照組（追日的回溯仍用設計排距，模擬列距被做短）、真追日的遮陰（資訊）。宣告 `obstacles`（方塊、四邊形、地形函式）時另列「含外部遮擋的最大遮陰」，給 `obstacleTol` 才判定。目前沒有站宣告。
 - **決定性**：`physics/physics.js` 的旋轉、吸附找最近物體、靜止判斷改用 `math/dmath.js`（`Math.cos/sin/hypot` 在 Node 與 Chrome 的部分輸入差 1 ulp）；`physics/collide.js` 自帶的三角函式統一成 dmath。
 - `verify/scene.mjs`：`userData.fluid`、`cloth`、`weather`、`cfd` 的網格不算實體，和 `fx` 一樣不做干涉與重合面檢查。
-- **站層的手臂動力學檢查 `dynamics`**（`verify/dynamics.mjs`）：`project.verify.dynamics.arms` 宣告型號、負載與 `sample(t)`，用 MuJoCo 算峰值扭矩對型錄上限、負載質量與手腕力矩、軌跡連續；照拍板只警告（`warn`），型號不存在才失敗。core 的 `dynamics` 自我檢查多驗證站層的略過、警告與擋錯。目前沒有站宣告。
+- **站層的手臂動力學檢查 `dynamics`**（`verify/dynamics.mjs`）：`project.verify.dynamics.arms` 宣告型號、負載、`sample(t)` 與倒裝／斜裝的 `gravity`（基座座標；給函式時會檢查週期內基座方向是否改變），用 MuJoCo 算峰值扭矩對型錄上限、負載質量與手腕力矩、軌跡連續；照拍板只警告（`warn`），型號不存在才失敗。core 的 `dynamics` 自我檢查多驗證站層的略過、警告與擋錯。RobotArmPressSSD 與 TeflonWelding（VS-068 的方案）已宣告，負載都是估計值。
 - core 檢查新增 `solar`（`solar/test/browser-check.mjs`）：日照的 SPA、追日、遮陰、全年發電在 Node 與無頭 Chrome 逐位元相同（約 3 秒）。
 - core 檢查 `engineering` 加上 `physics/test`（布料、流體、天候）、`solar/test/verify.test.mjs` 與 `tools/cfd/test`。
 
