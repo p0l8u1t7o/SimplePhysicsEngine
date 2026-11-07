@@ -194,7 +194,8 @@ export async function installMovie({project,title,scene,renderer,camera,controls
   const bytes=()=>{const raw=atob(output.toDataURL('image/jpeg',.96).split(',')[1]);return Uint8Array.from(raw,c=>c.charCodeAt(0));};
   const gl=renderer.getContext(),ext=gl.getExtension('WEBGL_debug_renderer_info');
   const gpu=ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER);
-  const spec={revision:'2026-09-29-cinematic-v2',project,width:W,height:H,fps:FPS,frames,duration:frames/FPS,simulationDuration:total,steps:steps.length,shots,gpu,supersampling:SSAA,processOffset,focusFilterSeconds:4,openingSeconds:12};
+  // simulationStart：製程鏡頭從哪個時間開始（只拍一段的影片，例如 ?scope=qc 從品檢站開始；tools/movie-export/verify.py 檢查從這裡連續涵蓋到 total）
+  const spec={revision:'2026-09-29-cinematic-v2',project,width:W,height:H,fps:FPS,frames,duration:frames/FPS,simulationStart:steps[0]?.start??0,simulationDuration:total,steps:steps.length,shots,gpu,supersampling:SSAA,processOffset,focusFilterSeconds:4,openingSeconds:12};
   const disable=value=>{button.disabled=value;auditButton.disabled=value;slider.disabled=value;seek.disabled=value;host.querySelector('#seekFilm').disabled=value;};
   auditButton.onclick=async()=>{
     disable(true);

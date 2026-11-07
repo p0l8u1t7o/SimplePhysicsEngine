@@ -1,6 +1,8 @@
 // 站層日照檢查（core/verify/solar.mjs）：固定式排距夠／不夠、追日回溯、對照組有效、決定性
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { verifySolar } from '../../verify/solar.mjs';
 import { winterSolsticePitch } from '../layout.js';
 
@@ -40,6 +42,24 @@ test('外部遮擋：南側的塔樓另列一列，只有給 obstacleTol 才判�
   assert.equal(strict.ok, false, 'obstacleTol 0.5% 時要擋');
   const hill = verifySolar({ verify: { solar: { ...base.verify.solar, obstacles: [{ name: '地形', terrain: () => -50, min: [-20000, -20000], max: [20000, 30000], step: 5000 }] } } });
   assert.equal(hill.rows[2].value, '0.0%', '在板子下方的平地不會遮');
+});
+
+test('全年發電列：預期值在 2% 內通過、差 5% 擋下；沒給預期值時和上次結果比', () => {
+  const slope = 2 * module.length + 20, pitch = Math.ceil(winterSolsticePitch({ lat: site.lat, slopeLength: slope, tilt: 20 }).pitch * 1.03);
+  const dir = dirname(fileURLToPath(import.meta.url));
+  const withEnergy = expect => ({ verify: { solar: { ...fixed(pitch).verify.solar, energy: { weather: 'fixtures/synthetic-tainan.epw.gz', moduleW: 580, ...(expect ? { expect } : {}) } } } });
+  const first = verifySolar(withEnergy(null), { dir });
+  const row = r => r.rows.find(x => x.name === '全年發電');
+  assert.ok(first.energy.acKWh > 0);
+  assert.equal(row(first).ok, true);
+  assert.match(row(first).note, /第一次/);
+  const ac = first.energy.acKWh;
+  assert.ok(row(verifySolar(withEnergy({ acKWh: ac * 1.01, source: 'pvlib' }), { dir })).ok, '差 1% 通過');
+  assert.equal(row(verifySolar(withEnergy({ acKWh: ac * 1.05, source: 'pvlib' }), { dir })).ok, false, '差 5% 擋下');
+  const reg = verifySolar(withEnergy(null), { dir, previous: { energy: { acKWh: ac * 0.9 } } });
+  assert.equal(row(reg).ok, false, '和上次差 10%（回歸）擋下');
+  assert.match(row(reg).note, /上次結果/);
+  assert.ok(row(verifySolar(withEnergy(null), { dir, previous: first })).ok, '和上次相同通過');
 });
 
 test('沒有宣告就略過', () => assert.equal(verifySolar({}).applicable, false));

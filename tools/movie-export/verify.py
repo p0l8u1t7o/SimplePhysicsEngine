@@ -58,7 +58,13 @@ for manifest,spec in found:
     assert abs(float(stream['duration'])-spec['duration'])<.05
     timeline=[s for s in spec['shots'] if s['kind']=='process']
     assert len(timeline)==spec['steps']
-    assert abs(timeline[0]['simStart'])<1e-6
+    # 製程鏡頭要從 simulationStart 連續涵蓋到 simulationDuration；只拍一段的影片（?scope=qc 等）simulationStart 不是 0。
+    # 2026-11-07 以前的輸出沒有這個欄位：用第一個鏡頭的開始時間，印提醒（連續與結尾仍照樣檢查）
+    start=spec.get('simulationStart')
+    if start is None:
+        start=timeline[0]['simStart']
+        if abs(start)>1e-6:print(f"注意：{manifest.parent.name} 是舊版輸出（沒有 simulationStart），製程從 {start:.2f} s 開始，當成只拍一段",flush=True)
+    assert abs(timeline[0]['simStart']-start)<1e-6,(timeline[0]['simStart'],start)
     for a,b in zip(timeline,timeline[1:]):assert abs(a['simStart']+a['simDuration']-b['simStart'])<1e-5
     assert abs(timeline[-1]['simStart']+timeline[-1]['simDuration']-spec['simulationDuration'])<1e-5
     assert sum(s['frameCount'] for s in spec['shots'])==spec['frames']

@@ -13,7 +13,14 @@
 //      追日的對照組回溯仍用設計排距的 GCR（模擬列距比設計短），不然回溯會跟著調整、永遠不遮
 //   3. 追日另外列出：真追日（不回溯）時的最大遮陰，說明回溯的必要（只當資訊）
 //   4. 有 obstacles 時：含外部遮擋的最大遮陰（obstacleTol 有給才判定）
+//   5. 有 energy 時：全年發電（core/solar 的 simulate）和預期值相差 ≤ energy.tol（預設 SITE_PRECISION.energyRel，2%）。
+//      energy = { weather: 'data/tmy.epw'（站資料夾的相對路徑，.gz 可）, pdc0（W；沒給就用板片數 × moduleW，預設 550 W）, losses = 14（%）,
+//                 system?（覆寫 simulate 的 system）, expect?: { acKWh, source（例如 'pvlib 0.16.1'） }, tol? }
+//      沒給 expect 時和上次的 review（solar-checks.json）比，當回歸；第一次跑記成基準。未含列間遮陰（固定式排距夠、追日有回溯時可忽略）
 // 第 1～3 列只用陣列自己的板片當遮擋物（列間遮陰）；外部遮擋另列第 4 列。結果是決定性的（core/solar 全部用 dmath）。
+import { readFileSync } from 'node:fs';
+import { gunzipSync } from 'node:zlib';
+import { join } from 'node:path';
 import * as S from '../solar/index.js';
 
 function arrayOf(layout, pitch) {
@@ -68,7 +75,26 @@ function worstShade(cfg, pitch, { backtrack = true, gcrPitch = pitch, obstacles 
 const clock = h => h == null ? '—' : `${String(Math.floor(h + 1e-9)).padStart(2, '0')}:${String(Math.round((h - Math.floor(h + 1e-9)) * 60)).padStart(2, '0')}`;
 const pct = v => `${(v * 100).toFixed(1)}%`;
 
-export function verifySolar(project) {
+// 全年發電列：讀站的天候檔、照陣列設定組 simulate 的 system
+function energyRow(cfg, layout, { dir, previous }) {
+  const e = cfg.energy, file = join(dir || '.', e.weather);
+  const text = /\.gz$/i.test(file) ? gunzipSync(readFileSync(file)).toString('utf8') : readFileSync(file, 'utf8');
+  const weather = /\.csv(\.gz)?$/i.test(file) ? S.readCSV(text, e.csv || {}) : S.readEPW(text);
+  const count = arrayOf(cfg.layout, cfg.layout.pitch).count, pdc0 = e.pdc0 ?? count * (e.moduleW ?? 550);
+  const mount = layout.type === 'tracker'
+    ? { type: 'singleAxis', axisAzimuth: layout.axisAzimuth ?? 180, maxAngle: layout.maxAngle ?? 60, gcr: layout.module.length / layout.pitch, backtrack: true }
+    : { type: 'fixed', tilt: layout.tilt, azimuth: layout.azimuth ?? 180 };
+  const r = S.simulate({ weather, site: { elevation: 0, deltaT: 69.2, ...cfg.site }, system: { mount, pdc0, losses: e.losses ?? 14, ...(e.system || {}) } });
+  const ac = r.annual.acKWh, tol = e.tol ?? S.SITE_PRECISION.energyRel;
+  let expect = e.expect?.acKWh ?? null, source = e.expect?.source ?? '宣告的預期值';
+  if (expect == null && previous?.energy?.acKWh != null) { expect = previous.energy.acKWh; source = '上次結果（回歸）'; }
+  const dev = expect ? ac / expect - 1 : null;
+  const row = { group: '日照', name: '全年發電', ok: dev == null || Math.abs(dev) <= tol, value: `${Math.round(ac).toLocaleString('en-US')} kWh（${(r.annual.specificYield).toFixed(0)} kWh/kWp、PR ${r.annual.pr.toFixed(3)}）`,
+    note: dev == null ? `第一次，記成基準（${e.weather}，${(pdc0 / 1000).toFixed(1)} kWp）` : `和${source} ${Math.round(expect).toLocaleString('en-US')} kWh 差 ${(dev * 100).toFixed(2)}%，容許 ±${(tol * 100).toFixed(1)}%` };
+  return { row, energy: { acKWh: ac, specificYield: r.annual.specificYield, pr: r.annual.pr, pdc0, weather: e.weather } };
+}
+
+export function verifySolar(project, { dir, previous } = {}) {
   const cfg = project.verify?.solar;
   if (!cfg) return { ok: true, applicable: false };
   const tol = cfg.tol ?? 0.005, pitch = cfg.layout.pitch, date = cfg.date ?? [12, 21], hours = cfg.hours ?? [9, 15], label = `${date[0]}/${date[1]} ${clock(hours[0])}～${clock(hours[1])}`;
@@ -86,5 +112,7 @@ export function verifySolar(project) {
     const ob = worstShade(cfg, pitch, { obstacles: cfg.obstacles }), names = cfg.obstacles.map(o => o.name || (o.box ? '建物' : o.terrain ? '地形' : '遮擋物')).join('、'), lim = cfg.obstacleTol;
     rows.push({ group: '日照', name: `含外部遮擋（${names}）的最大遮陰`, ok: lim == null || ob.max <= lim, value: pct(ob.max), note: `最大在 ${clock(ob.at)}、平均 ${pct(ob.mean)}${lim == null ? '（只當資訊；obstacleTol 給了才判定）' : `；容許 ${pct(lim)}`}` });
   }
-  return { ok: rows.every(r => r.ok), applicable: true, rows, failures: rows.filter(r => !r.ok).map(r => `${r.name}：${r.value}（${r.note}）`) };
+  let energy;
+  if (cfg.energy) { const er = energyRow(cfg, cfg.layout, { dir, previous }); rows.push(er.row); energy = er.energy; }
+  return { ok: rows.every(r => r.ok), applicable: true, rows, ...(energy ? { energy } : {}), failures: rows.filter(r => !r.ok).map(r => `${r.name}：${r.value}（${r.note}）`) };
 }

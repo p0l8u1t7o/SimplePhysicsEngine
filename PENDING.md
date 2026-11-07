@@ -15,7 +15,6 @@
   - 開蓋站的萬向球旋轉台與桶蓋收集桶重疊 37～45 mm。
   - PE 儲槽 TK-F 的液位視管插進 TK-R 槽體約 10 mm（束帶約 19 mm）；TK-R 的視管插進防溢堤北牆約 10 mm。
 - [ ] core 模型的後續（已登記 `core/REQUESTS.md`）：`decal`／模型標籤改成建立當下判斷 `document`（SSD 的手腕相機標籤因此留在站內）；模型加 `cableHost` 選項；`codeReader` 機身預設名稱。
-- [ ] StatorHeightMeasurement 的 QC 情境影片（本機 `TEMP/videos/StatorHeightMeasurement-qc-*-20261102/`）：製程鏡頭從 20.2 s 才開始，0～20.2 s 沒有被任何製程鏡頭涵蓋，`tools/movie-export/verify.py` 的「時間軸從 0 開始」檢查不通過（2026-11-07 修好 verify.py 找子資料夾之後才發現；之前它找不到這些影片）。要看是 `core/movie` 在情境的第一個步驟不在 0 時要補一段，還是這種情境本來就只拍後段、檢查要放寬。
 - [ ] 快門站的 11 張基準截圖都拍不到三色燈（在外罩頂後方），截圖回歸對它沒有保護；考慮加一個看得到外罩頂的視角。
 - [ ] 回收物分揀：光幕依 ISO 13855 的安全距離 668 mm 在現有框架內不成立，畫面只畫示意；實機防護位置待風險評估（對客戶說明時要提）。
 - [ ] 杯體量測站的電路圖冊（`docs/circuit-diagrams.pdf`，2026-09-29 另一版產生器、版次 1.1）沒有 I/O 清單頁：`tools/circuit-drawings/verify.py`（2026-11-07 起認得這版的 `devices` 欄位）檢查出 18 個 I/O 點的線號只出現在接線圖、沒有出現在清單（其他 5 站的圖冊都有 500 系列 I/O 清單）。元件、軸、圖框、A3 尺寸、文字重疊都通過。要補 I/O 清單頁時，改用 `render.py` 的格式重產，或在該版產生器加一頁。
@@ -64,7 +63,7 @@
 
 2026-11-07 已完成並進 core（1.17.0～1.20.0，細節在 `core/MIGRATION.md`）：three.js r187、XPBD 線材／布料、PBF 粒子流體、天候（雨雪、積雪、雪風載重估算、逕流）、MuJoCo 手臂動力學、`core/solar`、`core/geo`（含 LAZ）、`core/structure`、`core/piping`、外部 CFD 的案例產生與匯入（`tools/cfd`、`core/cfd`）、範例頁 `/core/examples/solar/`、`/core/examples/structure/`。剩下的：
 
-- [ ] 日照檢查的後續：站層 `verify.solar`（`core/verify/solar.mjs`，2026-11-07）已有冬至列間遮陰、排距 90% 的對照組與追日回溯；外部遮擋（`obstacles`：方塊、四邊形、地形函式）另列一列；還沒做發電量對 pvlib 或上次結果的檢查列。目前沒有站宣告 `verify.solar`。
+- [ ] 日照檢查的後續：站層 `verify.solar`（`core/verify/solar.mjs`，2026-11-07）已有冬至列間遮陰、排距 90% 的對照組與追日回溯；外部遮擋（`obstacles`：方塊、四邊形、地形函式）另列一列；全年發電列（`energy`：對預期值或上次結果，2%）也有了（2026-11-07）。目前沒有站宣告 `verify.solar`。
 - [ ] 天候資料來源先依建議採用（2026-11-07 授權當晚依建議進行，使用者可再改；`tools/weather/README.md`）：可行性評估用 PVGIS（`fetch-tmy.mjs`；台灣只有 PVGIS-ERA5 再分析），正式發電量用 NSRDB Himawari（要使用者申請 NREL 金鑰），中央氣象署實測校正；還沒做的是 NSRDB 實際下載後對一次欄位與時間標記、和氣象署實測的比對。ΔT 維持 pvlib 的多項式（台灣的太陽方向夾角差 < 0.0001°，在 ±0.01° 內）；全年遮陰的 Worker 平行與先篩可能被遮的排（2026-11-07 量測：10,000 片＋8 萬三角形地形，單執行緒 1°×2° 分箱全年 1.5 分、2°×4° 0.8 分，可接受；先篩用掃掠包圍盒在低太陽角時幾乎篩不掉，暫不做）。
 - [ ] 案場整合：鋼構與日照的座標慣例已定（`core/structure/solar-frame.js`，追日 φ = θ；範例 `/core/examples/structure/` 依太陽轉並算遮陰，2026-11-07）；還沒做的是地形改用 `core/geo` 的 DSM、鋼構檢查列與 `verify.solar` 合併成一個站層宣告；`core/REQUESTS.md` 的 `pvModule`／`pvRack`／`stringInverter` 共用模型用 `solar/layout.js` 的配置與 InstancedMesh 做。
 - [ ] `core/geo`：3D Tiles（3d-tiles-renderer 0.5.3，Apache-2.0，要一起放 r187 的 GLTFLoader、BufferGeometryUtils；壓縮圖磚另要 DRACO／KTX2）；大檔用 HTTP Range 分段讀；JPEG 壓縮的正射影像；大地起伏模型；OBJ 的大檔串流讀取與壓縮貼圖（`core/geo/obj.js` 已能讀地理參考 OBJ，2026-11-07）；影片疊圖介面；熱影像熱斑標記。

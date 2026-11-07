@@ -42,7 +42,11 @@ for (const v of variants) {
   else if (check === 'layout') { const rows = project.layoutChecks?.() || []; r = { ok: rows.every(x => x.ok), count: rows.length, failures: rows.filter(x => !x.ok), rows }; }
   else if (check === 'electrical') r = verifyElectrical(project, scene, { interval: opts.dt, name: v.name });
   else if (check === 'physics') r = await verifyPhysics(project);
-  else if (check === 'solar') r = verifySolar(project);
+  else if (check === 'solar') {
+    // 發電量的回歸：上次的 review/solar-checks.json（多情境時找同名的情境）
+    const prevFile = join(dir, 'review', 'solar-checks.json'), prev = existsSync(prevFile) ? JSON.parse(readFileSync(prevFile, 'utf8')) : null;
+    r = verifySolar(project, { dir, previous: prev?.variants ? prev.variants.find(x => x.variant === v.name) : prev });
+  }
   else if (check === 'dynamics') r = await verifyDynamics(project);
   else if (check === 'bom') { project.apply(0); scene.updateMatrixWorld(true); r = verifyBom(scene, dir); }
   else if (check === 'cycle') { console.log('CYCLE ' + JSON.stringify(cycleReport(project))); process.exit(0); }

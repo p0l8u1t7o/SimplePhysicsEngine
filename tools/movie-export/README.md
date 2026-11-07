@@ -24,7 +24,7 @@ Python 版的接收端（`prepare.py`、`server.py`）已於 2026-10-04 退役�
 - PCB 原始模型是五站並行節拍，先保留完整節拍，再依上／下料軌道、供料震動及植入事件選取細節重播，以原速或更慢展示，不再將完整節拍擠進幾秒造成龍門閃過；不宣稱追蹤同一片基板經過原模型未建立的多節拍排程。
 - 可拖曳預覽時間軸抽查鏡頭。錄製時保持瀏覽器及本機服務運行；中斷後同一服務可從已接收的下一影格接續。
 - 點選「檢查鏡頭與固定影格」輸出全景、推近、製程及細節抽查圖，並在固定時間重畫 10 次；`python tools/movie-export/audit.py --output <輸出資料夾>` 產生 contact sheet 與量化差異。
-- `python tools/movie-export/verify.py --output <輸出資料夾>` 以 FFprobe 比對總影格與時間、檢查完整製程連續性、解碼全片、檢查黑影格與單影格大面積閃光候選。另在 TEMP 產生抽查圖與驗證 JSON；這些數值不能取代目視檢查運動與局部反光。
+- `python tools/movie-export/verify.py [--output <輸出資料夾>] [--project <專案>] [--latest]` 以 FFprobe 比對總影格與時間、檢查製程鏡頭從 `simulationStart`（只拍一段的影片，例如 `?scope=qc`，不是 0）連續涵蓋到結束、解碼全片、檢查黑影格與單影格大面積閃光候選。預設往 `TEMP/videos/` 底下的子資料夾找全部輸出（同一站的不同情境各自驗證），`--latest` 每個專案只驗最新的一份；2026-11-07 以前的輸出沒有 `simulationStart`，用第一個鏡頭的開始時間並印提醒。另在 TEMP 產生抽查圖與驗證 JSON；這些數值不能取代目視檢查運動與局部反光。
 - 接收端不覆寫成品：預設資料夾已有成品時自動改用 `-2` 結尾的新資料夾，指定的資料夾已有成品就報錯。全部影片、稽核圖與中間檔保持在忽略的 TEMP 中。
 - `node --test tools/movie-export/test-camera-path.mjs`（測 `core/movie/camera-path.mjs`）驗證追焦交接不瞬移、不過衝，以及開場停留和推近的連續性。
 
