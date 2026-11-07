@@ -68,6 +68,20 @@
 - [ ] 由站產生 MD（S4，第二階段）：已登記 `core/REQUESTS.md`。
 - [ ] MGPC 的 MD 資料缺口（Q-19，M1～M3 維持初始值）：S4 拉料 `pushOut` 沒有閥與感測器、`act-S3-PCLAMP` 沒有場景綁定（unbound）、S1 止擋沒有到位感測器；之後由 S4 的 MD 匯出或電控資料補。
 
+### 5. 太陽能案場平台與物理擴充（2026-11-07 拍板，評估在本機 `TEMP/太陽能案場平台評估_2026-11-07.md`）
+
+建議順序：先升 three.js（後面的元件都依賴它），再做 `core/solar`，地形、鋼構管路、天候可以並行。「高精度」先定成檢查門檻：幾何 ±3～5 cm（RTK 空拍）、太陽位置 ±0.01°、發電量與 pvlib 相差 < 2%（數字待使用者確認）。
+
+- [ ] three.js r160 → 新版：worktree 升級、全部站截圖／場景傾印／完整檢查，逐站修正，記進 `core/MIGRATION.md`。
+- [ ] `core/solar`：NREL SPA 太陽位置、固定式與單軸追日（含回溯）、BVH 逐片／逐組串遮陰（three-mesh-bvh）、Perez 斜面日射、全年發電（TMY）、雙面板；Python 工具用 pvlib 0.15 交叉驗證；檢查：冬至排距遮陰、發電量誤差。沿用 PV DEMO（`ad4b816`）的 `solar.js` 與 `core/REQUESTS.md` 登記的 `pvModule`／`pvRack`／`stringInverter`。
+- [ ] `core/geo`：WGS84／TWD97（proj4js）、DSM／DTM 建地形（geotiff.js）、正射影像貼圖、點雲（LAS/LAZ）與 3D Tiles（3d-tiles-renderer）、浮動原點（km 級場景用 mm 單位時 float32 會抖）；設計與現況比對（樁高、排距、傾角偏差）；影片依 GPS／雲台姿態對位虛擬相機疊圖、熱影像熱斑標記。
+- [ ] `core/structure`：支架立柱、斜樑、檁條、斜撐依地形算高度與長度，切長清單、重量、基樁深度，接 BOM；風、雪載重依規範公式。
+- [ ] `core/piping`：直管＋彎頭（依管徑的最小彎曲半徑、坡度）、套管、電纜槽；組串線長與壓降；1D 管網水力（Darcy–Weisbach＋彎頭 K 值）；彎曲半徑與坡度檢查。
+- [ ] 天候與粒子：雪（積雪深度、板面滑落、雪載重、發電損失）、雨（板面逕流、排水）、CPU 預先烘焙的粒子流體（PBF，決定性）、XPBD 延伸到布與軟體。
+- [ ] 外部 CFD：OpenFOAM（GPL，外部離線）的案例產生與結果匯入（速度場、壓力）流程；平台不內嵌。
+- [ ] MuJoCo 整合（原型 `TEMP/mujoco-proto/`，4.0.0、瘦身後 wasm 5.2 MB、Node 與 Chrome 逐位元相同）：`core/vendor/mujoco/`（附 LICENSE 與第三方授權清單）、`core/robot/dynamics.js`、`check.mjs` 內建 `dynamics`（只在 Node 跑、扭矩比例先只警告）、`serve.mjs` 補 `.wasm` 的 MIME；各手臂的質量與扭矩上限要換成實際資料（DENSO 的 URDF 或型錄）。原型代理提醒：如果近期沒有孿生跟隨誤差或並聯手臂的需求，純 JS 的逆動力學就夠，MuJoCo 可以只當驗證工具，整合前再確認一次。
+- [ ] XPBD 線材接進各站：先挑手臂外露線多的站（MilitaryGradePC、RobotArmPressSSD、PlumbingFixtureInspection）把手臂到電盤的自由段改成 `bakeRope`，`verify.physics.stretchTol` 檢查線長。
+
 ## 各站待確認
 
 - [ ] **TeflonWelding**（2026-11-03 開站；1000L 襯 PTFE 桶內焊道自動焊接＋兆赫波檢測，三方案。資料：桶 STEP、切半展示品照片、膠體斷面圖、焊槍 STEP、對談紀錄。以下是假設值，在 `web/js/spec.js`）：

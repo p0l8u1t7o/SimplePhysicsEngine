@@ -159,4 +159,15 @@ node --import ./core/tools/register.mjs tools/verify-interference.mjs   # 四站
   - Automation-Schema 執行時讀相鄰的 repo，**不複製進 SPE**（專有授權；特別是會發布的 `core/vendor/`）；要求的版本鎖在 `core/twin/automation-schema.lock.json`，不符就拒絕啟動。CI 沒有它時，需要它的檢查明確印「略過」（不算通過）；換機器時 `setup.ps1` 只檢查並提示、不自動 clone。
   - 範例 MD 可以進 SPE 版控（`project-site/MilitaryGradePC/twin/`，從 tag 原樣取出、記 `SOURCE.md`，不得手改）；場景綁定用 MD 的邏輯路徑，由站的 `web/js/twin-binding.js` 對照。
   - 協定的 6 項釐清（error 位置、bye 回應、bindings 計數、sensorStuck 對 io-、followingError 門檻、commLoss 對 PLC 設備）照 preview.3；其餘待決事項採計畫書的建議。交付標籤一律 Simulation Validated。
+- 開發機搬遷與環境（2026-11-07）：開發機 Node 26.13.0、Python 3.14（一般版，不用 3.14t）；CI 改用 Node 26，最低需求仍寫 22；選用的 Python 套件（含 TEMP 腳本用的 ezdxf、matplotlib、python-pptx、xlsxwriter、lxml）都列在 `requirements.txt`；PV DEMO 站移除。
+- 物理模擬擴充（2026-11-07）：
+  - 剛體維持 Rapier 決定性版（JS 版最新就是 0.21.0，Rust crate 的 0.3x 是另一套版號）。
+  - 線材、軟管用自寫的 XPBD（`core/physics/rope.js`，core 1.17.0），不加套件；軟體、布料之後用同一套 XPBD 延伸，不用 Jolt（預編版沒有跨平台決定性）。
+  - 手臂動力學導入 MuJoCo（官方 `@mujoco/mujoco`，Apache-2.0，放 `core/vendor/mujoco/`，用單執行緒版與瘦身後的 wasm）；原型與評估在本機 `TEMP/mujoco-proto/`。
+  - 流體：管路用 1D 管網水力，畫面用 CPU 預先烘焙的粒子；另接外部 CFD（OpenFOAM，GPL，只當外部離線程式、不內嵌，結果匯入顯示）。
+- 太陽能案場平台（2026-11-07，評估在本機 `TEMP/太陽能案場平台評估_2026-11-07.md`，工作項目在 `PENDING.md` 第 5 節）：
+  - 第一階段四項都做：日照遮陰與發電（`core/solar`）、地形與空拍匯入（`core/geo`）、參數化鋼構與管路（`core/structure`、`core/piping`）、天候與流體軟體（雪、雨、風載重、粒子流體、XPBD 軟體）。
+  - three.js 從 r160 直接升級（照「改 core 或渲染時」的流程，全部站回歸）。
+  - 空拍只匯入標準格式（GeoTIFF、LAS/LAZ、OBJ、3D Tiles）；照片處理交給外部的 OpenDroneMap（AGPL，獨立程序）或商用軟體，平台不內建。
+- 3D工作室生成品質（2026-11-07）：開發後多一輪看截圖自我檢查（`studio.json` 的 `selfReview`，預設 1）、本庫的站當唯讀參考（`references`，自動挑 2 個；站的 `docs/`、`.studio/`、`TEMP/` 不給讀）、Claude 角色預設 `--effort high`；補強角色維持 Codex。
 - 各站的拍板紀錄在各站的 `AGENTS.md`。
