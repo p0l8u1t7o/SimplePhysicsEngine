@@ -6,9 +6,9 @@
 
 | 路徑 | 內容 |
 |---|---|
-| `vendor/` | three.js r160（`three.module.js`）與 addons，全站只有這一份；`rapier/`：Rapier 決定性版 0.21（剛體動力學，WebAssembly 內嵌，只由 `physics/` 引用） |
+| `vendor/` | three.js r187（`three.module.js`＋`three.core.js`，r171 起拆成兩個檔，`three.module.js` 以相對路徑引用 `three.core.js`）與 addons，全站只有這一份；`rapier/`：Rapier 決定性版 0.21（剛體動力學，WebAssembly 內嵌，只由 `physics/` 引用）；`mujoco/`：MuJoCo 4.0.0（手臂動力學，wasm 瘦身後 gzip 內嵌，只由 `robot/dynamics.js` 引用） |
 | `geom/` | `shapes.js`（統一形狀：block／blockBetween／cylinder／rod／tube／pipe／profile／rounded／bevelBox／screw／decal／plate／floorText）、`materials.js`（共用材質表 MAT）、`hardware.js`（倒角外殼、螺栓、腳座、馬達、感測器…）、`environment.js`（地面 `floor()`）、`finish.js`、`surfaces.js`、`perforated.js` |
-| `robot/` | `kinematics.js`：6 軸阻尼最小平方 IK（參數可調）；`reach.js`：手臂可達檢查（IK 或工作空間包絡，回傳 layoutChecks 的列） |
+| `robot/` | `kinematics.js`：6 軸阻尼最小平方 IK（參數可調）；`reach.js`：手臂可達檢查（IK 或工作空間包絡，回傳 layoutChecks 的列）；`dynamics.js`：MuJoCo 逆動力學（沿關節軌跡算各軸扭矩、負載的手腕力矩與慣量、對上限的比例，回傳 layoutChecks 的列；參數在 `dynamics/<手臂>.js`，目前有 VS-068，質量與扭矩上限是估計值） |
 | `models/` | 共用模型庫：每個模型有 `meta`（名稱、分類、可調參數、可動狀態、用法）與 `create(params) → { root, set(state) }`，在 `models/index.js` 登記；`models/parts.js`：`fromPart(元件編號)` 用元件庫的模型與參數建立並標 `partRef`、`tagPart`；目錄頁 `/core/catalog/` 可預覽、調參與搜尋。共 81 個，清單見下方「共用模型」 |
 | `migrations/` | 各版共用模型的換用對照（各站把自己畫的零件換成共用模型時照著改）：`1.10.0-vision.md`、`1.10.0-motion.md`、`1.10.0-equipment.md`、`1.10.0-transport.md`；1.9.0 的對照表在 `MIGRATION.md` |
 | `catalog/` | 模型目錄頁（發布在 Pages） |
@@ -17,6 +17,9 @@
 | `examples/` | `segment2/`：第二段（電控、電盤、配線、相機子畫面、視覺疊圖）的完整範例與說明，跟著 core 一起檢查；新專案照 `examples/segment2/README.md` 做。`physics/`：剛體動力學四種用途（物料流、掉落與滑槽、料箱堆積、夾取穩定）與線材的範例頁與檢查 |
 | `optics/` | 機器視覺的光學計算（純函式：L1 視野、倍率、每像素、最小缺陷、景深、運動模糊、行頻、像圈、接口、頻寬、打光；L2 `lighting.js` 明暗場、缺陷對比、遮擋、近似模擬影像）與 3D 配置檢視頁 `optics/view.html`；studio 的光學工作台、`vs3d optics eval`、相機模型共用，說明在 `optics/README.md` |
 | `physics/` | 剛體動力學（Rapier 決定性版）：`physics.js` 預先烘焙軌跡（輸送帶、投料、移除區、治具、吸附、力控制兩指夾爪），`apply(t)` 只取樣、可以倒著拖；`analysis.js` 物料流、靜止時間、落點、料箱堆積與可抓取件、夾取滑移。`rope.js` 線材、軟管的 XPBD（錨點跟著時間動、會垂下與擺動，檢查線長夠不夠；1.17.0）。範例 `/core/examples/physics/`，說明在 `physics/README.md` |
+| `structure/` | 光伏支架鋼構（2026-11-07）：固定式與單軸追日，依地形 `height(x, z)` 算每支構件的位置、切長、角度、重量與基樁埋深，`bom()` 彙總；`pvFixedRack`／`pvTracker` 三維模型（每種構件一個 InstancedMesh）；風、雪載重只做估算；`structureChecks()` 回傳 layoutChecks 的列。說明在 `structure/README.md` |
+| `piping/` | 管線管路（2026-11-07）：`routePipe` 把折線倒角成直管＋彎頭（依管徑的最小彎曲半徑），切長、配件、坡度、對地淨空；`solveNetwork` 1D 管網水力（Darcy–Weisbach、K 值、高程、泵揚程）；直流／交流電壓降；`createPipeBatch`、電纜槽幾何；檢查列。說明在 `piping/README.md` |
+| `geo/` | 案場座標與空拍資料（2026-11-07）：WGS84／TWD97／UTM（和 PROJ 一致到 1e-6 mm）、案場座標（mm、+X 東、+Y 上、+Z 南）、浮動原點；自寫 GeoTIFF 讀取（DSM／DTM／正射影像，BigTIFF、COG、LZW／Deflate）、地形網格與正射貼圖、LAS 點雲；設計與現況比對（樁位、排距、傾角）；空拍相機對位（DJI 雲台角、SRT）。說明在 `geo/README.md` |
 | `twin/` | AutoSequence 數位孿生的 SPE 端（Twin Protocol v2 server）：`session.js`（握手、鎖步、cmd、故障、增量 state，純模組、決定性）、`framing.js`、`binding.js`、`dynamics/`（軸、致動器、機器人）、`sensors.js`、`geometry.js`（photoEye 射線）、`view.js`（網頁孿生觀看）、`automation-schema.lock.json`（要求的 Automation-Schema 版本）；命令列 `tools/twin.mjs`。說明在 `twin/README.md` |
 | `movie/` | 錄影程式（4K 取樣 1080p、絕對時間取樣、追焦運鏡），各專案以 `?movie` 呼叫 |
 | `ui/` | `stage.js`（renderer／場景／相機／燈光／3D 標籤／視角轉場／畫面迴圈／`exposeSim`）、`player.js`（標準播放列）、`viewer-workspace.js`／`.css`（相機視窗、焦點追隨與精簡版面，所有專案共用）、`vision-overlay.js`（視覺疊圖） |
@@ -207,6 +210,8 @@ node core/tools/check.mjs --only scene     # 只跑某項
 | `examples`（core） | ✓ | 第二段範例（`examples/segment2`）的電控與配線檢查 |
 | `twin`（core） | ✓ | `node --test core/twin/test/*.test.mjs`：分框、握手、鎖步順序、增量 state、cmd 與動態、六種故障、感測器、決定性（兩個工作階段、兩個行程逐位元相同）、即時模式、TCP 連線、Automation-Schema 定位與版本檢查，以及 `core/twin` 沒有掛鐘、亂數、`node:*`、Automation-Schema import 的靜態檢查。找不到相鄰的 Automation-Schema 時，需要它的項目略過並寫出略過幾項 |
 | `physics`（core） | ✓ | 物理範例（`examples/physics`）剛體四個情境與線材一個情境在 Node 烘焙兩次相同、無頭 Chrome 的雜湊和 Node 相同、分析數字合理 |
+| `dynamics`（core） | ✓ | 手臂動力學（`examples/dynamics`）：MuJoCo 靜態重力扭矩對照獨立手算（差 ≤ 1e-9 N·m）、同一段軌跡算兩次相同、檢查列齊全 |
+| `engineering`（core） | ✓ | `structure/`、`piping/`、`geo/`、`solar/` 的 node:test 單元測試（手算值、PROJ 參考座標、合成 GeoTIFF／LAS、決定性） |
 | `structure` | ✓ | 開發架構（不管專案是哪個工具做的）：`project.json` 合法且有 `title`、`summary`、`coreVersion`（語意化版本、不超過 `core/VERSION`）；`AGENTS.md`、`CLAUDE.md`（引用 `@AGENTS.md`）；本庫的站有 `.claude/settings.json` 寫檔關卡；`docs/` 被 git 忽略；`web/` 每個 HTML 連 `../core/favicon.svg`、importmap 的 `@core/` 指到 `../core/`。跑全部專案時另查 `project-site/` 底下沒有 `web/index.html` 的資料夾（`core · structure`）。pre-commit 也會檢查這次提交到的站 |
 | `names` | ✓ | 專案資料夾（不含 `docs/`、`TEMP/`）不得出現用戶名稱；名單只放本機 `.private/client-names.txt`（studio 工作區是 `.studio/client-names.txt`），沒有名單就略過。pre-commit 也會掃要提交的內容 |
 | `imports` | ✓ | 從 index.html 走遍 import 圖，找不到的檔案（部署後才會壞的路徑） |

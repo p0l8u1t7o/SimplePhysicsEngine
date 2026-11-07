@@ -25,7 +25,7 @@
 ### 室外場景的環境光強度
 - 提出：PV DEMO（2026-11-04；該站已於 2026-11-07 移除，暫代程式留在 commit `ad4b816`）
 - 暫代：`project-site/PV DEMO/web/js/main.js`（見 `ad4b816`）的 `envMats`（逐材質設 `envMapIntensity`，隨太陽高度變化）
-- 現象：stage 固定載入 RoomEnvironment，室外大場景（mm 單位、數十公尺）陰影對比被洗掉；three r160 沒有 `scene.environmentIntensity`
+- 現象：stage 固定載入 RoomEnvironment，室外大場景（mm 單位、數十公尺）陰影對比被洗掉；r160 沒有 `scene.environmentIntensity`（core 1.18.0 升到 r187 後已經有了，可以直接用它實作）
 - 期望介面：`createStage({ envIntensity })`＋`stage.setEnvIntensity(k)`（或 look 加 `outdoor`）
 - 影響：ParkingEMS、其他室外或日夜變化的站
 

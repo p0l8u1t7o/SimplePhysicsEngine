@@ -4,7 +4,7 @@
   "sites": {
     "flagship": {
       "samples": 1513,
-      "handErrorMm": 9.670734615673035e-12,
+      "handErrorMm": 1.1773039173931119e-11,
       "connectorSpeedMmS": 2209.8914488085684,
       "cableEndpointErrorMm": 0,
       "cableMinHeightMm": 232.11111111111114,
@@ -13,7 +13,7 @@
     },
     "mixed": {
       "samples": 1512,
-      "handErrorMm": 4.4886115600583526e-12,
+      "handErrorMm": 4.595734168744981e-12,
       "connectorSpeedMmS": 1707.5974641674127,
       "cableEndpointErrorMm": 0,
       "cableMinHeightMm": 212.37355324074073,
@@ -22,7 +22,7 @@
     },
     "urban": {
       "samples": 1474,
-      "handErrorMm": 7.870709819449519e-12,
+      "handErrorMm": 7.33610513857533e-12,
       "connectorSpeedMmS": 2008.5461130794138,
       "cableEndpointErrorMm": 0,
       "cableMinHeightMm": 219.11328124999997,

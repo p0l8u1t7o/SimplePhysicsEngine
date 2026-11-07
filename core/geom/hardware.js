@@ -47,7 +47,8 @@ export function finishMaterials(renderer) {
   for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) data.set([255, 255, 255, x < 3 || y < 3 ? 255 : 0], (y * n + x) * 4);
   const mesh = new THREE.DataTexture(data, n, n); mesh.wrapS = mesh.wrapT = THREE.RepeatWrapping; mesh.repeat.set(22, 30);
   mesh.generateMipmaps = true; mesh.minFilter = THREE.LinearMipmapLinearFilter; mesh.magFilter = THREE.LinearFilter; mesh.anisotropy = 8; mesh.needsUpdate = true;
-  Object.assign(MAT.mesh, { map: mesh, transparent: false, opacity: 1, alphaTest: .4, alphaToCoverage: true, depthWrite: true });
+  // alphaToCoverage 不用：r16x 起它和 alphaTest 一起用時改成依覆蓋率平滑，細網線會變淡、變細（r187 實測）
+  Object.assign(MAT.mesh, { map: mesh, transparent: false, opacity: 1, alphaTest: .4, alphaToCoverage: false, depthWrite: true });
 }
 
 // 合併緊固件，避免每個螺栓增加一次 draw call。

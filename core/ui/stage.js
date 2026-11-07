@@ -65,13 +65,15 @@ function buildStage({
   const useLog = qp.has('logdepth') ? qp.get('logdepth') !== '0' : qp.has('movie') || logDepth;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: qp.get('aa') !== '0', powerPreference: 'high-performance', logarithmicDepthBuffer: useLog, preserveDrawingBuffer });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  renderer.shadowMap.enabled = qp.get('shadow') !== '0'; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.enabled = qp.get('shadow') !== '0'; renderer.shadowMap.type = THREE.PCFShadowMap;   // r187 移除了 PCFSoftShadowMap（會印警告並改用 PCF）
   renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = exposure;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 
   const scene = new THREE.Scene(); scene.background = new THREE.Color(background);
   if (fog) scene.fog = new THREE.Fog(background, fog[0], fog[1]);
-  const pmrem = new THREE.PMREMGenerator(renderer), room = new RoomEnvironment(renderer);
+  const pmrem = new THREE.PMREMGenerator(renderer), room = new RoomEnvironment();   // r187 起不收 renderer
+  // r187 的 RoomEnvironment 把房間往下移 3.5（取樣點更靠近天花板的面光源，整體亮 3～10 階）；設回 0，維持 r160 的環境光
+  room.position.y = 0; room.updateMatrixWorld(true);
   if (envLight != null) room.traverse(o => { if (o.isPointLight) o.intensity = envLight; });
   scene.environment = pmrem.fromScene(room, envBlur).texture; room.dispose(); pmrem.dispose();
 

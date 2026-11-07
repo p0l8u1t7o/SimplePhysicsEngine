@@ -126,8 +126,9 @@ export async function exportHtml(projectId, outFile, { log = console.log } = {})
       if (isExternal(ref)) return m;
       const d = dataUrl(abs(ref, url), from); return d ? `new URL(${JSON.stringify(d)})` : m;
     });
-    // fetch('…')、loader.load('…')：字串常數以頁面位置解析，改成 data URL；組字串的列為警告
-    src = src.replace(/(\bfetch|\.loadAsync|\.load)\(\s*(['"`])([^'"`$]*)\2(\s*[,)])/g, (m, fn, q, ref, tail) => {
+    // fetch('…')、loader.load('…')：字串常數以頁面位置解析，改成 data URL；組字串的列為警告。
+    // core/vendor/ 的第三方程式不會用常數字串載入站的資源，跳過（three.core.js 的文件註解裡有 audioLoader.load('sounds/song.ogg') 範例）
+    if (!url.startsWith('/core/vendor/')) src = src.replace(/(\bfetch|\.loadAsync|\.load)\(\s*(['"`])([^'"`$]*)\2(\s*[,)])/g, (m, fn, q, ref, tail) => {
       if (!ref || isExternal(ref)) return m;
       if (!/\.\w{1,5}$/.test(ref.split(/[?#]/)[0])) { if (fn === 'fetch') warn(`${from}：fetch('${ref}') 離線無法使用`); return m; }
       const d = dataUrl(abs(ref, base), from); return d ? `${fn}(${JSON.stringify(d)}${tail}` : m;

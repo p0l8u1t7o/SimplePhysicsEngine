@@ -64,7 +64,7 @@ export function buildingDetails(parent,b,i){
   // 實例色同時決定窗戶亮暗，夜間約半數亮燈，避免整面樓層均勻發光。
   glass.onBeforeCompile=shader=>{shader.fragmentShader=shader.fragmentShader.replace('#include <emissivemap_fragment>',`#include <emissivemap_fragment>
     #ifdef USE_COLOR
-      totalEmissiveRadiance *= step(0.6, vColor.r) * vColor;
+      totalEmissiveRadiance *= step(0.6, vColor.r) * vColor.rgb;   // r187 的 vColor 可能是 vec4
     #endif`);};
   glass.customProgramCacheKey=()=> 'parking-window-emission-v2';
   for(const [name,dim,offset,material]of [

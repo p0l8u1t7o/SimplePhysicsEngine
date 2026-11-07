@@ -229,6 +229,24 @@ Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs
 
 七站 91 張基準回歸超過門檻 0 張；本站 31 張事件畫面與三場型高低畫質／深度模式逐圖檢視，外觀變更為預期。CCTV／LPR 子畫面及缺檔降級另有瀏覽器檢查。量測、圖檔位置與限制見 `project-site/ParkingEMS/review/cinematic-render.md`。
 
+## 2026-11-07：core 1.18.0 three.js r187、MuJoCo 手臂動力學、鋼構／管路／案場座標
+
+使用者拍板（根目錄 `AGENTS.md`「物理模擬擴充」「太陽能案場平台」）：three.js 直接升級、導入 MuJoCo、第一階段的鋼構管路與地形空拍。
+
+- **three.js r160 → r187**：`vendor/three.module.js` 換新，另加 `vendor/three.core.js`（r171 起拆成兩個檔，`three.module.js` 以相對路徑引用它；importmap 與 Node loader 都不用改）；addons 的 OrbitControls、RoomEnvironment 換成 r187 版。調整：
+  - `ui/stage.js`：`PCFSoftShadowMap` 已被移除（會印警告），改 `PCFShadowMap`；`RoomEnvironment()` 不再收 renderer；r187 的 RoomEnvironment 把房間往下移 3.5，整體亮 3～10 階，設回 `position.y = 0` 維持原本的環境光。
+  - `geom/hardware.js`：網片的 `alphaToCoverage` 關掉（r187 和 `alphaTest` 一起用時改成依覆蓋率平滑，細網線變淡變細）。
+  - ParkingEMS `site-details.js`：窗戶玻璃的著色器補丁 `vColor` 改成 `vColor.rgb`（r187 的頂點色是 vec4，原本會編譯失敗）。
+  - `tools/export-html.mjs`：字串資源的改寫跳過 `core/vendor/`（`three.core.js` 文件註解裡的 `audioLoader.load('sounds/song.ogg')` 範例會被當成資源）。
+  - **外觀變化（刻意，逐站看過）**：陰影邊緣由 PCF 柔邊變成 PCF（陰影邊緣略硬）、少數材質的亮面與凹凸貼圖著色略不同。修正後 14 站平均亮度差 +0.2～+4（化學桶 +8，凹凸與粗糙度貼圖的著色差），161 張裡 ParkingEMS 0 張超過門檻，其他站多數超過門檻但逐張看過沒有缺件、變形或錯位。新的截圖基準是本機 `TEMP/shots-newmachine-base`（r187）。
+  - 完整檢查 184/184（含 14 站 `ui` 四種尺寸，主控台沒有錯誤與棄用警告）；review 有 3 個檔是 1e-12 級的浮點差（AutomaticAcid 的自我間隙最近一對平手換了時刻、化學桶夾爪 mm 末位、ParkingEMS 手部誤差 1e-11 mm），已提交。
+- **MuJoCo**（`vendor/mujoco/`，4.0.0，Apache-2.0）：`robot/dynamics.js`（`inverseDynamics`：沿關節軌跡算扭矩、負載的手腕力矩與慣量、對上限的比例、檢查列；`payloadWrist`；`toMJCF`、`createArmModel`）、`robot/dynamics/denso-vs068.js`（質量與扭矩上限是估計值）。wasm 瘦身後 gzip 內嵌（`tools/vendor-mujoco.mjs` 產生）。core 檢查 `dynamics`：靜態扭矩對照獨立手算差 7e-15 N·m、兩次相同。原型與 Chrome 比對在本機 `TEMP/mujoco-proto/`。
+- **新模組**（各有 README 與 node:test，core 檢查 `engineering` 一起跑，64 項）：
+  - `structure/`：固定式與單軸追日支架的構件、切長、重量、基樁埋深、BOM、檢查列、三維模型。
+  - `piping/`：管路倒角成直管＋彎頭、切長與配件、坡度與淨空、1D 管網水力、電壓降、三維幾何。
+  - `geo/`：WGS84／TWD97／UTM（和 PROJ 9.8 差 ≤ 5e-6 mm）、案場座標與浮動原點、GeoTIFF（自寫，不用 geotiff.js）、地形與正射貼圖、LAS 點雲、設計與現況比對、空拍相機對位。
+  - 表格（斷面、管徑、K 值、風雪係數）多是記憶值，標「示意」，正式使用前要核對（各 README 有清單）。
+
 ## 2026-11-07：core 1.17.0 線材 XPBD、手臂肩部翻轉初值
 
 - **新模組 `physics/rope.js`**（使用者拍板，見根目錄 `AGENTS.md`「物理模擬擴充」）：線材、軟管的 XPBD 預先烘焙，錨點可以跟著時間移動，被地面、方塊、圓柱、球擋住；`createRopeView` 用共用的 GPU 緩衝畫圓管。子步比多迭代有效（1/240 s × 40 次迭代仍有 5% 伸長，8 子步 × 4 次只剩 0.5%）。純 JS、不載入 Rapier。
@@ -286,6 +304,7 @@ Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs
 
 | 版本 | 日期 | 內容 |
 |---|---|---|
+| 1.18.0 | 2026-11-07 | three.js r187（`three.core.js`、PCF 陰影、RoomEnvironment 位置、網片 alphaToCoverage、ParkingEMS 頂點色）；MuJoCo 4.0.0 與 `robot/dynamics.js`；新模組 `structure/`、`piping/`、`geo/`；core 檢查 `dynamics`、`engineering`。陰影邊緣與部分材質著色有刻意的外觀變化；完整檢查 184/184 |
 | 1.17.0 | 2026-11-07 | 線材 XPBD `physics/rope.js`（`bakeRope`、`ropeSampler`、`createRopeView`、`ropeStats`），`physics` 檢查認得線材並檢查線長（`stretchTol`）；範例加線材情境；手臂幾何初值補肩部翻轉（8 組）。PlumbingFixtureInspection 的 IK 誤差 0.01 → 0.04 mm，其他站場景傾印完全相同；161 張截圖 0 張超過門檻；完整檢查 184/184 |
 | 1.16.2 | 2026-11-07 | 巡檢修正：`compare-review.py` 改成精確的欄位名單（以前會漏掉 hash、mdHash、事件時刻的變化）、`serve.mjs` 壞編碼不再當掉、`check-names` 不分大小寫並補掃 `tools/docs`、`check --only` 打錯不再算通過、啟動／停止腳本核對 PID；`reachByIK` 支援 COBOTTA 並在基座旋轉時少誤判、物理 `hz` 不整除時的時間比例、`fmtTime` 的 60 秒、光學檢視頁釋放資源、Z 向輸送線滾筒轉向、物理檢查不寫耗時。14 站 161 張截圖 0 張超過門檻；完整檢查 184/184；102 個 review 用新版 `compare-review.py` 對照舊機提交的結果，不同 0 個（RecycleSorter 的兩個物理 review 只少了 `ms`） |
 | 1.16.1 | 2026-11-07 | Node 端 loader 改用 `module.registerHooks`（Node 26 對 `module.register` 有 DEP0205 棄用警告；舊版 Node 22 自動退回）；`loader.mjs` 的 `resolve` 改成同步。API 與畫面不變，14 站檢查與截圖結果不變 |

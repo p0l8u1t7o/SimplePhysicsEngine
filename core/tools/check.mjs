@@ -22,7 +22,7 @@
 //   names        不得出現用戶名稱（本機名單 .private/client-names.txt 或工作區 .studio/client-names.txt；沒有名單就略過，快速）
 //   ui           標準互動測試：桌面／手機直向／手機橫向／觸控平板的播放列、選單、側欄、標籤與版面（ui-check.mjs，只在完整檢查）
 // project.json 的 "core" 可覆寫：{ "skip": ["scene"], "quick": ["scene"] }
-import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { writeFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { pickProjects, REPO, CORE, WORKSPACE } from './projects.mjs';
@@ -76,6 +76,23 @@ if (!argv.some(a => !a.startsWith('--')) && (!only || only.includes('physics')))
   results.push({ project: 'core', check: 'physics', ok: r.code === 0, note: lines.find(l => /^[✓✗]/.test(l))?.slice(2) || `exit ${r.code}`, seconds: +sec.toFixed(1) });
   console.log(`${r.code === 0 ? '✓' : '✗'} core · physics  ${results.at(-1).note}  (${sec.toFixed(1)} s)`);
   if (r.code) for (const l of lines.slice(1)) console.log('     ' + l);
+}
+// core 本身：手臂動力學（MuJoCo，core/examples/dynamics）：靜態扭矩對照手算、決定性、檢查列
+if (!argv.some(a => !a.startsWith('--')) && (!only || only.includes('dynamics'))) {
+  const t0 = Date.now(), r = await runScript({ dir: CORE }, join(CORE, 'examples', 'dynamics', 'check.mjs'), [], { echo: false });
+  const lines = r.out.trim().split('\n'), sec = (Date.now() - t0) / 1000;
+  results.push({ project: 'core', check: 'dynamics', ok: r.code === 0, note: lines.find(l => /^[✓✗]/.test(l))?.slice(2) || `exit ${r.code}`, seconds: +sec.toFixed(1) });
+  console.log(`${r.code === 0 ? '✓' : '✗'} core · dynamics  ${results.at(-1).note}  (${sec.toFixed(1)} s)`);
+  if (r.code) for (const l of lines.slice(1)) console.log('     ' + l);
+}
+// core 本身：案場工程模組的單元測試（core/structure 鋼構、core/piping 管路與水力、core/geo 座標／地形／點雲／現況比對、core/solar 日照）
+if (!argv.some(a => !a.startsWith('--')) && (!only || only.includes('engineering'))) {
+  const files = ['structure', 'geo', 'solar'].flatMap(m => { const d = join(CORE, m, 'test'); return existsSync(d) ? readdirSync(d).filter(f => f.endsWith('.test.mjs')).sort().map(f => join(d, f)) : []; });
+  const t0 = Date.now(), r = await runScript({ dir: CORE }, '--test', files, { echo: false });
+  const sec = (Date.now() - t0) / 1000, num = k => +(new RegExp(`^ℹ ${k} (\\d+)`, 'm').exec(r.out)?.[1] ?? NaN);
+  results.push({ project: 'core', check: 'engineering', ok: r.code === 0 && num('fail') === 0, note: `${num('pass')}/${num('tests')} 項（${files.length} 個測試檔）`, seconds: +sec.toFixed(1) });
+  console.log(`${results.at(-1).ok ? '✓' : '✗'} core · engineering  ${results.at(-1).note}  (${sec.toFixed(1)} s)`);
+  if (!results.at(-1).ok) for (const l of r.out.split('\n').filter(l => /^✖|not ok|Error/.test(l)).slice(0, 15)) console.log('     ' + l);
 }
 // core 本身：第二段範例（core/examples/segment2，電控、配線、相機）仍然通過電控與配線檢查
 if (!argv.some(a => !a.startsWith('--')) && (!only || only.includes('examples'))) {

@@ -2,7 +2,7 @@
   "title": "太陽能板拆框機器人上下料",
   "summary": "FANUC M-710iC/45M＋懸臂移載機：A/B 雙工位上下料、拆框機訊號交握、餘料外送到大料車",
   "order": 9,
-  "coreVersion": "1.17.0",
+  "coreVersion": "1.18.0",
   "checks": {
     "quick": [
       "tools/verify.mjs"
