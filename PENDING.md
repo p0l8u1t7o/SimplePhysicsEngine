@@ -73,7 +73,7 @@
 
 - [ ] 「高精度」的門檻請使用者確認後寫進檢查：幾何 ±3～5 cm（RTK 空拍）、太陽位置 ±0.01°、發電量與 pvlib 相差 < 2%（目前 core/solar 對 pvlib 的差在浮點捨入等級）。
 - [ ] 日照檢查的後續：站層 `verify.solar`（`core/verify/solar.mjs`，2026-11-07）已有冬至列間遮陰、排距 90% 的對照組與追日回溯；外部遮擋（`obstacles`：方塊、四邊形、地形函式）另列一列；還沒做發電量對 pvlib 或上次結果的檢查列。目前沒有站宣告 `verify.solar`。
-- [ ] 台灣天候資料來源（PVGIS、NSRDB Himawari、中央氣象署、Meteonorm 擇一）與實測 ΔT 預設值；全年遮陰的 Worker 平行與先篩可能被遮的排。
+- [ ] 天候資料來源先依建議採用（2026-11-07 授權當晚依建議進行，使用者可再改；`tools/weather/README.md`）：可行性評估用 PVGIS（`fetch-tmy.mjs`；台灣只有 PVGIS-ERA5 再分析），正式發電量用 NSRDB Himawari（要使用者申請 NREL 金鑰），中央氣象署實測校正；還沒做的是 NSRDB 實際下載後對一次欄位與時間標記、和氣象署實測的比對。ΔT 維持 pvlib 的多項式（台灣方位差 < 0.007°，在 ±0.01° 內）；全年遮陰的 Worker 平行與先篩可能被遮的排。
 - [ ] 案場整合：鋼構與日照的座標慣例已定（`core/structure/solar-frame.js`，追日 φ = θ；範例 `/core/examples/structure/` 依太陽轉並算遮陰，2026-11-07）；還沒做的是地形改用 `core/geo` 的 DSM、鋼構檢查列與 `verify.solar` 合併成一個站層宣告；`core/REQUESTS.md` 的 `pvModule`／`pvRack`／`stringInverter` 共用模型用 `solar/layout.js` 的配置與 InstancedMesh 做。
 - [ ] `core/geo`：3D Tiles（3d-tiles-renderer 0.5.3，Apache-2.0，要一起放 r187 的 GLTFLoader、BufferGeometryUtils；壓縮圖磚另要 DRACO／KTX2）；大檔用 HTTP Range 分段讀；JPEG 壓縮的正射影像；大地起伏模型；OBJ 的大檔串流讀取與壓縮貼圖（`core/geo/obj.js` 已能讀地理參考 OBJ，2026-11-07）；影片疊圖介面；熱影像熱斑標記。
 - [ ] 外部 CFD 實跑：本機沒有 Docker 也沒有 WSL 發行版，產生的字典還沒在真的 OpenFOAM（v2412）上跑過；要確認 `atmBoundaryLayerInletOmega` 參數、`z0`／`d` 寫法、VTK legacy 輸出、streamLine 與 surfaces 的檔名配置；之後做網格獨立性、interFoam、OpenFOAM.org 版本開關、殘差與 y+ 圖表；展示頁（本機 `TEMP/cfd-dev/view/`）搬進 `core/examples`。注意 `cpu-cap.ps1` 管不到 Docker／WSL 的虛擬機，要用 `--cpus` 或 `.wslconfig` 限制。
