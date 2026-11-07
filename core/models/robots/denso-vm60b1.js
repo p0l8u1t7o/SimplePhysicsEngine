@@ -63,8 +63,8 @@ export function createVM60B1({ q: pose = READY, ik: ikOptions = {}, dress = true
   const elbow = box(150, L.foreOffset + 60, 120, matArm); elbow.position.y = L.foreOffset / 2; j.j3.add(elbow);
   // 前臂沿 +X，J4 軸高於 J3 軸 foreOffset
   const foreArm = box(L.fore - L.wrist1 + 30, 100, 110, matArm); foreArm.position.set((L.fore - L.wrist1 - 30) / 2, L.foreOffset, 0); j.j3.add(foreArm);
-  // 前臂端蓋縮到前臂寬度內（z ±52、半徑 56），手腕大角度折疊時不碰
-  const foreCap = cyl(56, 56, 104, matArm); foreCap.rotation.x = Math.PI / 2; foreCap.position.set(L.fore - L.wrist1, L.foreOffset, 0); j.j3.add(foreCap);
+  // 前臂端蓋縮到前臂寬度內（z ±52、半徑 49）：J5 彎到 ±120° 限位時腕部方塊的邊離端蓋軸約 53.5 mm，半徑 56 會切進 2.5 mm（core 1.20.2 邊取樣抓到）
+  const foreCap = cyl(49, 49, 104, matArm); foreCap.rotation.x = Math.PI / 2; foreCap.position.set(L.fore - L.wrist1, L.foreOffset, 0); j.j3.add(foreCap);
   if (dress) armDress(j, L, { upperDepth: 76, foreDepth: 56, large: true });
   // J2／J3 關節蓋螺栓（各 6 顆）
   for (const joint of [j.j2, j.j3]) for (let k = 0; k < 6; k++) cylinder(joint, 4, 3, [45 * Math.cos(k * Math.PI / 3), 45 * Math.sin(k * Math.PI / 3), 104], VM60B1_MAT.bolt, 'z', 6);

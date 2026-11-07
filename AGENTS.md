@@ -78,7 +78,7 @@ node --import ./core/tools/register.mjs tools/verify-interference.mjs   # 四站
 
 ## 框架慣例（詳見 core/README.md「統一寫法」）
 
-- **專案介面**：`project.js` 匯出 `createProject({ scene, ...params })`，回傳 `{ total, apply(t), layoutChecks?, verify }`。`verify` 包含 `skip`、`moduleOf`、`stationOf`、`allow`（必須寫原因）、`thresholds`、`envelope`。
+- **專案介面**：`project.js` 匯出 `createProject({ scene, ...params })`，回傳 `{ total, apply(t), layoutChecks?, verify }`。`verify` 包含 `skip`、`moduleOf`、`stationOf`、`allow`（必須寫原因）、`thresholds`、`envelope`、`compareFixed`（選用：同模組的固定件也要比的組合）。
 - **形狀與材質**：`core/geom/shapes.js`、`materials.js` 的 `MAT`（含 `frame`、`chrome`）、`finished(MAT.alu, 'metal')`；地面用 `environment.js` 的 `floor()`。
 - **排程**：
   - 單一手臂用 `createStepSequence`：`discrete`、`latch`、`nested`、`ease`／`easeKeys`、`peek`、`mark`／`rollback`、`retime`。
@@ -171,5 +171,6 @@ node --import ./core/tools/register.mjs tools/verify-interference.mjs   # 四站
   - 空拍只匯入標準格式（GeoTIFF、LAS/LAZ、OBJ、3D Tiles）；照片處理交給外部的 OpenDroneMap（AGPL，獨立程序）或商用軟體，平台不內建。
   - 高精度門檻（2026-11-07 第二輪）：平面 ±50 mm、高程 ±30 mm、太陽位置 ±0.01°（以太陽方向夾角量）、全年發電和 pvlib 相差 < 2%；常數在 `core/solar/precision.js`，檢查與測試一律引用它。
 - 手臂動力學的負載（2026-11-07 第二輪）：從站的 3D 工具模型估（`core/robot/payload.js` 的 `estimatePayload`：體積 × 密度，金屬當鋁、其他當塑膠），不再手填；有實際重量時在模型上標 `userData.mass`／`density`。
+- 依建議持續開發（2026-11-08，使用者授權「遇到問題採用你的建議」）：core 模型不加 `cableHost` 選項（站裡一行 `root.userData.cableHost = false`）；天候資料先用 PVGIS（見 `tools/weather/README.md`）；截圖回歸的視角清單改讀頁面的 `window.sim.views`。
 - 3D工作室生成品質（2026-11-07）：開發後多一輪看截圖自我檢查（`studio.json` 的 `selfReview`，預設 1）、本庫的站當唯讀參考（`references`，自動挑 2 個；站的 `docs/`、`.studio/`、`TEMP/` 不給讀）、Claude 角色預設 `--effort high`；補強角色維持 Codex。
 - 各站的拍板紀錄在各站的 `AGENTS.md`。

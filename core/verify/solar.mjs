@@ -17,13 +17,18 @@
 //      energy = { weather: 'data/tmy.epw'（站資料夾的相對路徑，.gz 可）, pdc0（W；沒給就用板片數 × moduleW，預設 550 W）, losses = 14（%）,
 //                 system?（覆寫 simulate 的 system）, expect?: { acKWh, source（例如 'pvlib 0.16.1'） }, tol? }
 //      沒給 expect 時和上次的 review（solar-checks.json）比，當回歸；第一次跑記成基準。未含列間遮陰（固定式排距夠、追日有回溯時可忽略）
+//   鋼構宣告（取代 layout，2026-11-08）：structure = { kind: 'fixed' | 'tracker', params（core/structure 的 layoutFixedRack／layoutTracker 參數，height 用世界座標的地形）,
+//     azimuth = 180（固定式朝向）| axisAzimuth = 180（追日軸）, origin, limits（structureChecks 的門檻） }：板片位置照鋼構實際算出來（solarFrame 換座標），
+//     排距對照組用同一組參數重算鋼構，另外列出鋼構的檢查列（基樁、離地、坡度…）；站不用再分開宣告兩份陣列
 // 第 1～3 列只用陣列自己的板片當遮擋物（列間遮陰）；外部遮擋另列第 4 列。結果是決定性的（core/solar 全部用 dmath）。
 import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { join } from 'node:path';
 import * as S from '../solar/index.js';
+import { layoutFixedRack, layoutTracker, structureChecks, solarFrame, RACK_DEFAULTS, TRACKER_DEFAULTS } from '../structure/index.js';
 
 function arrayOf(layout, pitch) {
+  if (layout.build) { const lay = Math.abs(pitch - layout.pitch) < 1e-9 ? layout.base : layout.build(pitch); return { kind: layout.type, count: lay.modules.length, pose: th => layout.frame.modules(lay, th) }; }
   const { type, ...p } = layout;
   if (type === 'tracker') { const a = S.trackerArray({ ...p, pitch }); return { kind: 'tracker', count: a.count, pose: th => a.pose(th) }; }
   const a = S.fixedArray({ ...p, pitch }); return { kind: 'fixed', count: a.count, pose: () => a.modules };
@@ -46,6 +51,17 @@ function addObstacles(list, obstacles) {
       for (let i = 0; i < nx; i++) for (let k = 0; k < nz; k++) list.addQuad(p(i, k), p(i, k + 1), p(i + 1, k + 1), p(i + 1, k));
     }
   }
+}
+
+// 鋼構宣告（structure）→ 和 layout 同樣用法的描述：板片由 core/structure 的 layout 經 solarFrame 換到日照座標，
+// 排距的對照組用同一組參數重算鋼構（不是把板片縮排）
+function fromStructure(st) {
+  const kind = st.kind === 'tracker' ? 'tracker' : 'fixed', P = st.params || {}, D = kind === 'tracker' ? TRACKER_DEFAULTS : RACK_DEFAULTS;
+  const frame = solarFrame(kind === 'tracker' ? { kind, axisAzimuth: st.axisAzimuth ?? 180, origin: st.origin } : { kind, azimuth: st.azimuth ?? 180, origin: st.origin });
+  const build = pitch => (kind === 'tracker' ? layoutTracker : layoutFixedRack)({ ...P, pitch, ...(P.height ? { height: frame.localGround(P.height) } : {}) });
+  const base = build(P.pitch ?? D.pitch), m0 = base.modules[0], up = P.up ?? D.up, gap = P.gap ?? D.gap;
+  return { type: kind, pitch: P.pitch ?? D.pitch, module: { length: up * m0.size[1] + (up - 1) * gap }, tilt: P.tilt ?? D.tilt, azimuth: st.azimuth ?? 180,
+    axisAzimuth: st.axisAzimuth ?? 180, maxAngle: P.maxAngle ?? D.maxAngle, wp: (P.module?.wp ?? D.module.wp), build, frame, base, limits: st.limits };
 }
 
 function worstShade(cfg, pitch, { backtrack = true, gcrPitch = pitch, obstacles = null } = {}) {
@@ -80,7 +96,7 @@ function energyRow(cfg, layout, { dir, previous }) {
   const e = cfg.energy, file = join(dir || '.', e.weather);
   const text = /\.gz$/i.test(file) ? gunzipSync(readFileSync(file)).toString('utf8') : readFileSync(file, 'utf8');
   const weather = /\.csv(\.gz)?$/i.test(file) ? S.readCSV(text, e.csv || {}) : S.readEPW(text);
-  const count = arrayOf(cfg.layout, cfg.layout.pitch).count, pdc0 = e.pdc0 ?? count * (e.moduleW ?? 550);
+  const count = arrayOf(cfg.layout, cfg.layout.pitch).count, pdc0 = e.pdc0 ?? count * (e.moduleW ?? cfg.layout.wp ?? 550);   // 鋼構宣告時用模組的 wp
   const mount = layout.type === 'tracker'
     ? { type: 'singleAxis', axisAzimuth: layout.axisAzimuth ?? 180, maxAngle: layout.maxAngle ?? 60, gcr: layout.module.length / layout.pitch, backtrack: true }
     : { type: 'fixed', tilt: layout.tilt, azimuth: layout.azimuth ?? 180 };
@@ -95,8 +111,9 @@ function energyRow(cfg, layout, { dir, previous }) {
 }
 
 export function verifySolar(project, { dir, previous } = {}) {
-  const cfg = project.verify?.solar;
-  if (!cfg) return { ok: true, applicable: false };
+  const raw = project.verify?.solar;
+  if (!raw) return { ok: true, applicable: false };
+  const cfg = raw.structure ? { ...raw, layout: fromStructure(raw.structure) } : raw;
   const tol = cfg.tol ?? 0.005, pitch = cfg.layout.pitch, date = cfg.date ?? [12, 21], hours = cfg.hours ?? [9, 15], label = `${date[0]}/${date[1]} ${clock(hours[0])}～${clock(hours[1])}`;
   // 對照組：幾何用 90% 的排距，回溯仍照設計排距算轉角（追日控制器不知道列被做短了），一定要遮得到
   const main = worstShade(cfg, pitch), control = worstShade(cfg, pitch * 0.9, { gcrPitch: pitch });
@@ -114,5 +131,7 @@ export function verifySolar(project, { dir, previous } = {}) {
   }
   let energy;
   if (cfg.energy) { const er = energyRow(cfg, cfg.layout, { dir, previous }); rows.push(er.row); energy = er.energy; }
+  // 鋼構宣告：鋼構本身的檢查列（基樁埋深、外露、離地、坡度、GCR…）一起列
+  if (cfg.layout.build) for (const r of structureChecks(cfg.layout.base, cfg.layout.limits)) rows.push({ ...r, group: `鋼構｜${r.group}` });
   return { ok: rows.every(r => r.ok), applicable: true, rows, ...(energy ? { energy } : {}), failures: rows.filter(r => !r.ok).map(r => `${r.name}：${r.value}（${r.note}）`) };
 }

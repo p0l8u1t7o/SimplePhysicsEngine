@@ -56,7 +56,7 @@ cover.apply(snowSampler(r, '40°')(hour));
 
 `slideCheck({ tilt, surface, swe, wet })` 單獨算一個狀態的驅動、阻力與臨界傾角。
 
-**全年發電的積雪損失**：`snowLossSeries({ weather, poa, tilt, surface, strings })` 把天候檔逐時跑一次 `snowOnPanels`，回傳每筆的平均損失 `loss`，交給 `core/solar` 的 `simulate({ hourlyLoss })`（範例見 `solar/README.md`）。降雪用天候的 `snowfall`（cm/h），沒有就用 `snowDepth`（cm，EPW 第 30 欄）的增量（≥ `threshold` 1 cm 才算）。追日的傾角會變，這裡只接受固定傾角：用下雪時的收藏角或平均傾角。
+**全年發電的積雪損失**：`snowLossSeries({ weather, poa, tilt, stowAngle, surface, strings })` 把天候檔逐時跑一次 `snowOnPanels`，回傳每筆的平均損失 `loss`，交給 `core/solar` 的 `simulate({ hourlyLoss })`（範例見 `solar/README.md`）。降雪用天候的 `snowfall`（cm/h），沒有就用 `snowDepth`（cm，EPW 第 30 欄）的增量（≥ `threshold` 1 cm 才算）。`tilt` 給數字（固定式）或逐時陣列（追日：`simulate({ keepHourly: true })` 的 `hourly.theta`，夜間 NaN 當 0°、取絕對值）；`stowAngle` 讓下雪的那幾小時轉到收藏角（追日常見的防雪策略）。`snowOnPanels` 的 `tilt` 也接受 `t => 度`。
 
 限制：面板下緣的雪堆（落在地上堆高後擋住滑落）、風吹雪、雪簷、面板發熱（逆偏壓融雪）都沒有；同一片的雪深視為均勻。
 

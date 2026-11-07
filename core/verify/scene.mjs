@@ -15,6 +15,7 @@ export const ZF = { dist: .6, area: 25 };    // 預設重合面：距離 mm、�
 //                          不用 fluid／cloth 這類通用名稱判斷：站裡會用同名欄位放別的東西（例如酸鹼滴定的瓶子群組 userData.fluid 是液面物件）
 //   物件 userData.guide = id 導軌；移動件 userData.on = id 在其上滑行
 //   物件 userData.nested = 另一個關節物件：套筒式伸縮（內外管）
+//   verify.compareFixed(a, b, ctx) → true：同一模組、同一工位的兩個固定件也要比（預設不比；例如同一區的鄰槽、外掛件對鄰設備）
 export function verifyScene(project, scene, {
   dt, probes: nProbes = 60, zfightTimes = 11, report = () => { },
 } = {}) {
@@ -94,7 +95,9 @@ export function verifyScene(project, scene, {
   // 所以往上跳過這些根群組再判斷。站把自己畫的零件換成共用模型（多一層 root）後，安裝關係和換用前相同。
   // 場景裡沒有 coreModel 標記時 hostOf(A) 就是 A.parent，和原本的判定完全一樣。
   const hostOf = A => { let p = A.parent; while (p && p.userData.coreModel && p.parent && p.parent !== scene) p = p.parent; return p; };
-  const mountedOn = (A, m) => bodyOf(m) === parentBody(A) && inside(m, hostOf(A));
+  // 會改 scale 的關節（液面、視管、伸縮件；液面通常連 position 一起改，讓底部固定）只對直接父群組（同一個模型實例）放行：
+  // 之前一律跳過模型根群組往上找，儲槽的視管會對整個儲槽區（鄰槽）都放行（2026-11-08）
+  const mountedOn = (A, m) => bodyOf(m) === parentBody(A) && inside(m, stretch.has(A) ? A.parent : hostOf(A));
   const sameMount = (A, B) => parentBody(A) === parentBody(B) && (parentBody(A) !== null || hostOf(A) === hostOf(B));
   const ALLOW = [
     { why: '同一剛體或直接相連的關節（導軌、滑座、轉軸裝在上游零件上）', test: (a, b) => { const A = bodyOf(a), B = bodyOf(b); return (A && A === B) || (A && mountedOn(A, b)) || (B && mountedOn(B, a)); } },
@@ -133,7 +136,8 @@ export function verifyScene(project, scene, {
     if (b.m.id <= a.m.id || !aabbHit(a, b)) continue;
     const ia = info.get(a.m), ib = info.get(b.m);
     const different = ia.module !== ib.module || (ia.station !== ib.station && ia.station !== 'misc' && ib.station !== 'misc');
-    if (!different || allowed(a.m, b.m)) continue;
+    // 同模組同工位的固定件預設不比（組裝本來就互相接觸）；站可以用 verify.compareFixed(a, b, ctx) 指定要比的組合
+    if ((!different && !cfg.compareFixed?.(a.m, b.m, ctx)) || allowed(a.m, b.m)) continue;
     const P = pair(a.m, b.m), g = gap(a, b); if (g >= -P.tol) continue;
     if (curved(a.m, b.m) && !vertexInside(a.m, b.m, P.tol)) continue;
     stat.push({ worst: +g.toFixed(1), a: desc(a), b: desc(b) });
@@ -239,12 +243,40 @@ function inside(p, target, tol = TOL) {
   let odd = true; for (const d of dirs) { ray.set(p, d); if (ray.intersectObject(target, false).length % 2 === 0) odd = false; }
   mat.side = side; return odd;
 }
+// 複核取樣點：頂點，加上三角形邊上每 EDGE_STEP mm 一點（2026-11-08 起）。只看頂點時，長方塊穿過圓柱、兩邊都沒有頂點
+// 落在對方體內就會漏報（化學桶的側樑整支穿過收集桶就是這樣漏的）。每個網格最多 MAX_SAMPLES 點，超過就等距抽樣。
+const EDGE_STEP = 20, MAX_SAMPLES = 1500;
+const sampleCache = new WeakMap();
+function localSamples(geo) {
+  if (sampleCache.has(geo)) return sampleCache.get(geo);
+  const pos = geo.attributes.position, idx = geo.index, n = idx ? idx.count : pos.count, pts = [];
+  const v = i => new THREE.Vector3().fromBufferAttribute(pos, idx ? idx.getX(i) : i);
+  for (let i = 0; i < pos.count; i++) pts.push(new THREE.Vector3().fromBufferAttribute(pos, i));
+  const seen = new Set();
+  for (let t = 0; t + 2 < n; t += 3) {
+    const ids = [idx ? idx.getX(t) : t, idx ? idx.getX(t + 1) : t + 1, idx ? idx.getX(t + 2) : t + 2];
+    for (const [u, w] of [[0, 1], [1, 2], [2, 0]]) {
+      const k = ids[u] < ids[w] ? ids[u] + ',' + ids[w] : ids[w] + ',' + ids[u]; if (seen.has(k)) continue; seen.add(k);
+      const A = v(t + u), B = v(t + w), L = A.distanceTo(B), m = Math.floor(L / EDGE_STEP);
+      for (let s = 1; s <= m; s++) pts.push(A.clone().lerp(B, s / (m + 1)));
+    }
+  }
+  const step = Math.max(1, Math.ceil(pts.length / MAX_SAMPLES)), out = step > 1 ? pts.filter((_, i) => i % step === 0) : pts;
+  sampleCache.set(geo, out); return out;
+}
 function vertexInside(a, b, tol = TOL) {
   for (const [m, t] of [[a, b], [b, a]]) {
     if (t.geometry.parameters?.openEnded || t.geometry.type === 'PlaneGeometry') continue;   // 開放殼不是封閉體
-    const pos = m.geometry.attributes.position; if (!pos) continue;
-    const step = Math.max(1, Math.floor(pos.count / 400));
-    for (let i = 0; i < pos.count; i += step) if (inside(new THREE.Vector3().fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld), t, tol)) return true;
+    if (!m.geometry.attributes.position) continue;
+    // 邊上的點是在網格本地座標取的：網格有縮放時本地 20 mm 不等於世界 20 mm，取樣會稀一點或密一點，判定方式不變。
+    // 先把點換到對方的本地座標看在不在對方的包圍盒內（便宜），在盒內才做射線奇偶判定（昂貴）
+    if (!t.geometry.boundingBox) t.geometry.computeBoundingBox();
+    const tb = t.geometry.boundingBox, toT = new THREE.Matrix4().copy(t.matrixWorld).invert().multiply(m.matrixWorld), q = new THREE.Vector3();
+    for (const p of localSamples(m.geometry)) {
+      q.copy(p).applyMatrix4(toT);
+      if (q.x < tb.min.x || q.x > tb.max.x || q.y < tb.min.y || q.y > tb.max.y || q.z < tb.min.z || q.z > tb.max.z) continue;
+      if (inside(p.clone().applyMatrix4(m.matrixWorld), t, tol)) return true;
+    }
   }
   return false;
 }

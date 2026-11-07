@@ -17,7 +17,7 @@
       "envelope": {
         "robot": {
           "minX": -596,
-          "maxX": 854,
+          "maxX": 849,
           "minY": 836,
           "maxY": 1874,
           "minZ": -598,
@@ -58,7 +58,7 @@
       "envelope": {
         "robot": {
           "minX": -593,
-          "maxX": 854,
+          "maxX": 849,
           "minY": 836,
           "maxY": 1874,
           "minZ": -575,

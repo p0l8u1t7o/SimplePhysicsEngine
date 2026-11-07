@@ -52,3 +52,14 @@ test('積雪：雪深增量變成降雪、有損失、只在下雪那幾天；�
   assert.ok(b.r1.annual.hourlyLossKWh < a.r1.annual.hourlyLossKWh, `40° ${b.r1.annual.hourlyLossKWh.toFixed(1)} kWh 應小於 10° ${a.r1.annual.hourlyLossKWh.toFixed(1)} kWh`);
   assert.ok(b.snow.panel.clearedAt != null && b.snow.panel.clearedAt < (a.snow.panel.clearedAt ?? Infinity), '40° 先清掉');
 });
+
+test('追日：逐時轉角（夜間 NaN 當 0°）；下雪時收藏到 60° 的積雪損失比不收藏少', () => {
+  const w = snowy(), system = { mount: { type: 'singleAxis', gcr: 0.4, maxAngle: 60, backtrack: true }, pdc0: 100000, losses: 14 };
+  const r0 = simulate({ weather: w, site, system, keepHourly: true });
+  assert.ok(r0.hourly.theta.some(Number.isNaN), '夜間的轉角是 NaN');
+  const flat = snowLossSeries({ weather: w, poa: r0.hourly.poa, tilt: r0.hourly.theta });
+  const stow = snowLossSeries({ weather: w, poa: r0.hourly.poa, tilt: r0.hourly.theta, stowAngle: 60 });
+  const kwh = s => simulate({ weather: w, site, system, hourlyLoss: s.loss }).annual.hourlyLossKWh;
+  assert.equal(stow.panel.timeline.tilt[9 * 24 * 4 + 8], 60, '下雪那幾小時轉到 60°');
+  assert.ok(kwh(stow) < kwh(flat), `收藏 ${kwh(stow).toFixed(1)} kWh 應小於不收藏 ${kwh(flat).toFixed(1)} kWh`);
+});

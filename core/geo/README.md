@@ -102,7 +102,7 @@ await readOrthophoto(input, { maxSize, window })         // → RGBA Uint8Clampe
 | 檔案 | TIFF、BigTIFF；II／MM；多 IFD（COG 縮圖，排除遮罩 IFD） | — |
 | 排列 | strip、tile；chunky（PlanarConfig 1）、planar（2）；稀疏圖塊（byte count 0） | 每個波段位元數不同 |
 | 樣本 | uint8／int8／uint16／int16／uint32／int32／float32／float64 | float16、1～4 位元 |
-| 壓縮 | 無（1）、LZW（5）、Deflate（8、32946，用內建 `DecompressionStream`）、PackBits（32773） | JPEG（7）、WebP、ZSTD、LERC → `gdal_translate -co COMPRESS=DEFLATE -co PREDICTOR=2/3 -co TILED=YES` |
+| 壓縮 | 無（1）、LZW（5）、Deflate（8、32946，用內建 `DecompressionStream`）、PackBits（32773）、JPEG（7，2026-11-08：8 位元灰階或 RGB／YCbCr，`JPEGTables` 合併後交給瀏覽器的 `createImageBitmap`；Node 要 `setJpegDecoder(fn)` 給解碼函式，否則丟出說明錯誤） | 舊式 JPEG（6）、WebP、ZSTD、LERC → `gdal_translate -co COMPRESS=DEFLATE -co PREDICTOR=2/3 -co TILED=YES` |
 | 預測器 | 2（水平差分，8／16／32 位元）、3（浮點，依 libtiff 的位元組平面順序） | 64 位元整數的預測器 2 |
 | 地理參考 | ModelTiepoint＋ModelPixelScale、ModelTransformation（含旋轉）、PixelIsArea／PixelIsPoint、`GDAL_NODATA` | GCP 多點（只用第一個 tiepoint） |
 | 座標系 | EPSG（3826、3825、326xx、327xx、4326）、使用者自訂橫麥卡托（ProjCoordTrans = 1，公尺） | 其他投影、非公尺單位 |
@@ -112,6 +112,7 @@ await readOrthophoto(input, { maxSize, window })         // → RGBA Uint8Clampe
 - 480 種組合（4 種壓縮 × strip／tile × 兩種位元組順序 × 5 種樣本 × 預測器 × TIFF／BigTIFF × planar）寫出再讀回，逐像素相同；同一批交給 geotiff.js 3.0.5 讀，小端序全部一致。
 - 大端序＋預測器的 64 個組合 geotiff.js 讀出來不同：它先套預測器再換位元組順序，和 libtiff 相反（`src/predictor.js` 直接在原始緩衝區上用主機序的 `Uint16Array`）。用 tifffile 2026.10.15 交叉驗證 36 個預測器檔（含大端序）全部和本讀取器一致；Pillow 13.0.0（libtiff）在 Deflate／LZW 小端序與大端序 uint16 也一致（Pillow 自己的 PackBits 路徑不套預測器、大端序 float32 讀錯，是 Pillow 的限制）。
 - Chrome 157 無頭模式冒煙測試（`tools/browser-smoke.html`）：Deflate／LZW／PackBits＋預測器解碼、地形、貼圖都正常。
+- JPEG 圖塊（2026-11-08）：Node 測試用假的編解碼器驗表的合併、邊緣圖塊、灰階條帶；Chrome 157 用 canvas 編出真的 JPEG（品質 0.95、YCbCr）讀回，平均差 1.1、最大 5 個灰階。JPEG 是失真壓縮，不同瀏覽器的反 DCT 可能差 1～2 個灰階，只用在正射影像。
 
 效能（Node 26，`tools/bench.mjs`）：3000² DSM（5 cm、Deflate＋預測器 3、256 圖塊，2.6 MB）全解析度讀取 349 ms、縮到 1500² 433 ms；6000² RGB 正射（44 MB）貼成 2048² 單張 2.2 s、9 張 1024² 分塊 2.5 s。
 

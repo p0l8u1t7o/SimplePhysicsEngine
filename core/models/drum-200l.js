@@ -1,7 +1,7 @@
 // 200 L 閉口 HDPE 桶：本體（L 環、兩道滾箍）、2" 與 3/4" 螺塞、識別標籤、桶內液量。共用模型，原用於 ChemicalTankWashing。
 // 局部座標：原點在桶中心，+Y 為桶頂；2" 螺塞在 +X、3/4" 在 −X。
 import * as THREE from 'three';
-import { HAS_DOM, block } from '../geom/shapes.js';
+import { hasDom, block } from '../geom/shapes.js';
 import { MAT } from '../geom/materials.js';
 
 // 規格（mm、kg）：R 本體半徑、envelopeR 含滾箍外徑、H 總高、bungR 螺塞距中心、big／small 為 2" 與 3/4" 螺塞
@@ -36,7 +36,7 @@ export const BUNG = { big: new THREE.Vector3(DRUM.bungR, CAP_Y, 0), small: new T
 
 // 簡化的 QR 圖樣＋桶號，用同一個種子產生，讓同一桶在相機畫面上看起來一致
 function labelTexture(id) {
-  if (!HAS_DOM) return null;
+  if (!hasDom()) return null;
   const c = document.createElement('canvas'); c.width = 256; c.height = 384; const g = c.getContext('2d');
   g.fillStyle = '#fbfbf7'; g.fillRect(0, 0, 256, 384);
   g.fillStyle = '#111'; g.font = 'bold 30px "Noto Sans TC","Microsoft JhengHei",sans-serif'; g.textAlign = 'center';

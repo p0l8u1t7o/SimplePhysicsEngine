@@ -22,7 +22,7 @@ export const meta = {
     span: '[起, 迄]：側樑在輸送方向的本地範圍（預設 [−length/2, length/2]）',
     rollers: '{ from=起+pitch/2, to（給了就是 < to；沒給則排到迄−pitch/2）, pitch, skip=[[中心, 半寬]…]（這些區段不裝）, y=height−roller, segments=20, material=MAT.roller }',
     brackets: 'false（預設）；{ size=[滾筒軸向, 高, 輸送向]=[26, 68, 70], offset=width/2+7, y=height−roller−6, material=MAT.steelDark }：每支滾筒兩端的軸承座',
-    frame: 'false 不裝；{ h=150, w=50, y=height−roller−h/2+20（中心）, offset=width/2+25, material=MAT.steel }：兩側側樑',
+    frame: 'false 不裝；{ h=150, w=50, y=height−roller−h/2+20（中心）, offset=width/2+25, material=MAT.steel, skip=[[中心, 半寬]…]（沿輸送向；側樑在插入的模組處斷開） }：兩側側樑',
     legs: 'false 不裝；{ positions（預設依長度平均分 2 支以上）, size=[60, 側樑底高, 60], offset=frame.offset, material=MAT.steelDark, foot=120（腳座邊長，false 不裝） }',
     name: 'root 的名稱（預設 conveyor）',
   },
@@ -38,7 +38,10 @@ export function create(p = {}) {
   const fr = part(P.frame), lg = part(P.legs), bk = part(P.brackets ?? false);
   const top = P.height, frameH = fr?.h ?? 150, side = fr?.offset ?? P.width / 2 + 25;
   const frames = [], legs = [];
-  if (fr) for (const s of [-1, 1]) frames.push(block(root, at(len, frameH, fr.w ?? 50), at((a0 + a1) / 2, fr.y ?? top - P.roller - frameH / 2 + 20, s * side), fr.material ?? MAT.steel));
+  // 側樑：frame.skip = [[中心, 半寬]…]（沿輸送向，和 span 同座標）在插入的模組（旋轉台、秤重台）處斷開；沒給時整支，和之前相同
+  const segs = [];
+  if (fr) { let c = a0; for (const [m, h] of [...(fr.skip || [])].sort((u, v) => u[0] - v[0])) { if (m - h > c) segs.push([c, m - h]); c = Math.max(c, m + h); } if (a1 > c) segs.push([c, a1]); }
+  if (fr) for (const [s0, s1] of segs) for (const s of [-1, 1]) frames.push(block(root, at(s1 - s0, frameH, fr.w ?? 50), at((s0 + s1) / 2, fr.y ?? top - P.roller - frameH / 2 + 20, s * side), fr.material ?? MAT.steel));
   if (lg) {
     const n = Math.max(2, Math.ceil(len / 1500) + 1), h = lg.size?.[1] ?? top - P.roller - frameH + 20, off = lg.offset ?? side;
     const xs = lg.positions ? seq(lg.positions) : Array.from({ length: n }, (_, i) => a0 + 80 + i * (len - 160) / (n - 1));

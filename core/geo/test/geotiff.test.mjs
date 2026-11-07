@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { writeTIFF, syntheticDSM, syntheticRGB, lzwEncode, packbitsEncode } from './tiff-writer.mjs';
-import { readGeoTIFF, readElevation, readOrthophoto, lzwDecode, packbitsDecode } from '../geotiff.js';
+import { readGeoTIFF, readElevation, readOrthophoto, lzwDecode, packbitsDecode, setJpegDecoder } from '../geotiff.js';
 
 const GEO = { epsg: 3826, origin: [250100, 2650200], pixel: [0.05, 0.05] };
 const same = (a, b) => { for (let i = 0; i < b.length; i++) if (a[i] !== b[i] && !(Number.isNaN(a[i]) && Number.isNaN(b[i]))) return i; return -1; };
@@ -101,12 +101,46 @@ test('readElevation：NoData 換成 NaN；readOrthophoto：RGB → RGBA', async 
 
 test('不支援的壓縮給清楚的錯誤', async () => {
   const bytes = await writeTIFF([{ ...syntheticRGB(8, 8, 3), geo: GEO }]);
-  // 把 Compression 標籤改成 7（JPEG）
+  // 把 Compression 標籤改成 50000（ZSTD）
   const dv = new DataView(bytes.buffer);
   const ifd = dv.getUint32(4, true), n = dv.getUint16(ifd, true);
-  for (let i = 0; i < n; i++) if (dv.getUint16(ifd + 2 + 12 * i, true) === 259) dv.setUint16(ifd + 2 + 12 * i + 8, 7, true);
+  for (let i = 0; i < n; i++) if (dv.getUint16(ifd + 2 + 12 * i, true) === 259) dv.setUint16(ifd + 2 + 12 * i + 8, 50000, true);
+  const tif = readGeoTIFF(bytes);
+  assert.equal(tif.image.compression, 'zstd');
+  await assert.rejects(tif.image.readRaster(), /zstd.*gdal_translate/);
+  assert.throws(() => readGeoTIFF(new Uint8Array(20)), /不是 TIFF/);
+});
+
+test('JPEG 圖塊（壓縮 7）：JPEGTables 接在圖塊前面、邊緣圖塊、灰階；Node 沒給解碼器時給清楚的錯誤', async () => {
+  // 假的 JPEG：SOI＋樣本原樣＋EOI；表是 SOI＋DQT 假資料＋EOI。解碼器檢查合併的結果，再把樣本展開成 RGBA
+  const TABLES = Uint8Array.of(0xff, 0xd8, 0xff, 0xdb, 1, 2, 3, 0xff, 0xd9);
+  const enc = (vals, w, rows) => Uint8Array.from([0xff, 0xd8, ...vals, 0xff, 0xd9]);
+  const dec = (spp, tables) => (jpg, { width, height }) => {
+    if (tables) assert.deepEqual([...jpg.subarray(0, 7)], [...TABLES.subarray(0, 7)], '表去掉 EOI 接在前面，圖塊的 SOI 拿掉');
+    else assert.deepEqual([...jpg.subarray(0, 2)], [0xff, 0xd8], '沒有表時圖塊原樣');
+    assert.deepEqual([...jpg.subarray(-2)], [0xff, 0xd9]);
+    const body = jpg.subarray(tables ? 7 : 2, jpg.length - 2), data = new Uint8ClampedArray(width * height * 4);
+    assert.equal(body.length, width * height * spp, '整塊大小（邊緣圖塊也是整塊）');
+    for (let i = 0; i < width * height; i++) for (let c = 0; c < 3; c++) data[i * 4 + c] = body[i * spp + (spp === 1 ? 0 : c)];
+    return { width, height, data };
+  };
+  const GEO = { epsg: 3826, origin: [182000, 2543000], pixel: [0.05, 0.05] };
+  const rgb = syntheticRGB(40, 24, 3);
+  const bytes = await writeTIFF([{ ...rgb, compression: 'jpeg', jpeg: enc, jpegTables: TABLES, tile: [16, 16], photometric: 6, geo: GEO }]);
   const tif = readGeoTIFF(bytes);
   assert.equal(tif.image.compression, 'jpeg');
-  await assert.rejects(tif.image.readRaster(), /jpeg.*gdal_translate/);
-  assert.throws(() => readGeoTIFF(new Uint8Array(20)), /不是 TIFF/);
+  await assert.rejects(tif.image.readRaster(), /瀏覽器.*setJpegDecoder/, 'Node 沒有解碼器');
+  setJpegDecoder(dec(3, true));
+  try {
+    const r = await tif.image.readRaster();
+    assert.deepEqual([...r.data], [...rgb.data], 'RGB 逐像素相同（含右邊與下面不滿的圖塊）');
+    const o = await readOrthophoto(bytes);
+    assert.deepEqual([...o.data.subarray(4 * 45, 4 * 46)], [rgb.data[135], rgb.data[136], rgb.data[137], 255]);
+    const gray = { width: 20, height: 10, samples: 1, bits: 8, format: 1, data: Uint8Array.from({ length: 200 }, (_, i) => i) };
+    setJpegDecoder(dec(1, false));
+    const g = await readGeoTIFF(await writeTIFF([{ ...gray, compression: 'jpeg', jpeg: enc, rowsPerStrip: 4, geo: GEO }])).image.readRaster();
+    assert.deepEqual([...g.data], [...gray.data], '灰階、條帶、沒有表');
+    const sixteen = await writeTIFF([{ ...gray, bits: 16, data: Uint16Array.from(gray.data), compression: 'jpeg', jpeg: (v, w, rows) => enc(new Uint8Array(w * rows * 2)), geo: GEO }]);
+    await assert.rejects(readGeoTIFF(sixteen).image.readRaster(), /8 位元/);
+  } finally { setJpegDecoder(null); }
 });

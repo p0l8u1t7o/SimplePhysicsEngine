@@ -12,7 +12,7 @@
 //   結構   實體網格都直接掛在 root 底下（螺絲是 shapes.js 的 screw 群組）；root.userData.coreModel＝模型 id。
 // meta.params 是目錄頁可調的數值參數；meta.options 是只能由程式傳入的選項（材質、陣列、子物件設定）。
 import * as THREE from 'three';
-import { block, cylinder, bevelBox, screw, decal, HAS_DOM } from '../geom/shapes.js';
+import { block, cylinder, bevelBox, screw, decal, hasDom } from '../geom/shapes.js';
 import { MAT } from '../geom/materials.js';
 import { defaults, pick } from './util.js';
 
@@ -111,7 +111,7 @@ function assemble(root, F, P, D) {
     cam.name = vo.name ?? 'camera view'; root.add(cam); out.camera = cam;
   }
   if (P.screws) for (const p of P.screws.points) out.screws.push(screw(root, p, P.screws.r ?? 2, P.screws.axis ?? F.letter));
-  if (P.label && HAS_DOM) {
+  if (P.label && hasDom()) {
     const t = P.label;
     out.label = decal(root, t.w, t.h, t.pos, t.rot ?? [0, 0, 0], t.lines, t.options ?? {}); out.label.name = 'camera label';
   }
@@ -207,7 +207,7 @@ export const codeReader = {
     const P = { ...defaults(codeReader.meta), axis: '+z', ...p };
     const F = frame(P.axis), root = group(P.name ?? 'code-reader', codeReader.meta.id);
     const o = assemble(root, F, { ...P, lens: P.lens ?? false, glass: P.glass ?? false, ring: P.ring ?? false, spot: P.spot ?? false, view: P.view ?? false },
-      { body: { size: [P.w, P.h], length: P.length, at: 0 }, ring: { tube: 5, at: 0, segments: [8, 36], on: 1.4, off: .05 }, spot: SPOT, view: VIEW });
+      { body: { size: [P.w, P.h], length: P.length, at: 0, name: 'reader body' }, ring: { tube: 5, at: 0, segments: [8, 36], on: 1.4, off: .05 }, spot: SPOT, view: VIEW });   // 機身名稱 reader body（2026-11-08 起；之前沿用共用組裝的 camera body）
     const be = part(P.beam, { w: P.beamW, length: P.beamL, at: P.length / 2 + P.beamL / 2, drop: 0 });
     const fa = part(P.fan, { apex: P.length / 2, far: P.length / 2 + P.beamL - 10, halfWidth: P.beamW / 2 + 5, drop: -P.h / 2 });
     let beam = null, fan = null;

@@ -62,4 +62,18 @@ test('全年發電列：預期值在 2% 內通過、差 5% 擋下；沒給預期
   assert.ok(row(verifySolar(withEnergy(null), { dir, previous: first })).ok, '和上次相同通過');
 });
 
+test('鋼構宣告（structure）：板片照鋼構算、日照與鋼構檢查列一起出；追日回溯不遮、對照組有效', () => {
+  const trk = verifySolar({ verify: { solar: { site, step: 0.5, samples: [6, 2], hours: [8, 16],
+    structure: { kind: 'tracker', axisAzimuth: 180, params: { rows: 3, across: 8, pitch: 5500, follow: 'line' } } } } });
+  const sun = trk.rows.filter(r => r.group === '日照'), steel = trk.rows.filter(r => r.group.startsWith('鋼構'));
+  assert.equal(sun.length, 3, '列間遮陰、對照組、真追日');
+  assert.ok(sun[0].ok && sun[1].ok, JSON.stringify(sun));
+  assert.ok(steel.length >= 5 && steel.every(r => typeof r.ok === 'boolean'), `鋼構檢查列 ${steel.length}`);
+  assert.ok(trk.ok, JSON.stringify(trk.failures));
+  const fix = verifySolar({ verify: { solar: { site, step: 0.5, samples: [6, 2],
+    structure: { kind: 'fixed', azimuth: 180, params: { rows: 3, across: 6, up: 2, tilt: 20, pitch: 7500 } } } } });
+  assert.ok(fix.rows.some(r => r.group.startsWith('鋼構')), '固定式也有鋼構列');
+  assert.ok(fix.rows.find(r => r.group === '日照').ok, JSON.stringify(fix.rows[0]));
+});
+
 test('沒有宣告就略過', () => assert.equal(verifySolar({}).applicable, false));

@@ -52,13 +52,17 @@ export function snowOnPanels(spec) {
   const albedo = spec.albedo ?? 0.8, ddf = spec.ddf ?? 0.15, marionM = spec.marionM ?? -80, trans = spec.transmission ?? 10;
   const out = [];
   for (const p of spec.panels) {
-    const tilt = p.tilt, b = tilt * D2R, surf = typeof p.surface === 'object' ? p.surface : surfaces[p.surface ?? 'glass'], strings = p.strings ?? 1;
+    // 傾角：數字、函式 t => 度、或逐時陣列（第 k 筆是 k～k+1 小時）。追日陣列用逐時轉角，收藏策略在 snowLossSeries 組好
+    const tiltAt = typeof p.tilt === 'function' ? p.tilt : Array.isArray(p.tilt) || ArrayBuffer.isView(p.tilt) ? (t => p.tilt[Math.min(p.tilt.length - 1, Math.max(0, Math.floor(t + 1e-9)))]) : (() => p.tilt);
+    const tilt0 = tiltAt(0), surf = typeof p.surface === 'object' ? p.surface : surfaces[p.surface ?? 'glass'], strings = p.strings ?? 1;
     if (!surf) throw new Error(`snowOnPanels：面板 ${p.id} 的表面 ${p.surface} 不存在`);
     const T = new Float64Array(steps + 1), SWE = new Float64Array(steps + 1), DEP = new Float64Array(steps + 1), COV = new Float64Array(steps + 1), LOSS = new Float64Array(steps + 1), SL = new Uint8Array(steps + 1);
+    const TL = new Float64Array(steps + 1);
     let swe = 0, rho = rhoNew, cov = 0, eSum = 0, lossSum = 0, covered = 0, clearedAt = null, everCovered = false;
     const lossOf = () => cov <= 0 || swe <= 0 ? 0 : Math.ceil(cov * strings - 1e-9) / strings * (1 - dexp(-(swe / rho * 1000) / trans));
     for (let s = 0; s <= steps; s++) {
       const t = s * dt, w = wx(t), poa = Math.max(0, w.poa ?? 0), temp = w.temp ?? 0, fall = Math.max(0, w.snowfall ?? 0);
+      const tilt = Math.abs(tiltAt(t)), b = tilt * D2R; TL[s] = tilt;
       T[s] = t; SWE[s] = swe * cov; DEP[s] = cov > 0 ? swe / rho * 1000 : 0; COV[s] = cov; LOSS[s] = lossOf();
       if (s === steps) break;
       eSum += poa * dt; lossSum += poa * LOSS[s] * dt; if (cov > 0 && swe > 0) covered += dt;
@@ -82,8 +86,8 @@ export function snowOnPanels(spec) {
       if (everCovered && cov === 0 && clearedAt == null) clearedAt = t + dt;
       if (cov > 0) clearedAt = null;
     }
-    const wetCrit = slideCheck({ tilt, surface: surf, swe: 20, wet: true }).criticalTilt;
-    out.push({ id: p.id, tilt, surface: p.surface ?? 'glass', strings, timeline: { t: T, swe: SWE, depth: DEP, coverage: COV, loss: LOSS, sliding: SL },
+    const wetCrit = slideCheck({ tilt: Math.abs(tilt0), surface: surf, swe: 20, wet: true }).criticalTilt;
+    out.push({ id: p.id, tilt: typeof p.tilt === 'number' ? p.tilt : null, surface: p.surface ?? 'glass', strings, timeline: { t: T, swe: SWE, depth: DEP, coverage: COV, loss: LOSS, sliding: SL, tilt: TL },
       energyLoss: eSum > 0 ? lossSum / eSum : 0, hoursCovered: covered, clearedAt, maxDepth: Math.max(...DEP), slideTilt: wetCrit });
   }
   return { dt, hours, panels: out, model: 'snow-marion-friction（示意）' };
@@ -93,21 +97,26 @@ export function snowOnPanels(spec) {
  * 全年發電的積雪損失（接 core/solar 的 simulate({ hourlyLoss })）：天候檔逐時 → snowOnPanels → 每筆的平均損失。
  *   weather：core/solar 的 readEPW／readCSV 結果（tempAir；降雪用 snowfall（cm/h）欄，沒有就用 snowDepth（cm）的增量，增量 ≥ threshold 才算降雪）
  *   poa：每筆的板面日射（W/m²；通常是先跑一次 simulate({ keepHourly: true }) 的 hourly.poa）
- *   tilt：傾角（度；追日用下雪時的收藏角或平均傾角——模型假設整段傾角固定）、surface、strings（沿斜面的組串數）
+ *   tilt：傾角（度）：固定式給數字；追日給逐時陣列（例如 simulate({ keepHourly: true }) 的 hourly.theta，NaN 當 0、取絕對值）
+ *   stowAngle（可省略）：追日的防雪收藏——有降雪的小時轉到這個角度，讓雪不積或滑落
+ *   surface、strings（沿斜面的組串數）
  * 回傳 { loss: Float64Array（0～1）, panel（snowOnPanels 的結果：energyLoss、hoursCovered…）, snowfall }
  *   const r0 = simulate({ weather, site, system, keepHourly: true });
  *   const snow = snowLossSeries({ weather, poa: r0.hourly.poa, tilt: 25 });
  *   const r1 = simulate({ weather, site, system, hourlyLoss: snow.loss });   // r1.annual.hourlyLossKWh 是積雪損失
  */
-export function snowLossSeries({ weather, poa, tilt, surface = 'glass', strings = 1, dt = 0.25, threshold = 1, ...opts }) {
+export function snowLossSeries({ weather, poa, tilt, stowAngle = null, surface = 'glass', strings = 1, dt = 0.25, threshold = 1, ...opts }) {
   const n = poa.length, sub = Math.round(1 / dt), snowfall = new Float64Array(n);
   for (let i = 0; i < n; i++) {
     if (weather.snowfall) snowfall[i] = Math.max(0, weather.snowfall[i] || 0);
     else if (weather.snowDepth && i > 0) { const d = weather.snowDepth[i] - weather.snowDepth[i - 1]; snowfall[i] = Number.isFinite(d) && d >= threshold ? d : 0; }
   }
   const temp = i => Number.isFinite(weather.tempAir?.[i]) ? weather.tempAir[i] : 0;
+  // 逐時傾角：NaN（夜間收回）當 0；有 stowAngle 時，下雪的那幾小時轉到收藏角
+  const hourly = typeof tilt === 'number' ? Float64Array.from({ length: n }, () => tilt) : Float64Array.from(tilt, v => Number.isFinite(v) ? Math.abs(v) : 0);
+  if (stowAngle != null) for (let i = 0; i < n; i++) if (snowfall[i] > 0) hourly[i] = stowAngle;
   const r = snowOnPanels({ ...opts, hours: n, dt, weather: t => { const i = Math.min(n - 1, Math.floor(t + 1e-9)); return { snowfall: snowfall[i], temp: temp(i), poa: poa[i] || 0 }; },
-    panels: [{ id: 'series', tilt, surface, strings }] });
+    panels: [{ id: 'series', tilt: typeof tilt === 'number' && stowAngle == null ? tilt : hourly, surface, strings }] });
   const L = r.panels[0].timeline.loss, loss = new Float64Array(n);
   for (let i = 0; i < n; i++) { let s = 0; for (let k = 0; k < sub; k++) s += L[i * sub + k]; loss[i] = s / sub; }
   return { loss, panel: r.panels[0], snowfall };

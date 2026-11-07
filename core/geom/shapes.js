@@ -9,7 +9,10 @@
 import * as THREE from 'three';
 
 export const D2R = Math.PI / 180;
-export const HAS_DOM = typeof document !== 'undefined';
+// 有沒有 document：呼叫當下判斷（hasDom）。檢查腳本可能先 import 模型、之後才補 document，載入時就決定的常數會讓貼紙、標籤不建立。
+// HAS_DOM 是模組載入時的值，只留給站裡既有的寫法（core 內部一律用 hasDom()）
+export const hasDom = () => typeof document !== 'undefined';
+export const HAS_DOM = hasDom();
 
 const shade = m => { m.castShadow = m.receiveShadow = true; return m; };
 
@@ -103,7 +106,7 @@ export function pipe(parent, points, r, color, idle = 0x6b7680) {
 // ---------------------------------------------------------------- 文字
 // 文字貼圖（瀏覽器才有；Node 端的 dom-stub 也能建立空白貼圖）
 export function textTexture(lines, { w = 512, h = 128, bg = null, fg = '#e8eef3', font = 'bold 54px "Noto Sans TC","Microsoft JhengHei",sans-serif', align = 'center' } = {}) {
-  if (!HAS_DOM) return null;
+  if (!hasDom()) return null;
   const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
   if (bg) { g.fillStyle = bg; g.fillRect(0, 0, w, h); }
   g.fillStyle = fg; g.font = font; g.textAlign = align; g.textBaseline = 'middle';

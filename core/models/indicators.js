@@ -2,7 +2,7 @@
 // 這些原本各站自己畫；幾何、分段數、位置與材質都能用參數重現各站原樣（換用對照見 core/MIGRATION.md 1.9.0）。
 // meta.params 是目錄頁可調的數值參數；meta.options 是只能由程式傳入的選項（材質、陣列、子物件設定）。
 import * as THREE from 'three';
-import { block, cylinder, decal, HAS_DOM } from '../geom/shapes.js';
+import { block, cylinder, decal, hasDom } from '../geom/shapes.js';
 import { MAT, std } from '../geom/materials.js';
 import { housing } from '../geom/hardware.js';
 import { defaults, shadow, pick } from './util.js';
@@ -128,7 +128,7 @@ export const hmi = {
     // 動態畫面：Node 檢查端由 dom-stub 提供 canvas（幾何相同、內容空白）
     let display = null, canvas = null, ctx = null, texture = null;
     const dp = P.display === true ? {} : P.display;
-    if (dp && HAS_DOM) {
+    if (dp && hasDom()) {
       const [cw, ch] = dp.canvas ?? [960, 540];
       canvas = document.createElement('canvas'); canvas.width = cw; canvas.height = ch; ctx = canvas.getContext('2d');
       texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace;
@@ -138,7 +138,7 @@ export const hmi = {
       display.name = 'hmi display'; display.position.z = dp.z ?? face + (panel ? 1.5 : .75); root.add(display);
     }
     let label = null;
-    if (P.text && HAS_DOM) {
+    if (P.text && hasDom()) {
       const t = P.text;
       label = decal(root, t.w ?? pw - 20, t.h ?? ph - 20, [0, 0, t.z ?? face + 1], [0, 0, 0], t.lines, t.options ?? {}); label.name = 'hmi label';
     }

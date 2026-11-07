@@ -1,5 +1,6 @@
 // 3D Tiles 匯入（core 1.20.2）：空拍重建輸出的 Cesium 3D Tiles（tileset.json＋b3dm／glb 圖磚），用 vendor/3d-tiles-renderer 0.5.3 串流載入，
-// 放到案場座標（mm、X 東、Y 上、Z 南，createSiteFrame）。第一版支援未壓縮的圖磚；DRACO／KTX2 壓縮的圖磚要另外放外掛（PENDING 第 5 節）。
+// 放到案場座標（mm、X 東、Y 上、Z 南，createSiteFrame）。壓縮的圖磚（DRACO 幾何、KTX2／Basis 貼圖、EXT_meshopt_compression）
+// 用 vendor/addons 的解碼器（three r187 原樣），第一次遇到時才載入 wasm；KTX2 要給 renderer（偵測 GPU 支援的貼圖格式）。
 //
 //   const tiles = createTiles('./data/tileset.json', site, { camera, renderer, geoidOffset: 20.3, exact: true });
 //   scene.add(tiles.group);
@@ -13,9 +14,34 @@
 //   geoidOffset（m）：大地起伏 N（橢球高 − 正高）。案場高程是正高（TWD97 等），圖磚是橢球高，台灣約 17～25 m；沒給就當 0（高程會差 N）。
 import * as THREE from 'three';
 import { TilesRenderer } from '../vendor/3d-tiles-renderer/index.three.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { ELLIPSOIDS, geodeticToECEF } from './coords.js';
 
 const D2R = Math.PI / 180, R2D = 180 / Math.PI;
+const LIBS = new URL('../vendor/addons/libs/', import.meta.url).href;
+
+/**
+ * 圖磚用的 GLTFLoader：掛上 DRACO、KTX2、meshopt 解碼器（3d-tiles-renderer 從 manager 取 'path.gltf'／'draco.drc' 的處理器）。
+ * decoders：{ draco = true, ktx2 = true, meshopt = true }；KTX2 沒給 renderer 時不掛（遇到 KTX2 貼圖會載入失敗並在主控台報錯）。
+ * 回傳 dispose()：收掉解碼器的 Worker。
+ */
+export function installDecoders(manager, renderer, { draco = true, ktx2 = true, meshopt = true } = {}) {
+  const gltf = new GLTFLoader(manager), out = [], GLTF_RE = /\.(gltf|glb)$/i, DRC_RE = /\.drc$/i;     // removeHandler 用同一個物件比對
+  if (draco) {
+    const d = new DRACOLoader(manager).setDecoderPath(LIBS + 'draco/gltf/');     // 預設用 wasm（只放了 wasm 版）
+    gltf.setDRACOLoader(d); manager.addHandler(DRC_RE, d); out.push(d);
+  }
+  if (ktx2 && renderer) {
+    const k = new KTX2Loader(manager).setTranscoderPath(LIBS + 'basis/').detectSupport(renderer);
+    gltf.setKTX2Loader(k); out.push(k);
+  }
+  if (meshopt) gltf.setMeshoptDecoder(MeshoptDecoder);
+  manager.addHandler(GLTF_RE, gltf);
+  return { gltf, dispose() { for (const l of out) l.dispose(); manager.removeHandler(GLTF_RE); manager.removeHandler(DRC_RE); } };
+}
 
 /** ECEF（m）→ 經緯度、橢球高（Bowring 起始值＋疊代，mm 級） */
 export function ecefToGeodetic(X, Y, Z, ellps = 'WGS84') {
@@ -61,12 +87,14 @@ export function siteFromECEFExact(site, X, Y, Z, { geoidOffset = 0, ellps = 'WGS
 /**
  * @param url tileset.json 的網址
  * @param site createSiteFrame 的結果（要有 origin.lat／lon；TWD97 等投影座標系都可以）
- * @param o { camera, renderer, errorTarget = 6（螢幕誤差像素，越小越細）, geoidOffset = 0（m）, exact = false, ellps = 'WGS84', name = '3d-tiles' }
+ * @param o { camera, renderer, errorTarget = 6（螢幕誤差像素，越小越細）, geoidOffset = 0（m）, exact = false, ellps = 'WGS84', name = '3d-tiles',
+ *            decoders = { draco, ktx2, meshopt }（預設都開；false 全關） }
  * @returns {{ tiles, group, update(), dispose(), matrix }}
  */
-export function createTiles(url, site, { camera, renderer, errorTarget = 6, geoidOffset = 0, exact = false, ellps = 'WGS84', name = '3d-tiles' } = {}) {
+export function createTiles(url, site, { camera, renderer, errorTarget = 6, geoidOffset = 0, exact = false, ellps = 'WGS84', name = '3d-tiles', decoders = {} } = {}) {
   const tiles = new TilesRenderer(url);
   tiles.errorTarget = errorTarget;
+  const dec = decoders === false ? null : installDecoders(tiles.manager, renderer, decoders);
   const group = tiles.group, M = siteFromECEF(site, { geoidOffset, ellps });
   group.name = name; group.matrixAutoUpdate = false; group.matrix.copy(M); group.updateMatrixWorld(true);
   group.userData.geo = 'tiles'; group.userData.noBom = '現場實景（空拍 3D Tiles）';
@@ -94,6 +122,6 @@ export function createTiles(url, site, { camera, renderer, errorTarget = 6, geoi
   return {
     tiles, group, matrix: M,
     update() { if (camera) { camera.updateMatrixWorld(); if (renderer) tiles.setResolutionFromRenderer(camera, renderer); } tiles.update(); },
-    dispose() { tiles.dispose(); },
+    dispose() { tiles.dispose(); dec?.dispose(); },
   };
 }

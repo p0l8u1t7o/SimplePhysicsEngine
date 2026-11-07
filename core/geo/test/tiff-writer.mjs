@@ -102,7 +102,7 @@ async function compress(u8, c) {
   if (c === 'packbits') return packbitsEncode(u8);
   throw new Error(c);
 }
-const COMP = { none: 1, lzw: 5, deflate: 8, packbits: 32773 };
+const COMP = { none: 1, lzw: 5, deflate: 8, packbits: 32773, jpeg: 7 };
 
 // 從整張影像切出一塊（不足處補 0）
 function extract(img, x0, y0, w, h, sample) {
@@ -140,7 +140,8 @@ export async function writeTIFF(images, { littleEndian = true, bigTiff = false }
       const rows = tile ? th : Math.min(th, height - ty * th);
       const vals = extract(im, tx * tw, ty * th, tw, rows, pl);
       const raw = encodeChunk(vals, tw, rows, pl == null ? samples : 1, bits, format, le, predictor);
-      const c = await compress(raw, compression);
+      // JPEG：im.jpeg(樣本, 寬, 列數, 波段數) 產生圖塊的 JPEG 位元組（瀏覽器用 canvas，Node 測試用假的編碼）
+      const c = compression === 'jpeg' ? await im.jpeg(vals, tw, rows, pl == null ? samples : 1) : await compress(raw, compression);
       offsets.push(add(c)); counts.push(c.length);
     }
     // 標籤
@@ -150,11 +151,12 @@ export async function writeTIFF(images, { littleEndian = true, bigTiff = false }
     T(256, 4, width); T(257, 4, height);
     T(258, 3, Array(samples).fill(bits));
     T(259, 3, COMP[compression]);
-    T(262, 3, samples >= 3 ? 2 : 1);
+    T(262, 3, im.photometric ?? (samples >= 3 ? 2 : 1));
     if (!tile) { T(273, bigTiff ? 16 : 4, offsets); T(278, 4, th); T(279, 4, counts); }
     T(277, 3, samples);
     T(284, 3, planar);
     if (predictor !== 1) T(317, 3, predictor);
+    if (im.jpegTables) T(347, 7, Array.from(im.jpegTables));
     if (tile) { T(322, 3, tw); T(323, 3, th); T(324, bigTiff ? 16 : 4, offsets); T(325, 4, counts); }
     if (samples === 4) T(338, 3, 2);
     T(339, 3, Array(samples).fill(format));
@@ -178,7 +180,7 @@ export async function writeTIFF(images, { littleEndian = true, bigTiff = false }
     tags.sort((a, b) => a.tag - b.tag);
 
     // IFD 本體與外部數值
-    const SIZE = { 2: 1, 3: 2, 4: 4, 12: 8, 16: 8 };
+    const SIZE = { 2: 1, 3: 2, 4: 4, 7: 1, 12: 8, 16: 8 };
     const inline = bigTiff ? 8 : 4;
     const entry = bigTiff ? 20 : 12;
     const head = bigTiff ? 8 : 2, tail = bigTiff ? 8 : 4;
@@ -190,6 +192,7 @@ export async function writeTIFF(images, { littleEndian = true, bigTiff = false }
     if (bigTiff) idv.setBigUint64(0, BigInt(tags.length), le); else idv.setUint16(0, tags.length, le);
     const writeVals = (dv, o, type, values) => {
       if (type === 2) { for (let i = 0; i < values.length; i++) dv.setUint8(o + i, values.charCodeAt(i)); return; }
+      if (type === 7) { values.forEach((v, i) => dv.setUint8(o + i, v)); return; }
       values.forEach((v, i) => {
         if (type === 3) dv.setUint16(o + 2 * i, v, le);
         else if (type === 4) dv.setUint32(o + 4 * i, v, le);

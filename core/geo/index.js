@@ -5,7 +5,7 @@ export {
   geodeticToECEF, ecefToENU, createSiteFrame, float32Spacing, createFloatingOrigin,
 } from './coords.js';
 export {
-  readGeoTIFF, readElevation, readOrthophoto, invertTransform, geoKeysFrom, crsFromKeys, lzwDecode, packbitsDecode,
+  readGeoTIFF, readElevation, readOrthophoto, invertTransform, geoKeysFrom, crsFromKeys, lzwDecode, packbitsDecode, setJpegDecoder,
 } from './geotiff.js';
 export { rasterSampler, createTerrain, applyOrthophoto } from './terrain.js';
 export { readLASHeader, readLAS, createPointCloud, CLASS_COLORS } from './las.js';

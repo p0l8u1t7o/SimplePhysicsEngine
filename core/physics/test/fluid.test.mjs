@@ -83,3 +83,36 @@ test('噴嘴截面：斜噴嘴的粒子分布在半徑內、最外圈貼近半�
   }
   assert.ok(Math.abs(far - R) < 0.5, `離軸最遠 ${far.toFixed(2)} mm，應約 ${R}（截面基底沒正規化時斜噴嘴只有 0.707 倍）`);
 });
+
+test('休眠（sleep）：注入停止、靜置後停下，之後的格和停下時相同；液面和不休眠的差 < 1 mm；有會動的碰撞面時不睡', () => {
+  const base = { ...fill(), duration: 7 }, ref = bakeFluid(base), b = bakeFluid({ ...base, sleep: {} });
+  const at = b.stats.sleptAt;
+  assert.ok(at > 3 && at < 7, `停下的時間 ${at}`);
+  assert.equal(ref.stats.sleptAt, undefined, '沒開休眠就沒有 sleptAt');
+  const s = fluidSampler(b), p = s(Math.ceil(at * b.hz) / b.hz + 0.1).positions.slice(), q = s(b.duration).positions;
+  assert.deepEqual(Array.from(q), Array.from(p), '停下之後每格相同');
+  const level = x => fluidStats(x, x.duration, { region: TANK_INSIDE }).surface;
+  assert.ok(Math.abs(level(b) - level(ref)) < 1, `表面 ${level(b)}／${level(ref)}`);
+  assert.equal(bakeFluid({ ...base, sleep: {} }).stats.hash, b.stats.hash, '休眠一樣是決定性的');
+  const moving = bakeFluid({ ...base, duration: 4.5, sleep: { speed: 1e6 }, colliders: [...base.colliders, { shape: 'sphere', r: 5, pos: t => [5000, 0, t] }] });
+  assert.equal(moving.stats.sleptAt, null, '碰撞面會動就不睡');
+});
+
+test('圓形容器的連續碰撞：一個子步就整個穿過薄桶壁或薄底板的快粒子，推回原本那一側', async () => {
+  const { prepColliders, pushOut } = await import('../collide.js');
+  const cs = prepColliders([{ shape: 'drum', r: 200, h: 300, wall: 2, pos: [0, 0, 0] }]);
+  const run = (from, to) => { const p = new Float64Array(to), prev = new Float64Array(from); pushOut(cs, p, prev, 0, 5, 0); return Array.from(p); };
+  const out = run([190, 100, 0], [215, 100, 0]);                         // 內側 190 → 外側 215（壁 200～202，加上半徑 5 是 195～207）
+  assert.ok(out[0] <= 195 + 1e-9, `往外穿壁要推回內側：x ${out[0]}`);
+  const back = run([215, 100, 0], [190, 100, 0]);
+  assert.ok(back[0] >= 207 - 1e-9, `從外面穿進來要推回外側：x ${back[0]}`);
+  assert.deepEqual(run([190, 330, 0], [215, 300, 0]).map(Math.round), [215, 300, 0], '從壁頂上方越過（交點高於壁頂＋半徑）不算');
+  const down = run([50, 10, 0], [50, -12, 0]);                           // 底板 −2～0，加上半徑是 −7～5
+  assert.ok(down[1] >= 5 - 1e-9, `往下穿過底板要推回上面：y ${down[1]}`);
+  assert.deepEqual(run([260, 10, 0], [260, -12, 0]).map(Math.round), [260, -12, 0], '底板外面不擋');
+  // 整段烘焙：高速往桶壁噴，粒子都留在桶內
+  const b = bakeFluid({ spacing: 10, duration: 0.6, dt: 1 / 60, emitters: [{ type: 'nozzle', pos: [0, 150, 0], dir: [1, 0, 0], speed: 3000, radius: 12, stop: 0.2 }],
+    colliders: [{ shape: 'drum', r: 200, h: 300, wall: 2, pos: [0, 0, 0] }] });
+  const { count, positions } = fluidSampler(b)(b.duration);
+  for (let q = 0; q < count; q++) { const x = positions[q * 3], z = positions[q * 3 + 2]; assert.ok(Math.sqrt(x * x + z * z) < 200 && positions[q * 3 + 1] > -5, `第 ${q} 顆穿出桶外 (${x}, ${positions[q * 3 + 1]}, ${z})`); }
+});

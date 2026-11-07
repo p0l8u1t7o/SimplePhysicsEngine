@@ -236,6 +236,19 @@ Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs
 - 範例 `/core/examples/structure/`：地形改走 core/geo 的 DSM 流程（合成一份 TWD97、1 m 像素的高程網格 → `createTerrain`，鋼構、管路、遮陰都用 `heightAt`；和原本的解析地形差 0.1 mm）、電纜槽終點放上組串式變流器；追日改成每列一直線（跟地形走時 R1 的軸承轉折 3.4° 超過 1.5°），清洗水管與電纜槽的路點抬高，範例的 27 項檢查全部通過（之前有 3 項不通過）。
 - **截圖回歸的視角清單**（`tools/views.mjs`、`shots.mjs`、`perf-check.mjs`）：解析 `const views` 時跳過註解與字串（之前註解後面的視角會漏掉：ChemicalTankWashing 漏 `label`、ParkingEMS 漏 `charging`）；沒在 `project.json` 指定時改讀頁面上的 `window.sim.views`（TeflonWelding 的 `const VIEWS = plan.views` 之前只拍得到 iso）。這幾站下次跑截圖會多出新視角（基準缺圖），後面視角的取樣時間也可能跟著移位，要重拍基準。
 - 快門站加「狀態燈」視角（三色燈在外罩頂後方，原本 11 張截圖都拍不到）。
+- **`verify.solar.structure`**：鋼構與日照合成一個站層宣告（鋼構參數＋`solarFrame` 方位取代 `layout`）：板片照鋼構實際算、排距 90% 對照組用同一組參數重算鋼構、`structureChecks` 的列一起列（群組「鋼構｜…」）；發電量的 pdc0 預設用模組的 wp。
+- **3D Tiles**（`geo/tiles.js`、`vendor/3d-tiles-renderer` 0.5.3、`vendor/addons` 加 GLTFLoader／BufferGeometryUtils／SkeletonUtils）：`createTiles` 把 ECEF 的 tileset 放進案場座標，剛體轉換或 `exact` 逐頂點精確轉換，`geoidOffset` 處理橢球高與正高的差。範例 `/core/examples/tiles/`（合成資料，`make-tileset.mjs` 產生；標竿穿過建物中央驗證轉換）。壓縮圖磚：`installDecoders` 在 `tiles.manager` 掛上設好 DRACO、KTX2（要給 renderer）、meshopt 解碼器的 GLTFLoader（`createTiles` 的 `decoders` 選項，預設全開；解碼器在 `vendor/addons/`，第一次遇到才載入 wasm）。
+- **`scene` 曲面件複核加密**（`verify/scene.mjs`，REQUESTS「scene 干涉檢查的三個盲點」的 (a)）：除了頂點，也沿三角形邊每 20 mm 取點（每個網格最多 1500 點），長方塊穿過圓柱、兩邊都沒有頂點在對方體內的情況也抓得到。(b) 會改 scale 的關節（液面、視管、伸縮件）放行只限直接父群組，不再跳過模型根群組往上找（之前儲槽的視管會對整個儲槽區放行）；(c) 新增 `verify.compareFixed(a, b, ctx)`，站可以指定同模組同工位的固定件也要比（預設照舊不比）。曲面件複核先用對方的包圍盒過濾取樣點，射線判定只做盒內的點。
+- 沿邊取樣在全站完整檢查抓到的既有問題（都是真的幾何問題，沒有加 allow）：RecycleSorter 站的纜線走在地面線槽的 1 mm 中央隔板上（改走電源／訊號半邊）、E5 幹線穿過 HMI 安裝板（改從骨架內側接到 HMI 背面）；ParkingEMS 車棚落水管切進柱腳板（基礎墩內放不下直管，改成柱腳板上方 45° 偏移彎）；StatorHeightMeasurement 整盒品檢站的夾持墊壓過鐵盒側面的流水號標籤（標籤改貼南側長邊）；core 的 VM-60B1 前臂端蓋（見上）。
+- `geom/shapes.js` 加 `hasDom()`：貼紙、模型標籤（`decal`、`visionCamera` 的 label、`indicators` 的面板文字、200 L 桶的標籤）改成呼叫當下判斷有沒有 `document`（檢查腳本先 import 模型、之後才補 document 時，之前不會建立）。`HAS_DOM` 常數保留給站裡既有的寫法。
+- REQUESTS 的「模型提供 `cableHost` 選項」評估後不做（2026-11-08，使用者授權依建議）：要逐一改 85 個模型的建立函式，站裡一行 `root.userData.cableHost = false` 就有同樣效果。
+- `models/robots/denso-vm60b1.js` 前臂端蓋半徑 56 → 49：沿邊取樣後模型目錄抓到 J5 彎到 ±120° 限位時腕部方塊切進端蓋約 2.5 mm（只取頂點時看不到）。MilitaryGradePC、PlumbingFixtureInspection 的端蓋外觀稍小。
+- `codeReader` 機身預設名稱改成 `reader body`（之前沿用共用組裝的 `camera body`；各站沒有用這個名稱判斷的規則）。
+- `conveyor` 的 `frame.skip: [[中心, 半寬]…]`：側樑在插入的模組處斷開。化學桶的立放輸送改用它（之前 `frame: false`＋站內自己畫兩段）。
+- `physics/fluid.js` 的 `sleep`（選用，預設關、既有烘焙的雜湊不變）：注入結束、碰撞面不動、格間位移夠小一段時間後停止模擬，之後的格沿用停下時的狀態（`stats.sleptAt`）。
+- `physics/collide.js`：圓桶壁（`annulus`）與圓柱上下面加連續碰撞：一個子步整個穿過壁或底板的快粒子推回上一步那一側（之前 1/60 s、3 m/s 往 2 mm 壁噴會有四分之一漏出桶外）。依上一步在壁中心哪一側判斷，已經被擠進壁裡一點的粒子也算。布料、流體用到 `drum`／`cylinder` 的烘焙雜湊可能改變。
+- `geo/geotiff.js` 讀 JPEG 壓縮（7）的正射影像：`JPEGTables` 合併後交給瀏覽器的 `createImageBitmap`；Node 用 `setJpegDecoder(fn)` 指定解碼器，沒指定時丟出說明錯誤。商用空拍軟體輸出的 JPEG 正射影像不必再先轉 Deflate。
+- `weather/snow.js`：`snowOnPanels` 的 `tilt` 可以是數字、`t => 度` 或逐時陣列；`snowLossSeries` 吃追日的逐時轉角（夜間 NaN 當 0°），`stowAngle` 讓下雪的小時轉到收藏角。固定傾角的結果不變。
 - `verify.solar.energy`：全年發電列（`verify/solar.mjs`），讀站的天候檔、照陣列組 `simulate`，和預期值或上次的 `review/solar-checks.json` 比，容許 `SITE_PRECISION.energyRel`。
 
 ## 2026-11-07：core 1.20.1 巡檢疑點修正、高精度門檻、從 3D 模型估手臂負載
@@ -352,7 +365,7 @@ Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs
 
 | 版本 | 日期 | 內容 |
 |---|---|---|
-| 1.20.2 | 2026-11-07 | 影片 `simulationStart`；`verify.solar.energy` 全年發電列；光伏共用模型 `models/pv.js`（`pvModule`、`pvArray`、`stringInverter`）＋支架登記到目錄；結構範例改用 DSM 地形；截圖回歸的視角清單改讀頁面 |
+| 1.20.2 | 2026-11-07 | 影片 `simulationStart`；`verify.solar.energy` 全年發電列；光伏共用模型 `models/pv.js`（`pvModule`、`pvArray`、`stringInverter`）＋支架登記到目錄；結構範例改用 DSM 地形；截圖回歸的視角清單改讀頁面；`scene` 曲面件沿邊取樣；`hasDom()`；`codeReader` 機身名稱；`conveyor` 側樑 `skip`；追日的積雪收藏；3D Tiles（`geo/tiles.js`，含 DRACO／KTX2／meshopt 解碼器）；VM-60B1 前臂端蓋縮小；流體 `sleep`；圓桶的連續碰撞；GeoTIFF 的 JPEG 圖塊；`verify.solar.structure` |
 | 1.20.1 | 2026-11-07 | 巡檢疑點修正（twinUrl、clampable、Track.end、axisWindow、localeCompare、stage stop／dispose、scope-guard 長路徑、interference sourceHash、ui-check 標籤、movie verify）；`solar/precision.js` 高精度門檻；`robot/payload.js` 從 3D 模型估負載 |
 | 1.20.0 | 2026-11-07 | 布料（`physics/cloth.js`）、粒子流體（`physics/fluid.js`）、天候（`weather/`）、外部 CFD（`cfd/`＋`tools/cfd/`）、LAZ（`vendor/laz-perf`、`geo/laz.js`）、站層檢查 `solar`（含外部遮擋）與 `dynamics`（只警告）、core 檢查 `solar`（Node 與瀏覽器雜湊）、`structure/solar-frame.js` 座標對齊、`simulate({ hourlyLoss })` 與積雪損失、範例 `weather/`；剛體物理改用 dmath；`scene` 略過 core 標 `nonSolid` 的網格 |
 | 1.19.0 | 2026-11-07 | 新模組 `solar/`（SPA、追日回溯、晴空與斜面日射、雙面、BVH 遮陰、全年發電；和 pvlib 一致到浮點捨入）與 `math/dmath.js`（決定性超越函式）；`physics/rope.js` 改用 dmath。各站畫面與檢查不受影響 |

@@ -16,19 +16,6 @@
 
 ## 待處理
 
-### `conveyor` 的側樑能在插入的模組處斷開
-- 提出：ChemicalTankWashing（2026-11-07）
-- 暫代：`project-site/ChemicalTankWashing/web/js/line.js` 的立放輸送用 `frame: false`，站內照原尺寸畫兩段側樑（開蓋站斷開 ±340 mm）
-- 期望介面：`conveyor` 的 `frame` 加 `skip: [[中心, 半寬]…]`
-- 影響：輸送線中間插旋轉台、秤重台等獨立模組的站
-
-### `scene` 干涉檢查的三個盲點
-- 提出：ChemicalTankWashing（2026-11-07，量測時發現側樑整支穿過收集桶卻是 0 筆）
-- 現象：(a) 曲面件複核 `vertexInside` 只看頂點，長方塊穿過圓柱、兩邊都沒有頂點落在對方裡面時漏報；(b) 會改 scale 的子網格（液面、視管）被當成移動件，對同一安裝群組的固定件全部放行；(c) 同一工位的固定件之間不比
-- 暫代：站的 `tools/verify-detail.mjs` 用表面取樣點直接量淨距
-- 期望：(a) 沿邊加密取樣；(b)(c) 讓站宣告某些固定件之間要比，或對不改 scale 的外掛件照常檢查。改之前要先拍全站基準並逐站比對（可能抓出新的真問題）
-- 影響：所有站
-
 ### 室外場景的環境光強度
 - 提出：PV DEMO（2026-11-04；該站已於 2026-11-07 移除，暫代程式留在 commit `ad4b816`）
 - 暫代：`project-site/PV DEMO/web/js/main.js`（見 `ad4b816`）的 `envMats`（逐材質設 `envMapIntensity`，隨太陽高度變化）
@@ -50,6 +37,7 @@
 - 暫代：本站已把地面主幹重排成每條線一道、不交叉（不靠放行）
 - 期望：端點接入只對「端點附近 30 mm 內的那一段」放行，或只對非線材的零件（接頭、端子、設備外殼）放行
 - 影響：所有有配線的站；改了之後可能會抓出其他站原本被蓋掉的線材重合，要逐站看
+- 2026-11-08 補充：core 1.20.2 沿邊取樣後修 RecycleSorter 時又看到它蓋掉的例子（GC1 與 E5 沿頂樑承接條平行重疊約 5 mm、急停線與投光器線斜穿前立柱、急停線立管穿過 HMI 短懸臂）；同模組的固定件預設不比（`compareFixed` 可以開）也蓋掉手臂底座附近的幾處。
 
 ### 擴張網護板材質
 - 提出：RecycleSorter（2026-10-05）
@@ -62,19 +50,6 @@
 - 暫代：`project-site/RecycleSorter/web/js/frontline.js` 的 `abbDevice()` 與其後的 DSQC 2000（`CTM1`）、OmniCore C30（`ABB1`）兩段在站內自己畫（`userData.electrical`、`electricalBody`；機身置中、轉 180° 朝門）。RC8A 用 core 的 `robotController()`，放進 `electrical.js` 轉 180° 的安裝座 `RC1 安裝座`
 - 期望介面：`core/electrical/electrical-components.js` 的 `robotController`（目前只有 RC8A 與 `crc: true` 的 CRC9M 兩種外形）加 ABB OmniCore C30 的外觀與朝向參數，`electricalDevice` 加 DSQC 類 I/O 擴充模組的外觀；原點與朝向照 core 的慣例（背面在 z = 0、正面朝本地 +Z）
 - 影響：和上面「聚焦元件要依元件朝向取景」一起處理（都卡在「面板固定朝本地 +Z」）；之後用 ABB 手臂的站都會用到
-
-### 文字貼紙（`decal`）與模型標籤改成「建立當下」判斷有沒有 `document`
-- 提出：core 1.10.0 各站換用（2026-10-05，RobotArmPressSSD）
-- 現象：`core/geom/shapes.js` 的 `HAS_DOM` 在模組載入時就決定；`decal()`、`visionCamera` 的 `label`（`models/vision.js`）、`indicators.js` 的面板文字、`drum-200l.js` 的桶身標籤都用它把關。檢查腳本如果先 import 模型、之後才補 `document`（SSD 的 `tools/verify*.mjs`），貼紙不會建立，網格數就和站內自己畫的寫法不同。
-- 暫代：SSD 的手腕相機標籤留在站內畫（`project-site/RobotArmPressSSD/web/js/robot.js` 的 `decal(camMount, …)`）
-- 期望：改成呼叫當下判斷 `typeof document`。影響所有用 `decal` 的站在檢查腳本裡的網格數，要先拍基準、逐站比對 review 檔再改。
-- 影響：所有站
-
-### 模型提供 `cableHost` 選項；`codeReader` 機身名稱
-- 提出：core 1.10.0 各站換用（2026-10-05，酸鹼、軍規、PCB）
-- 現象：原本是站內普通群組的設備換成模型後，root 變成走線固定面的來源，站要自己標 `root.userData.cableHost = false`（見 `core/migrations/` 四份對照最後一節）。目前只有模型內部寫死的幾處（移液模組、吸頭、噴槍、`modelRoot(…, { mobile: true })` 的棧板與台車、夾指、擺動缸）會標，options 沒有這個選項。`codeReader` 的機身網格預設名稱是 `camera body`（沿用 `vision.js` 共用組裝函式的預設）。
-- 期望介面：各模型的 options 加 `cableHost`（預設照現在）；`codeReader` 機身預設名稱改成 `reader body`（改名前先查各站用名稱判斷的規則）
-- 影響：之後換用或新做的站
 
 ### 長方形棧板與木棧板
 - 提出：SolarDismantling（2026-10-07）

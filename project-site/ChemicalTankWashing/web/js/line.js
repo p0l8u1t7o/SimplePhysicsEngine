@@ -130,14 +130,12 @@ export function createLine(scene, { frames = true } = {}) {
   // core 的滾筒輸送線模型（滾筒＋軸承座、側樑、支腳）；開蓋站那一段（skip）是旋轉台。
   // root 只移 X：滾筒的本地 y／z 就是站的座標（tools/verify-detail.mjs 直接讀）
   // 側樑在開蓋站斷開（旋轉台是插在兩段輸送之間的獨立模組）：桶蓋收集桶在 +X 側樑的位置，整支側樑會穿過收集桶。
-  // 模型的側樑不能分段，所以 frame: false，由站照模型的尺寸（寬 50、高 150、offset 380）分兩段畫；斷口兩端落在支腳上
+  // 用 core conveyor 的 frame.skip（core 1.20.2）斷開側樑；斷口兩端落在支腳上
   const uc = conveyor({ axis: 'z', span: [frame0, up.z1], width: 700, height: up.top, roller: 30,
     rollers: { from: roll0, to: up.z1, pitch: 120, skip: [[DECAP.z, 370]] },
-    brackets: { size: [26, 68, 70], offset: 357, y: up.top - 36 }, frame: false,
+    brackets: { size: [26, 68, 70], offset: 357, y: up.top - 36 }, frame: { offset: 380, y: up.top - 70, skip: [[DECAP.z, DECAP.beamGap]] },
     legs: { positions: { from: up.z0 + 600, to: up.z1, pitch: 900 }, size: [60, up.top - 140, 60], offset: 380, foot: false } });
   uc.root.position.x = up.x; group.add(uc.root);
-  for (const [z0, z1] of [[frame0, DECAP.z - DECAP.beamGap], [DECAP.z + DECAP.beamGap, up.z1]])
-    for (const s of [-1, 1]) block(uc.root, [50, 150, z1 - z0], [s * 380, up.top - 70, (z0 + z1) / 2], MAT.steel);
   const uprightRollers = uc.rollers;
   uc.rollers.forEach((mesh, i) => rollers.push({ mesh, axis: 'x', radius: 30, along: uc.positions[i] }));
   for (const [z0, z1] of [[frame0, up.pick - 350], [up.pick + 350, up.place - 350], [up.place + 350, up.z1]])

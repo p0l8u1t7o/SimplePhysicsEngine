@@ -82,7 +82,15 @@ export function contact(c, x, y, z, r, n, prev = null) {
   }
   if (c.shape === 'cylinder') {
     const d = Math.sqrt(dx * dx + dz * dz), hh = c.h / 2 + r, side = c.r + r - d, top = hh - Math.abs(dy);
-    if (!(side > 0 && top > 0)) return 0;
+    if (!(side > 0 && top > 0)) {
+      // 連續碰撞：這一步從上方整個穿過薄圓板（桶底、槽底）到下方（或反過來）時，推回上一步那一面
+      if (!prev) return 0;
+      const py = prev[1] - c.p[1], sgn = py >= 0 ? 1 : -1;      // 上一步在板中心的哪一側（已經壓進板裡一點的也算）
+      if (sgn * dy > -hh) return 0;
+      const f = (sgn * hh - py) / (dy - py), cx = prev[0] - c.p[0] + (dx - prev[0] + c.p[0]) * f, cz = prev[2] - c.p[2] + (dz - prev[2] + c.p[2]) * f;
+      if (cx * cx + cz * cz >= (c.r + r) * (c.r + r)) return 0;
+      n[1] = sgn; return hh - sgn * dy;
+    }
     const capFirst = prev && Math.abs(prev[1] - c.p[1]) >= hh && Math.sqrt((prev[0] - c.p[0]) ** 2 + (prev[2] - c.p[2]) ** 2) < c.r + r;
     if (!capFirst && side < top) { if (d > 1e-9) { n[0] = dx / d; n[2] = dz / d; } else n[0] = 1; return side; }
     n[1] = dy >= 0 ? 1 : -1; return top;
@@ -93,7 +101,20 @@ export function contact(c, x, y, z, r, n, prev = null) {
     const d = Math.sqrt(dx * dx + dz * dz), mid = c.r + c.t / 2;
     const dPrev = prev ? Math.sqrt((prev[0] - c.p[0]) ** 2 + (prev[2] - c.p[2]) ** 2) : d, inner = (prev && (d < c.r + c.t + r) && (d > c.r - r)) ? dPrev < mid : d < mid;
     const radial = inner ? d - (c.r - r) : c.r + c.t + r - d, top = c.h + r - dy;
-    if (!(radial > 0)) return 0;
+    if (!(radial > 0)) {
+      // 連續碰撞：這一步整個穿過桶壁（上一步在內側、這一步在外側，或反過來）時，推回上一步那一側；
+      // 穿過的位置用線段和壁中心圓柱面（半徑 mid）的交點，那裡的高度要在壁的範圍內（從壁頂上方越過不算）
+      if (!prev) return 0;
+      const pin = dPrev < mid, pout = !pin;      // 上一步在壁中心的哪一側（已經壓進壁裡一點的也算）
+      if (!(pin && d >= c.r + c.t + r) && !(pout && d <= c.r - r)) return 0;
+      const qx = prev[0] - c.p[0], qz = prev[2] - c.p[2], ux = dx - qx, uz = dz - qz;
+      const a = ux * ux + uz * uz, b = 2 * (qx * ux + qz * uz), cc = qx * qx + qz * qz - mid * mid, disc = b * b - 4 * a * cc;
+      if (!(a > 1e-12) || disc < 0) return 0;
+      const sq = Math.sqrt(disc), f = pin ? (-b + sq) / (2 * a) : (-b - sq) / (2 * a), yc = prev[1] - c.p[1] + (dy - prev[1] + c.p[1]) * f;
+      if (f < 0 || f > 1 || yc < -r || yc > c.h + r) return 0;
+      if (d > 1e-9) { const s = pin ? -1 / d : 1 / d; n[0] = dx * s; n[2] = dz * s; } else n[0] = 1;
+      return pin ? d - (c.r - r) : c.r + c.t + r - d;
+    }
     if (top < radial || (prev && prev[1] - c.p[1] >= c.h + r)) { n[1] = 1; return top; }
     if (d > 1e-9) { const s = inner ? -1 / d : 1 / d; n[0] = dx * s; n[2] = dz * s; } else n[0] = 1;
     return radial;

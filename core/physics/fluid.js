@@ -13,7 +13,10 @@
 //     emitters: [{ type: 'nozzle', pos, dir, speed（mm/s）, radius?（噴嘴半徑 mm）| rate?（粒子／s）| flow?（L/min）, start = 0, stop = ∞, count? }
 //              | { type: 'fill', min: [x, y, z], max: [x, y, z], start = 0 }],          fill：在方塊範圍內排滿粒子（初始液體）
 //     colliders: collide.js 的形狀（plane、box、sphere、cylinder、tank、drum；pos 可以是 t => [x, y, z]）,
-//     kill: [{ min, max }]（粒子中心進入就移除：排水口、掉出畫面）, bounds?: { min, max }（離開就移除） }
+//     kill: [{ min, max }]（粒子中心進入就移除：排水口、掉出畫面）, bounds?: { min, max }（離開就移除）,
+//     sleep?: { speed = 15（mm/s）, fraction = 0.01, after = 0.5（s） }（休眠，預設關：注入都結束、碰撞面都不動，而且比 speed 快的粒子不超過 fraction 連續 after 秒，
+//             （PBF 靜置後表面的少數粒子會一直以 10～20 mm/s 微動，所以不要求每一顆都慢）
+//             就停止模擬，之後的格沿用最後的狀態；stats.sleptAt 記停下的時間。碰撞面的 pos 是函式時不會休眠） }
 // 解算：每子步 預測位置 → 空間雜湊找鄰居（固定順序）→ iterations 次密度約束（Poly6 密度、Spiky 梯度，只在壓縮時推開：單向約束，不會黏成團）
 //       ＋碰撞 → 更新速度 → XSPH 黏滯 →（選用）渦度補償。
 // 決定性：只用加減乘除與 Math.sqrt，Float64 固定順序；鄰居清單依格子順序與粒子編號排列；噴嘴的位置抖動用 seed 的 mulberry32。
@@ -47,6 +50,7 @@ export function bakeFluid(spec) {
   const CAP = spec.max ?? 5000, xsph = spec.viscosity ?? 0.02, vort = spec.vorticity ?? 0, mu = spec.friction ?? 0.1, damp = Math.max(0, 1 - (spec.damping ?? 0) * h);
   const random = rng(spec.seed ?? 1), colliders = prepColliders(spec.colliders);
   const kills = (spec.kill || []).map(k => ({ min: k.min, max: k.max })), bounds = spec.bounds || null;
+  const SLEEP = spec.sleep ? { speed2: (spec.sleep.speed ?? 15) ** 2, fraction: spec.sleep.fraction ?? 0.01, after: spec.sleep.after ?? 0.5 } : null;
 
   // 核函數：Poly6（密度）與 Spiky 梯度；先用完全被包圍的立方格點算靜止密度 rho0，再把常數除掉（密度以 rho0 為 1）
   let rho0 = 0, gsum = 0, gref = 0;
@@ -307,7 +311,27 @@ export function bakeFluid(spec) {
     chunks.push(buf); lo[f] = a; offsets[f] = total; total += len; f++; offsets[f] = total;
     if (n > peak) peak = n;
   };
-  for (let st = 0; st < steps; st++) { if (st % every === 0) record(); for (let k = 0; k < sub; k++) substep(st * dt + k * h); }
+  // 休眠：還會注入（fill 沒放、噴嘴還沒停）或有會動的碰撞面時不睡。速度用相鄰兩個記錄格的位移 ÷ 格距（畫面上看得到的動作）；
+  // 子步的 v 含約束修正的雜訊，靜置後還是有幾十 mm/s，不能拿來判斷。兩格之間有粒子移除時這一格不算靜止。
+  const restless = t => colliders.some(c => c.move) || emitters.some(e => e.type === 'fill' ? !e.done : e.emitted < e.count && e.stop > t);
+  const snap = SLEEP ? new Float64Array(CAP * 3) : null, frameDt = every * dt;
+  let calm = 0, sleptAt = null, snapN = -1, snapId = -1;
+  for (let st = 0; st < steps; st++) {
+    if (st % every === 0) record();
+    if (sleptAt != null) continue;
+    for (let k = 0; k < sub; k++) substep(st * dt + k * h);
+    if (SLEEP && (st + 1) % every === 0) {
+      let still = snapN === n && n > 0 && snapId === ids[0] && !restless((st + 1) * dt), fast = 0;
+      const allow = Math.floor(n * SLEEP.fraction), lim = SLEEP.speed2 * frameDt * frameDt;
+      for (let k = 0; still && k < 3 * n; k += 3) {
+        const dx = x[k] - snap[k], dy = x[k + 1] - snap[k + 1], dz = x[k + 2] - snap[k + 2];
+        if (dx * dx + dy * dy + dz * dz > lim && ++fast > allow) still = false;
+      }
+      calm = still ? calm + 1 : 0;
+      if (calm * frameDt >= SLEEP.after - 1e-9) sleptAt = (st + 1) * dt;
+      snap.set(x.subarray(0, 3 * n)); snapN = n; snapId = n ? ids[0] : -1;
+    }
+  }
   if (f < frames) record();
   const data = new Float32Array(total * 3); let off = 0; for (const c of chunks) { data.set(c, off); off += c.length; }
   const ms = Math.round(now() - t0);
@@ -317,7 +341,8 @@ export function bakeFluid(spec) {
   return { kind: 'fluid', spec, dt, hz, duration, frames, spacing: s, kernel: H, radius: pr, data, lo, offsets, emitted: nextId,
     stats: { bodies: 0, particles: nextId, alive: n, peak, killed, capped, steps: steps * sub, iterations: iters, neighborOverflow: overflow,
       avgDensityError: Math.round((errCount ? errSum / errCount : 0) * 1e4) / 1e4, maxDensityError: Math.round(errMax * 1e4) / 1e4,
-      maxPenetration: Math.round(maxPen * 1000) / 1000, peakPenetration: Math.round(maxPen * 1000) / 1000, emitters: rates, ms, hash } };
+      maxPenetration: Math.round(maxPen * 1000) / 1000, peakPenetration: Math.round(maxPen * 1000) / 1000, emitters: rates, ms, hash,
+      ...(SLEEP ? { sleptAt: sleptAt == null ? null : Math.round(sleptAt * 1000) / 1000 } : {}) } };
 }
 
 // 取樣：t 落在第 i、j 格之間；兩格都有的粒子線性內插，只在一格的（剛生成、剛移除）取離 t 較近那格的狀態

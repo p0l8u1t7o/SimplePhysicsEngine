@@ -2,17 +2,19 @@
 // 不依賴第三方套件：Deflate 用瀏覽器與 Node 內建的 DecompressionStream，LZW、PackBits 自己解。
 //
 // 支援：TIFF 與 BigTIFF、兩種位元組順序、條帶（strip）與圖塊（tile）、chunky 與 planar 排列、
-//       壓縮 1 無／5 LZW／8、32946 Deflate／32773 PackBits、預測器 2（水平差分）與 3（浮點）、
+//       壓縮 1 無／5 LZW／8、32946 Deflate／32773 PackBits／7 JPEG（8 位元灰階或 RGB／YCbCr 的正射影像；JPEGTables 合併後交給
+//       瀏覽器內建的解碼器 createImageBitmap，Node 要先 setJpegDecoder 給一個解碼函式）、預測器 2（水平差分）與 3（浮點）、
 //       uint8／int8／uint16／int16／uint32／int32／float32／float64、內部縮圖（COG overview）、
 //       GeoKey（EPSG、使用者自訂橫麥卡托）、ModelTiepoint＋ModelPixelScale 或 ModelTransformation、GDAL_NODATA。
-// 不支援：JPEG（7）、WebP、ZSTD、LERC、float16、每個波段位元數不同；遇到時丟出清楚的錯誤（請用 gdal_translate 轉成 Deflate）。
+// 不支援：舊式 JPEG（6）、WebP、ZSTD、LERC、float16、每個波段位元數不同；遇到時丟出清楚的錯誤（請用 gdal_translate 轉成 Deflate）。
+// JPEG 是失真壓縮，不同瀏覽器的反 DCT 可能差 1～2 個灰階：只用在正射影像，不要拿 JPEG 的 DSM 做決定性檢查。
 
 import { crsFromEPSG, transverseMercator } from './coords.js';
 
 const TAG = {
   NewSubfileType: 254, ImageWidth: 256, ImageLength: 257, BitsPerSample: 258, Compression: 259,
   Photometric: 262, StripOffsets: 273, SamplesPerPixel: 277, RowsPerStrip: 278, StripByteCounts: 279,
-  PlanarConfig: 284, Predictor: 317, TileWidth: 322, TileLength: 323, TileOffsets: 324, TileByteCounts: 325,
+  PlanarConfig: 284, Predictor: 317, JPEGTables: 347, TileWidth: 322, TileLength: 323, TileOffsets: 324, TileByteCounts: 325,
   ExtraSamples: 338, SampleFormat: 339, ModelPixelScale: 33550, ModelTiepoint: 33922,
   ModelTransformation: 34264, GeoKeyDirectory: 34735, GeoDoubleParams: 34736, GeoAsciiParams: 34737,
   GDAL_METADATA: 42112, GDAL_NODATA: 42113,
@@ -21,6 +23,35 @@ const TYPE_SIZE = { 1: 1, 2: 1, 3: 2, 4: 4, 5: 8, 6: 1, 7: 1, 8: 2, 9: 4, 10: 8,
 const COMPRESSION_NAME = { 1: 'none', 5: 'lzw', 7: 'jpeg', 8: 'deflate', 32946: 'deflate', 32773: 'packbits', 34887: 'lerc', 50000: 'zstd', 50001: 'webp' };
 
 // ---------------------------------------------------------------- 解壓縮
+// JPEG 解碼器：(jpeg: Uint8Array, { width, height }) => Promise<{ width, height, data: RGBA（Uint8Array／Uint8ClampedArray）}>。
+// 預設用瀏覽器的 createImageBitmap＋OffscreenCanvas（不做色彩管理）；Node 沒有內建 JPEG 解碼，要用的話自己給一個。
+let jpegDecoder = null;
+export function setJpegDecoder(fn) { jpegDecoder = fn || null; }
+async function browserJpeg(jpeg) {
+  if (typeof createImageBitmap !== 'function' || typeof OffscreenCanvas !== 'function')
+    throw new Error('JPEG 壓縮的圖塊要在瀏覽器裡讀（Node 沒有 JPEG 解碼器；可用 setJpegDecoder 指定，或先 gdal_translate -co COMPRESS=DEFLATE 轉檔）');
+  const bmp = await createImageBitmap(new Blob([jpeg], { type: 'image/jpeg' }), { colorSpaceConversion: 'none', premultiplyAlpha: 'none' });
+  const cv = new OffscreenCanvas(bmp.width, bmp.height), ctx = cv.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(bmp, 0, 0); bmp.close?.();
+  return ctx.getImageData(0, 0, cv.width, cv.height);
+}
+// TIFF 的 JPEG 圖塊（壓縮 7）：有 JPEGTables 時把表（去掉結尾 EOI）接在圖塊（去掉開頭 SOI）前面，解成 w × rows × spp 的位元組
+async function jpegChunk(raw, image, w, rows, spp) {
+  if (image.bitsPerSample !== 8 || (spp !== 1 && spp !== 3)) throw new Error(`JPEG 圖塊只支援 8 位元的灰階或 RGB（這個檔是 ${image.bitsPerSample} 位元、${spp} 個波段）`);
+  const tables = image.tags.get(TAG.JPEGTables);
+  let jpg = raw;
+  if (tables && tables.length > 4 && raw[0] === 0xff && raw[1] === 0xd8) {
+    const t = Uint8Array.from(tables), end = t[t.length - 2] === 0xff && t[t.length - 1] === 0xd9 ? t.length - 2 : t.length;
+    jpg = new Uint8Array(end + raw.length - 2); jpg.set(t.subarray(0, end)); jpg.set(raw.subarray(2), end);
+  }
+  const px = await (jpegDecoder || browserJpeg)(jpg, { width: w, height: rows });
+  const out = new Uint8Array(w * rows * spp), cw = Math.min(w, px.width), ch = Math.min(rows, px.height);
+  for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) {
+    const i = (y * px.width + x) * 4, o = (y * w + x) * spp;
+    if (spp === 1) out[o] = px.data[i]; else { out[o] = px.data[i]; out[o + 1] = px.data[i + 1]; out[o + 2] = px.data[i + 2]; }
+  }
+  return out;
+}
 async function inflate(u8) {
   const ds = new DecompressionStream('deflate');
   const w = ds.writable.getWriter();
@@ -290,6 +321,7 @@ async function decodeChunk(tif, image, idx) {
     case 8: case 32946: raw = await inflate(raw); break;
     case 5: raw = lzwDecode(raw, expected); break;
     case 32773: raw = packbitsDecode(raw, expected); break;
+    case 7: return jpegChunk(raw, image, tw, rows, sppChunk);      // 解出來就是 8 位元樣本，沒有預測器
     default: throw new Error(`壓縮方式不支援：${COMPRESSION_NAME[compressionCode] || compressionCode}（請先用 gdal_translate -co COMPRESS=DEFLATE 轉檔）`);
   }
   if (raw.length < expected) {
