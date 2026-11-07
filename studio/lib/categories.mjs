@@ -27,6 +27,44 @@ export const DEFAULT_FIELDS = {
     { key: '光源類型', type: 'select', options: ['環形', '條形', '穹頂', '同軸', '背光', '點光', '線光', '平面'] }, { key: '波長', type: 'number', unit: 'nm' },
     { key: '發光尺寸', type: 'text', unit: 'mm' }, { key: '建議工作距離', type: 'number', unit: 'mm' },
   ],
+  // 2026-11-08 補上其他分類（評估平台 Q2 的後續）：選型與成本表最常比的規格；選項只是建議，可以填別的值
+  機器人: [
+    { key: '負載', type: 'number', unit: 'kg' }, { key: '工作半徑', type: 'number', unit: 'mm' }, { key: '軸數', type: 'number', unit: '軸' },
+    { key: '重複精度', type: 'number', unit: '±mm' }, { key: '安裝方式', type: 'select', options: ['落地', '吊掛', '壁掛', '傾斜'] },
+    { key: '控制器', type: 'text' }, { key: '防護等級', type: 'text' },
+  ],
+  夾爪與末端工具: [
+    { key: '驅動方式', type: 'select', options: ['氣動', '電動', '真空', '磁力'] }, { key: '夾持力', type: 'number', unit: 'N' }, { key: '行程', type: 'number', unit: 'mm' },
+    { key: '重量', type: 'number', unit: 'kg' }, { key: '適用工件', type: 'text' },
+  ],
+  量測與感測: [
+    { key: '感測原理', type: 'select', options: ['光電', '近接', '雷射位移', '共焦', '超音波', '編碼器', '壓力', '溫度'] }, { key: '量測範圍', type: 'text', unit: 'mm' },
+    { key: '解析度', type: 'text' }, { key: '重複精度', type: 'text' }, { key: '輸出', type: 'select', options: ['NPN', 'PNP', '類比', 'IO-Link', '乙太網路', 'RS-485'] },
+  ],
+  運動與驅動: [
+    { key: '類型', type: 'select', options: ['伺服馬達', '步進馬達', '線性滑台', '電缸', '減速機', '線性滑軌', '導螺桿'] }, { key: '額定功率', type: 'number', unit: 'W' },
+    { key: '額定扭矩', type: 'number', unit: 'N·m' }, { key: '行程', type: 'number', unit: 'mm' }, { key: '最大速度', type: 'number', unit: 'mm/s' },
+    { key: '重複精度', type: 'number', unit: '±mm' }, { key: '負載', type: 'number', unit: 'kg' },
+  ],
+  氣動與真空: [
+    { key: '類型', type: 'select', options: ['氣缸', '電磁閥', '真空產生器', '吸盤', '調壓閥', '接頭與管'] }, { key: '缸徑', type: 'number', unit: 'mm' },
+    { key: '行程', type: 'number', unit: 'mm' }, { key: '使用壓力', type: 'text', unit: 'MPa' }, { key: '線圈電壓', type: 'select', options: ['24 VDC', '110 VAC', '220 VAC'] },
+  ],
+  輸送與供料: [
+    { key: '類型', type: 'select', options: ['皮帶輸送', '滾筒輸送', '鏈條輸送', '振動盤', '料倉', '分料器'] }, { key: '寬度', type: 'number', unit: 'mm' },
+    { key: '長度', type: 'number', unit: 'mm' }, { key: '速度', type: 'number', unit: 'm/min' }, { key: '負載', type: 'number', unit: 'kg' },
+  ],
+  '控制器與 I/O': [
+    { key: '類型', type: 'select', options: ['PLC', '遠端 I/O', '運動控制器', 'HMI', '工業電腦'] }, { key: '輸入點數', type: 'number', unit: '點' },
+    { key: '輸出點數', type: 'number', unit: '點' }, { key: '通訊', type: 'text' },
+  ],
+  安全: [
+    { key: '類型', type: 'select', options: ['安全光幕', '安全繼電器', '安全 PLC', '門鎖開關', '急停', '雷射掃描器', '安全地墊'] },
+    { key: '安全等級', type: 'text' }, { key: '保護高度', type: 'number', unit: 'mm' }, { key: '解析度', type: 'number', unit: 'mm' },
+  ],
+  電力與配電: [
+    { key: '額定電壓', type: 'text', unit: 'V' }, { key: '額定電流', type: 'number', unit: 'A' }, { key: '功率', type: 'number', unit: 'W' },
+  ],
 };
 
 export const V5_CATEGORIES = `
@@ -182,6 +220,17 @@ export function categoryOps({ all, get, run, insert, tx, now, fail }) {
           if (DEFAULT_FIELDS[c] && !get('SELECT 1 AS x FROM category_fields WHERE category_id = ?', id)) ops.setFields(id, DEFAULT_FIELDS[c]);
         }
       }
+    },
+    // 已經有的分類補上預設欄位範本（資料庫 9 → 10）：只看名稱相同、自己還沒有任何欄位的節點；不建立分類（使用者刪掉或改名的不會長回來）。
+    // 子分類已經有同名欄位等放不進去的，跳過那個節點
+    seedFieldTemplates() {
+      let n = 0;
+      for (const node of index().byId.values()) {
+        const list = Object.entries(DEFAULT_FIELDS).find(([k]) => same(k, node.name))?.[1];
+        if (!list || get('SELECT 1 AS x FROM category_fields WHERE category_id = ?', node.id)) continue;
+        try { ops.setFields(node.id, list); n++; } catch { /* 和子分類或上層的欄位衝突：留給使用者 */ }
+      }
+      return n;
     },
     // 舊資料：依 grp／category 文字放進樹（沒有的節點自動建立），再把文字同步成樹的寫法
     placeLegacyParts() {

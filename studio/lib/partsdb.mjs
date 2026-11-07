@@ -54,7 +54,7 @@ export const GROUPS = {
 };
 export const groupOf = category => Object.keys(GROUPS).find(g => GROUPS[g].includes(category)) || '';
 
-const SCHEMA_VERSION = 9;      // 2：parts.grp（群組）；3：唯一編號 code、狀態 status、core 模型 model_id、附件 files；4：系統設定、附件的類型／雜湊／上傳者／價格紀錄、元件封面圖；5：分類樹與欄位範本、關聯件與模組；6：元件版本、BOM 與成本表；7：AOI 方案；8：元件補全（AI 查規格的工作與來源）；9：評估資料（提案、可行性分析的版本）
+const SCHEMA_VERSION = 10;      // 2：parts.grp（群組）；3：唯一編號 code、狀態 status、core 模型 model_id、附件 files；4：系統設定、附件的類型／雜湊／上傳者／價格紀錄、元件封面圖；5：分類樹與欄位範本、關聯件與模組；6：元件版本、BOM 與成本表；7：AOI 方案；8：元件補全（AI 查規格的工作與來源）；9：評估資料（提案、可行性分析的版本）；10：其他分類的預設欄位範本
 export const PENDING = '待確認';
 export const codeOf = n => `P-${String(n).padStart(5, '0')}`;
 const CODE_RE = /^P-\d+$/i;
@@ -309,7 +309,9 @@ export function openPartsDb(file = defaultPartsDb()) {
   // 7 → 8：元件補全（評估平台 Q5）
   if (version === 7) tx(() => { db.exec(V8_ENRICH); db.exec('PRAGMA user_version = 8'); version = 8; });
   // 8 → 9：評估資料（評估平台 Q6）
-  if (version === 8) tx(() => { db.exec(V9_ASSESS); db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`); version = 9; });
+  if (version === 8) tx(() => { db.exec(V9_ASSESS); db.exec('PRAGMA user_version = 9'); version = 9; });
+  // 9 → 10：已經有、還沒設欄位的分類補上預設欄位範本（光學以外的分類，2026-11-08）
+  if (version === 9) tx(() => { cats.seedFieldTemplates(); db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`); version = 10; });
   // 元件放進哪個分類：給 category_id 就用它（null 是未分類）；只給文字（成本表匯入、代理提案、命令列）就依名稱找，createCategory 時找不到就建
   function placement(v, { createCategory = false } = {}) {
     let id;

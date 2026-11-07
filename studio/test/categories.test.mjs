@@ -139,3 +139,21 @@ test('HTTP 介面：分類、欄位範本、關聯件的路由；分類只有管
   assert.equal(denied('editor', 'GET', ['categories']), null);
   assert.equal(denied('editor', 'POST', ['links']), null, '關聯件一般帳號可以改');
 });
+
+test('資料庫 9 → 10：還沒設欄位的既有分類補上預設欄位範本；刪掉的分類不會長回來、已經設過的不動', async () => {
+  const { mkdtempSync, rmSync } = await import('node:fs'), { tmpdir } = await import('node:os'), { join } = await import('node:path'), { DatabaseSync } = await import('node:sqlite');
+  const dir = mkdtempSync(join(tmpdir(), 'vs3d-cat10-')), file = join(dir, 'studio.db');
+  try {
+    let db = openPartsDb(file); const C = db.categories, find = name => [...db.tree().nodes].flatMap(function f(n) { return [n, ...n.children.flatMap(f)]; }).find(n => n.name === name);
+    assert.ok(C.fieldsOf(find('機器人').id).some(f => f.key === '負載' && f.unit === 'kg'), '新資料庫一開始就有');
+    const robot = find('機器人').id, grip = find('夾爪與末端工具').id, service = find('服務').id;
+    C.setFields(robot, []); C.setFields(grip, [{ key: '自訂欄位', type: 'text' }]); C.deleteCategory(service);
+    db.close();
+    const raw = new DatabaseSync(file); raw.exec('PRAGMA user_version = 9'); raw.close();
+    db = openPartsDb(file);
+    assert.ok(db.categories.fieldsOf(robot).some(f => f.key === '工作半徑'), '空的分類補上預設欄位');
+    assert.deepEqual(db.categories.fieldsOf(grip).map(f => f.key), ['自訂欄位'], '已經有欄位的不動');
+    assert.equal(find('服務'), undefined, '刪掉的分類不會長回來');
+    db.close();
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
