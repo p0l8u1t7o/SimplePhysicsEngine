@@ -13,12 +13,14 @@
 //     friction = 0.4, settle = 1.5（t = 0 之前先靜置幾秒，讓起始姿態是垂好的樣子）,
 //     anchors:   [{ at: 0～1（沿線長的位置；0、1 是兩端）, pos: t => [x, y, z] }]，至少兩個,
 //     colliders: [{ shape: 'plane', y } | { shape: 'box', size: [x, y, z], pos, rot } | { shape: 'sphere', r, pos } | { shape: 'cylinder', r, h, pos }（圓柱軸沿 y）] }
-// 決定性：解算器只用加減乘除與 Math.sqrt，Float64 固定順序；錨點函式裡的 Math.sin 等在 Node 與瀏覽器都是 V8，實測相同。
+// 決定性：解算器只用加減乘除與 Math.sqrt，Float64 固定順序；三角函式用 core/math/dmath.js（Node 與 Chrome 的 Math.sin 等在部分輸入差 1 ulp）。
+// 錨點函式（站寫的 pos: t => …）若用 Math.sin 也有同樣風險，要逐位元一致時改用 dmath。
 import * as THREE from 'three';
+import { sin as dsin, cos as dcos, hypot3 } from '../math/dmath.js';
 
 const rad = d => d * Math.PI / 180;
 function quatOf(rot = [0, 0, 0]) {
-  const [x, y, z] = rot.map(v => rad(v) / 2), c = [Math.cos(x), Math.cos(y), Math.cos(z)], s = [Math.sin(x), Math.sin(y), Math.sin(z)];
+  const [x, y, z] = rot.map(v => rad(v) / 2), c = [dcos(x), dcos(y), dcos(z)], s = [dsin(x), dsin(y), dsin(z)];
   return [s[0] * c[1] * c[2] + c[0] * s[1] * s[2], c[0] * s[1] * c[2] - s[0] * c[1] * s[2], c[0] * c[1] * s[2] + s[0] * s[1] * c[2], c[0] * c[1] * c[2] - s[0] * s[1] * s[2]];
 }
 // 四元數 → 3×3 旋轉矩陣（列優先）；碰撞時把點轉進方塊的本地座標
@@ -29,7 +31,7 @@ function fnv(h, bytes) { for (let i = 0; i < bytes.length; i++) { h ^= bytes[i];
 
 // 兩個錨點之間的起始形狀：拋物線往下垂，讓弧長大約等於這一段的線長（線比距離短時就拉直，交給解算器）
 function initial(a, b, len, n) {
-  const d = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]), pts = [];
+  const d = hypot3(b[0] - a[0], b[1] - a[1], b[2] - a[2]), pts = [];
   let sag = 0;
   if (len > d) { let lo = 0, hi = len; for (let k = 0; k < 40; k++) { const m = (lo + hi) / 2; (Math.sqrt(d * d + 16 / 3 * m * m) > len ? hi = m : lo = m); } sag = lo; }
   for (let i = 0; i <= n; i++) { const u = i / n; pts.push([a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u - 4 * sag * u * (1 - u), a[2] + (b[2] - a[2]) * u]); }

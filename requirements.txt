@@ -8,6 +8,7 @@
 #   openpyxl        RecycleSorter/tools/build_vision_items.py（視覺採購品項表）
 #   reportlab       tools/circuit-drawings（電路圖 PDF；中文字型見 REQUIREMENTS.md）
 #   pypdf           tools/circuit-drawings/verify.py
+#   pvlib          tools/solar-pvlib（core/solar 與 pvlib 交叉驗證；會一起裝 pandas、scipy、h5py）
 #   ezdxf、matplotlib、python-pptx、xlsxwriter、lxml
 #                   本機 TEMP/ 的簡報、評估、詢價產生腳本（不進版控）用
 # core/tools/compare-review.py 只用標準函式庫。
@@ -21,3 +22,4 @@ matplotlib==3.11.2
 python-pptx==1.0.2
 xlsxwriter==3.3.1
 lxml==6.1.3
+pvlib==0.16.1

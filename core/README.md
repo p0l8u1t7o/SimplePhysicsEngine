@@ -20,6 +20,8 @@
 | `structure/` | 光伏支架鋼構（2026-11-07）：固定式與單軸追日，依地形 `height(x, z)` 算每支構件的位置、切長、角度、重量與基樁埋深，`bom()` 彙總；`pvFixedRack`／`pvTracker` 三維模型（每種構件一個 InstancedMesh）；風、雪載重只做估算；`structureChecks()` 回傳 layoutChecks 的列。說明在 `structure/README.md` |
 | `piping/` | 管線管路（2026-11-07）：`routePipe` 把折線倒角成直管＋彎頭（依管徑的最小彎曲半徑），切長、配件、坡度、對地淨空；`solveNetwork` 1D 管網水力（Darcy–Weisbach、K 值、高程、泵揚程）；直流／交流電壓降；`createPipeBatch`、電纜槽幾何；檢查列。說明在 `piping/README.md` |
 | `geo/` | 案場座標與空拍資料（2026-11-07）：WGS84／TWD97／UTM（和 PROJ 一致到 1e-6 mm）、案場座標（mm、+X 東、+Y 上、+Z 南）、浮動原點；自寫 GeoTIFF 讀取（DSM／DTM／正射影像，BigTIFF、COG、LZW／Deflate）、地形網格與正射貼圖、LAS 點雲；設計與現況比對（樁位、排距、傾角）；空拍相機對位（DJI 雲台角、SRT）。說明在 `geo/README.md` |
+| `solar/` | 日照與發電（2026-11-07）：NREL SPA 太陽位置、固定式與單軸追日（含回溯、坡地）、Ineichen–Perez 晴空與台灣 Linke 濁度、Erbs／DISC 分解、Perez 斜面日射、IAM、雙面背面、自寫 BVH 逐片／旁路二極體區段遮陰與地平線、EPW／TMY3／CSV、PVWatts 直流與變流器、全年模擬；和 pvlib 交叉驗證（`tools/solar-pvlib/`）。說明在 `solar/README.md` |
+| `math/` | `dmath.js`：決定性的超越函式（fdlibm 移植）。Node 與 Chrome 的 `Math.sin`、`cos`、`exp` 等在 3～19% 的輸入差 1 ulp，要逐位元一致的模擬（`solar/`、`physics/rope.js`）用它；`Math.sqrt` 各引擎一致，可以直接用 |
 | `twin/` | AutoSequence 數位孿生的 SPE 端（Twin Protocol v2 server）：`session.js`（握手、鎖步、cmd、故障、增量 state，純模組、決定性）、`framing.js`、`binding.js`、`dynamics/`（軸、致動器、機器人）、`sensors.js`、`geometry.js`（photoEye 射線）、`view.js`（網頁孿生觀看）、`automation-schema.lock.json`（要求的 Automation-Schema 版本）；命令列 `tools/twin.mjs`。說明在 `twin/README.md` |
 | `movie/` | 錄影程式（4K 取樣 1080p、絕對時間取樣、追焦運鏡），各專案以 `?movie` 呼叫 |
 | `ui/` | `stage.js`（renderer／場景／相機／燈光／3D 標籤／視角轉場／畫面迴圈／`exposeSim`）、`player.js`（標準播放列）、`viewer-workspace.js`／`.css`（相機視窗、焦點追隨與精簡版面，所有專案共用）、`vision-overlay.js`（視覺疊圖） |

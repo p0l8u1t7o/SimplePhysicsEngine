@@ -229,6 +229,13 @@ Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs
 
 七站 91 張基準回歸超過門檻 0 張；本站 31 張事件畫面與三場型高低畫質／深度模式逐圖檢視，外觀變更為預期。CCTV／LPR 子畫面及缺檔降級另有瀏覽器檢查。量測、圖檔位置與限制見 `project-site/ParkingEMS/review/cinematic-render.md`。
 
+## 2026-11-07：core 1.19.0 日照與發電（core/solar）、決定性數學函式
+
+- **新模組 `solar/`**（使用者拍板的太陽能案場第一階段）：NREL SPA、固定式與單軸追日（回溯、坡地 cross-axis）、Ineichen–Perez 晴空（台灣 Linke 濁度表）、Erbs／DISC、Perez／Hay–Davies 斜面日射、IAM、雙面背面（uniform 與 resolved）、自寫 BVH 遮陰（逐片、旁路二極體區段、地平線、天空視角因子、太陽分箱快取）、EPW／TMY3／CSV、SAPM／Faiman 溫度、PVWatts、全年模擬。和 pvlib 0.16.1 交叉驗證全部在浮點捨入等級（`tools/solar-pvlib/`）；決定性：Node 與 Chrome 157 逐位元相同。效能：1 萬片＋8 萬三角形地形，全年逐時遮陰 5.6 分、太陽分箱 1°×2° 1.5 分。原型在本機 `TEMP/solar-dev/`。
+- **新模組 `math/dmath.js`**：原型實測 Node 26.13 與 Chrome 157 的 `Math.sin/cos/tan/atan/atan2/asin/acos/exp/log` 在 3～19% 的輸入差 1 ulp（`sqrt`、`pow` 相同），「兩邊都是 V8」不保證逐位元相同；dmath 是 fdlibm 5.3 的移植，只用 IEEE 精確運算。`solar/` 全部改用它，`physics/rope.js` 的碰撞物旋轉與起始形狀也改用（`Math.hypot` 換成 `hypot3`）。
+- `solar/test/` 併進 core 檢查 `engineering`（共 80 項）；合成台南 EPW 以 gzip 放在 `solar/test/fixtures/`（83 KB）。`requirements.txt` 加 pvlib 0.16.1（只有交叉驗證工具用）。
+- 待做：站層的 `verify.solar`（冬至排距遮陰與對照組、回溯、發電量）、core 的瀏覽器雜湊比對、Worker 平行與先篩可能被遮的排、台灣天候資料來源（PENDING.md 第 5 節）。
+
 ## 2026-11-07：core 1.18.0 three.js r187、MuJoCo 手臂動力學、鋼構／管路／案場座標
 
 使用者拍板（根目錄 `AGENTS.md`「物理模擬擴充」「太陽能案場平台」）：three.js 直接升級、導入 MuJoCo、第一階段的鋼構管路與地形空拍。
@@ -304,6 +311,7 @@ Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs
 
 | 版本 | 日期 | 內容 |
 |---|---|---|
+| 1.19.0 | 2026-11-07 | 新模組 `solar/`（SPA、追日回溯、晴空與斜面日射、雙面、BVH 遮陰、全年發電；和 pvlib 一致到浮點捨入）與 `math/dmath.js`（決定性超越函式）；`physics/rope.js` 改用 dmath。各站畫面與檢查不受影響 |
 | 1.18.0 | 2026-11-07 | three.js r187（`three.core.js`、PCF 陰影、RoomEnvironment 位置、網片 alphaToCoverage、ParkingEMS 頂點色）；MuJoCo 4.0.0 與 `robot/dynamics.js`；新模組 `structure/`、`piping/`、`geo/`；core 檢查 `dynamics`、`engineering`。陰影邊緣與部分材質著色有刻意的外觀變化；完整檢查 184/184 |
 | 1.17.0 | 2026-11-07 | 線材 XPBD `physics/rope.js`（`bakeRope`、`ropeSampler`、`createRopeView`、`ropeStats`），`physics` 檢查認得線材並檢查線長（`stretchTol`）；範例加線材情境；手臂幾何初值補肩部翻轉（8 組）。PlumbingFixtureInspection 的 IK 誤差 0.01 → 0.04 mm，其他站場景傾印完全相同；161 張截圖 0 張超過門檻；完整檢查 184/184 |
 | 1.16.2 | 2026-11-07 | 巡檢修正：`compare-review.py` 改成精確的欄位名單（以前會漏掉 hash、mdHash、事件時刻的變化）、`serve.mjs` 壞編碼不再當掉、`check-names` 不分大小寫並補掃 `tools/docs`、`check --only` 打錯不再算通過、啟動／停止腳本核對 PID；`reachByIK` 支援 COBOTTA 並在基座旋轉時少誤判、物理 `hz` 不整除時的時間比例、`fmtTime` 的 60 秒、光學檢視頁釋放資源、Z 向輸送線滾筒轉向、物理檢查不寫耗時。14 站 161 張截圖 0 張超過門檻；完整檢查 184/184；102 個 review 用新版 `compare-review.py` 對照舊機提交的結果，不同 0 個（RecycleSorter 的兩個物理 review 只少了 `ms`） |
