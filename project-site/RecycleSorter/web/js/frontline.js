@@ -15,6 +15,7 @@ import { cable, cableTray, CABLE } from '@core/electrical/cable-routing.js';
 import { beltTexture, createLightPatch, SURFACE } from './appearance.js';
 import { laneAt } from './schedule.js';
 import { createDelta } from './delta.js';
+import { fineCable } from './electrical-details.js';
 
 export const RUST = std(0x6f4c36, .88, .15), SITE_FRAME = std(0x3f6c80, .7, .3);    // 鏽色側牆、既有輸送帶的藍綠色機架
 const CELL = std(0x4d83b8, .6, .25), CAB = std(0xb7bcc0, .62, .2);                    // 網籠鋼構、電控櫃門板（灰）
@@ -301,13 +302,19 @@ export function createFrontLine(scene, L, belt) {
   const wiring = new THREE.Group(); wiring.name = 'frontWiring'; scene.add(wiring);
   const tx0 = F.x + F.legX + 38, railX = F.x + 80 + 22.5 + 8, tz = kz0 + 100;                 // 門型架 +X 柱外側、+X 軌外側、沿網籠前方的地面線槽
   const feet = pts => { for (const [x, z] of pts) block(wiring, [30, 50, 30], [x, 25, z], MAT.steelDark); };
-  cableTray(wiring, '前段相機線槽 A', [tx0, 60, fz0 - 90], [tx0, 60, tz - 30]);
-  cableTray(wiring, '前段相機線槽 B', [tx0 + 40, 60, tz], [kx0 - 30, 60, tz]);
-  feet([[tx0, fz0 - 90], [tx0, tz - 30], ...Array.from({ length: 4 }, (_, i) => [tx0 + 40 + i * (kx0 - 70 - tx0) / 3, tz])]);
+  // core cableTray（寬 46、高 16）：槽中心有隔板，兩側各有一條槽內線（中心離隔板 46/4、半徑 3，槽中心 Y 60 時頂面在 Y 59）。
+  // A 槽由北往南拉（訊號側在 +X）、B 槽往下游拉（訊號側在 +Z）。兩條相機線在訊號那半邊並排（間距 9）、疊在槽內線上面（Y 63.5），
+  // 不穿隔板；由 A 槽轉進 B 槽的彎在兩槽之間的空地完成（A 槽停在 B 槽北邊 70、B 槽由 A 槽東邊 70 起），內側那條先轉、不交叉。
+  const tA = tz + 70, tB = tx0 + 70, inTray = 59.5 + 4;
+  cableTray(wiring, '前段相機線槽 A', [tx0, 60, fz0 - 90], [tx0, 60, tA]);
+  cableTray(wiring, '前段相機線槽 B', [tB, 60, tz], [kx0 - 30, 60, tz]);
+  feet([[tx0, fz0 - 90], [tx0, tA], ...Array.from({ length: 4 }, (_, i) => [tB + i * (kx0 - 30 - tB) / 3, tz])]);
   cameras.forEach((cam, i) => {
-    const z = cam.root.position.z, y = F.beamY - 20 - i * 22, top = F.camY + 118, lane = 6 + i * 10, zl = fz0 + 6 + i * 14;
-    cable(vision, `CAM${i + 3} / GigE PoE 與同步觸發`, [[F.x, top, z], [F.x, F.beamY + 85, z], [railX, F.beamY + 85, z], [railX, y, z - 40], [railX, y, zl],
-      [railX, F.beamY - 48, zl], [tx0, F.beamY - 48, zl], [tx0, 60, zl], [tx0 + lane, 60, fz0 - 40], [tx0 + lane, 60, tz + lane], [kx0 + 2, 60, tz + lane]], { color: CABLE.signal, radius: 4, clips: 6 });
+    const z = cam.root.position.z, y = F.beamY - 20 - i * 22, top = F.camY + 118, zl = fz0 + 6 + i * 14;
+    const xl = tx0 + 7 + i * 9, zb = tz + 7 + i * 9;                                         // A 槽、B 槽訊號側的位置
+    // 由頂樑下到地面那一段沿門型架 +X 柱外側，下降前先斜切一小段，彎不會掃進柱頂的橫樑
+    fineCable(vision, `CAM${i + 3} / GigE PoE 與同步觸發`, [[F.x, top, z], [F.x, F.beamY + 85, z], [railX, F.beamY + 85, z], [railX, y, z - 40], [railX, y, zl],
+      [railX, F.beamY - 48, zl], [xl - 8, F.beamY - 48, zl], [xl, F.beamY - 56, zl], [xl, inTray, zl], [xl, inTray, zb], [kx0 + 2, inTray, zb]], { color: CABLE.signal, radius: 4, clips: 6 });
   });
   const px = cx1 - P / 2, topY = C.top + 12;                                                  // 網籠下游、操作側的角柱
   cable(cell, 'ABB / 手臂動力與編碼器（既有）', [[kx0 - 2, armOut[1], armOut[2]], [px, armOut[1], armOut[2]], [px, topY, armOut[2]], [px + 20, topY + 20, cz0 + P / 2],

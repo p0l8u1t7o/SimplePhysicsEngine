@@ -110,6 +110,24 @@ export function trayCover(tray, length) {
 }
 
 // 每段直線等距束帶；合併同一路徑的實例，不讓固定夾數量隨長度增加 draw call。
+// core cable() 的管子固定 64 段：數公尺長的線每段 40～60 mm，轉角被弦切進內側 10～20 mm，
+// 並排間距 9 mm 的一束線在彎道就互相穿過（中心線本身沒有交叉）。這裡沿同一條中心線（與 cable() 相同的圓角折線）
+// 重建管子，每段不超過 6 mm；線夾、端子與 userData.cable 都不動。暫代 core，需求交主 session 登記（cable() 依長度決定分段數）。
+export function fineCable(parent, name, points, opts = {}) {
+  const g = cable(parent, name, points, opts), radius = opts.radius ?? 2.5;
+  const jacket = g.children.find(c => c.userData.routingHardware === 'jacket');
+  const v = points.map(p => new THREE.Vector3(...p)), curve = new THREE.CurvePath(); let from = v[0];
+  for (let i = 1; i < v.length - 1; i++) {
+    const at = v[i], before = v[i - 1], after = v[i + 1], cut = Math.min(radius * 12, at.distanceTo(before) * .35, at.distanceTo(after) * .35);
+    const enter = at.clone().add(before.clone().sub(at).normalize().multiplyScalar(cut)), leave = at.clone().add(after.clone().sub(at).normalize().multiplyScalar(cut));
+    curve.add(new THREE.LineCurve3(from, enter)); curve.add(new THREE.QuadraticBezierCurve3(enter, at, leave)); from = leave;
+  }
+  curve.add(new THREE.LineCurve3(from, v.at(-1)));
+  const old = jacket.geometry;
+  jacket.geometry = new THREE.TubeGeometry(curve, Math.max(64, Math.ceil(curve.getLength() / 6)), radius, 8, false); old.dispose();
+  return g;
+}
+
 export function dressRoute(g, number, ordinal = 0) {
   const pts = g.userData.cable.points.map(p=>new THREE.Vector3(...p));
   const rings = [], geo = new THREE.TorusGeometry(g.userData.cable.radius+1,.8,4,10), obj = new THREE.Object3D();

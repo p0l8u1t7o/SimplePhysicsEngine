@@ -14,7 +14,7 @@ import { MAT, std } from '@core/geom/materials.js';
 import { motor } from '@core/geom/hardware.js';
 import { ELECTRICAL_SPEC as S } from './electrical-spec.js';
 import { CAB_BODY } from './frontline.js';
-import { cameraDetails, curtainSign, dressRoute, cabinetDetails, lightAdjusters } from './electrical-details.js';
+import { cameraDetails, curtainSign, dressRoute, cabinetDetails, lightAdjusters, fineCable } from './electrical-details.js';
 
 // 動力需經兩顆接觸器；元件清單的支路來源 QF2 展開為實際串聯路徑。
 export const SCHEDULE = S.rows.map(r => ({ y: r.y, items: S.components.filter(c => c.row === r.row)
@@ -83,7 +83,7 @@ export function createElectrical(scene, { cab, frame, robot, belt, vision, hmi, 
     if (name.startsWith('FRL')||name.startsWith('VAC1')||name.startsWith('工具')) return '#18'; return null;
   };
   const route = (parent, name, points, color = CABLE.signal, radius = 4, extra = {}) => {
-    const g = cable(parent, name, points, { color, radius, clips: Math.max(2, points.length), ...extra });
+    const g = fineCable(parent, name, points, { color, radius, clips: Math.max(2, points.length), ...extra });
     dressRoute(g, routeNumber(name), wires.length); wires.push(g); return g;
   };
   const tray = (name, a, b, parent = e, width = 46) => cableTray(parent, name, a, b, { width });
@@ -106,7 +106,8 @@ export function createElectrical(scene, { cab, frame, robot, belt, vision, hmi, 
     ['C7-A', [-500, 60, DZ - 100], [-500, 60, -784]], ['C7-B', [560, 60, -784], [560, 60, DZ - 100]],
     ['手臂支路', [150, 60, -100], [150, 60, -784]], ['氣源支路', [420, 60, -730], [420, 60, 310]],
   ]) tray(name, a, b);
-  tray('C5 / 編碼器與入料感測', [-1250, 660, -686], [-910, 660, -686], belt, 30);
+  // C5 貼在主帶側牆（外面 Z −682）外側 3 mm、編碼器機身（Y 670 起）下方；原本 Z −686 有一半埋進側牆
+  tray('C5 / 編碼器與入料感測', [-1250, 660, -700], [-910, 660, -700], belt, 30);
   // 線槽以腳座落地，未用支架懸在地面上方。
   for (const [x, z] of [[-500,-765],[560,-765],[150,-765],[420,-712],[-500,DZ-125],[560,DZ-125],[150,-100],[420,310]])
     block(e, [30, 50, 30], [x, 25, z], MAT.steelDark);
@@ -167,18 +168,23 @@ export function createElectrical(scene, { cab, frame, robot, belt, vision, hmi, 
     const parts = [motor(group,xm,560,DZ,.42), block(group,[100,12,278],[xm,504,DZ],MAT.steelDark),
       ...[-1,1].map(s => block(group,[100,top-510,8],[xm,(top+510)/2,DZ+s*135],MAT.steelDark))];
     for (const p of parts) p.traverse(m => { if (m.isMesh) m.name = 'drive motor'; });   // 馬達與吊架不是承載面：全場檢查要查工件有沒有撞到
-    // 兩條馬達線出自同一支立管（E2）：B 帶那條一落地就往旁邊岔開 14 mm，各走各的道
-    const start = key === 'A' ? fromRiser(1,3,BUS.D2) : [entries[1],...fromRiser(1,4,BUS.D3,-14).slice(1)];
+    // 兩條馬達線出自同一支立管（E2）：B 帶那條在立管出口先往南岔開 14 mm 才往下游走，兩條平行、不交叉
+    const e2 = entries[1], start = key === 'A' ? fromRiser(1,3,BUS.D2) : [e2,[e2[0],e2[1],e2[2]-14],...fromRiser(1,4,BUS.D3,-14).slice(1)];
     // 沿 C7 線槽的電源側（朝支腳那側）走、疊在槽內線上；槽口在 DZ − 100，出槽口後到 zT 才轉向支腳
     const lane = cross + side * LANE, y = inTray(5);
     const path=[...start,[lane,60,BUS['D'+(key==='A'?2:3)]],[lane,y,-800],[lane,y,zT],[leg,60,zT],[leg,485,zT],[xm,485,zT],[xm,485,DZ-40],[xm,494,DZ-40]];
     route(group,`D${key==='A'?2:3} / ${key} 帶馬達`,path,CABLE.power,5);
     if (Math.abs(leg - cross) > 170) tray(`${key} 帶地面分支`,[cross+side*30,60,zT],[leg-side*80,60,zT]);
   }
-  const rear = [-895,60,-730], upper = [-895,1755,-730];
-  // C6 夾在立柱外側；跨到 C8 由原有托架承接。
-  const toPost = (i, k, z) => [...fromRiser(i,k,z),[-850,60,z],rear];
-  route(frame,'E4 / 雙相機與光源幹線',[...toPost(3,2,BUS.E4),[-895,1698,-730],[-780,1698,-730],[-730,1698,-730]],CABLE.signal,4);
+  // 後立柱（X −850／Z −730）−X 面的共用立管：一束線各有自己的位置，貼在承接條外面（X −897.5，離條面 0.5），
+  // 由北到南 E4、GC1、E5、HSC1（HSC1 在 Y 660 往上游出去後，同一格的上段給三色燈線）；間距 9（半徑 4，彼此留 1 mm）。
+  // 地面：三條線由主幹線床各自那一道往上游走過來（北到南 GC1、E5、E4）。GC1、E5 在立柱西側分成兩層（Y 60／69）轉向北再上升，
+  // 上層的 E5 在內側先上升；E4 在最南道，先走到外側一層（X −906.5）才轉向北，到自己那一格才靠回條面，不跨過另外兩條。
+  // 上端：E4 在 Y 1698 往北繞過立柱的 +Z 面接到取像架台；GC1、E5 在頂樑承接條上分兩層（Y 1750.5／1759.5）往操作面走。
+  const XR = -897.5, SLOT = { E4: -712, GC1: -721, E5: -730, HSC1: -739 }, TOPY = { GC1: 1750.5, E5: 1759.5 };
+  const toPost = (i, k, z, slot, h) => [...fromRiser(i,k,z),[-850,60,z],[-870,h,z],[XR,h,z],[XR,h,slot]];
+  route(frame,'E4 / 雙相機與光源幹線',[...fromRiser(3,2,BUS.E4),[-906.5,60,BUS.E4],[-906.5,60,SLOT.E4],[XR,95,SLOT.E4],[XR,1698,SLOT.E4],[XR,1698,-694],
+    [-800,1698,-694],[-780,1698,-730],[-730,1698,-730]],CABLE.signal,4);
   route(vision,'相機 / 同步觸發分接',[[-730,1698,-730],[-741,1698,-730]],CABLE.signal,3);
   for (const [i,cam] of cameras.entries()) {
     const z=cam.root.position.z;
@@ -191,17 +197,18 @@ export function createElectrical(scene, { cab, frame, robot, belt, vision, hmi, 
     route(vision,`LC1 / 條燈 ${lx}`,[[-730,1698,-730],[-730,1698,-570],[lx,1598,-570],[lx-23,1535,-610],[lx-23,1330,-610],[lx,1320,-585]],CABLE.signal,4,
       {backing:{offset:[0,0,-12],feet:[[0,[-780,1680,-730]],[2,[lx,1565,-540]],[4,[lx,1330,-585]]],radius:3}});
   }
-  // E5 到 HMI：在前立柱（Z 640…700）之前離開頂樑承接條，翻過側頂樑（頂面 Y 1775）進到骨架內側，
-  // 由 HMI 安裝板（X ≤ −798）與短懸臂（頂面 Y 1535）的上方、急停線立管（X −770／Z 610）的後方走到外殼背面，
-  // 最後沿 +Z 接進背面的接頭（外殼背面 Z 643）；不穿立柱、安裝板與光幕投光器。
-  route(frame,'E5 / 感測與操作面幹線',[...toPost(4,1,BUS.E5),upper,[-895,1755,560],[-895,1790,590],[-790,1790,590],[-790,1580,590],[-560,1580,600],[-560,1500,600],[-560,1500,640]],CABLE.signal,4);
-  route(frame,'IO1 / 三色警示燈',[[-895,1755,-730],[-895,1840,-730],[-877,1840,-730]],CABLE.signal,3);
-  route(belt,'HSC1 / 編碼器 A B Z',[rear,[-895,660,-730],[-1250,660,-730],[-1250,700,-757]],CABLE.signal,4);
-  route(belt,'IO1 / 入料光電',[[-895,660,-730],[-1160,660,-730],[-1160,780,-730],[-1160,790,-700]],CABLE.signal,3);
-  // 立柱與頂樑外表面的固定承接條；固定線在條外緣，不埋進鋁擠型。
-  block(frame,[10,1695,18],[-888,907.5,-730],MAT.steelDark);
-  block(frame,[10,18,1400],[-888,1755,-30],MAT.steelDark);
-  block(frame,[10,300,18],[-888,1605,670],MAT.steelDark);
+  // E5 到 HMI：在前立柱（Z 640…700）之前離開頂樑承接條（上層），翻過側頂樑（頂面 Y 1775）進到骨架內側，
+  // 由 HMI 安裝板（X ≤ −798）與短懸臂（頂面 Y 1535）的上方走到外殼背面，最後沿 +Z 接進背面的接頭（外殼背面 Z 643）；
+  // 不穿立柱、安裝板與光幕投光器。
+  route(frame,'E5 / 感測與操作面幹線',[...toPost(4,1,BUS.E5,SLOT.E5,69),[XR,TOPY.E5,SLOT.E5],[XR,TOPY.E5,560],[XR,1790,590],[-790,1790,590],[-790,1580,590],[-560,1580,600],[-560,1500,600],[-560,1500,640]],CABLE.signal,4);
+  route(frame,'IO1 / 三色警示燈',[[XR,1745,SLOT.HSC1],[XR,1840,SLOT.HSC1],[-877,1840,-730]],CABLE.signal,3);
+  // HSC1 由 E5 那一束在地面上方分出（E5 在 Y 69 轉向北的彎上面），沿立管最南那一格上到 Y 660 往上游走；入料光電疊在它上面
+  route(belt,'HSC1 / 編碼器 A B Z',[[XR,110,SLOT.HSC1],[XR,660,SLOT.HSC1],[-1250,660,SLOT.HSC1],[-1250,700,-757]],CABLE.signal,4);
+  route(belt,'IO1 / 入料光電',[[XR,669.5,SLOT.HSC1],[-1160,669.5,SLOT.HSC1],[-1160,780,SLOT.HSC1],[-1160,790,-700]],CABLE.signal,3);
+  // 立柱與頂樑外表面的固定承接條；固定線在條外緣，不埋進鋁擠型。立柱那一條加寬到 44 承接四格，
+  // 上端停在頂樑承接條下面（Y 1744）不和它重疊；頂樑那一條停在 GC1 斜下之前（Z 595），分支線都從這之後分出。
+  block(frame,[10,1684,44],[-888,902,-725],MAT.steelDark);
+  block(frame,[10,18,1325],[-888,1755,-67.5],MAT.steelDark);
 
   // 光幕示意保留既有佔地，投／受光器靠托架掛在既有骨架。
   const safetyColor=0xefda57;
@@ -213,8 +220,10 @@ export function createElectrical(scene, { cab, frame, robot, belt, vision, hmi, 
   const curtain=new THREE.Mesh(new THREE.PlaneGeometry(1705,1200),std(safetyColor,.8,0,{transparent:true,opacity:.035,side:THREE.DoubleSide,depthWrite:false}));
   curtain.name='curtain'; curtain.position.set(0,1000,610); marks.add(curtain);
   const curtainPlate = curtainSign(frame);
-  route(frame,'GC1 / 投光器與急停幹線',[...toPost(5,0,BUS.GC1),[-892,1755,-730],[-892,1755,670],[-850,1730,625],[-875,1601,620]],safetyColor,4);
-  route(frame,'GC1 / 受光器 OSSD 雙通道',[[-892,1755,670],[-875,1790,690],[875,1790,690],[850,1730,625],[875,1601,620]],safetyColor,4);
+  // GC1 沿頂樑承接條（下層）走到 Z 620（前立柱 Z 640 之前）就斜下到投光器頂端；受光器 OSSD 與急停線由這裡分出，
+  // 各自翻過側頂樑：OSSD 沿前橫樑的 −Z 面（Z 645.5）跨到 +X 側再下到受光器，急停線在 HMI 短懸臂的下游側（X −690）下到按鈕盒。
+  route(frame,'GC1 / 投光器與急停幹線',[...toPost(5,0,BUS.GC1,SLOT.GC1,60),[XR,TOPY.GC1,SLOT.GC1],[XR,TOPY.GC1,620],[-875,1700,620],[-875,1601,620]],safetyColor,4);
+  route(frame,'GC1 / 受光器 OSSD 雙通道',[[XR,TOPY.E5,620],[XR,1790,630],[-810,1790,630],[-810,1755,645.5],[810,1755,645.5],[810,1795,630],[880,1795,625],[880,1601,620]],safetyColor,4);
   // 急停與復歸鈕（各帶按鈕盒）：core 的 estop 模型，原點在按鈕盒正面前 12 mm、按鈕軸朝 +Z
   const stopButton=estop.create({collarR:25,capR:18,capH:14,collarZ:-6,capZ:2,collarMaterial:MAT.amber,capMaterial:MAT.red,box:{size:[76,65,16]}});
   const resetButton=estop.create({reset:1,collarR:13,capR:10,capH:14,collarZ:-6,capZ:2,box:{size:[52,65,16]}});
@@ -223,7 +232,9 @@ export function createElectrical(scene, { cab, frame, robot, belt, vision, hmi, 
   // HMI 與兩顆按鈕的網格在 core 模型的 root 裡；core 1.10.0 的 cable() 會把模型 root 裡的網格當線夾固定面，直接走線即可
   block(hmi,[150,10,20],[-530,1290,651],MAT.steelDark);
   block(hmi,[18,70,16],[-560,1322,639],MAT.alu);
-  route(hmi,'GC1 / 急停與復歸',[[-892,1755,670],[-892,1695,670],[-810,1695,610],[-770,1695,610],[-770,1328,610],[-560,1328,631],[-560,1250,648],[-500,1250,648]],safetyColor,4);
+  // 急停線：由 GC1 分出、翻過側頂樑，在短懸臂（X −804…−704）下游側下到按鈕高度，沿按鈕托架背面（Z 631 之前）接到按鈕盒背面。
+  // 起點比立管線往內 4 mm：HMI 群組整座要收在框架平面 X ≥ −900 內（端子外徑 5.6）。
+  route(hmi,'GC1 / 急停與復歸',[[-893.5,TOPY.E5,610],[-893.5,1790,610],[-690,1790,610],[-690,1328,612],[-560,1328,625],[-560,1250,625],[-560,1250,646],[-500,1250,646]],safetyColor,4);
 
   // 三點組與氣壓表，固定在立座 +Z 面；旋轉關節及浮動桿內部通道以接口表示。
   // core 的 FRL 三點組模型（預設尺寸：背板 150 × 18 × 28、三顆間距 45、壓力表朝 +Z）；原點在中間那顆的頭部中心
