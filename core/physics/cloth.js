@@ -234,7 +234,7 @@ export function createClothView(b, { color = 0x3f7fbf, material = null, name = b
   geo.setAttribute('position', attr); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); geo.setIndex(idx);
   const mesh = new THREE.Mesh(geo, material || new THREE.MeshStandardMaterial({ color, roughness: .8, metalness: 0, side, transparent: opacity < 1, opacity }));
   mesh.name = `physics:${name}`; mesh.castShadow = true; mesh.receiveShadow = true; mesh.frustumCulled = false;
-  Object.assign(mesh.userData, { physics: true, cloth: true });
+  Object.assign(mesh.userData, { physics: true, cloth: true, nonSolid: '布料' });
   const root = new THREE.Group(); root.name = name; root.userData.physics = true; root.add(mesh);
   function apply(t) {
     at(t, pos);

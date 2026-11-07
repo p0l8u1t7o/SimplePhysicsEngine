@@ -373,7 +373,7 @@ export function createFluidView(b, { color = 0x3d8fd6, mode = 'points', size = b
     obj = new THREE.Points(geo, new THREE.PointsMaterial({ color, size, sizeAttenuation: true, transparent: opacity < 1, opacity, depthWrite: opacity >= 1 }));
     update = (count, P) => { pos.set(P.subarray(0, count * 3)); geo.setDrawRange(0, count); attr.needsUpdate = true; };
   }
-  obj.name = `physics:${name}`; obj.frustumCulled = false; Object.assign(obj.userData, { physics: true, fluid: true });
+  obj.name = `physics:${name}`; obj.frustumCulled = false; Object.assign(obj.userData, { physics: true, fluid: true, nonSolid: '粒子流體' });
   root.add(obj);
   function apply(t) { const { count, positions } = at(t); update(count, positions); }
   apply(0);

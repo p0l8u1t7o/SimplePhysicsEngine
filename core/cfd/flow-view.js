@@ -64,7 +64,7 @@ export function createFlowView(pack, opts = {}) {
   };
   const group = new THREE.Group();
   group.name = 'cfd-flow';
-  group.userData.noBom = 'CFD 結果顯示，不是設備';
+  group.userData.noBom = 'CFD 結果顯示，不是設備'; group.userData.nonSolid = 'CFD 結果顯示';
   const channels = {
     slices: { field: o.field, colormap: o.colormap, range: o.range, symmetric: false, items: [] },
     patches: { field: o.patchField, colormap: o.patchColormap, range: o.patchRange, symmetric: o.patchSymmetric, items: [] },

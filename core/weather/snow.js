@@ -126,7 +126,7 @@ export function snowSampler(r, id) {
 export function createSnowCover({ width = 1000, length = 2000, color = 0xf4f7fb, name = 'snow-cover' } = {}) {
   const geo = new THREE.BoxGeometry(1, 1, 1); geo.translate(0, 0.5, -0.5);          // 原點在下緣、玻璃面
   const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, roughness: 0.95, metalness: 0 }));
-  mesh.name = name; mesh.castShadow = true; mesh.receiveShadow = true; mesh.userData.weather = true;
+  mesh.name = name; mesh.castShadow = true; mesh.receiveShadow = true; mesh.userData.weather = true; mesh.userData.nonSolid = '板面積雪';
   const root = new THREE.Group(); root.name = name; root.add(mesh);
   function apply({ depth = 0, coverage = 0 } = {}) {
     const on = depth > 0.5 && coverage > 1e-3;

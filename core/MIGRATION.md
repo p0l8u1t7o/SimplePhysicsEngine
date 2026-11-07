@@ -242,7 +242,7 @@ Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs
 - **OBJ 實景網格**（`geo/obj.js`）：`readOBJ`／`readMTL`／`createOBJMesh`，float64 解析後減掉案場原點、分塊存 Float32（three 的 OBJLoader 直接存 Float32，北距 254 萬公尺只剩 0.25 m 解析度）。
 - **站層的日照檢查 `solar`**（`verify/solar.mjs`）：`project.verify.solar` 宣告固定式或追日陣列時，檢查冬至列間遮陰、排距 90% 的對照組（追日的回溯仍用設計排距，模擬列距被做短）、真追日的遮陰（資訊）。宣告 `obstacles`（方塊、四邊形、地形函式）時另列「含外部遮擋的最大遮陰」，給 `obstacleTol` 才判定。目前沒有站宣告。
 - **決定性**：`physics/physics.js` 的旋轉、吸附找最近物體、靜止判斷改用 `math/dmath.js`（`Math.cos/sin/hypot` 在 Node 與 Chrome 的部分輸入差 1 ulp）；`physics/collide.js` 自帶的三角函式統一成 dmath。
-- `verify/scene.mjs`：`userData.fluid`、`cloth`、`weather`、`cfd` 的網格不算實體，和 `fx` 一樣不做干涉與重合面檢查。
+- `verify/scene.mjs`：core 標了 `userData.nonSolid` 的網格（粒子流體、布料、雨雪與板面積雪、CFD 結果顯示）不算實體，和 `fx` 一樣不做干涉與重合面檢查。不用 `fluid`／`cloth` 這類通用欄位判斷：酸鹼滴定的瓶子群組 `userData.fluid` 是液面物件，一開始用它判斷時瓶子與燒杯被漏出干涉檢查（1094 → 1040 個網格，當天發現並改掉，有回歸測試）。
 - **站層的手臂動力學檢查 `dynamics`**（`verify/dynamics.mjs`）：`project.verify.dynamics.arms` 宣告型號、負載、`sample(t)` 與倒裝／斜裝的 `gravity`（基座座標；給函式時會檢查週期內基座方向是否改變），用 MuJoCo 算峰值扭矩對型錄上限、負載質量與手腕力矩、軌跡連續；照拍板只警告（`warn`），型號不存在才失敗。core 的 `dynamics` 自我檢查多驗證站層的略過、警告與擋錯。RobotArmPressSSD 與 TeflonWelding（VS-068 的方案）已宣告，負載都是估計值。
 - core 檢查新增 `solar`（`solar/test/browser-check.mjs`）：日照的 SPA、追日、遮陰、全年發電在 Node 與無頭 Chrome 逐位元相同（約 3 秒）。
 - core 檢查 `engineering` 加上 `physics/test`（布料、流體、天候）、`solar/test/verify.test.mjs` 與 `tools/cfd/test`。
@@ -329,7 +329,7 @@ Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs
 
 | 版本 | 日期 | 內容 |
 |---|---|---|
-| 1.20.0 | 2026-11-07 | 布料（`physics/cloth.js`）、粒子流體（`physics/fluid.js`）、天候（`weather/`）、外部 CFD（`cfd/`＋`tools/cfd/`）、LAZ（`vendor/laz-perf`、`geo/laz.js`）、站層檢查 `solar`（含外部遮擋）與 `dynamics`（只警告）、core 檢查 `solar`（Node 與瀏覽器雜湊）、`structure/solar-frame.js` 座標對齊、`simulate({ hourlyLoss })` 與積雪損失、範例 `weather/`；剛體物理改用 dmath；`scene` 略過流體、布料、天候、CFD 網格 |
+| 1.20.0 | 2026-11-07 | 布料（`physics/cloth.js`）、粒子流體（`physics/fluid.js`）、天候（`weather/`）、外部 CFD（`cfd/`＋`tools/cfd/`）、LAZ（`vendor/laz-perf`、`geo/laz.js`）、站層檢查 `solar`（含外部遮擋）與 `dynamics`（只警告）、core 檢查 `solar`（Node 與瀏覽器雜湊）、`structure/solar-frame.js` 座標對齊、`simulate({ hourlyLoss })` 與積雪損失、範例 `weather/`；剛體物理改用 dmath；`scene` 略過 core 標 `nonSolid` 的網格 |
 | 1.19.0 | 2026-11-07 | 新模組 `solar/`（SPA、追日回溯、晴空與斜面日射、雙面、BVH 遮陰、全年發電；和 pvlib 一致到浮點捨入）與 `math/dmath.js`（決定性超越函式）；`physics/rope.js` 改用 dmath。各站畫面與檢查不受影響 |
 | 1.18.0 | 2026-11-07 | three.js r187（`three.core.js`、PCF 陰影、RoomEnvironment 位置、網片 alphaToCoverage、ParkingEMS 頂點色）；MuJoCo 4.0.0 與 `robot/dynamics.js`；新模組 `structure/`、`piping/`、`geo/`；core 檢查 `dynamics`、`engineering`。陰影邊緣與部分材質著色有刻意的外觀變化；完整檢查 184/184 |
 | 1.17.0 | 2026-11-07 | 線材 XPBD `physics/rope.js`（`bakeRope`、`ropeSampler`、`createRopeView`、`ropeStats`），`physics` 檢查認得線材並檢查線長（`stretchTol`）；範例加線材情境；手臂幾何初值補肩部翻轉（8 組）。PlumbingFixtureInspection 的 IK 誤差 0.01 → 0.04 mm，其他站場景傾印完全相同；161 張截圖 0 張超過門檻；完整檢查 184/184 |

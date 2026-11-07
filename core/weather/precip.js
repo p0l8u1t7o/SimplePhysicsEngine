@@ -93,7 +93,7 @@ function flakeTexture(n = 32) {
 
 export function createPrecipView(spec = {}, { color, opacity, size = 22, name } = {}) {
   const P = precipitation(spec), root = new THREE.Group();
-  root.name = name ?? `weather:${P.kind}`; root.userData.weather = true;
+  root.name = name ?? `weather:${P.kind}`; root.userData.weather = true; root.userData.nonSolid = '雨雪粒子';
   const geo = new THREE.BufferGeometry();
   let obj, buf, write;
   if (P.rain) {
