@@ -311,7 +311,7 @@
             "scenario": "預設",
             "samples": 3736,
             "routes": 19,
-            "supports": 67,
+            "supports": 68,
             "carriers": 2,
             "feedthroughs": {
               "plates": 2,
@@ -340,7 +340,7 @@
             "scenario": "V110-RF",
             "samples": 3736,
             "routes": 19,
-            "supports": 67,
+            "supports": 68,
             "carriers": 2,
             "feedthroughs": {
               "plates": 2,

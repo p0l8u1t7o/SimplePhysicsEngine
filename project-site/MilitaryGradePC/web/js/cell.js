@@ -218,7 +218,9 @@ export function createCell(scene) {
   const topFlash = dome.light;
   const cameraHarness=carrier(s1,'S1 / retracting camera carrier',{origin:[85,beamY+90,0],axis:[0,0,1],fixed:390,min:0,max:780,radius:55,width:34,pitch:20});
   for(const z of [50,420,750])support(s1,'S1 / fixed guide mount',[40,beamY+45,z],[85,beamY+79,z],6);
-  cable(head,'S1 / moving camera drop',[[85,beamY+200,0],[90,beamY+110,20],[65,beamY-30,30],[55,domeRim+410,30],[55,domeRim+365,0],[43.5,domeRim+365,0]],{radius:3,color:CABLE.signal,clips:5,backing:{offset:[18,0,0],feet:[[0,[60,beamY-12,0]],[3,[20,domeRim+430,0]]]}});
+  // 拖鏈活動端在上層（y=beamY+200），下層鏈、連續導板與後立柱來的進線都在 x 64～113、y≈2075～2098。
+  // 相機線先從活動端往 +x 拉出到 x=135（拖鏈寬度外），在外側下到下層鏈底下，再斜回橫樑旁；不從中間穿過下層鏈與進線
+  cable(head,'S1 / moving camera drop',[[85,beamY+200,0],[135,beamY+200,0],[135,beamY+100,15],[65,beamY-30,30],[55,domeRim+410,30],[55,domeRim+365,0],[43.5,domeRim+365,0]],{radius:3,color:CABLE.signal,clips:5,backing:{offset:[18,0,0],feet:[[2,[60,beamY-12,15]],[4,[20,domeRim+430,0]]]}});
   cable(head,'S1 / dome-light lead',[[43.5,domeRim+365,0],[90,domeRim+340,0],[220,domeRim+240,0],[225,domeRim+60,0],[211,domeRim+4,0]],{radius:2.5,color:CABLE.power,clips:3});
   const setHead = v => { head.position.z = (1 - v) * LAYOUT.s1HeadOut; cameraHarness.set(head.position.z); };
   setHead(0);
