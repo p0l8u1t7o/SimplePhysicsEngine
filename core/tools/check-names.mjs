@@ -17,24 +17,29 @@ export function clientNames() {
   return [...new Set(names.map(s => s.trim()).filter(s => s && !s.startsWith('#')))];
 }
 
-const SKIP = new Set(['.git', '.private', 'node_modules', 'docs', 'TEMP', '.studio', 'dist', 'logs']);
+const SKIP = new Set(['.git', '.private', 'node_modules', 'TEMP', '.studio', 'dist', 'logs']);
 const BINARY = /\.(png|jpe?g|webp|gif|mp4|mov|glb|bin|exe|zip|pdf|xlsx?|pptx?|docx?|ico|woff2?)$/i;
+// docs/ 只有站（project-site/<站>/docs、工作區 projects/<專案>/docs）的那一層是使用者資料、不掃；
+// 其他位置的 docs（例如進版控的 tools/docs）照常掃
+const siteDocs = (dir, name) => name === 'docs' && existsSync(join(dir, 'project.json'));
 function* walk(p) {
   const st = statSync(p);
   if (st.isFile()) { yield p; return; }
-  for (const d of readdirSync(p, { withFileTypes: true })) if (!SKIP.has(d.name)) yield* walk(join(p, d.name));
+  for (const d of readdirSync(p, { withFileTypes: true })) if (!SKIP.has(d.name) && !siteDocs(p, d.name)) yield* walk(join(p, d.name));
 }
 
-// 回傳 [{ file, line, name }]；檔名本身含名稱也算
+// 回傳 [{ file, line, name }]；檔名本身含名稱也算。英文字母不分大小寫（全大寫、全小寫的寫法也要擋）
 export function scan(paths, names = clientNames(), readText = f => readFileSync(f, 'utf8')) {
   const hits = [];
   if (!names.length) return hits;
+  const lower = names.map(n => [n, n.toLowerCase()]);
   for (const f of paths) {
-    for (const n of names) if (f.includes(n)) hits.push({ file: f, line: 0, name: n });
+    const fl = f.toLowerCase();
+    for (const [n, k] of lower) if (fl.includes(k)) hits.push({ file: f, line: 0, name: n });
     if (BINARY.test(f)) continue;
     let text; try { text = readText(f); } catch { continue; }
     if (text == null) continue;
-    text.split('\n').forEach((l, i) => { for (const n of names) if (l.includes(n)) hits.push({ file: f, line: i + 1, name: n }); });
+    text.split('\n').forEach((l, i) => { const ll = l.toLowerCase(); for (const [n, k] of lower) if (ll.includes(k)) hits.push({ file: f, line: i + 1, name: n }); });
   }
   return hits;
 }

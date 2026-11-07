@@ -25,7 +25,8 @@ export const slug = id => id.toLowerCase().replace(/\s+/g, '-');
 export function scopeNamed(seg, ids = projectIds()) {
   if (!seg) return null;
   const s = seg.toLowerCase();
-  return FIXED.find(f => f === s) || ids.find(id => id.toLowerCase() === s) || null;
+  // 也接受分支用的 slug（shutter-assembly → shutter assembly）
+  return FIXED.find(f => f === s) || ids.find(id => id.toLowerCase() === s) || ids.find(id => slug(id) === s) || null;
 }
 export const scopeOfBranch = (branch, ids = projectIds()) => {
   const seg = (branch || '').split('/')[0].toLowerCase();

@@ -11,7 +11,8 @@ import { viewNames } from './views.mjs';
 
 const argv = process.argv.slice(2), opt = (k, d) => { const i = argv.indexOf(k); return i >= 0 ? argv.splice(i, 2)[1] : d; };
 const PORT = +opt('--port', 8795), OUT = opt('--out', null);
-const [p] = pickProjects(argv.filter(a => !a.startsWith('--')));
+// pickProjects([]) 會回傳全部專案，所以要先看有沒有指定
+const names = argv.filter(a => !a.startsWith('--')), [p] = names.length ? pickProjects(names) : [];
 if (!p) { console.log('用法：node core/tools/perf-check.mjs <專案> [--port 8795] [--out 檔案.json]'); process.exit(2); }
 
 // 量一格：先強制重繪（按需重繪的舞台也要畫），累計這一格所有 render 呼叫

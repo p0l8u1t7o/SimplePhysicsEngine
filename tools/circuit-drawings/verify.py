@@ -74,6 +74,10 @@ def render(item):
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--render',action='store_true');args=parser.parse_args()
     results=[check(p) for p in sorted(ROOT.glob('project-site/*/docs/electrical/circuit-data.json'))]
+    if not results:
+        # docs/ 只留本機，新 clone 一定沒有；不能默默當成通過
+        print('略過：沒有任何 project-site/*/docs/electrical/circuit-data.json（docs/ 只在本機）')
+        raise SystemExit(3)
     if args.render:
         with ThreadPoolExecutor(max_workers=4) as pool:list(pool.map(render,results))
     for _,_,r in results:print(json.dumps(r,ensure_ascii=True))

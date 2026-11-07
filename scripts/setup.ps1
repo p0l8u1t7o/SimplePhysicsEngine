@@ -67,7 +67,10 @@ $asDir = if ($env:SPE_AUTOMATION_SCHEMA) { $env:SPE_AUTOMATION_SCHEMA } else { J
 if (-not (Test-Path (Join-Path $asDir 'generated\js\index.mjs'))) {
   Warn "找不到 $asDir（只有孿生 server 需要）。準備方式：git clone <Automation-Schema> `"$asDir`"; git -C `"$asDir`" checkout $($lock.tag)"
 } else {
+  # twin-schema 版本不符時寫 stderr；Stop 模式下 PS 5.1 會把它變成終止錯誤，後面的 Python、ffmpeg、快速檢查都不會跑
+  $ErrorActionPreference = 'Continue'
   & node (Join-Path $Root 'core\tools\twin-schema.mjs') 2>&1 | ForEach-Object { Write-Host "  $_" }
+  $ErrorActionPreference = 'Stop'
   if ($LASTEXITCODE -eq 0) { Ok "Automation-Schema $($lock.tag)" } else { Warn "版本與 lock 檔不符：git -C `"$asDir`" fetch --tags; git -C `"$asDir`" checkout $($lock.tag)" }
 }
 

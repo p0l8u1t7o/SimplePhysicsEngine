@@ -107,6 +107,7 @@ if (!argv.some(a => !a.startsWith('--')) && (!only || only.includes('structure')
 if (!WORKSPACE && !argv.some(a => !a.startsWith('--')) && (!only || only.includes('names'))) {
   const n = clientNames();
   const dirs = ['core', 'tools', 'scripts', '.github', '.githooks', 'studio/lib', 'studio/ui/src', 'studio/templates', 'studio/test',
+    'studio/ui/index.html', 'studio/ui/vite.config.js', 'studio/ui/package.json', '.gitignore',
     'AGENTS.md', 'CLAUDE.md', 'GEMINI.md', 'README.md', 'REQUIREMENTS.md', 'PENDING.md', 'requirements.txt', 'studio/README.md', 'studio/vs3d.mjs'].map(d => join(REPO, d));
   const h = n.length ? scanDirs(dirs, n) : [];
   results.push({ project: 'core', check: 'names', ok: !h.length, note: !n.length ? '沒有名單，略過' : h.length ? `${h.length} 處出現用戶名稱` : `通過（名單 ${n.length} 個）`, seconds: 0 });
@@ -129,6 +130,8 @@ for (const p of projects) {
     if (!r.ok) for (const d of r.detail || []) console.log('     ' + d);
   }
 }
+// --only 打錯名稱時一項都沒跑：不能當成通過，也不要覆寫上一次的結果檔
+if (only && !results.length) { console.log(`\n--only ${only.join(',')} 沒有對到任何檢查項目，沒有執行任何檢查`); process.exit(2); }
 const failed = results.filter(r => !r.ok);
 // 工作區模式只檢查單一專案時，結果寫在該專案的 TEMP/（代理的沙箱只能寫自己的專案資料夾）
 const tempDir = WORKSPACE && projects.length === 1 ? join(projects[0].dir, 'TEMP') : join(REPO, 'TEMP');

@@ -19,8 +19,14 @@ if (Test-Path $pidFile) {
   $entries = @(Get-Content $pidFile | Where-Object { $_ -match '^\w+ \d+ \d+$' } | ForEach-Object { $a = $_ -split ' '; [pscustomobject]@{ Name = $a[0]; Id = [int]$a[1]; Port = [int]$a[2] } })
 }
 $stopped = 0
+# PID 檔可能是舊的（重開機或 node 當掉後 PID 被別的程式重用）：命令列要是本專案的 serve.mjs／vs3d.mjs 才停
+function Test-Ours([int]$Id) {
+  $p = Get-CimInstance Win32_Process -Filter "ProcessId=$Id" -ErrorAction SilentlyContinue
+  return [bool]($p -and $p.CommandLine -and $p.CommandLine -match 'serve\.mjs|vs3d\.mjs')
+}
 foreach ($e in $entries | Where-Object { $want -contains $_.Name }) {
   if (-not (Get-Process -Id $e.Id -ErrorAction SilentlyContinue)) { continue }
+  if (-not (Test-Ours $e.Id)) { Write-Host "PID $($e.Id) 已經不是 $($e.Name) 的程序（PID 檔過期），略過" -ForegroundColor Yellow; continue }
   if ($e.Name -eq 'studio') {
     try {
       $info = Invoke-RestMethod -Uri "http://127.0.0.1:$($e.Port)/api/info" -TimeoutSec 2

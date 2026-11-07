@@ -48,7 +48,11 @@ function Save-Pid([string]$Name, [int]$Id, [int]$Port) {
 }
 function Get-Running([string]$Name) {
   $p = Read-Pids | Where-Object { $_.Name -eq $Name } | Select-Object -First 1
-  if ($p -and (Get-Process -Id $p.Id -ErrorAction SilentlyContinue) -and (Test-Port $p.Port)) { return $p }
+  if ($p -and (Get-Process -Id $p.Id -ErrorAction SilentlyContinue) -and (Test-Port $p.Port)) {
+    # PID 可能被別的程式重用：命令列要是本專案的 serve.mjs／vs3d.mjs 才算在執行
+    $proc = Get-CimInstance Win32_Process -Filter "ProcessId=$($p.Id)" -ErrorAction SilentlyContinue
+    if ($proc -and $proc.CommandLine -match 'serve\.mjs|vs3d\.mjs') { return $p }
+  }
   return $null
 }
 # 用 cmd /c 啟動並把輸出導到 logs\（Start-Process 在 PS 5.1 不幫參數加引號，路徑一律加引號）
@@ -56,7 +60,10 @@ function Start-Node([string]$Name, [string]$Arguments, [int]$Port) {
   $log = Join-Path $logs "$Name.log"
   $p = Start-Process -FilePath 'cmd.exe' -ArgumentList "/c node $Arguments > `"$log`" 2>&1" -WorkingDirectory $Root -WindowStyle Hidden -PassThru
   if (-not (Wait-Port $Port)) {
+    # 程序可能已經結束，taskkill 會寫 stderr；在 Stop 模式下 PS 5.1 會把它變成終止錯誤，蓋掉下面的訊息
+    $ErrorActionPreference = 'Continue'
     & taskkill /PID $p.Id /T /F 2>&1 | Out-Null
+    $ErrorActionPreference = 'Stop'
     Fail "$Name 沒有在 $Port 啟動，請看 $log"
   }
   Save-Pid $Name $p.Id $Port
