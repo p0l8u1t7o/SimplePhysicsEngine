@@ -98,7 +98,7 @@ if (!argv.some(a => !a.startsWith('--')) && (!only || only.includes('solar'))) {
 }
 // core 本身：案場工程模組的單元測試（core/structure 鋼構、core/piping 管路與水力、core/geo 座標／地形／點雲／現況比對、core/solar 日照、core/physics 的布料／流體與 core/weather 天候）
 if (!argv.some(a => !a.startsWith('--')) && (!only || only.includes('engineering'))) {
-  const files = [...['structure', 'geo', 'solar', 'physics', 'electrical', 'anim', 'tools', 'robot'].map(m => join(CORE, m, 'test')), join(REPO, 'tools', 'cfd', 'test')].flatMap(d => { return existsSync(d) ? readdirSync(d).filter(f => f.endsWith('.test.mjs')).sort().map(f => join(d, f)) : []; });
+  const files = [...['structure', 'geo', 'solar', 'physics', 'electrical', 'anim', 'tools', 'robot', 'models'].map(m => join(CORE, m, 'test')), join(REPO, 'tools', 'cfd', 'test')].flatMap(d => { return existsSync(d) ? readdirSync(d).filter(f => f.endsWith('.test.mjs')).sort().map(f => join(d, f)) : []; });
   const t0 = Date.now(), r = await runScript({ dir: CORE }, '--test', files, { echo: false });
   const sec = (Date.now() - t0) / 1000, num = k => +(new RegExp(`^ℹ ${k} (\\d+)`, 'm').exec(r.out)?.[1] ?? NaN);
   results.push({ project: 'core', check: 'engineering', ok: r.code === 0 && num('fail') === 0, note: `${num('pass')}/${num('tests')} 項（${files.length} 個測試檔）`, seconds: +sec.toFixed(1) });

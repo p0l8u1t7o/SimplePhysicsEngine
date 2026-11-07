@@ -646,5 +646,37 @@
     "meshes": 3,
     "dynamic": [],
     "zfight": []
+  },
+  {
+    "id": "pv-module",
+    "name": "太陽能板（單片，鋁框）",
+    "ok": true,
+    "meshes": 6,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "pv-fixed-rack",
+    "name": "固定式光伏支架（依地形）",
+    "ok": true,
+    "meshes": 0,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "pv-tracker",
+    "name": "單軸追日支架（依地形）",
+    "ok": true,
+    "meshes": 0,
+    "dynamic": [],
+    "zfight": []
+  },
+  {
+    "id": "string-inverter",
+    "name": "組串式變流器（壁掛）",
+    "ok": true,
+    "meshes": 27,
+    "dynamic": [],
+    "zfight": []
   }
 ]

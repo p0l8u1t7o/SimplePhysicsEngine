@@ -9,12 +9,12 @@
 | `vendor/` | three.js r187（`three.module.js`＋`three.core.js`，r171 起拆成兩個檔，`three.module.js` 以相對路徑引用 `three.core.js`）與 addons，全站只有這一份；`rapier/`：Rapier 決定性版 0.21（剛體動力學，WebAssembly 內嵌，只由 `physics/` 引用）；`mujoco/`：MuJoCo 4.0.0（手臂動力學，wasm 瘦身後 gzip 內嵌，只由 `robot/dynamics.js` 引用） |
 | `geom/` | `shapes.js`（統一形狀：block／blockBetween／cylinder／rod／tube／pipe／profile／rounded／bevelBox／screw／decal／plate／floorText）、`materials.js`（共用材質表 MAT）、`hardware.js`（倒角外殼、螺栓、腳座、馬達、感測器…）、`environment.js`（地面 `floor()`）、`finish.js`、`surfaces.js`、`perforated.js` |
 | `robot/` | `kinematics.js`：6 軸阻尼最小平方 IK（參數可調）；`reach.js`：手臂可達檢查（IK 或工作空間包絡，回傳 layoutChecks 的列）；`dynamics.js`：MuJoCo 逆動力學（沿關節軌跡算各軸扭矩、負載的手腕力矩與慣量、對上限的比例，回傳 layoutChecks 的列；參數在 `dynamics/<手臂>.js`，目前有 VS-068，質量與扭矩上限是估計值）；`payload.js`：從 3D 工具模型估負載（`estimatePayload`、`combinePayloads`，給 `verify.dynamics` 用） |
-| `models/` | 共用模型庫：每個模型有 `meta`（名稱、分類、可調參數、可動狀態、用法）與 `create(params) → { root, set(state) }`，在 `models/index.js` 登記；`models/parts.js`：`fromPart(元件編號)` 用元件庫的模型與參數建立並標 `partRef`、`tagPart`；目錄頁 `/core/catalog/` 可預覽、調參與搜尋。共 81 個，清單見下方「共用模型」 |
+| `models/` | 共用模型庫：每個模型有 `meta`（名稱、分類、可調參數、可動狀態、用法）與 `create(params) → { root, set(state) }`，在 `models/index.js` 登記；`models/parts.js`：`fromPart(元件編號)` 用元件庫的模型與參數建立並標 `partRef`、`tagPart`；目錄頁 `/core/catalog/` 可預覽、調參與搜尋。共 85 個，清單見下方「共用模型」 |
 | `migrations/` | 各版共用模型的換用對照（各站把自己畫的零件換成共用模型時照著改）：`1.10.0-vision.md`、`1.10.0-motion.md`、`1.10.0-equipment.md`、`1.10.0-transport.md`；1.9.0 的對照表在 `MIGRATION.md` |
 | `catalog/` | 模型目錄頁（發布在 Pages） |
 | `anim/` | `sampling.js`：取樣時間（網頁與檢查共用，不依賴 three）；`cycle.js`：節拍分析（各站佔用、稼動率、瓶頸）；`track.js`：時間軌與時間軸（`createTimeline`、`Track`、`smooth`），狀態只由時間決定；`sequence.js`：單一手臂的步驟序列；`arrival.js`：手臂到位閘門（播放時等手臂到位、逾時故障） |
 | `electrical/` | `cable-routing.js`（線材 `cable`、拖鏈 `carrier`、`solidMeshes`）、`electrical-cabinet.js`（電盤櫃、背板、穿板接頭）、`electrical-components.js`（電控元件、`component()` 元件表、`robotController`）、`electrical-inspector.js`／`.css`（電控檢視器） |
-| `examples/` | `segment2/`：第二段（電控、電盤、配線、相機子畫面、視覺疊圖）的完整範例與說明，跟著 core 一起檢查；新專案照 `examples/segment2/README.md` 做。`physics/`：剛體動力學四種用途（物料流、掉落與滑槽、料箱堆積、夾取穩定）與線材的範例頁與檢查。`dynamics/`：手臂動力學的自我檢查。`structure/`：起伏地形上的固定式與追日支架、清洗水管（1D 水力）、電纜槽（電壓降），追日依太陽轉（SPA、回溯）並和固定式、地形一起算遮陰（`?h=8&d=12,21&bt=0`）。`solar/`：追日陣列的日照遮陰（SPA、回溯、BVH 逐片遮陰、晴空日射；`?h=10&d=12,21&bt=1` 指定時間、日期、回溯）。`cfd/`：外部 CFD 結果檢視（切面、流線、箭頭、障礙物表面 Cp、風力表；預設讀解析式假流場 `demo.cfdpack.gz`，`?pack=` 指定真的結果）。`weather/`：天候（大雪後放晴：10° 與 35° 的積雪、滑落、發電損失與雪載重；午後雷雨：雨絲、板面逕流、風載重；日射接 `core/solar`；`?sc=snow&h=38`） |
+| `examples/` | `segment2/`：第二段（電控、電盤、配線、相機子畫面、視覺疊圖）的完整範例與說明，跟著 core 一起檢查；新專案照 `examples/segment2/README.md` 做。`physics/`：剛體動力學四種用途（物料流、掉落與滑槽、料箱堆積、夾取穩定）與線材的範例頁與檢查。`dynamics/`：手臂動力學的自我檢查。`structure/`：起伏地形上的固定式與追日支架、清洗水管（1D 水力）、電纜槽（電壓降），地形走 core/geo 的 DSM 流程，追日依太陽轉（SPA、回溯）並和固定式、地形一起算遮陰，電纜槽終點是組串式變流器（`?h=8&d=12,21&bt=0`）。`solar/`：追日陣列的日照遮陰（SPA、回溯、BVH 逐片遮陰、晴空日射；`?h=10&d=12,21&bt=1` 指定時間、日期、回溯）。`cfd/`：外部 CFD 結果檢視（切面、流線、箭頭、障礙物表面 Cp、風力表；預設讀解析式假流場 `demo.cfdpack.gz`，`?pack=` 指定真的結果）。`weather/`：天候（大雪後放晴：10° 與 35° 的積雪、滑落、發電損失與雪載重；午後雷雨：雨絲、板面逕流、風載重；日射接 `core/solar`；`?sc=snow&h=38`） |
 | `optics/` | 機器視覺的光學計算（純函式：L1 視野、倍率、每像素、最小缺陷、景深、運動模糊、行頻、像圈、接口、頻寬、打光；L2 `lighting.js` 明暗場、缺陷對比、遮擋、近似模擬影像）與 3D 配置檢視頁 `optics/view.html`；studio 的光學工作台、`vs3d optics eval`、相機模型共用，說明在 `optics/README.md` |
 | `physics/` | 剛體動力學（Rapier 決定性版）：`physics.js` 預先烘焙軌跡（輸送帶、投料、移除區、治具、吸附、力控制兩指夾爪），`apply(t)` 只取樣、可以倒著拖；`analysis.js` 物料流、靜止時間、落點、料箱堆積與可抓取件、夾取滑移。`cloth.js` 布料與薄膜（XPBD，釘點可移動、可放開、側風）；`fluid.js` 粒子流體（PBF，噴嘴與流量、開口方槽與圓桶，畫面用，不是 CFD）；`collide.js` 兩者共用的碰撞形狀；`rope.js` 線材、軟管的 XPBD（錨點跟著時間動、會垂下與擺動，檢查線長夠不夠；1.17.0）。範例 `/core/examples/physics/`，說明在 `physics/README.md` |
 | `structure/` | 光伏支架鋼構（2026-11-07）：固定式與單軸追日，依地形 `height(x, z)` 算每支構件的位置、切長、角度、重量與基樁埋深，`bom()` 彙總；`pvFixedRack`／`pvTracker` 三維模型（每種構件一個 InstancedMesh）；風、雪載重只做估算；`structureChecks()` 回傳 layoutChecks 的列；`solarFrame()` 和 `core/solar` 的座標對齊（追日 φ = θ）。說明在 `structure/README.md` |
@@ -135,7 +135,7 @@ export function createProject({ scene, headless }) {
 
 `window.sim` 至少提供：`seekTo(t)`、`setView(name, instant)`、`views`（視角名稱陣列）、`total`、`play()`、`pause()`。
 
-## 共用模型（`core/models/`，81 個）
+## 共用模型（`core/models/`，85 個）
 
 每個模型是 `{ meta, create(參數) → { root, params, 子物件…, set? } }`（較早的手臂、輸送線等是整個模組匯出 `meta`、`create`）。`meta.params` 是目錄頁可調的數值，`meta.options` 是程式才傳的選項，`meta.states` 是 `set()` 的狀態範圍，`meta.usage` 是用法範例。新增模型後在 `models/index.js` 登記，就會出現在目錄頁並納入 `models` 檢查。
 
@@ -156,6 +156,7 @@ export function createProject({ scene, headless }) {
 | 電控周邊 | `equipment.js`：櫃側散熱風扇 `cabinetFan`、教導器與掛座 `teachPendant`（控制器、I/O 模組等電控元件在 `core/electrical`，不在這裡） |
 | 實驗室儀器 | `equipment-lab.js`：分析天平 `analyticalBalance`、自動進樣器 `autosampler`、電位滴定儀 `titrator`、機器人用移液模組 `pipetteModule`、移液吸頭 `pipetteTip`、廢液桶 `wasteCanister` |
 | 製程設備 | `equipment-process.js`：貼標機 `labeler`、翻桶機 `upender`、秤重顯示器 `weighIndicator`、風刀 `airKnife`、沖洗噴槍 `sprayLance`、熱風機 `hotAirBlower`、真空泵 `vacuumPump`、PE 儲槽 `storageTank`、離心泵 `centrifugalPump`、氣動隔膜泵 `diaphragmPump`、切換閥 `valve`、清運接頭 `transferCoupling`；`equipment.js`：離子風嘴 `ionizer` |
+| 光伏 | `pv.js`：太陽能板 `pvModule`（鋁框、電池片貼圖、背面接線盒）、大量板片 `pvArray(parent, modules)`（吃 core/solar 陣列配置的 `{ o, a, b }`，InstancedMesh）、組串式變流器 `stringInverter`（`set({ state })`）；支架是 `structure/build.js` 的 `pvFixedRack`、`pvTracker`（依地形逐支計算） |
 
 模型的結構慣例（走線與全場檢查靠它）：
 

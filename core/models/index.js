@@ -26,6 +26,8 @@ import { airCompressor, airTank, airManifold, cabinetFan, teachPendant, ionizer,
 import { analyticalBalance, autosampler, titrator, pipetteModule, pipetteTip, wasteCanister } from './equipment-lab.js';
 import { labeler, upender, weighIndicator, airKnife, sprayLance, hotAirBlower, vacuumPump, storageTank,
   centrifugalPump, diaphragmPump, valve, transferCoupling } from './equipment-process.js';
+import { pvModule, stringInverter } from './pv.js';
+import { pvFixedRack, pvTracker } from '../structure/build.js';
 
 export const MODELS = [
   // 機械手臂
@@ -54,4 +56,6 @@ export const MODELS = [
   // 製程設備
   labeler, upender, weighIndicator, airKnife, sprayLance, hotAirBlower, vacuumPump, storageTank,
   centrifugalPump, diaphragmPump, valve, transferCoupling, ionizer,
+  // 光伏（支架是 core/structure 的參數化鋼構；大量板片用 pv.js 的 pvArray）
+  pvModule, pvFixedRack, pvTracker, stringInverter,
 ];

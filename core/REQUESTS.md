@@ -16,12 +16,6 @@
 
 ## 待處理
 
-### 太陽能板、光伏支架與組串式變流器的共用模型
-- 提出：PV DEMO（2026-11-04；該站已於 2026-11-07 移除，暫代程式留在 commit `ad4b816`）
-- 暫代：`project-site/PV DEMO/web/js/models.js`（見 `ad4b816`）的 `createPanels`（InstancedMesh＋電池片貼圖）、`createRackSteel`（三角桁架＋檁條）、`createPower` 裡的變流器機箱（顯示窗、狀態燈）；SolarDismantling 的 `panel.js` 另有可拆零件的板
-- 期望介面：`@core/models` 加 `pvModule({ L, W, T, cells })`（批次版 `pvArray(parent, list)`）、`pvRack({ tilt, rows, cols })`、`stringInverter({ kw })`（`set({ state })`）
-- 影響：ParkingEMS（光電車棚）、SolarDismantling、之後的光儲類案子
-
 ### 室外場景的環境光強度
 - 提出：PV DEMO（2026-11-04；該站已於 2026-11-07 移除，暫代程式留在 commit `ad4b816`）
 - 暫代：`project-site/PV DEMO/web/js/main.js`（見 `ad4b816`）的 `envMats`（逐材質設 `envMapIntensity`，隨太陽高度變化）

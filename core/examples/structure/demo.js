@@ -14,9 +14,24 @@ import { stringDrop } from '@core/piping/cable.js';
 import { routeChecks, hydraulicChecks, voltageDropChecks } from '@core/piping/checks.js';
 import { createPipeBatch, routeTray, PIPE_MAT } from '@core/piping/build.js';
 import { PIPE_SCH40 } from '@core/piping/sizes.js';
+import { twd97, createSiteFrame, createTerrain } from '@core/geo/index.js';
+import { stringInverter } from '@core/models/pv.js';
 
-// 地形（mm）：緩坡＋起伏
-const height = (x, z) => 700 * Math.sin(x / 9000) + 450 * Math.cos(z / 6500 + .7) + .025 * x - .03 * z;
+// 地形：走 core/geo 的 DSM 流程（和空拍 GeoTIFF 用 readElevation 讀進來的格式相同：TWD97、1 m 像素、高程 m），
+// 這裡用解析式合成一份當示範；正式案場換成 readElevation(await (await fetch('dsm.tif')).arrayBuffer())。
+// 鋼構、管路、遮陰都用 terrain.heightAt（原始 DSM 雙線性），畫面用分塊網格
+const site = createSiteFrame({ crs: twd97(), origin: { E: 182000, N: 2543000, H: 30 } });
+const dsm = (() => {
+  const W = 120, H = 70, E0 = site.origin.E - 30, N0 = site.origin.N + 45, data = new Float32Array(W * H);
+  const shape = (x, z) => 700 * Math.sin(x / 9000) + 450 * Math.cos(z / 6500 + .7) + .025 * x - .03 * z;   // mm
+  for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) {
+    const p = site.fromMap(E0 + c + 0.5, N0 - r - 0.5, site.origin.H);                                         // 像素中心
+    data[r * W + c] = site.origin.H + shape(p.x, p.z) / 1000;
+  }
+  return { width: W, height: H, data, transform: [1, 0, E0, 0, -1, N0], crs: site.crs, pixelSize: 1 };
+})();
+const ground = createTerrain(dsm, site, { spacing: 500 });
+const height = (x, z) => ground.heightAt(x, z);
 
 const view = document.getElementById('view');
 const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
@@ -29,26 +44,23 @@ const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(20000, 6
 sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096); Object.assign(sun.shadow.camera, { left: -60000, right: 60000, top: 60000, bottom: -60000, near: 1000, far: 200000 });
 scene.add(sun, sun.target);
 
-// 地形網格
-let terrain;
-{
-  const g = new THREE.PlaneGeometry(110000, 60000, 220, 120); g.rotateX(-Math.PI / 2); g.translate(30000, 0, -10000);
-  const p = g.attributes.position; for (let i = 0; i < p.count; i++) p.setY(i, height(p.getX(i), p.getZ(i)));
-  g.computeVertexNormals();
-  const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: 0x8a9a6a, roughness: .95 })); m.receiveShadow = true; m.name = 'terrain'; scene.add(m); terrain = m;
-}
+// 地形網格（core/geo 的分塊地形；遮陰的 BVH 也加它）
+const terrain = ground.root;
+ground.material.color.set(0x8a9a6a);
+for (const c of ground.chunks) c.receiveShadow = true;
+scene.add(terrain);
 
 // 鋼構
 const rack = pvFixedRack.create({ rows: 3, tablesPerRow: 1, across: 20, tilt: 20, origin: [0, 0], height });
 const fFix = solarFrame({ kind: 'fixed', azimuth: 180 }), fTrk = solarFrame({ kind: 'tracker', axisAzimuth: 180, origin: [32000, 0, -34000] });
 // 追日在本地座標排（軸沿本地 +X、列往本地 −Z），place 之後軸朝南、列往東排；地形用世界座標查
-const trk = pvTracker.create({ rows: 3, across: 40, origin: [0, 0], follow: 'terrain', height: fTrk.localGround(height) });
+const trk = pvTracker.create({ rows: 3, across: 40, origin: [0, 0], follow: 'line', height: fTrk.localGround(height) });   // 每列一直線（跟著地形走時 R1 的軸承轉折 3.4°，超過 1.5°）
 fTrk.place(trk.root);
 scene.add(rack.root, trk.root);
 
 // 清洗水管：水池 → 沿固定式第一列前方，管中心離地 500，DN50 冷彎
-const along = (x, z, h = 500) => [x, height(x, z) + h, z];
-const pipePts = [along(-6000, 3500, 300), along(-3000, 2500), along(4000, 2500), along(11000, 2500), along(18000, 2500), along(23000, 2500)];
+const along = (x, z, h = 560) => [x, height(x, z) + h, z];   // 路點離地 560：直線段跨過地形起伏時，離地仍 ≥ 300 mm
+const pipePts = [along(-6000, 3500, 340), along(-3000, 2500), along(4000, 2500), along(11000, 2500), along(18000, 2500), along(23000, 2500)];
 const pipe = routePipe(pipePts, { size: 'DN50', bendType: 'pipe-bend' });
 // 1D 水力：三個清洗噴頭（各 40 L/min、要 1.5 bar），水池水面高程＝地面 + 1 m
 const D = PIPE_SCH40.DN50.ID / 1000, link = routeToLink(pipe);
@@ -68,8 +80,15 @@ const hyd = solveNetwork({
   ],
 });
 // 直流電纜槽：追日區西側往南到變流器
-const trayPts = [along(29000, 300, 300), along(29000, -11000, 300), along(26000, -14000, 300), [26000, height(26000, -14000) + 1200, -14000]];
+const trayPts = [along(29000, 300, 380), along(29000, -11000, 380), along(26000, -14000, 380), [26000, height(26000, -14000) + 1200, -14000]];
 const tray = routePipe(trayPts, { size: 'TRAY-200x75', minR: 300 });
+// 電纜槽的終點：立柱上的組串式變流器（core/models/pv.js；底部接頭在槽口正上方，背面朝北）
+const gInv = height(26000, -14000), inv = stringInverter.create({ kw: 100 });
+inv.root.position.set(26000, gInv + 1240, -14000 - (30 + Math.round(290 * Math.cbrt(2)) * 0.55)); scene.add(inv.root);
+{
+  const post = new THREE.Mesh(new THREE.BoxGeometry(100, 2200, 100), new THREE.MeshStandardMaterial({ color: 0x9aa3aa, metalness: .6, roughness: .45 }));
+  post.position.set(26000, gInv + 1100, inv.root.position.z - 60); post.castShadow = true; scene.add(post);
+}
 const strings = trk.layout.rows.map(r => ({ id: `${r.id} 組串`, ...stringDrop({ modules: 20, vmp: 44.1, imp: 13.15, length: (tray.developed + trk.layout.summary.axisLength / 2) / 1000, cable: 'PV-6', T: 70 }) }));
 
 const pipes = createPipeBatch({ material: PIPE_MAT.pvc }).add(pipe).build();
@@ -128,7 +147,7 @@ const qp = new URLSearchParams(location.search);
 if (qp.has('h')) { $('hour').value = qp.get('h'); $('mode').value = qp.get('bt') === '0' ? 'nobt' : 'bt'; }
 if (qp.has('d')) $('day').value = qp.get('d');
 update();
-window.demo = { rack, trk, pipe, tray, hyd, strings, frames: { fixed: fFix, tracker: fTrk }, get state() { return state; } };
+window.demo = { rack, trk, pipe, tray, hyd, strings, site, ground, inverter: inv, frames: { fixed: fFix, tracker: fTrk }, get state() { return state; } };
 
 function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); }
 addEventListener('resize', resize); resize();

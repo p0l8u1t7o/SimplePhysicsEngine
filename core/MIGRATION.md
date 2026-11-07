@@ -232,6 +232,8 @@ Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs
 ## 2026-11-07：core 1.20.2 影片涵蓋範圍、日照的發電量檢查、core 模型小需求
 
 - `movie/movie.js` 的 `.shots.json` 多記 `simulationStart`（製程鏡頭的起點；`?scope=qc` 這種只拍一段的影片不是 0），`tools/movie-export/verify.py` 改成檢查從這裡連續涵蓋到結束；舊輸出沒有這個欄位時用第一個鏡頭並印提醒。定子站 QC 影片因此通過（原本被當成漏拍 0～20.2 s）。
+- **光伏共用模型**（`models/pv.js`，原 REQUESTS「太陽能板、光伏支架與組串式變流器的共用模型」）：`pvModule`（鋁框、電池片 DataTexture、背面接線盒）、`pvArray`（吃 core/solar 板片 `{ o, a, b }` 的 InstancedMesh，受光面和日照計算的平行四邊形重合，`update` 給追日）、`stringInverter`（壁掛，`set({ state })` 待機／運轉／故障燈）；支架直接用 core/structure 的 `pvFixedRack`／`pvTracker`，四個都登記到目錄（分類「光伏」）。ParkingEMS、SolarDismantling 的暫代程式可以改用（各站驗證後再換）。
+- 範例 `/core/examples/structure/`：地形改走 core/geo 的 DSM 流程（合成一份 TWD97、1 m 像素的高程網格 → `createTerrain`，鋼構、管路、遮陰都用 `heightAt`；和原本的解析地形差 0.1 mm）、電纜槽終點放上組串式變流器；追日改成每列一直線（跟地形走時 R1 的軸承轉折 3.4° 超過 1.5°），清洗水管與電纜槽的路點抬高，範例的 27 項檢查全部通過（之前有 3 項不通過）。
 - `verify.solar.energy`：全年發電列（`verify/solar.mjs`），讀站的天候檔、照陣列組 `simulate`，和預期值或上次的 `review/solar-checks.json` 比，容許 `SITE_PRECISION.energyRel`。
 
 ## 2026-11-07：core 1.20.1 巡檢疑點修正、高精度門檻、從 3D 模型估手臂負載
@@ -348,7 +350,7 @@ Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs
 
 | 版本 | 日期 | 內容 |
 |---|---|---|
-| 1.20.2 | 2026-11-07 | 影片 `simulationStart`；`verify.solar.energy` 全年發電列 |
+| 1.20.2 | 2026-11-07 | 影片 `simulationStart`；`verify.solar.energy` 全年發電列；光伏共用模型 `models/pv.js`（`pvModule`、`pvArray`、`stringInverter`）＋支架登記到目錄；結構範例改用 DSM 地形 |
 | 1.20.1 | 2026-11-07 | 巡檢疑點修正（twinUrl、clampable、Track.end、axisWindow、localeCompare、stage stop／dispose、scope-guard 長路徑、interference sourceHash、ui-check 標籤、movie verify）；`solar/precision.js` 高精度門檻；`robot/payload.js` 從 3D 模型估負載 |
 | 1.20.0 | 2026-11-07 | 布料（`physics/cloth.js`）、粒子流體（`physics/fluid.js`）、天候（`weather/`）、外部 CFD（`cfd/`＋`tools/cfd/`）、LAZ（`vendor/laz-perf`、`geo/laz.js`）、站層檢查 `solar`（含外部遮擋）與 `dynamics`（只警告）、core 檢查 `solar`（Node 與瀏覽器雜湊）、`structure/solar-frame.js` 座標對齊、`simulate({ hourlyLoss })` 與積雪損失、範例 `weather/`；剛體物理改用 dmath；`scene` 略過 core 標 `nonSolid` 的網格 |
 | 1.19.0 | 2026-11-07 | 新模組 `solar/`（SPA、追日回溯、晴空與斜面日射、雙面、BVH 遮陰、全年發電；和 pvlib 一致到浮點捨入）與 `math/dmath.js`（決定性超越函式）；`physics/rope.js` 改用 dmath。各站畫面與檢查不受影響 |
