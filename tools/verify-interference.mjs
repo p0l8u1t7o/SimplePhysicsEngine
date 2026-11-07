@@ -3,7 +3,7 @@ import { REGISTER } from '../core/tools/run.mjs';
 import { spawn } from 'node:child_process';
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { basename, dirname, join, relative } from 'node:path';
+import { basename, dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -31,7 +31,9 @@ async function sourceHash(project) {
   }
   await walk(join(root, 'project-site', project, 'web', 'js')); await walk(join(root, 'project-site', project, 'tools'));
   files.push(join(root, 'tools', 'geometry-clearance.mjs'), join(root, 'tools', 'verify-vision.mjs'), join(root,'core','vendor','three.module.js'));
-  for (const path of files.sort()) hash.update(relative(root, path)).update(await readFile(path));
+  // 路徑一律用 / 、內容的 CRLF 換成 LF：Windows（autocrlf）和 Linux CI 算出同一個雜湊
+  const rel = p => relative(root, p).split(sep).join('/');
+  for (const path of files.sort((a, b) => (rel(a) < rel(b) ? -1 : rel(a) > rel(b) ? 1 : 0))) hash.update(rel(path)).update((await readFile(path, 'utf8')).replace(/\r\n/g, '\n'));
   return hash.digest('hex');
 }
 async function run(project, script) {

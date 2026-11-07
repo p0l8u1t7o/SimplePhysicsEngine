@@ -132,8 +132,15 @@ async function checkDevice(b, p, name, dev, cfg) {
   put('panels', !panelBad.length, panelBad.length ? panels : undefined);
 
   // 標籤（回到第一個視角，重繪後量）
+  // 標籤避讓（declutter）會隔幾格才收斂：每 100 ms 量一次，連續兩次相同才採用（最多約 2 秒），報告的可見數才不會隨時序跳動
   await ev(`(sim.setView?.(sim.views?.[0], true), 1)`); await b.frames(); await sleep(150);
-  const lab = await ev('__ui.labels()');
+  let lab = await ev('__ui.labels()');
+  for (let k = 0; k < 20; k++) {
+    await b.frames(); await sleep(100);
+    const next = await ev('__ui.labels()');
+    if (JSON.stringify(next) === JSON.stringify(lab)) break;
+    lab = next;
+  }
   put('labels', lab.outside === 0 && (!compact || lab.overlaps === 0), lab);
 
   // 點按目標

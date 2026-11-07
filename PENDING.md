@@ -15,17 +15,10 @@
   - 開蓋站的萬向球旋轉台與桶蓋收集桶重疊 37～45 mm。
   - PE 儲槽 TK-F 的液位視管插進 TK-R 槽體約 10 mm（束帶約 19 mm）；TK-R 的視管插進防溢堤北牆約 10 mm。
 - [ ] core 模型的後續（已登記 `core/REQUESTS.md`）：`decal`／模型標籤改成建立當下判斷 `document`（SSD 的手腕相機標籤因此留在站內）；模型加 `cableHost` 選項；`codeReader` 機身預設名稱。
+- [ ] StatorHeightMeasurement 的 QC 情境影片（本機 `TEMP/videos/StatorHeightMeasurement-qc-*-20261102/`）：製程鏡頭從 20.2 s 才開始，0～20.2 s 沒有被任何製程鏡頭涵蓋，`tools/movie-export/verify.py` 的「時間軸從 0 開始」檢查不通過（2026-11-07 修好 verify.py 找子資料夾之後才發現；之前它找不到這些影片）。要看是 `core/movie` 在情境的第一個步驟不在 0 時要補一段，還是這種情境本來就只拍後段、檢查要放寬。
 - [ ] 快門站的 11 張基準截圖都拍不到三色燈（在外罩頂後方），截圖回歸對它沒有保護；考慮加一個看得到外罩頂的視角。
 - [ ] 回收物分揀：光幕依 ISO 13855 的安全距離 668 mm 在現有框架內不成立，畫面只畫示意；實機防護位置待風險評估（對客戶說明時要提）。
 - [ ] 杯體量測站的電路圖冊（`docs/circuit-diagrams.pdf`，2026-09-29 另一版產生器、版次 1.1）沒有 I/O 清單頁：`tools/circuit-drawings/verify.py`（2026-11-07 起認得這版的 `devices` 欄位）檢查出 18 個 I/O 點的線號只出現在接線圖、沒有出現在清單（其他 5 站的圖冊都有 500 系列 I/O 清單）。元件、軸、圖框、A3 尺寸、文字重疊都通過。要補 I/O 清單頁時，改用 `render.py` 的格式重產，或在該版產生器加一頁。
-- [ ] 2026-11-07 巡檢沒能證實、先記著的疑點（core）：
-  - `twin/view.js` 的 `twinUrl` 註解說只給埠號時用目前主機，程式寫死 `127.0.0.1`（從區網其他電腦開頁面會連錯）。
-  - `electrical/cable-routing.js` 的 `clampable`：`parameters.shapes` 是陣列時判斷不到開孔（`verify/scene.mjs` 有用 `[shapes].flat()`）。
-  - `anim/track.js`：`createTimeline().total` 不計軌尾的 `hold(until)`。
-  - `twin/sensors.js`：`axisWindow` 用 `ax.pos` 判斷、沒加追隨誤差，回報的 `pos` 有加；要對照協定原意。
-  - `physics.js` 的 spawner／drops 排序用 `localeCompare`，同時刻的中文 id 在不同語系瀏覽器順序可能不同。
-  - `ui/stage.js`：`stop()` 後立刻 `loop()` 會有兩條 rAF；`resize` 監聽不移除（目前沒有呼叫端用 `stop()`）。
-  - 工具：`scope-guard` 對 `\\?\` 長路徑前綴放行；`verify-interference.mjs` 的 sourceHash 在 Windows／Linux 不同；`ui-check.json` 的標籤可見數可能隨避讓時序變動；`movie-export/verify.py` 預設只找 `TEMP/videos/*.shots.json`、找不到子資料夾裡的輸出。
 
 ### 2. 3D 動畫生成應用程式（studio）
 
@@ -71,13 +64,12 @@
 
 2026-11-07 已完成並進 core（1.17.0～1.20.0，細節在 `core/MIGRATION.md`）：three.js r187、XPBD 線材／布料、PBF 粒子流體、天候（雨雪、積雪、雪風載重估算、逕流）、MuJoCo 手臂動力學、`core/solar`、`core/geo`（含 LAZ）、`core/structure`、`core/piping`、外部 CFD 的案例產生與匯入（`tools/cfd`、`core/cfd`）、範例頁 `/core/examples/solar/`、`/core/examples/structure/`。剩下的：
 
-- [ ] 「高精度」的門檻請使用者確認後寫進檢查：幾何 ±3～5 cm（RTK 空拍）、太陽位置 ±0.01°、發電量與 pvlib 相差 < 2%（目前 core/solar 對 pvlib 的差在浮點捨入等級）。
 - [ ] 日照檢查的後續：站層 `verify.solar`（`core/verify/solar.mjs`，2026-11-07）已有冬至列間遮陰、排距 90% 的對照組與追日回溯；外部遮擋（`obstacles`：方塊、四邊形、地形函式）另列一列；還沒做發電量對 pvlib 或上次結果的檢查列。目前沒有站宣告 `verify.solar`。
-- [ ] 天候資料來源先依建議採用（2026-11-07 授權當晚依建議進行，使用者可再改；`tools/weather/README.md`）：可行性評估用 PVGIS（`fetch-tmy.mjs`；台灣只有 PVGIS-ERA5 再分析），正式發電量用 NSRDB Himawari（要使用者申請 NREL 金鑰），中央氣象署實測校正；還沒做的是 NSRDB 實際下載後對一次欄位與時間標記、和氣象署實測的比對。ΔT 維持 pvlib 的多項式（台灣方位差 < 0.007°，在 ±0.01° 內）；全年遮陰的 Worker 平行與先篩可能被遮的排（2026-11-07 量測：10,000 片＋8 萬三角形地形，單執行緒 1°×2° 分箱全年 1.5 分、2°×4° 0.8 分，可接受；先篩用掃掠包圍盒在低太陽角時幾乎篩不掉，暫不做）。
+- [ ] 天候資料來源先依建議採用（2026-11-07 授權當晚依建議進行，使用者可再改；`tools/weather/README.md`）：可行性評估用 PVGIS（`fetch-tmy.mjs`；台灣只有 PVGIS-ERA5 再分析），正式發電量用 NSRDB Himawari（要使用者申請 NREL 金鑰），中央氣象署實測校正；還沒做的是 NSRDB 實際下載後對一次欄位與時間標記、和氣象署實測的比對。ΔT 維持 pvlib 的多項式（台灣的太陽方向夾角差 < 0.0001°，在 ±0.01° 內）；全年遮陰的 Worker 平行與先篩可能被遮的排（2026-11-07 量測：10,000 片＋8 萬三角形地形，單執行緒 1°×2° 分箱全年 1.5 分、2°×4° 0.8 分，可接受；先篩用掃掠包圍盒在低太陽角時幾乎篩不掉，暫不做）。
 - [ ] 案場整合：鋼構與日照的座標慣例已定（`core/structure/solar-frame.js`，追日 φ = θ；範例 `/core/examples/structure/` 依太陽轉並算遮陰，2026-11-07）；還沒做的是地形改用 `core/geo` 的 DSM、鋼構檢查列與 `verify.solar` 合併成一個站層宣告；`core/REQUESTS.md` 的 `pvModule`／`pvRack`／`stringInverter` 共用模型用 `solar/layout.js` 的配置與 InstancedMesh 做。
 - [ ] `core/geo`：3D Tiles（3d-tiles-renderer 0.5.3，Apache-2.0，要一起放 r187 的 GLTFLoader、BufferGeometryUtils；壓縮圖磚另要 DRACO／KTX2）；大檔用 HTTP Range 分段讀；JPEG 壓縮的正射影像；大地起伏模型；OBJ 的大檔串流讀取與壓縮貼圖（`core/geo/obj.js` 已能讀地理參考 OBJ，2026-11-07）；影片疊圖介面；熱影像熱斑標記。
 - [ ] 外部 CFD 實跑：本機沒有 Docker 也沒有 WSL 發行版，產生的字典還沒在真的 OpenFOAM（v2412）上跑過；要確認 `atmBoundaryLayerInletOmega` 參數、`z0`／`d` 寫法、VTK legacy 輸出、streamLine 與 surfaces 的檔名配置；之後做網格獨立性、interFoam、OpenFOAM.org 版本開關、殘差與 y+ 圖表（展示頁已搬到 `/core/examples/cfd/`，2026-11-07）。注意 `cpu-cap.ps1` 管不到 Docker／WSL 的虛擬機，要用 `--cpus` 或 `.wslconfig` 限制。
-- [ ] MuJoCo：各手臂的質量、慣量與扭矩上限換成實際資料（DENSO 的 URDF 或型錄，先確認授權），目前只有 VS-068 而且是估計值；站層檢查 `verify.dynamics` 已有（`core/verify/dynamics.mjs`，只警告，2026-11-07），RobotArmPressSSD 已宣告（2026-11-07：J2 峰值約估計上限的 27%，無警告；工具＋相機＋工件 2.6 kg 是估計值，待確認）；TeflonWelding 的 VS-068 方案（預設、B）也已宣告（倒裝，重力換到基座座標；J2 峰值約 41%；快換盤＋工具 3.5 kg 是估計值，待確認）；COBOTTA PRO 900 等其他型號還沒有動力學參數；孿生的跟隨誤差（`mj_step`＋位置致動器）。
+- [ ] MuJoCo：VS-068 的連桿質量、慣量與扭矩上限換成實際資料（DENSO 的 URDF 或型錄，先確認授權），目前是估計值；COBOTTA PRO 900 等其他型號還沒有動力學參數；孿生的跟隨誤差（`mj_step`＋位置致動器）。站層 `verify.dynamics` 的負載改從 3D 工具模型估（2026-11-07 第二輪拍板，`core/robot/payload.js`）：RobotArmPressSSD 1.21 kg（J2 峰值約估計上限的 24%）；**TeflonWelding 5.99 kg**（夾焊帶工具時，接近 VS-068 型錄的 7 kg；J5 負載力矩 11.5／16.6 N·m），其中熱風槍本體是 782 cm³ 的實心圓柱、當鋁算就有 2.1 kg，實際是中空的——拿到焊槍重量後在模型上標 `userData.mass`。
 - [ ] 天候與流體：規範係數核對（台灣耐風規範的 zs、ASCE 7-22 差異、JIS C 8955:2017）、雪模型參數校正；積雪損失已能接進全年發電（`snowLossSeries` → `simulate({ hourlyLoss })`，2026-11-07），追日的變動傾角與收藏策略還沒做；流體的休眠、Worker 烘焙、圓形容器的連續碰撞；布料的自我碰撞只做到節點之間（`selfCollision`，2026-11-07），邊與面的連續碰撞還沒有。
 - [ ] XPBD 線材接進各站：2026-11-07 盤點過 MilitaryGradePC（滑軌用拖鏈）、RobotArmPressSSD、PlumbingFixtureInspection（手臂線走在零件上），都沒有手臂到電盤的自由懸垂段，硬改不符合實際設備；等有真的懸垂線（示教器線、焊接管束、吊掛軟管）的站再用 `bakeRope`＋`verify.physics.stretchTol`，錨點函式用 `core/math/dmath.js`。
 - [ ] 表格數值核對：`structure`、`piping`、`weather` 的斷面、管徑、K 值、風雪係數多是記憶值（各 README 有清單），正式使用前要對照原文。

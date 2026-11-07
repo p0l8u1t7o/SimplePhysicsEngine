@@ -8,7 +8,7 @@
 |---|---|
 | `vendor/` | three.js r187（`three.module.js`＋`three.core.js`，r171 起拆成兩個檔，`three.module.js` 以相對路徑引用 `three.core.js`）與 addons，全站只有這一份；`rapier/`：Rapier 決定性版 0.21（剛體動力學，WebAssembly 內嵌，只由 `physics/` 引用）；`mujoco/`：MuJoCo 4.0.0（手臂動力學，wasm 瘦身後 gzip 內嵌，只由 `robot/dynamics.js` 引用） |
 | `geom/` | `shapes.js`（統一形狀：block／blockBetween／cylinder／rod／tube／pipe／profile／rounded／bevelBox／screw／decal／plate／floorText）、`materials.js`（共用材質表 MAT）、`hardware.js`（倒角外殼、螺栓、腳座、馬達、感測器…）、`environment.js`（地面 `floor()`）、`finish.js`、`surfaces.js`、`perforated.js` |
-| `robot/` | `kinematics.js`：6 軸阻尼最小平方 IK（參數可調）；`reach.js`：手臂可達檢查（IK 或工作空間包絡，回傳 layoutChecks 的列）；`dynamics.js`：MuJoCo 逆動力學（沿關節軌跡算各軸扭矩、負載的手腕力矩與慣量、對上限的比例，回傳 layoutChecks 的列；參數在 `dynamics/<手臂>.js`，目前有 VS-068，質量與扭矩上限是估計值） |
+| `robot/` | `kinematics.js`：6 軸阻尼最小平方 IK（參數可調）；`reach.js`：手臂可達檢查（IK 或工作空間包絡，回傳 layoutChecks 的列）；`dynamics.js`：MuJoCo 逆動力學（沿關節軌跡算各軸扭矩、負載的手腕力矩與慣量、對上限的比例，回傳 layoutChecks 的列；參數在 `dynamics/<手臂>.js`，目前有 VS-068，質量與扭矩上限是估計值）；`payload.js`：從 3D 工具模型估負載（`estimatePayload`、`combinePayloads`，給 `verify.dynamics` 用） |
 | `models/` | 共用模型庫：每個模型有 `meta`（名稱、分類、可調參數、可動狀態、用法）與 `create(params) → { root, set(state) }`，在 `models/index.js` 登記；`models/parts.js`：`fromPart(元件編號)` 用元件庫的模型與參數建立並標 `partRef`、`tagPart`；目錄頁 `/core/catalog/` 可預覽、調參與搜尋。共 81 個，清單見下方「共用模型」 |
 | `migrations/` | 各版共用模型的換用對照（各站把自己畫的零件換成共用模型時照著改）：`1.10.0-vision.md`、`1.10.0-motion.md`、`1.10.0-equipment.md`、`1.10.0-transport.md`；1.9.0 的對照表在 `MIGRATION.md` |
 | `catalog/` | 模型目錄頁（發布在 Pages） |
@@ -227,7 +227,7 @@ node core/tools/check.mjs --only scene     # 只跑某項
 | `electrical` | ✓ | 場景有電控元件或電盤時：元件在櫃內、編號不重複、機身不重疊、櫃內連線不穿元件、穿板孔與接頭；`verify.cables` 有宣告時另做配線動態取樣（線路與拖鏈對障礙物）。結果寫入 `review/electrical-checks.json`；沒有電控就略過 |
 | `bom` | ✓ | 場景的共用模型（`userData.coreModel`，優先用 `partRef` 編號）對照平台的 BOM：場景有但沒列進成本、成本表有模型但場景沒畫（標 `noScene` 的除外）；標 `noBom` 的現場既有設備不算。只警告；本機沒有平台資料庫（例如 CI）或站沒有成本表就略過。結果寫入 `review/bom-checks.json` |
 | `solar` | ✓ | `project.verify.solar` 宣告的光伏陣列（固定式或單軸追日）：冬至 9～15 時列間遮陰 ≤ `tol`（預設 0.5%）；對照組把排距縮成 90%（追日的回溯仍用設計排距）一定要抓得到遮陰，抓不到代表檢查放水；追日另列真追日的遮陰（資訊）；有 `obstacles`（`box`、`quads`、`terrain`）時另列含外部遮擋的最大遮陰（給 `obstacleTol` 才判定）。沒宣告就略過。結果寫入 `review/solar-checks.json`（`core/verify/solar.mjs`） |
-| `dynamics` | ✓ | `project.verify.dynamics.arms` 宣告的手臂（型號 `denso-vs068` 或 spec 物件、負載、`sample(t)` 關節角、倒裝或斜裝時的 `gravity`（基座座標））：MuJoCo 逆動力學的每軸峰值扭矩對型錄上限、負載質量、手腕力矩與慣量、軌跡連續。**只警告**（超過的列標 `warn`，不擋）；型號不存在才失敗。沒宣告就略過。結果寫入 `review/dynamics-checks.json`（`core/verify/dynamics.mjs`） |
+| `dynamics` | ✓ | `project.verify.dynamics.arms` 宣告的手臂（型號 `denso-vs068` 或 spec 物件、負載（數值，或回傳 `estimatePayload` 結果的函式）、`sample(t)` 關節角、倒裝或斜裝時的 `gravity`（基座座標））：MuJoCo 逆動力學的每軸峰值扭矩對型錄上限、負載質量、手腕力矩與慣量、軌跡連續。**只警告**（超過的列標 `warn`，不擋）；型號不存在才失敗。沒宣告就略過。結果寫入 `review/dynamics-checks.json`（`core/verify/dynamics.mjs`） |
 | `ui` |  | 標準互動測試（`core/tools/ui-check.mjs`）：桌面、手機直向、手機橫向、觸控平板四種尺寸，檢查載入與主控台錯誤、版面不溢出、畫布面積、播放／暫停、上一步／下一步／步驟選單、視角按鈕與選單收合、側欄、標籤在畫布內且（精簡版面）不重疊、點按目標 ≥ 30 px、`?movie`；結果寫入 `review/ui-check.json`，`--shots 資料夾` 另存截圖；`project.json` 的 `ui.skip`／`ui.params` 可設定 |
 | 專案自有 | 依 `checks` | `project.json` 的 `checks.quick`／`checks.full` |
 

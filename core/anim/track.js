@@ -38,7 +38,8 @@ export class Track {
   active(T) { const i = this.find(T); if (i < 0) return null; const s = this.steps[i]; return T < s.start + s.dur ? s : null; }
   // 一次取得狀態、所在步驟與是否動作中
   at(T) { const i = this.find(T), step = i < 0 ? null : this.steps[i]; return { state: this.sample(T), step, active: !!step && T < step.start + step.dur }; }
-  get end() { return this.steps.length ? Math.max(...this.steps.map(s => s.start + s.dur)) : 0; }
+  // 軌尾：最後一個步驟結束，或 hold(until) 等到的時間，取較晚者（2026-11-07 起 hold 也算；之前只看步驟，軌尾的等待不進 total）
+  get end() { return Math.max(this.t, this.steps.length ? Math.max(...this.steps.map(s => s.start + s.dur)) : 0); }
 }
 
 // 多條時間軌的集合：sample(T) 一次取得全部狀態，activity(T) 列出正在動作的步驟

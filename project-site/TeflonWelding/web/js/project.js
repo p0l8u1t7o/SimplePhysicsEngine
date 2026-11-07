@@ -12,6 +12,7 @@ import { buildPlan } from './plans.js';
 import { MAT } from '@core/geom/materials.js';
 import { block } from '@core/geom/shapes.js';
 import { addArmServices, addPeripheryDetails, addExtraction } from './details.js';
+import { estimatePayload, combinePayloads } from '@core/robot/payload.js';
 
 export { PLANS };
 export const STATIONS = ['上料定位', ...PROCESS.map(p => p.name), '補焊複檢', '卸料'];
@@ -293,6 +294,18 @@ export function createProject({ scene, plan: planKey = 'roll', c1, c2, nl }) {
     return rows;
   }
 
+  // 動力學檢查用的負載：快換盤（W.arm.tool 底下）＋這時候夾著的工具，整段每秒取一次、取最重的一刻
+  function heaviestPayload() {
+    let best = null;
+    for (let t = 0; t <= total; t += 1) {
+      apply(t);
+      const held = tl.sample(t).tool.held;
+      const p = combinePayloads(estimatePayload(W.arm.tool), held && toolsObj[held] ? estimatePayload(toolsObj[held].root, { frame: W.arm.tool }) : null);
+      if (!best || p.mass > best.mass) best = { ...p, note: `${p.note}；最重時夾著 ${held || '無'}（t=${t} s）` };
+    }
+    return best;
+  }
+
   return {
     total, timeline: tl, seams: SEAMS, layout, apply, thzAt, stationStart, STATIONS, meta, plan, tank, arm: W, tools: toolsObj, poses, slots, sOut, sMid, focus, setCut, setLook,
     layoutChecks,
@@ -312,10 +325,10 @@ export function createProject({ scene, plan: planKey = 'roll', c1, c2, nl }) {
       ],
       envelope: ['robot'],
       // 手臂動力學（core/verify/dynamics.mjs，只警告）：只有 VS-068 的方案有動力學參數（COBOTTA PRO 900 還沒有，略過）。
-      // 手臂倒裝在桶內（基座 Rx(π)），重力換到基座座標；負載是估計值（待確認）：快換盤＋最重的工具（焊接或兆赫波）約 3.5 kg，
-      // 質心取法蘭前 180 mm（快換盤 30 mm＋工具長 300 mm 的一半）；焊接壓力與管束拉力不在內。
+      // 手臂倒裝在桶內（基座 Rx(π)），重力換到基座座標。負載由 3D 模型估（core/robot/payload.js）：工具座上的快換盤與管線＋當時夾著的工具，
+      // 每秒取一次、用整個週期最重的那一刻（保守）；有實際重量時在工具模型上標 userData.mass。焊接壓力與管束拉力不在內。
       dynamics: meta.arm !== 'vs068' ? undefined : {
-        arms: [{ name: 'VS-068', spec: 'denso-vs068', payload: { mass: 3.5, com: [0, 0, 180] }, step: 0.05,
+        arms: [{ name: 'VS-068', spec: 'denso-vs068', payload: heaviestPayload, step: 0.05,
           sample: t => { apply(t); return { ...W.arm.q }; },
           gravity: t => { apply(t); W.arm.root.updateWorldMatrix(true, false); return new THREE.Vector3(0, -9.81, 0).applyQuaternion(W.arm.root.getWorldQuaternion(new THREE.Quaternion()).invert()).toArray(); } }],
       },

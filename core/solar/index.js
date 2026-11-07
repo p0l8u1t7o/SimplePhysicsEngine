@@ -22,3 +22,4 @@ export {
 export { rearIrradiance, createRearModel } from './bifacial.js';
 export { trackerArray, fixedArray, modulesToTriangles, modulesToPositions, winterSolsticePitch, azimuthVector, axisVector } from './layout.js';
 export { hashFloat64 } from './hash.js';
+export { SITE_PRECISION } from './precision.js';

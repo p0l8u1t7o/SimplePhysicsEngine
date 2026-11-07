@@ -8,6 +8,7 @@ import { LAYOUT } from './cell.js';
 
 import { stepTimes } from '@core/anim/sampling.js';
 import { solidMeshes as meshList } from '@core/electrical/cable-routing.js';
+import { estimatePayload } from '@core/robot/payload.js';
 
 // 配線檢查的取樣間隔（秒）
 const CABLE_DT = 0.1;
@@ -91,9 +92,10 @@ export function createProject({ scene, headless = false, recipe: recipeKey, inse
     verify: {
       dt: .1,
       // 手臂動力學（core/verify/dynamics.mjs，只警告）：MuJoCo 逆動力學的峰值扭矩、負載力矩、軌跡連續。
-      // 負載是估計值（待確認）：快拆壓頭介面＋壓墊約 1.8 kg、20MP 相機與支架約 0.6 kg、工件約 0.2 kg，質心取法蘭前 60 mm；壓合反力不在內。
+      // 負載由 3D 工具模型估（core/robot/payload.js：體積 × 密度，金屬當鋁）：力感測器、快拆壓頭與壓墊、20MP 相機與支架，約 1.2 kg；
+      // 有實際重量時在模型上標 userData.mass。壓合反力不在內。
       dynamics: {
-        arms: [{ name: 'VS-068', spec: 'denso-vs068', payload: { mass: 2.6, com: [0, 0, 60] }, step: 0.02,
+        arms: [{ name: 'VS-068', spec: 'denso-vs068', payload: () => estimatePayload(robot.arm.tool), step: 0.02,
           sample: t => { sequence.sample(t); robot.snap(); return { ...robot.q }; } }],
       },
       // 非實體：地面與地面黃色標線（cell 底下 y ≤ 1 mm 的平面／薄片）

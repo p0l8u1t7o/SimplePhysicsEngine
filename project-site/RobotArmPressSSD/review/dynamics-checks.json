@@ -6,57 +6,65 @@
   "rows": [
     {
       "group": "VS-068",
+      "name": "負載來源",
+      "ok": true,
+      "warn": false,
+      "value": "1.213 kg",
+      "note": "由 3D 模型體積 × 密度估算（金屬當鋁 2700、其他當塑膠 1200 kg/m³；userData.mass／density 可覆寫）；質心 [0.3, 27, 33.1] mm（法蘭座標）"
+    },
+    {
+      "group": "VS-068",
       "name": "J1 峰值扭矩",
       "ok": true,
-      "value": 19.01,
-      "note": "10% of 200 N·m（上限為估計值）@ t=9.82 s；靜止保持最大 0.0 N·m",
+      "value": 16.97,
+      "note": "8% of 200 N·m（上限為估計值）@ t=9.82 s；靜止保持最大 0.0 N·m",
       "warn": false
     },
     {
       "group": "VS-068",
       "name": "J2 峰值扭矩",
       "ok": true,
-      "value": 76.27,
-      "note": "27% of 280 N·m（上限為估計值）@ t=8.28 s；靜止保持最大 62.9 N·m",
+      "value": 68.13,
+      "note": "24% of 280 N·m（上限為估計值）@ t=8.28 s；靜止保持最大 56.1 N·m",
       "warn": false
     },
     {
       "group": "VS-068",
       "name": "J3 峰值扭矩",
       "ok": true,
-      "value": 24.19,
-      "note": "17% of 140 N·m（上限為估計值）@ t=17.56 s；靜止保持最大 18.6 N·m",
+      "value": 19.83,
+      "note": "14% of 140 N·m（上限為估計值）@ t=17.56 s；靜止保持最大 15.4 N·m",
       "warn": false
     },
     {
       "group": "VS-068",
       "name": "J4 峰值扭矩",
       "ok": true,
-      "value": 0.89,
-      "note": "2% of 40 N·m（上限為估計值）@ t=9.82 s；靜止保持最大 0.0 N·m",
+      "value": 0.29,
+      "note": "1% of 40 N·m（上限為估計值）@ t=9.82 s；靜止保持最大 0.2 N·m",
       "warn": false
     },
     {
       "group": "VS-068",
       "name": "J5 峰值扭矩",
       "ok": true,
-      "value": 1.1,
-      "note": "3% of 40 N·m（上限為估計值）@ t=4.72 s；靜止保持最大 0.0 N·m",
+      "value": 0.88,
+      "note": "2% of 40 N·m（上限為估計值）@ t=4.72 s；靜止保持最大 0.3 N·m",
       "warn": false
     },
     {
       "group": "VS-068",
       "name": "J6 峰值扭矩",
       "ok": true,
-      "value": 0.46,
-      "note": "2% of 24 N·m（上限為估計值）@ t=7.12 s；靜止保持最大 0.0 N·m",
+      "value": 0.47,
+      "note": "2% of 24 N·m（上限為估計值）@ t=6.60 s；靜止保持最大 0.0 N·m",
       "warn": false
     },
     {
       "group": "VS-068",
       "name": "負載質量",
       "ok": true,
-      "value": 2.6,
+      "value": 1.213,
       "note": "型錄最大可搬重量 7 kg",
       "warn": false
     },
@@ -64,7 +72,7 @@
       "group": "VS-068",
       "name": "J4 負載力矩",
       "ok": true,
-      "value": 3.57,
+      "value": 1.38,
       "note": "容許 16.6 N·m（型錄，需核對）",
       "warn": false
     },
@@ -72,7 +80,7 @@
       "group": "VS-068",
       "name": "J4 負載慣量",
       "ok": true,
-      "value": 0.0514,
+      "value": 0.0166,
       "note": "容許 0.47 kg·m²（型錄，需核對）",
       "warn": false
     },
@@ -80,7 +88,7 @@
       "group": "VS-068",
       "name": "J5 負載力矩",
       "ok": true,
-      "value": 3.57,
+      "value": 1.38,
       "note": "容許 16.6 N·m（型錄，需核對）",
       "warn": false
     },
@@ -88,7 +96,7 @@
       "group": "VS-068",
       "name": "J5 負載慣量",
       "ok": true,
-      "value": 0.0514,
+      "value": 0.0166,
       "note": "容許 0.47 kg·m²（型錄，需核對）",
       "warn": false
     },
@@ -96,7 +104,7 @@
       "group": "VS-068",
       "name": "J6 負載力矩",
       "ok": true,
-      "value": 0,
+      "value": 0.32,
       "note": "容許 9.4 N·m（型錄，需核對）",
       "warn": false
     },
@@ -104,7 +112,7 @@
       "group": "VS-068",
       "name": "J6 負載慣量",
       "ok": true,
-      "value": 0.0004,
+      "value": 0.0011,
       "note": "容許 0.15 kg·m²（型錄，需核對）",
       "warn": false
     },
@@ -121,36 +129,36 @@
     {
       "name": "VS-068",
       "samples": 1031,
-      "hash": "f834c8a4",
+      "hash": "6d330bf7",
       "peak": {
         "j1": {
-          "tau": 19.01,
+          "tau": 16.97,
           "t": 9.82,
-          "ratio": 0.095
+          "ratio": 0.085
         },
         "j2": {
-          "tau": 76.27,
+          "tau": 68.13,
           "t": 8.28,
-          "ratio": 0.272
+          "ratio": 0.243
         },
         "j3": {
-          "tau": 24.19,
+          "tau": 19.83,
           "t": 17.56,
-          "ratio": 0.173
+          "ratio": 0.142
         },
         "j4": {
-          "tau": 0.89,
+          "tau": 0.29,
           "t": 9.82,
-          "ratio": 0.022
+          "ratio": 0.007
         },
         "j5": {
-          "tau": 1.1,
+          "tau": 0.88,
           "t": 4.72,
-          "ratio": 0.028
+          "ratio": 0.022
         },
         "j6": {
-          "tau": 0.46,
-          "t": 7.12,
+          "tau": 0.47,
+          "t": 6.6,
           "ratio": 0.019
         }
       }

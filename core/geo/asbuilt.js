@@ -1,6 +1,7 @@
 // core/geo/asbuilt.js：設計與現況比對（樁頂高程、平面偏移、排直線度、排距、支架傾角）。
 // 輸入都是案場座標（mm）；輸出是 layoutChecks 格式的列 { group, name, ok, value, note }，另附數值欄位 dev、tol。
 // 決定性：只有排序與算術。
+import { SITE_PRECISION } from '../solar/precision.js';
 
 const R2D = 180 / Math.PI;
 
@@ -149,7 +150,8 @@ const sgn = (v, d = 0) => { const s = fmt(v, d); return /^[-—]/.test(s) || /^0
  * @param {string} [o.group='as-built']
  */
 export function asBuiltChecks(piles, o = {}) {
-  const tol = { height: 30, plan: 50, straightness: 50, spacing: 50, azimuthDeg: 0.5, tiltDeg: 1, aspectDeg: 2, ...(o.tol || {}) };
+  // 高程、平面、直線度、排距的預設照案場高精度門檻（core/solar/precision.js，2026-11-07 拍板）
+  const P = SITE_PRECISION, tol = { height: P.heightMm, plan: P.planMm, straightness: P.planMm, spacing: P.planMm, azimuthDeg: 0.5, tiltDeg: 1, aspectDeg: 2, ...(o.tol || {}) };
   const group = o.group || 'as-built';
   const rows = [];
   // 每支樁

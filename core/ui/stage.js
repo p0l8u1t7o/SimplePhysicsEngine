@@ -205,10 +205,11 @@ function buildStage({
   if (onDemand) { renderer.shadowMap.autoUpdate = false; controls.addEventListener('change', () => invalidate()); }
   const render = (cam2 = camera) => renderer.render(scene, cam2);
   const clock = new THREE.Clock();
-  let tick = null, running = false, draw = () => render();
+  let tick = null, running = false, raf = 0, draw = () => render();
   function frame() {
+    raf = 0;
     if (!running) return;
-    requestAnimationFrame(frame);
+    raf = requestAnimationFrame(frame);
     const dt = Math.min(clock.getDelta(), .05);
     const moved = stepTween(dt);
     const keep = tick?.(dt);
@@ -218,9 +219,12 @@ function buildStage({
   // tick(dt) 回傳 true 代表這格有變化（onDemand 模式下需要重繪）。
   // opts.render：自訂整格繪製（例如主畫面＋相機子畫面＋疊圖），預設只畫主畫面
   function loop(fn, opts = {}) { tick = fn; if (opts.render) draw = opts.render; resize(); if (qp.has('movie') || running) return; running = true; clock.getDelta(); frame(); }
-  function stop() { running = false; }
+  // stop() 取消已排定的下一格：不然 stop() 後馬上 loop() 會有兩條 rAF 同時跑（舊的那一格醒來時 running 已經又是 true）
+  function stop() { running = false; if (raf) { cancelAnimationFrame(raf); raf = 0; } }
+  // dispose()：停下來並移除 resize 監聽（頁面內換場景、重建舞台時用）
+  function dispose() { stop(); removeEventListener('resize', resize); }
 
-  const stage = { renderer, scene, camera, controls, lights, qp, addLabel, updateLabels, labels, goTo, cancelTween, shiftView, get tweening() { return tweening(); }, get fitScale() { return fitScale; }, resize, render, invalidate, loop, stop, clock, useLog };
+  const stage = { renderer, scene, camera, controls, lights, qp, addLabel, updateLabels, labels, goTo, cancelTween, shiftView, get tweening() { return tweening(); }, get fitScale() { return fitScale; }, resize, render, invalidate, loop, stop, dispose, clock, useLog };
   // 效能量測（core/tools/perf-check.mjs）從這裡讀 renderer.info
   (globalThis.__coreStages ||= []).push(stage);
   return stage;

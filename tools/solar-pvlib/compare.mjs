@@ -1,6 +1,7 @@
 // 與 pvlib 參考值（validate.py 產生的 ref/*.json）比對，印出各項最大誤差並寫 ref/compare-report.json。
 // 執行：node --import ./core/tools/register.mjs tools/solar-pvlib/compare.mjs（先跑 validate.py）
 import { readFileSync, writeFileSync } from 'node:fs';
+import { SITE_PRECISION } from '../../core/solar/precision.js';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as S from '../../core/solar/index.js';
@@ -138,7 +139,7 @@ const nz = v => (v == null || Number.isNaN(v) ? null : v);
       report[`energy.${name}.${s.name}`] = { acKWh: r.annual.acKWh, pvlibAcKWh: ref.ac_kwh, relErr: eAC, pr: r.annual.pr, specificYield: r.annual.specificYield };
     }
   }
-  stat('energy annual AC/DC/POA relative error', rel, 0.02);
+  stat('energy annual AC/DC/POA relative error', rel, SITE_PRECISION.energyRel);   // 高精度門檻（core/solar/precision.js）
   stat('energy hourly AC (W, 1 MWp system)', hourly, 1e-3);
 }
 

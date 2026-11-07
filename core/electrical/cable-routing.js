@@ -22,7 +22,7 @@ export const solidMeshes = root => { const a = []; root.traverse(m => { if (m.is
 //      以及被站直接當關節用的可動件，例如夾指、擺動缸——模型已經標好，站也可以自己標或改回 true）、
 //      走線五金（userData.routingHardware）、透明件、開孔的擠出件、厚度不到 4 mm 的薄件、不是原生 Y 軸的圓柱。
 const clampable=m=>m.isMesh&&!m.userData.routingHardware&&
-  (['BoxGeometry','CylinderGeometry'].includes(m.geometry.type)||(m.geometry.type==='ExtrudeGeometry'&&!m.userData.serviceBores&&!(m.geometry.parameters.shapes?.holes?.length)))&&!m.material?.transparent;
+  (['BoxGeometry','CylinderGeometry'].includes(m.geometry.type)||(m.geometry.type==='ExtrudeGeometry'&&!m.userData.serviceBores&&![m.geometry.parameters.shapes].flat().some(sh=>sh?.holes?.length)))&&!m.material?.transparent;
 function clampHosts(parent) {
   const out=[],station=!parent.userData.coreModel&&!parent.userData.coreModelPart;
   const walk=(node,chain)=>{for(const c of node.children) {

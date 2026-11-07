@@ -169,5 +169,7 @@ node --import ./core/tools/register.mjs tools/verify-interference.mjs   # 四站
   - 第一階段四項都做：日照遮陰與發電（`core/solar`）、地形與空拍匯入（`core/geo`）、參數化鋼構與管路（`core/structure`、`core/piping`）、天候與流體軟體（雪、雨、風載重、粒子流體、XPBD 軟體）。
   - three.js 從 r160 直接升級（照「改 core 或渲染時」的流程，全部站回歸）。
   - 空拍只匯入標準格式（GeoTIFF、LAS/LAZ、OBJ、3D Tiles）；照片處理交給外部的 OpenDroneMap（AGPL，獨立程序）或商用軟體，平台不內建。
+  - 高精度門檻（2026-11-07 第二輪）：平面 ±50 mm、高程 ±30 mm、太陽位置 ±0.01°（以太陽方向夾角量）、全年發電和 pvlib 相差 < 2%；常數在 `core/solar/precision.js`，檢查與測試一律引用它。
+- 手臂動力學的負載（2026-11-07 第二輪）：從站的 3D 工具模型估（`core/robot/payload.js` 的 `estimatePayload`：體積 × 密度，金屬當鋁、其他當塑膠），不再手填；有實際重量時在模型上標 `userData.mass`／`density`。
 - 3D工作室生成品質（2026-11-07）：開發後多一輪看截圖自我檢查（`studio.json` 的 `selfReview`，預設 1）、本庫的站當唯讀參考（`references`，自動挑 2 個；站的 `docs/`、`.studio/`、`TEMP/` 不給讀）、Claude 角色預設 `--effort high`；補強角色維持 Codex。
 - 各站的拍板紀錄在各站的 `AGENTS.md`。

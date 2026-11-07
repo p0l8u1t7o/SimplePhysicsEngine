@@ -2,6 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { newSession, driver, ofType, lastSnapshot, fakeTwin } from './helpers.mjs';
+import { sensorOutput } from '../sensors.js';
 
 test('reed：致動器到端點的同一個 tick DI 改變；inverted 反相', () => {
   const s = newSession(), d = driver(s); d.hello();
@@ -47,4 +48,16 @@ test('photoEye：站的 sense 判定；只有 geometryKeys 改變時才重新套
   assert.ok(twin.applied.length > applied0);
   d.cmd('ax-X', 'move_abs', { pos: 600 }); d.run(1);
   assert.equal(lastSnapshot(s).di['io-PART'], false);
+});
+
+// 軸視窗感測器用回授位置（命令＋未超差的追隨誤差），和軸回報的 pos 一致（2026-11-07）
+test('axisWindow：追隨誤差把回授位置推出視窗時感測器 OFF，和回報的 pos 一致', () => {
+  const sensor = { id: 'ds-1', type: 'inPosition', axis: 'ax-1', axisWindow: [99.5, 100.5] };
+  const at = (pos, following) => sensorOutput(sensor, { actuators: new Map(), axes: new Map([['ax-1', { pos, following }]]) });
+  assert.equal(at(100, 0), true);
+  assert.equal(at(100, 0.3), true, '回授 100.3 還在視窗內');
+  assert.equal(at(100, 0.8), false, '回授 100.8 在視窗外（之前只看命令位置 100，會是 ON）');
+  assert.equal(at(99.2, 0.6), true, '命令 99.2 在外、回授 99.8 在內');
+  assert.equal(at(100, undefined), true, '沒有 following 欄位時當 0');
+  assert.equal(sensorOutput(sensor, { actuators: new Map(), axes: new Map() }), false, '軸不存在');
 });

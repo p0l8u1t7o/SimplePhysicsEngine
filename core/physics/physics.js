@@ -58,6 +58,9 @@ export function hashBaked(b) {
   return h.toString(16).padStart(8, '0');
 }
 
+// 同時刻的排序用字碼比較：localeCompare 看執行環境的語系（Node 跟系統、瀏覽器跟介面語言），中文 id 在 zh-TW 與 en 的順序不同，烘焙就不一致
+const byCode = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+
 export async function bake(spec) {
   const R = await loadRapier(), t0 = Date.now();   // 計時：只算 stats.ms，不進雜湊
   // 每 every 步記一格，實際格距是 every × dt；hz 和 1/dt 不成整數倍時（例如 hz 100、dt 1/240）要用實際的取樣率換算時間，
@@ -112,9 +115,9 @@ export async function bake(spec) {
   // 產生物體：事先排好時間表
   const queue = [];
   for (const sp of spec.spawners || []) for (let n = 0; n < (sp.count ?? 1); n++) queue.push({ sp, n, t: (sp.start ?? 0) + n * (sp.every ?? 1) });
-  queue.sort((a, b) => a.t - b.t || a.sp.id.localeCompare(b.sp.id) || a.n - b.n);
+  queue.sort((a, b) => a.t - b.t || byCode(a.sp.id, b.sp.id) || a.n - b.n);
   // 指定的投入（drops）：時間、位置、角度、速度、種類都由站的排程決定（例如分流帶尾端的工件交給物理），到時間一定生成、不等位置
-  const drops = [...(spec.drops || [])].sort((a, b) => a.t - b.t || String(a.id).localeCompare(String(b.id)));
+  const drops = [...(spec.drops || [])].sort((a, b) => a.t - b.t || byCode(String(a.id), String(b.id)));
   let di = 0;
   const bodies = [], live = [];
   const pick = items => { const tot = items.reduce((a, x) => a + (x.weight ?? 1), 0); let r = random() * tot; for (const x of items) { r -= x.weight ?? 1; if (r <= 0) return x; } return items[items.length - 1]; };

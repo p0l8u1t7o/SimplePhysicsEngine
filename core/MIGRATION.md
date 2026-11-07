@@ -229,6 +229,20 @@ Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs
 
 七站 91 張基準回歸超過門檻 0 張；本站 31 張事件畫面與三場型高低畫質／深度模式逐圖檢視，外觀變更為預期。CCTV／LPR 子畫面及缺檔降級另有瀏覽器檢查。量測、圖檔位置與限制見 `project-site/ParkingEMS/review/cinematic-render.md`。
 
+## 2026-11-07：core 1.20.1 巡檢疑點修正、高精度門檻、從 3D 模型估手臂負載
+
+巡檢時記下、沒證實的 core 疑點逐項寫測試確認，證實的都修了（每項都有回歸測試，並確認測試在改回舊寫法時會失敗）：
+- `twin/view.js` 的 `twinUrl`：只給埠號時寫死 `127.0.0.1`，從內網其他電腦開頁面會連錯。改成頁面從本機或內網主機開時用那台主機，Pages 與 `file://` 仍連 `127.0.0.1`。
+- `electrical/cable-routing.js`：擠出件的 `shapes` 是陣列時判斷不到開孔，會被當成線夾固定面。14 站目前都沒有這種網格，結果不變。
+- `anim/track.js`：`Track.end`（與 `createTimeline().total`）沒算軌尾的 `hold(until)`。14 站的 `total` 都不變。
+- `twin/sensors.js`：`axisWindow` 感測器改用回授位置（命令＋未超差的追隨誤差），和軸回報的 `pos` 一致（twin README v2 §6「軸回授偏離命令」）。
+- `physics/physics.js`：同時刻的生成與掉落排序改用字碼比較；`localeCompare` 看執行環境語系，中文 id 在 Node 與瀏覽器可能排不同。RecycleSorter 的烘焙雜湊不變。靜態檢查加上禁止 `localeCompare`。
+- `ui/stage.js`：`stop()` 取消已排定的 rAF（之前 `stop()` 後馬上 `loop()` 會有兩條迴圈）；新增 `dispose()` 移除 resize 監聽。
+- 工具：`scope-guard` 擋得住 `\\?\`／`\\.\` 長路徑前綴；`tools/verify-interference.mjs` 的 sourceHash 用 / 路徑並把 CRLF 換成 LF（Windows 與 Linux 相同，`tools/review/interference-checks.json` 的雜湊因此換一次）；`ui-check` 的標籤數等避讓收斂才記；`movie-export/verify.py` 往子資料夾找輸出（`--latest` 每個專案只驗最新一份）。
+- **高精度門檻**（`solar/precision.js` 的 `SITE_PRECISION`）：平面 50 mm、高程 30 mm、太陽位置 0.01°、發電 2%。`geo/asbuilt.js` 的預設容許值、`tools/solar-pvlib/compare.mjs` 的發電門檻引用它；`solar/test/precision.test.mjs` 檢查 NREL SPA 範例、預設 ΔT 對實測 ΔT 的位置差（以方向夾角量，< 0.0001°；方位角在天頂附近會放大到 0.012°，那不是位置誤差）。之前文件寫的「方位 < 0.007°」不對，已改。
+- **從 3D 模型估手臂負載**（`robot/payload.js`）：`estimatePayload(arm.tool)` 用封閉網格的體積 × 密度（金屬當鋁、其他當塑膠；`userData.mass`／`density` 覆寫），管子依參數，開口網格列為 skipped；`combinePayloads` 合併。`verify.dynamics` 的 `payload` 可以是函式，檢查時才算，並多一列「負載來源」。RobotArmPressSSD 改用模型估（1.21 kg，原手填 2.6 kg）；TeflonWelding 取快換盤＋夾著的工具最重的一刻（5.99 kg，夾焊帶工具時，原手填 3.5 kg）。
+- core 檢查 `engineering` 加上 `electrical`、`anim`、`tools`、`robot` 的 test 資料夾。
+
 ## 2026-11-07：core 1.20.0 布料、粒子流體、天候、外部 CFD、LAZ、站層日照與動力學檢查、鋼構與日照對齊
 
 - **布料與粒子流體**（`physics/cloth.js`、`fluid.js`、共用碰撞 `collide.js`；原型在本機 `TEMP/physx-dev/`）：XPBD 布料（釘點可移動或放開、側風）、PBF 粒子流體（噴嘴與流量、開口方槽、圓桶、移除區；畫面用，不是 CFD）。`verify/physics.mjs` 依 `kind` 重烘比雜湊：布料檢查伸長率（`clothStretchTol` 0.05）、流體檢查密度誤差（`densityTol` 0.05）、鄰居溢位、留在容器內的比例（`containTol` 0.98）；只用線材、布料、流體的站不載入 Rapier。物理範例加「篷布覆蓋」「噴嘴注入方槽」，七個情境 Node 與無頭 Chrome 逐位元相同。
@@ -329,6 +343,7 @@ Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs
 
 | 版本 | 日期 | 內容 |
 |---|---|---|
+| 1.20.1 | 2026-11-07 | 巡檢疑點修正（twinUrl、clampable、Track.end、axisWindow、localeCompare、stage stop／dispose、scope-guard 長路徑、interference sourceHash、ui-check 標籤、movie verify）；`solar/precision.js` 高精度門檻；`robot/payload.js` 從 3D 模型估負載 |
 | 1.20.0 | 2026-11-07 | 布料（`physics/cloth.js`）、粒子流體（`physics/fluid.js`）、天候（`weather/`）、外部 CFD（`cfd/`＋`tools/cfd/`）、LAZ（`vendor/laz-perf`、`geo/laz.js`）、站層檢查 `solar`（含外部遮擋）與 `dynamics`（只警告）、core 檢查 `solar`（Node 與瀏覽器雜湊）、`structure/solar-frame.js` 座標對齊、`simulate({ hourlyLoss })` 與積雪損失、範例 `weather/`；剛體物理改用 dmath；`scene` 略過 core 標 `nonSolid` 的網格 |
 | 1.19.0 | 2026-11-07 | 新模組 `solar/`（SPA、追日回溯、晴空與斜面日射、雙面、BVH 遮陰、全年發電；和 pvlib 一致到浮點捨入）與 `math/dmath.js`（決定性超越函式）；`physics/rope.js` 改用 dmath。各站畫面與檢查不受影響 |
 | 1.18.0 | 2026-11-07 | three.js r187（`three.core.js`、PCF 陰影、RoomEnvironment 位置、網片 alphaToCoverage、ParkingEMS 頂點色）；MuJoCo 4.0.0 與 `robot/dynamics.js`；新模組 `structure/`、`piping/`、`geo/`；core 檢查 `dynamics`、`engineering`。陰影邊緣與部分材質著色有刻意的外觀變化；完整檢查 184/184 |

@@ -26,4 +26,4 @@ const nsrdb = readCSV(text.split(/\r?\n/).slice(2).join('\n'), {
 
 - PVGIS 的 TMY 每個月取自不同年份（例如 1 月 2018、2 月 2006），`prepareSolar` 用各列自己的年份算太陽位置。
 - PVGIS 的 EPW 沒有反照率與雪深（999），`simulate` 用 `system.albedo`（預設 0.2）；積雪損失（`weather/snow.js` 的 `snowLossSeries`）要另外的降雪資料。
-- ΔT 預設用 Espenak–Meeus 多項式（和 pvlib 相同，2026 年估 75.4 s，實測約 69.2 s）；只影響星曆時間，台灣的太陽方位差 < 0.007°。要和實測對時請在 `site.deltaT` 傳 69.2。
+- ΔT 預設用 Espenak–Meeus 多項式（和 pvlib 相同，2026 年估 75.4 s，實測約 69.2 s）；只影響星曆時間，台灣的太陽方向夾角差 < 0.0001°。要和實測對時請在 `site.deltaT` 傳 69.2。

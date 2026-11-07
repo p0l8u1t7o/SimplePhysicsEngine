@@ -1,6 +1,6 @@
 // 虛擬感測器 → 感測器輸出（套用 sensorStuck 與 io.logic 之前的值；twin-protocol README §6「sensorStuck 的值」）。
 //   有 actuator＋at（reed、limitSwitch、inPosition…）   致動器停在端點且 state 等於 at（移動中、中間位置都是 OFF）
-//   有 axis＋axisWindow                                    軸位置在視窗內（含端點）
+//   有 axis＋axisWindow                                    軸的回授位置（含追隨誤差，和回報的 pos 相同）在視窗內（含端點）
 //   vacuumSwitch                                           吸盤致動器在 at（預設 states[1]，例 held）且吸盤上有工件
 //                                                          （工件的持有者是該致動器的 scene.object）；沒有 actuator 時交給站的 sense
 //   photoEye、proximity                                    幾何：交給站的 sense(sensor)（core/twin/geometry.js 的射線／區域判定）
@@ -20,7 +20,9 @@ export function sensorOutput(sensor, { actuators, axes, switches = {}, sense, wo
   }
   if (sensor.axis && Array.isArray(sensor.axisWindow)) {
     const ax = axes.get(sensor.axis), w = sensor.axisWindow;
-    return !!ax && w.length === 2 && ax.pos >= w[0] && ax.pos <= w[1];
+    // 感測器看的是實際（回授）位置＝命令位置＋未超差的追隨誤差，和軸回報的 pos 相同（twin README v2 §6「軸回授偏離命令」）
+    const pos = ax ? ax.pos + (ax.following || 0) : NaN;
+    return !!ax && w.length === 2 && pos >= w[0] && pos <= w[1];
   }
   switch (sensor.type) {
     case 'photoEye':

@@ -40,8 +40,9 @@ export function dayOfYear(year, month, day) { return daysFromCivil(year, month, 
 export const julianDay = unix => unix / 86400 + 2440587.5;
 
 // ΔT = TT − UT（秒）：Espenak & Meeus 多項式（與 pvlib.spa.calculate_deltat 相同）。
-// 2005～2050 年段的外推偏高（2026 年估 75.4 s，實測約 69 s）。ΔT 只影響星曆時間：誤差 1 s ≈ 太陽黃經 1.1e-5°，
-// 6 s 的差在台灣造成方位 < 0.007°、天頂 < 0.0001°；需要更嚴時請傳實測值（IERS / USNO）。
+// 2005～2050 年段的外推偏高（2026 年估 75.4 s，實測約 69.2 s）。ΔT 只影響星曆時間：誤差 1 s ≈ 太陽黃經 1.1e-5°，
+// 6 s 的差在台灣造成太陽方向夾角 < 0.0001°（天頂角差也 < 0.0001°）；方位角在太陽接近天頂時會放大（天頂角 0.3° 時差 0.012°），
+// 但那只是方位角在天頂附近沒有意義，不是位置誤差（test/precision.test.mjs）。需要和實測對時請傳實測值（IERS／USNO）。
 export function deltaT(year, month = 6) {
   const y = year + (month - 0.5) / 12;
   if (year < -500) return -20 + 32 * dm.pow(((y - 1820) / 100), 2);

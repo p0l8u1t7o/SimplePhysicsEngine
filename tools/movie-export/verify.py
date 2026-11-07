@@ -8,6 +8,7 @@ ROOT=Path(__file__).resolve().parents[2]
 parser=argparse.ArgumentParser()
 parser.add_argument('--output',default='TEMP/videos')
 parser.add_argument('--project')
+parser.add_argument('--latest',action='store_true',help='每個專案只驗最新的一份輸出')
 args=parser.parse_args()
 OUT=ROOT/args.output
 BIN=ROOT/'tools/bin'
@@ -33,9 +34,20 @@ def temporal_audit(film):
     assert proc.wait()==0 and not error,error
     return {'decodedFrames':count,'blackFrames':black,'largestIsolatedFlashFractions':sorted(worst,reverse=True)[:10]}
 reports=[]
-for manifest in OUT.glob('*.shots.json'):
+# export-mp4 寫到 TEMP/videos/<專案>-<日期>/（舊版直接寫在 TEMP/videos/）：往下找；同一站的不同情境（?variant=…）各自一個資料夾，預設全部驗證，
+# --latest 只驗每個專案最新的一份（舊的輸出沒清掉時用）
+found=[]
+for manifest in sorted(OUT.rglob('*.shots.json')):
+    if {'samples','audit'} & set(manifest.relative_to(OUT).parts[:-1]):continue
     spec=json.loads(manifest.read_text(encoding='utf-8'))
     if args.project and args.project!=spec['project']:continue
+    found.append((manifest,spec))
+if args.latest:
+    newest={}
+    for manifest,spec in found:
+        if spec['project'] not in newest or manifest.stat().st_mtime>newest[spec['project']][0].stat().st_mtime:newest[spec['project']]=(manifest,spec)
+    found=sorted(newest.values(),key=lambda x:x[1]['project'])
+for manifest,spec in found:
     film=manifest.with_name(manifest.name.replace('.shots.json','.mp4'))
     probe=subprocess.run([str(BIN/'ffprobe.exe'),'-v','error','-select_streams','v:0','-show_entries','stream=codec_name,width,height,r_frame_rate,nb_frames,duration','-of','json',str(film)],capture_output=True,text=True,creationflags=subprocess.CREATE_NO_WINDOW)
     if probe.returncode:
@@ -54,14 +66,15 @@ for manifest in OUT.glob('*.shots.json'):
         details=[s for s in spec['shots'] if s['kind']=='station']
         assert len(details)==6
         assert all(s['frameCount']/spec['fps']+1/spec['fps']>=s['simDuration'] for s in details),'PCB detail replay must not compress a full cycle into a few seconds'
-    samples=sorted((OUT/'samples'/spec['project']).glob('*.jpg'))
+    run=manifest.parent
+    samples=sorted((run/'samples'/spec['project']).glob('*.jpg'))
     # The sampled JPEGs are the exact frames supplied to the encoder.
     selected=samples if len(samples)<=20 else [samples[round(i*(len(samples)-1)/19)] for i in range(20)]
     sheet=Image.new('RGB',(1280,205*((len(selected)+3)//4)), '#15202a');draw=ImageDraw.Draw(sheet)
     for i,p in enumerate(selected):
         with Image.open(p) as im:
             im.thumbnail((320,180));x=(i%4)*320;y=(i//4)*205;sheet.paste(im,(x,y));draw.text((x+5,y+183),p.stem,fill='white')
-    sheet.save(OUT/(spec['project']+'-contact.jpg'))
+    sheet.save(run/(spec['project']+'-contact.jpg'))
     temporal=temporal_audit(film)
     assert temporal['decodedFrames']==spec['frames'] and not temporal['blackFrames'],temporal
     report={'project':spec['project'],'file':str(film),'seconds':float(stream['duration']),'frames':int(stream['nb_frames']),'resolution':'1920x1080','fps':30,'codec':spec.get('encoder','not_recorded'),'gpu':spec['gpu'],'revision':spec.get('revision','legacy'),'supersampling':spec.get('supersampling',1),'fullTimelineCovered':True,'decodedWithoutErrors':True,'temporalAudit':temporal,'bytes':film.stat().st_size}

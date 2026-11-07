@@ -8,6 +8,8 @@ import { REPO, PROJECTS_DIR } from './projects.mjs';
 import { scopeOf, violations, FIXED } from './check-scope.mjs';
 
 const rel = p => relative(REPO, p).split(sep).join('/');
+// Windows 的長路徑前綴 \\?\、\\.\（UNC 是 \\?\UNC\server\share）：path.relative 不認得，會把庫內檔案當成庫外而放行，先拿掉
+const unprefix = p => String(p).replace(/^[\\/]{2}[?.][\\/](UNC[\\/])?/i, (m, unc) => (unc ? '\\\\' : ''));
 const inside = r => r && !r.startsWith('..') && !isAbsolute(r);
 
 let raw = '';
@@ -18,7 +20,7 @@ const scope = inside(rel(home)) ? scopeOf(rel(home)) : null;
 const target = input.tool_input?.file_path || input.tool_input?.notebook_path;
 if (!scope || !target) process.exit(0);
 
-const r = rel(resolve(input.cwd || home, target));
+const r = rel(resolve(input.cwd || home, unprefix(target)));
 if (!inside(r) || /^temp\//i.test(r) || !violations(scope, [r]).length) process.exit(0);
 
 const dir = FIXED.includes(scope) ? `${scope}/` : `${PROJECTS_DIR}/${scope}/`;
