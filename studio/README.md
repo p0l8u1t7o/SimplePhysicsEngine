@@ -384,6 +384,7 @@ price, grade = db.execute("select unit_price, grade from part_latest where id = 
 ## 代理 CLI 的實測重點（2026-10-04，Claude Code 2.1.266、codex-cli 0.154.0）
 
 - Claude Code：`claude -p --output-format stream-json --verbose`，提示從 stdin 傳入；`result` 事件有 `session_id`、`num_turns`、`total_cost_usd`、`usage`；另有 `rate_limit_event`。`.claude/settings.json` 只從啟動資料夾讀取，寫檔關卡改用 `--settings <JSON>` 傳入，不必在專案裡放設定檔。Windows 上 Bash 工具的寫入攔不到，靠第 2、3 層。
+- Claude Code 的安裝：原生安裝程式（PATH 上是 `claude.exe`）或 `npm install -g @anthropic-ai/claude-code`（PATH 上只有 `claude.cmd`）都可以；Windows 上 `lib/adapters/claude.mjs` 的 `resolveClaude()` 會改用 npm 套件裡的 `bin/claude.exe`（2026-11-07 新開發機用 2.1.319 實測），作法同 Codex 的 `resolveCodex()`。
 - Codex：`codex exec --json -`；續接 `codex exec resume <id> -` 沒有 `-s`，改用 `-c sandbox_mode="workspace-write"`。Windows 原生沙箱**會擋下**工作目錄以外的寫入（PowerShell 回「拒絕存取」），但預設允許寫系統暫存目錄。Codex 只從 git 根目錄（專案）往下找 `AGENTS.md`，工作區規則由 app 放進提示。頂層的 `error` 事件多半是重新連線，只有 `turn.failed` 才算失敗。
 
 ## 測試

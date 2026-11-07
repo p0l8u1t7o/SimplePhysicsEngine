@@ -2,11 +2,12 @@
 // 訂閱模式下 CLI 用使用者自己的登入（~/.claude、~/.codex），app 不注入任何金鑰；這裡只負責查登入狀態。
 import { execFileSync, spawnSync } from 'node:child_process';
 import { resolveCodex } from './adapters/codex.mjs';
+import { resolveClaude } from './adapters/claude.mjs';
 
 export function subscriptionStatus(cli) {
   try {
     if (cli === 'claude') {
-      const s = JSON.parse(execFileSync('claude', ['auth', 'status'], { encoding: 'utf8', windowsHide: true }));
+      const s = JSON.parse(execFileSync(resolveClaude(), ['auth', 'status'], { encoding: 'utf8', windowsHide: true }));
       return { loggedIn: !!s.loggedIn, detail: s.authMethod || '' };
     }
     if (cli === 'codex') {

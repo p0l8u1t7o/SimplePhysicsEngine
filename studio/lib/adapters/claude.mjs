@@ -2,10 +2,28 @@
 // 權限：acceptEdits＋工具允許清單；寫檔關卡用 --settings 掛上 PreToolUse（studio/lib/guard.mjs），
 // 可寫範圍由環境變數 VS3D_ALLOW／VS3D_DENY 傳給關卡。Windows 上 Bash 工具的寫入攔不到，靠每輪的雜湊比對。
 import { execFileSync } from 'node:child_process';
-import { join } from 'node:path';
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { STUDIO, posix } from '../util.mjs';
 
 const GUARD = join(STUDIO, 'lib', 'guard.mjs');
+
+// Windows 上 execFileSync 不經 shell，只找得到 claude.exe（原生安裝程式的版本）；
+// npm 全域安裝的只有 claude.cmd 轉接，改用它旁邊套件裡的 bin/claude.exe
+let resolved;
+export function resolveClaude() {
+  if (resolved) return resolved;
+  if (process.platform === 'win32') {
+    try {
+      for (const p of execFileSync('where.exe', ['claude'], { encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] }).split(/\r?\n/).filter(Boolean)) {
+        if (/\.exe$/i.test(p)) return (resolved = p);
+        const exe = join(dirname(p), 'node_modules', '@anthropic-ai', 'claude-code', 'bin', 'claude.exe');
+        if (existsSync(exe)) return (resolved = exe);
+      }
+    } catch { /* 找不到時落到下面 */ }
+  }
+  return (resolved = 'claude');
+}
 
 // 讀檔與搜尋工具全開；shell 只給檢查與查詢用的指令；git 的寫入操作由 app 負責
 export const ALLOWED_TOOLS = [
@@ -33,7 +51,7 @@ export const claude = {
 
   // 只看有沒有安裝；登入或金鑰的狀態由 lib/agent-auth.mjs 的 authStatus 決定（訂閱帳號的查法在 lib/subscription.mjs）
   detect() {
-    try { return { installed: true, version: execFileSync('claude', ['--version'], { encoding: 'utf8', windowsHide: true }).trim(), detail: '' }; }
+    try { return { installed: true, version: execFileSync(resolveClaude(), ['--version'], { encoding: 'utf8', windowsHide: true }).trim(), detail: '' }; }
     catch { return { installed: false, version: '', detail: '找不到 claude 指令' }; }
   },
   listModels() { return this.models; },
@@ -48,7 +66,7 @@ export const claude = {
     if (sessionId) args.push('--resume', sessionId);
     for (const d of readDirs) args.push('--add-dir', d);
     args.push('--disallowedTools', ...(tools?.deny || DISALLOWED_TOOLS), '--allowedTools', ...(tools?.allow || ALLOWED_TOOLS));
-    return { cmd: 'claude', args, input: prompt, env: { VS3D_ALLOW: JSON.stringify(allowWrite), VS3D_DENY: JSON.stringify(denyWrite) } };
+    return { cmd: resolveClaude(), args, input: prompt, env: { VS3D_ALLOW: JSON.stringify(allowWrite), VS3D_DENY: JSON.stringify(denyWrite) } };
   },
 
   parse(e) {
