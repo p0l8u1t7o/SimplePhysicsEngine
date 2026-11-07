@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>鋼構與管路範例</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<style>
+  html, body { margin: 0; height: 100%; background: #1d2228; color: #e6eaee; font: 13px/1.45 system-ui, "Microsoft JhengHei", sans-serif; }
+  #view { position: fixed; inset: 0; }
+  #panel { position: fixed; top: 10px; right: 10px; width: 380px; max-height: calc(100% - 20px); overflow: auto; background: rgba(20, 24, 29, .9); border: 1px solid #39424c; border-radius: 6px; padding: 10px 12px; box-sizing: border-box; }
+  #panel h2 { font-size: 13px; margin: 10px 0 4px; color: #9fd3b0; }
+  #panel table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  #panel td, #panel th { padding: 1px 4px; border-bottom: 1px solid #2b333b; text-align: left; }
+  #panel td.n { text-align: right; font-variant-numeric: tabular-nums; }
+  .ok { color: #3dd68c; } .ng { color: #ff6b6b; }
+  label { display: block; margin: 4px 0; }
+  input[type=range] { width: 100%; }
+  @media (max-width: 700px) { #panel { left: 10px; right: 10px; width: auto; top: auto; bottom: 10px; max-height: 45%; } }
+</style>
+<script type="importmap">
+{ "imports": {
+    "three": "../../vendor/three.module.js",
+    "three/addons/": "../../vendor/addons/",
+    "@core/": "../../"
+} }
+</script>
+</head>
+<body>
+<div id="view"></div>
+<div id="panel">
+  <b>鋼構與管路範例（core/structure、core/piping）</b>
+  <label>追日轉角 <span id="angV">0</span>°<input id="ang" type="range" min="-60" max="60" step="1" value="0"></label>
+  <div id="out"></div>
+</div>
+<script type="module" src="./demo.js"></script>
+</body>
+</html>

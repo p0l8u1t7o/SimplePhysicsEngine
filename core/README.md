@@ -14,7 +14,7 @@
 | `catalog/` | 模型目錄頁（發布在 Pages） |
 | `anim/` | `sampling.js`：取樣時間（網頁與檢查共用，不依賴 three）；`cycle.js`：節拍分析（各站佔用、稼動率、瓶頸）；`track.js`：時間軌與時間軸（`createTimeline`、`Track`、`smooth`），狀態只由時間決定；`sequence.js`：單一手臂的步驟序列；`arrival.js`：手臂到位閘門（播放時等手臂到位、逾時故障） |
 | `electrical/` | `cable-routing.js`（線材 `cable`、拖鏈 `carrier`、`solidMeshes`）、`electrical-cabinet.js`（電盤櫃、背板、穿板接頭）、`electrical-components.js`（電控元件、`component()` 元件表、`robotController`）、`electrical-inspector.js`／`.css`（電控檢視器） |
-| `examples/` | `segment2/`：第二段（電控、電盤、配線、相機子畫面、視覺疊圖）的完整範例與說明，跟著 core 一起檢查；新專案照 `examples/segment2/README.md` 做。`physics/`：剛體動力學四種用途（物料流、掉落與滑槽、料箱堆積、夾取穩定）與線材的範例頁與檢查 |
+| `examples/` | `segment2/`：第二段（電控、電盤、配線、相機子畫面、視覺疊圖）的完整範例與說明，跟著 core 一起檢查；新專案照 `examples/segment2/README.md` 做。`physics/`：剛體動力學四種用途（物料流、掉落與滑槽、料箱堆積、夾取穩定）與線材的範例頁與檢查。`dynamics/`：手臂動力學的自我檢查。`structure/`：起伏地形上的固定式與追日支架、清洗水管（1D 水力）、電纜槽（電壓降）。`solar/`：追日陣列的日照遮陰（SPA、回溯、BVH 逐片遮陰、晴空日射；`?h=10&d=12,21&bt=1` 指定時間、日期、回溯） |
 | `optics/` | 機器視覺的光學計算（純函式：L1 視野、倍率、每像素、最小缺陷、景深、運動模糊、行頻、像圈、接口、頻寬、打光；L2 `lighting.js` 明暗場、缺陷對比、遮擋、近似模擬影像）與 3D 配置檢視頁 `optics/view.html`；studio 的光學工作台、`vs3d optics eval`、相機模型共用，說明在 `optics/README.md` |
 | `physics/` | 剛體動力學（Rapier 決定性版）：`physics.js` 預先烘焙軌跡（輸送帶、投料、移除區、治具、吸附、力控制兩指夾爪），`apply(t)` 只取樣、可以倒著拖；`analysis.js` 物料流、靜止時間、落點、料箱堆積與可抓取件、夾取滑移。`rope.js` 線材、軟管的 XPBD（錨點跟著時間動、會垂下與擺動，檢查線長夠不夠；1.17.0）。範例 `/core/examples/physics/`，說明在 `physics/README.md` |
 | `structure/` | 光伏支架鋼構（2026-11-07）：固定式與單軸追日，依地形 `height(x, z)` 算每支構件的位置、切長、角度、重量與基樁埋深，`bom()` 彙總；`pvFixedRack`／`pvTracker` 三維模型（每種構件一個 InstancedMesh）；風、雪載重只做估算；`structureChecks()` 回傳 layoutChecks 的列。說明在 `structure/README.md` |
