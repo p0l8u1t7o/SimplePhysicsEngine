@@ -24,8 +24,12 @@ const report = {};
 for (const p of projects) {
   const dir = join(OUT, p.id); mkdirSync(dir, { recursive: true });
   const skip = p.shots?.skip || ['follow'];
-  const views = (p.shots?.views || viewNames(readFileSync(join(p.web, 'js', 'main.js'), 'utf8'))).filter(v => !skip.includes(v));
   const ok = await browser.goto(`http://127.0.0.1:${PORT}/${encodeURIComponent(p.id)}/?pause`);
+  // 視角清單：project.json 的 shots.views → 頁面上的 window.sim.views（陣列或物件的鍵）→ 解析 main.js 的 const views（最後手段）。
+  // 2026-11-08 以前只解析原始碼：視角物件不是字面值（例如 const VIEWS = plan.views）時只拍得到 iso
+  let live = null;
+  if (ok && !p.shots?.views) live = await browser.evaluate(`(() => { const v = window.sim && window.sim.views; return Array.isArray(v) ? v : v && typeof v === 'object' ? Object.keys(v) : null; })()`).catch(() => null);
+  const views = (p.shots?.views || (live?.length ? live : viewNames(readFileSync(join(p.web, 'js', 'main.js'), 'utf8')))).filter(v => !skip.includes(v));
   const r = report[p.id] = { ready: ok, views, shots: [], errors: [] };
   if (!ok) { r.errors.push('window.sim 未就緒'); continue; }
   await sleep(1500);

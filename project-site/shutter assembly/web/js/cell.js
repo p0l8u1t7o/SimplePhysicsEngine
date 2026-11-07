@@ -261,7 +261,7 @@ export function createCell(scene, { k = 9, ng = false } = {}) {
   const ringFlash = on => upc.set(on);   // 環形光 emissive 1.6／0.05、閃光 40／0
   return {
     group: g, occluders: occ, keepout, trayBoxes, traySolids, upCam,
-    tower: { set(key) { tower.set(key); } },             // 亮哪一顆：'red'／'yellow'／'green'（其餘熄燈）
+    tower: { set(key) { tower.set(key); }, root: tower.root },   // 亮哪一顆：'red'／'yellow'／'green'（其餘熄燈）；root 給視角取景
     setUpFlash: ringFlash,
     setClamp(v) { clampX.position.x = (1 - v) * 3; clampZ.position.z = (1 - v) * 3; },
     setVacuum(on) { vacLed.material.emissiveIntensity = on ? 1.4 : 0; },

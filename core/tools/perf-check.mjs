@@ -42,7 +42,9 @@ try {
   await sleep(1200);
   const total = await browser.evaluate('+(window.sim.total || 0)');
   const skip = p.shots?.skip || ['follow'];
-  const views = (p.shots?.views || viewNames(readFileSync(join(p.web, 'js', 'main.js'), 'utf8'))).filter(v => !skip.includes(v));
+  // 視角清單同 shots.mjs：project.json → 頁面的 window.sim.views → 解析 main.js
+  const live = p.shots?.views ? null : await browser.evaluate(`(() => { const v = window.sim && window.sim.views; return Array.isArray(v) ? v : v && typeof v === 'object' ? Object.keys(v) : null; })()`).catch(() => null);
+  const views = (p.shots?.views || (live?.length ? live : viewNames(readFileSync(join(p.web, 'js', 'main.js'), 'utf8')))).filter(v => !skip.includes(v));
   for (const [k, v] of ['iso', ...views].entries()) {
     const t = +(total * [.12, .31, .5, .69, .88][k % 5]).toFixed(2);
     await browser.evaluate(`(() => { const s = window.sim; s.seekTo(${t}); s.setView?.(${JSON.stringify(v)}, true); return true; })()`).catch(e => result.errors.push(`${v}: ${e.message.split('\n')[0]}`));

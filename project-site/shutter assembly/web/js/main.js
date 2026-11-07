@@ -109,6 +109,8 @@ const views = {
   upcam: () => { const p = V(LAYOUT.upCam.x, LAYOUT.upCam.focus - (wideShort() ? 50 : 20), LAYOUT.upCam.z); return [p.clone().add(V(-120, 45, 150)).toArray(), p.toArray()]; },
   trays: () => [[-390, 1180, 40], [-390, 912, -305]],
   top: () => [[0, 2300, -80], [0, 900, -100]],
+  // 狀態燈：三色燈在外罩頂右後方，其他視角都拍不到（截圖回歸要涵蓋它）；從右前上方看三色燈與外罩頂
+  status: () => { const p = cell.tower.root.getWorldPosition(V()); return [p.clone().add(V(650, 380, 850)).toArray(), p.clone().add(V(-120, -90, 0)).toArray()]; },
 };
 let selectedView = 'iso';
 const followBase = () => selectedView === 'part';
