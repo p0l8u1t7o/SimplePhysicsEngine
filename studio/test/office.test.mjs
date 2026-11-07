@@ -71,6 +71,16 @@ test('xlsx：工作表名稱、共用字串、數字、日期、百分比、布�
   assert.equal(r.images.length, 2);
 });
 
+test('圖片檔名撞名時不能用原始名稱（..\\ 會寫到抽取資料夾外）', () => {
+  // 兩個圖片消毒後同名：第二個以前會用原始的 ..\..\x.png 加流水號，寫出 .extract/ 外面
+  const z = readZip(pptx()), entries = Object.fromEntries(z.names.map(n => [n, z.get(n)]));
+  entries['ppt/media/.._.._evil.png'] = PNG; entries['ppt/media/..\\..\\evil.png'] = PNG;
+  const r = extractOffice(put('evil.pptx', zip(entries)), join(dir, 'evil.pptx.extract'));
+  assert.ok(r.dir.startsWith(join(dir, 'evil.pptx.extract')));
+  for (const f of ['evil.png', 'evil-2.png', '.._.._evil.png', '.._.._evil-2.png']) assert.ok(!existsSync(join(dir, f)), f);
+  assert.ok(!existsSync(join(dir, '..', 'evil-2.png')));
+});
+
 test('整批上傳：損壞檔與舊格式只記警告，不讓建立失敗', () => {
   const docs = mkdtempSync(join(dir, 'docs-'));
   writeFileSync(join(docs, 'bad.pptx'), 'garbage');

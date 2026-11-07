@@ -233,6 +233,17 @@ test('交接包：匯出 → 匯入成新專案，git 歷史、階段、拍板�
   assert.ok(!existsSync(join(K.studio, 'logs')), '代理的完整對話記錄不帶過去');
   await assert.rejects(importHandoff(ws, file, { id: 'AlphaCopy', log: () => {} }), /專案已存在/);
   assert.equal(r.id, 'AlphaCopy');
+
+  // 惡意交接包（2026-11-07 巡檢）：代號含 ../ 不能 clone 到工作區外；docs/../ 的項目不能寫出專案資料夾
+  await assert.rejects(importHandoff(ws, file, { id: '../Outside', log: () => {} }), /專案名稱/);
+  assert.ok(!existsSync(join(ws, '..', 'Outside')));
+  const { readZip, writeZip } = await import(new URL(`file:///${join(paths(ws).core, 'tools', 'zip.mjs').replace(/\\/g, '/')}`).href);
+  const evil = join(J.temp, 'exports', 'evil-handoff.zip');
+  writeZip(evil, [...readZip(file), { name: 'docs/../../../escaped.txt', data: 'x' }, { name: 'studio/..\\..\\..\\escaped2.txt', data: 'x' }]);
+  const skipped = [];
+  await importHandoff(ws, evil, { id: 'AlphaEvil', log: m => skipped.push(m) });
+  assert.ok(!existsSync(join(ws, 'escaped.txt')) && !existsSync(join(ws, 'projects', 'escaped.txt')) && !existsSync(join(ws, 'escaped2.txt')) && !existsSync(join(ws, 'projects', 'escaped2.txt')));
+  assert.equal(skipped.filter(m => /不安全的路徑/.test(m)).length, 2);
 });
 
 test('pickItems：編號、id、「除了」', () => {

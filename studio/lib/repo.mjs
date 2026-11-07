@@ -48,15 +48,20 @@ export function beginFlow(J, label) {
 }
 
 // review JSON 只有時間或耗時變動的，寫回 HEAD 的內容（本庫慣例：不提交）
-const VOLATILE = new Set(['date', 'at', 'startedAt', 'finishedAt', 'generated', 'seconds', 'sourceHash']);
-const strip = v => Array.isArray(v) ? v.map(strip) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).filter(([k]) => !VOLATILE.has(k)).map(([k, x]) => [k, strip(x)])) : v;
+// 和 core/tools/compare-review.py 同一套規則：at、date 只在頂層是執行時間；深層的 at 是事件時刻，屬於檢查結果
+const VOLATILE = new Set(['startedAt', 'finishedAt', 'generated', 'seconds', 'sourceHash', 'ms']);
+const VOLATILE_TOP = new Set(['date', 'at']);
+const strip = (v, top = true) => Array.isArray(v) ? v.map(x => strip(x, false)) : v && typeof v === 'object'
+  ? Object.fromEntries(Object.entries(v).filter(([k]) => !VOLATILE.has(k) && !(top && VOLATILE_TOP.has(k))).map(([k, x]) => [k, strip(x, false)])) : v;
+// 某個 commit 裡的檔案內容，套用簽出時的轉換（core.autocrlf 等）；直接用 git show 寫回會變成 LF，git 會把它當成已修改
+const checkoutContent = (J, rev, path) => git(J.dir, ['cat-file', '--filters', `${rev}:${path}`], { encoding: 'buffer' });
 export function revertTimestampOnly(J) {
   const pre = prefix(J);
   for (const c of changes(J)) {
     if (!/^review\/.+\.json$/.test(c.path) || c.code.includes('?')) continue;
     try {
-      const old = git(J.dir, ['show', `HEAD:${pre}${c.path}`]), cur = readFileSync(join(J.dir, c.path), 'utf8');
-      if (JSON.stringify(strip(JSON.parse(old))) === JSON.stringify(strip(JSON.parse(cur)))) writeFileSync(join(J.dir, c.path), old);
+      const old = checkoutContent(J, 'HEAD', `${pre}${c.path}`), cur = readFileSync(join(J.dir, c.path), 'utf8');
+      if (JSON.stringify(strip(JSON.parse(old.toString('utf8')))) === JSON.stringify(strip(JSON.parse(cur)))) writeFileSync(join(J.dir, c.path), old);
     } catch { /* 不是 JSON 或 HEAD 沒有：照常提交 */ }
   }
 }
@@ -74,7 +79,7 @@ export function commitProject(J, message) {
 export function writeBack(J, commit, rel) {
   const pre = prefix(J), file = join(J.dir, rel);
   let content = null;
-  try { content = git(J.dir, ['show', `${commit}:${pre}${rel}`], { encoding: 'buffer' }); } catch { /* 該 commit 沒有這個檔 */ }
+  try { content = checkoutContent(J, commit, `${pre}${rel}`); } catch { /* 該 commit 沒有這個檔 */ }
   if (content == null) { rmSync(file, { force: true }); return 'deleted'; }
   mkdirSync(dirname(file), { recursive: true }); writeFileSync(file, content); return 'restored';
 }
@@ -84,9 +89,10 @@ export function revertToCommit(J, base, message) {
   const pre = prefix(J), skipped = [];
   const files = git(J.dir, ['diff', '--name-only', '-z', base, 'HEAD', '--', '.']).split('\0').filter(Boolean).map(p => p.slice(pre.length)).filter(p => !APP_AREA.test(p));
   for (const rel of files) {
-    let atHead = null; try { atHead = git(J.dir, ['show', `HEAD:${pre}${rel}`], { encoding: 'buffer' }); } catch { /* HEAD 沒有 */ }
-    const now = existsSync(join(J.dir, rel)) ? readFileSync(join(J.dir, rel)) : null;
-    const same = (atHead == null && now == null) || (atHead && now && sha1(atHead) === sha1(now));
+    // 比的是 git 的 blob id（工作目錄的檔案經過 clean 轉換再算），不是原始位元組：autocrlf=true 時工作目錄是 CRLF、blob 是 LF
+    let atHead = null; try { atHead = git(J.dir, ['rev-parse', `HEAD:${pre}${rel}`]).trim(); } catch { /* HEAD 沒有 */ }
+    const now = existsSync(join(J.dir, rel)) ? git(J.dir, ['hash-object', `--path=${rel}`, '--', rel]).trim() : null;
+    const same = (atHead == null && now == null) || (atHead && now && atHead === now);
     if (!same) { skipped.push(rel); continue; }
     writeBack(J, base, rel);
   }

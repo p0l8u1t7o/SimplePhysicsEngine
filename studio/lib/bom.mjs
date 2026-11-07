@@ -103,6 +103,8 @@ export function bomOps({ all, get, run, insert, update, tx, now, fail, findPart,
       name: it.name || snap?.name || '', spec: it.spec || snap?.spec || '', model: it.model || [snap?.brand, snap?.model].filter(Boolean).join(' '), reason: it.reason,
       qty: it.qty, unit: it.unit || snap?.unit || (it.labor ? '人日' : ''), price, currency, fx, unit_twd: unitTwd, source, grade,
       subtotal, low: r2(subtotal * (1 - range)), high: r2(subtotal * (1 + range)), no_scene: !!it.no_scene, note: it.note, flags,
+      // 這一行自己存的值（上面的 name 等是套上元件版本後的結果）：編輯表單用它預填，留白的欄位才會繼續跟著元件版本
+      own: { name: it.name || '', spec: it.spec || '', model: it.model || '', unit: it.unit || '', grade: it.grade || '' },
     };
   }
   // 摘要：依性質加總，再算預備費、上下限、含稅；有分部（grp）時每個分部也算一份
@@ -204,7 +206,12 @@ export function bomOps({ all, get, run, insert, update, tx, now, fail, findPart,
     compare(project, snapshotId) {
       const cur = ops.get(project) || fail(`專案 ${project} 還沒有 BOM`, 404), old = ops.getSnapshot(snapshotId);
       if (old.bom.project !== String(project)) fail('這份快照不是這個專案的', 400);
-      const key = l => l.line || `#${l.id}`, a = new Map(old.lines.map(l => [key(l), l])), b = new Map(cur.lines.map(l => [key(l), l]));
+      // 對照的 key：有行號用行號；沒有的用分部＋名稱＋元件編號（快照複製行時 id 會換新，不能用 id）。
+      // 同一個 key 出現多次（行號重複、同名的行）時加上第幾次，避免在 Map 裡互相蓋掉
+      const keyed = lines => { const seen = new Map(); return new Map(lines.map(l => {
+        const k = l.line || `${l.section || ''}｜${l.grp || ''}｜${l.name || ''}${l.code ? `｜${l.code}` : ''}`, n = (seen.get(k) || 0) + 1; seen.set(k, n);
+        return [n > 1 ? `${k}（第 ${n} 行）` : k, l]; })); };
+      const a = keyed(old.lines), b = keyed(cur.lines);
       const rows = [];
       for (const [k, l] of b) { const o = a.get(k); if (!o) rows.push({ line: k, change: 'added', name: l.name, to: l.subtotal, delta: l.subtotal });
         else if (o.subtotal !== l.subtotal || o.qty !== l.qty || o.part_version !== l.part_version) rows.push({ line: k, change: 'changed', name: l.name, from: o.subtotal, to: l.subtotal, delta: r2(l.subtotal - o.subtotal), qty: [o.qty, l.qty], version: [o.part_version, l.part_version] }); }

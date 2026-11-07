@@ -52,6 +52,7 @@ export function run(cmd, args, { cwd, env, input, echo = false, signal } = {}) {
     for (const s of [child.stdout, child.stderr]) s.on('data', d => { out += d; if (echo) process.stdout.write(d); });
     child.on('error', e => { out += String(e); });
     child.on('close', code => ok({ code, out }));
+    child.stdin.on('error', () => {});   // 子程序提早結束時寫 stdin 會 EPIPE，不接的話整個 vs3d 會當掉；結束代碼由 close 事件回報
     if (input != null) child.stdin.end(input); else child.stdin.end();
   });
 }

@@ -31,10 +31,12 @@ export function mdToHtml(md) {
     }
     if (/^\s*>/.test(l)) { const body = []; while (i < lines.length && /^\s*>/.test(lines[i])) body.push(lines[i++].replace(/^\s*>\s?/, '')); out.push(`<blockquote>${mdToHtml(body.join('\n'))}</blockquote>`); continue; }
     if (isList(l)) {
-      const ordered = /^\s*\d/.test(l), items = [];
-      while (i < lines.length && (isList(lines[i]) || (/^\s{2,}\S/.test(lines[i]) && items.length))) {
+      // 第一層的縮排以清單第一行為準：段落後直接接縮排清單（「  - 項目」）時，那些行是第一層，不是子項
+      const ordered = /^\s*\d/.test(l), items = [], base = /^\s*/.exec(l)[0].length;
+      const indent = s => /^\s*/.exec(s)[0].length;
+      while (i < lines.length && (isList(lines[i]) || (indent(lines[i]) >= base + 2 && /\S/.test(lines[i]) && items.length))) {
         const x = lines[i++];
-        if (isList(x) && !/^\s{2,}/.test(x)) items.push({ text: x.replace(/^\s*([-*+]|\d+[.)])\s+/, ''), sub: [] });
+        if (isList(x) && (indent(x) < base + 2 || !items.length)) items.push({ text: x.replace(/^\s*([-*+]|\d+[.)])\s+/, ''), sub: [] });
         else items.at(-1).sub.push(x.replace(/^\s*([-*+]|\d+[.)])\s+/, '').trim());
       }
       const tag = ordered ? 'ol' : 'ul';

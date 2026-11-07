@@ -22,7 +22,9 @@ export function costWorkbook(data, { title = '', subtitle = '' } = {}) {
       : foreign ? { v: l.unit_twd ?? 0, f: `Q${r}*S${r}`, s: 'money' } : { v: l.unit_twd ?? 0, s: 'moneyInput' };
     const range = k => ({ v: l[k], f: `K${r}*(1${k === 'low' ? '-' : '+'}VLOOKUP(L${r},${S}$A$13:$B$15,2,FALSE))`, s: 'money' });
     return [l.line, l.section, l.grp, l.name, l.spec, l.model, l.reason, { v: l.qty, s: 'numInput' }, l.unit, price, { v: l.subtotal, f: `H${r}*J${r}`, s: 'money' }, { v: l.grade, s: 'numInput' },
-      range('low'), range('high'), NATURE[l.nature], l.code ? `${l.code} v${l.part_version}` : '', foreign ? { v: l.price, s: 'numInput' } : null, foreign ? l.currency : null, foreign ? { v: l.fx ?? '', s: 'numInput' } : null,
+      range('low'), range('high'), NATURE[l.nature], l.code ? `${l.code} v${l.part_version}` : '', foreign ? { v: l.price, s: 'numInput' } : null, foreign ? l.currency : null,
+      // 沒有匯率時寫 0（和平台一樣算 0、提醒欄標缺匯率）；寫空字串的話 Q*S 是 #VALUE!，會一路傳到摘要的小計與含稅
+      foreign ? { v: l.fx ?? 0, s: 'numInput' } : null,
       l.flags.filter(f => f !== 'estimate').map(f => FLAG[f]).join('、')];
   })];
   // ---- 摘要 ----

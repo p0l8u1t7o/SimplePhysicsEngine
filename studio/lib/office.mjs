@@ -135,8 +135,10 @@ function saver(zip, outDir) {
     files,
     save(part, name) {
       const data = zip.get(part); if (!data) return null;
-      let n = name.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_'), i = 2;
-      while (used.has(n.toLowerCase())) n = name.replace(/(\.[^.]*)?$/, `-${i++}$1`);
+      // 撞名時也要用消毒後的名稱加流水號：原始名稱裡的 ..\ 會讓檔案寫到抽取資料夾外
+      const clean = name.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/^\.+/, '_');
+      let n = clean, i = 2;
+      while (used.has(n.toLowerCase())) n = clean.replace(/(\.[^.]*)?$/, `-${i++}$1`);
       used.add(n.toLowerCase()); writeFileSync(join(outDir, n), data); files.push(n);
       return n;
     },

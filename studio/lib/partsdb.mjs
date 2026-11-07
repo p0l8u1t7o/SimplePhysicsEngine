@@ -10,6 +10,7 @@
 // 資料庫檔只留本機，不進版控（2026-10-05 拍板）：預設 studio/data/studio.db（第 4 版以前叫 parts.db，開啟時自動改名），
 // 環境變數 VS3D_DB（舊的 VS3D_PARTS_DB 也可以）改位置；換電腦時複製資料庫檔與旁邊的 files/。結構升級前會自動備份成 <檔名>.bak-v<舊版>。
 import { DatabaseSync } from 'node:sqlite';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, rmdirSync, writeFileSync } from 'node:fs';
 import { basename, dirname, extname, join } from 'node:path';
@@ -278,8 +279,10 @@ export function openPartsDb(file = defaultPartsDb()) {
   const linksRaw = linkOps({ all, get, run, insert, now, fail, findPart });
   const versions = versionOps({ all, get, run, insert, now, links: linksRaw });
   // 誰在改（版本紀錄的 by）：HTTP 介面在處理請求時用 withActor 包起來
-  let actor = '';
-  const bump = id => versions.bump(id, { by: actor });
+  // 誰在改：用 AsyncLocalStorage 跟著非同步流程走（伺服器先 await 讀 body 再寫資料庫；同步的 try/finally 會在第一個 await 就把 actor 還原，記成空的）
+  const actorStore = new AsyncLocalStorage();
+  const currentActor = () => actorStore.getStore() ?? '';
+  const bump = id => versions.bump(id, { by: currentActor() });
   // 哪些專案的 BOM（目前的或快照）引用這個元件
   const bomUse = partId => all('SELECT DISTINCT b.project FROM bom_items i JOIN boms b ON b.id = i.bom_id WHERE i.part_id = ? ORDER BY b.project', partId).map(r => r.project);
   // 模組的子件有異動就檢查模組要不要升版
@@ -400,7 +403,7 @@ export function openPartsDb(file = defaultPartsDb()) {
     links, versions,
     bom: null,            // 下面建好之後填入（BOM 與成本表，lib/bom.mjs）
     // 版本紀錄的 by：HTTP 介面處理一個請求時用它包起來
-    withActor(name, fn) { const prev = actor; actor = name || ''; try { return fn(); } finally { actor = prev; } },
+    withActor(name, fn) { return actorStore.run(name || '', fn); },
     // 模組的子件出了新版：手動更新模組（模組升一版、記下子件現在的版本）
     refreshModule(id) { const p = need('parts', id, '元件'); if (p.kind !== 'module') bad('只有模組可以更新子件版本'); bump(p.id); return this.getPart(p.id); },
     findByCode: code => get('SELECT * FROM parts WHERE code = ? COLLATE NOCASE', String(code).trim()),
@@ -551,9 +554,9 @@ export function openPartsDb(file = defaultPartsDb()) {
     },
     stats: () => get('SELECT (SELECT count(*) FROM parts) AS parts, (SELECT count(*) FROM prices) AS prices, (SELECT count(*) FROM usages) AS usages, (SELECT count(*) FROM suppliers) AS suppliers'),
   };
-  api.bom = bomOps({ all, get, run, insert, update, tx, now, fail, findPart, versions, actor: () => actor, system: () => api.readSettings() });
+  api.bom = bomOps({ all, get, run, insert, update, tx, now, fail, findPart, versions, actor: currentActor, system: () => api.readSettings() });
   api.assess = assessOps({ all, get, insert, now, fail });
   api.enrich = enrichOps({ all, get, run, insert, now, fail, findPart, api });
-  api.aoi = aoiOps({ all, get, run, insert, now, fail, findPart, getPart: id => api.getPart(id), bom: api.bom, actor: () => actor });
+  api.aoi = aoiOps({ all, get, run, insert, now, fail, findPart, getPart: id => api.getPart(id), bom: api.bom, actor: currentActor });
   return api;
 }

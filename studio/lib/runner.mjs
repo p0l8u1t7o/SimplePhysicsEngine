@@ -15,8 +15,16 @@ export function createRunner(ws, { onLine = () => {}, onExit = () => {}, onQueue
   const pub = x => x && { qid: x.qid, id: x.id, cmd: x.cmd, by: x.by, queuedAt: x.queuedAt, ...(x.started ? { started: x.started } : {}) };
 
   function launch(item) {
-    const child = spawn(process.execPath, [join(STUDIO, 'vs3d.mjs'), item.cmd, item.name, '--no-wait', '--workspace', item.root, ...item.args],
-      { cwd: STUDIO, windowsHide: true, env: { ...process.env, ...env, VS3D_BY: item.by || '' } });
+    let child;
+    // spawn 在參數不合法時會同步丟例外；這裡常在前一筆的 'close' 事件裡被呼叫，沒接住的話整個介面伺服器會結束
+    try {
+      child = spawn(process.execPath, [join(STUDIO, 'vs3d.mjs'), item.cmd, item.name, '--no-wait', '--workspace', item.root, ...item.args],
+        { cwd: STUDIO, windowsHide: true, env: { ...process.env, ...env, VS3D_BY: item.by || '' } });
+    } catch (e) {
+      push(item.id, `（無法啟動：${e.message}）`);
+      onExit(item.id, 'error', -1);
+      return next();
+    }
     current = { ...item, child, started: Date.now() };
     push(item.id, `$ vs3d ${item.cmd} ${item.name} ${item.args.join(' ')}`.trim());
     let buf = '';
@@ -24,7 +32,8 @@ export function createRunner(ws, { onLine = () => {}, onExit = () => {}, onQueue
     child.stdout.on('data', feed); child.stderr.on('data', feed);
     child.on('close', code => {
       if (buf) push(item.id, buf);
-      const status = { 0: 'done', 10: 'waiting', 1: 'stopped', 2: 'error' }[code] || 'error';
+      // 「停止」要看是不是使用者按的：Windows 上 taskkill 的結束代碼是 1，未捕捉的例外也是 1，只看代碼會把當掉記成停止
+      const status = current?.stopping ? 'stopped' : ({ 0: 'done', 10: 'waiting' }[code] || 'error');
       push(item.id, `（結束：${status}，代碼 ${code}）`);
       current = null;
       onExit(item.id, status, code);
@@ -37,6 +46,7 @@ export function createRunner(ws, { onLine = () => {}, onExit = () => {}, onQueue
   // 回傳 { qid, position }：position 0 是馬上開始，1 以上是前面還有幾筆
   function start(cmd, id, args = [], { name = id, root = ws, by = '' } = {}) {
     if (current?.id === id || queue.some(q => q.id === id)) throw new Error(`${id} 已經在執行或排隊中，等它結束再試`);
+    if ([cmd, name, root, ...args].some(a => String(a).includes('\0'))) throw new Error('參數不能含 NUL 字元');
     const item = { qid: randomUUID().slice(0, 8), cmd, id, args, name, root, by, queuedAt: Date.now() };
     queue.push(item);
     const position = (current ? 1 : 0) + queue.length - 1;
@@ -55,7 +65,7 @@ export function createRunner(ws, { onLine = () => {}, onExit = () => {}, onQueue
       push(item.id, `（已取消排隊：${item.cmd}）`); onQueue();
       return pub(item);
     },
-    stop() { if (!current) return false; if (process.platform === 'win32') spawn('taskkill', ['/pid', String(current.child.pid), '/T', '/F'], { windowsHide: true }); else current.child.kill('SIGINT'); return true; },
+    stop() { if (!current) return false; current.stopping = true; if (process.platform === 'win32') spawn('taskkill', ['/pid', String(current.child.pid), '/T', '/F'], { windowsHide: true }); else current.child.kill('SIGINT'); return true; },
     get current() { return pub(current); },
     get queue() { return queue.map(pub); },
     queued: qid => pub(queue.find(q => q.qid === qid)),

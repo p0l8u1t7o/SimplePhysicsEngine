@@ -187,7 +187,11 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
       const all = state.reviewData?.suggest || [];
       if (a.choices[0] === 0 && !a.text) state.renderItems = all;
       else if (a.choices[0] === 1 && !a.text) state.renderItems = all.filter(x => (x.priority ?? 2) <= 1);
-      else state.renderItems = pickItems(all, [a.text, a.note].filter(Boolean).join(' '));
+      else {
+        // 「我自己挑」卻一個編號都沒寫（介面的全不選會送「（不補強）」）：不補強。pickItems 沒有編號時回傳全部，這裡要先擋
+        const t = [a.text, a.note].filter(Boolean).join(' ');
+        state.renderItems = a.choices[0] === 2 && !/\d/.test(t) ? [] : pickItems(all, t);
+      }
       state.renderPicked = true;
     }
     if (a.id.startsWith('vs3d-render-accept') || a.id.startsWith('vs3d-render-stuck')) {
@@ -404,6 +408,12 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
             break;
           }
           if (!state.renderItems) state.renderItems = suggest;
+          if (state.renderPicked && !state.renderItems.length && suggest.length) {
+            // 使用者挑了「不補強」：空清單交給補強角色的話，提示會變成「自行找 3～5 處補強」
+            log('\n使用者沒有挑任何補強項目，略過補強。');
+            state.render = { ...state.render, result: 'skipped' }; state.stage = 'done';
+            break;
+          }
           state.renders = (state.renders || 0) + 1;
           await round('render', rolePrompt('render', ctxFor({ role: 'render', items: state.renderItems, focus: override.focus || '', round: state.renders })));
           state.stage = 'render-guard';

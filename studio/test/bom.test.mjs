@@ -7,6 +7,15 @@ import { diffSnapshots } from '../lib/versions.mjs';
 
 const bad = (fn, re, status = 400) => assert.throws(fn, e => e instanceof PartsError && e.status === status && re.test(e.message), re);
 
+test('withActor：經過 await（伺服器先讀 body 再寫）與並行請求，版本紀錄的 by 都對', async () => {
+  const db = openPartsDb(':memory:');
+  const cam = db.createPart({ name: '相機', spec: '5MP' });
+  const later = (who, spec, ms) => db.withActor(who, async () => { await new Promise(r => setTimeout(r, ms)); db.updatePart(cam.id, { ...db.getPart(cam.id), spec }); });
+  await Promise.all([later('amy', '8MP', 20), later('bob', '12MP', 5)]);    // bob 先寫、amy 後寫，兩個請求重疊
+  const by = db.getPart(cam.id).versions.slice(0, 2).map(v => v.by).sort();
+  assert.deepEqual(by, ['amy', 'bob']);
+});
+
 test('元件版本：影響選型或成本的欄位才升版；記下改了什麼、誰改的；模組的子件出新版時可以更新模組', () => {
   const db = openPartsDb(':memory:');
   const cam = db.withActor('amy', () => db.createPart({ name: '相機', spec: '5MP', attrs: { 像素尺寸: '3.45' } }));
@@ -75,6 +84,17 @@ test('成本表：設備、工程人日、客製件、選配；等級幅度、�
   assert.deepEqual(s.groups.map(x => [x.grp, x.subtotal]), [['第 1 部分', 40000], ['第 2 部分', 32000]], '分部各算一份');
   assert.deepEqual([s.flags.estimate, s.flags.pending, s.flags.noPrice], [3, 1, 1], 'C 級（含沒有等級的）、待確認、沒單價');
   bad(() => B.updateSettings('Demo', { tax: 2 }), /稅率/);
+  db.close();
+});
+
+test('快照比較：沒有行號、行號重複的行剛存完快照就比，不能出現新增＋刪除', () => {
+  const db = openPartsDb(':memory:'), B = db.bom;
+  B.addItem('Demo', { section: '4 治具', name: '定位治具', unit_price: 90000, grade: 'C', qty: 2, unit: '套' });
+  B.addItem('Demo', { section: '4 治具', name: '定位治具', unit_price: 50000, grade: 'C', qty: 1, unit: '套' });
+  B.addItem('Demo', { line: '5-01', name: '外罩', unit_price: 1000, qty: 1 });
+  B.addItem('Demo', { line: '5-01', name: '外罩門', unit_price: 2000, qty: 1 });
+  const s = B.snapshot('Demo', { name: 'v1' });
+  assert.deepEqual(B.compare('Demo', s.id).rows, []);
   db.close();
 });
 

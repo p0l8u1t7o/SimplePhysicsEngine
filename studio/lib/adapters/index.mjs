@@ -64,6 +64,7 @@ export function runAgent(adapter, opts, onEvent = () => {}) {
       resolve({ ok, code, sessionId: state.sessionId, text: state.text, usage: state.usage, costUsd: state.costUsd, turns: state.turns,
         stderr: stderr.trim().split('\n').slice(-20).join('\n'), seconds: +((Date.now() - t0) / 1000).toFixed(1), aborted, timedOut });
     });
+    child.stdin.on('error', () => {});   // 代理提早結束時寫提示會 EPIPE；結果由 close 事件回報
     child.stdin.end(input ?? '');
   });
 }

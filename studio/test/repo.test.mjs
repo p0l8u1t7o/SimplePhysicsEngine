@@ -72,3 +72,19 @@ test('本庫模式：revertToCommit 只寫回代理改過、使用者之後沒�
   assert.equal(readFileSync(join(J.dir, 'web', 'b.txt'), 'utf8'), 'user edit');
   assert.deepEqual(r.skipped, ['web/b.txt']);
 });
+
+test('本庫模式：core.autocrlf=true（Windows 的 Git 預設）時，整批還原照樣寫回，寫回後不留只差換行的改動', () => {
+  const J = projectPaths(root, 'Demo');
+  git(root, ['config', 'core.autocrlf', 'true']);
+  try {
+    writeFileSync(join(J.dir, 'web', 'c.txt'), 'line1\nline2\n'); repoGit.commitProject(J, 'add c');
+    rmSync(join(J.dir, 'web', 'c.txt')); git(root, ['checkout', '--', 'project-site/Demo/web/c.txt']);   // 照簽出規則變成 CRLF
+    assert.match(readFileSync(join(J.dir, 'web', 'c.txt'), 'utf8'), /\r\n/);
+    const base = repoGit.head(J);
+    writeFileSync(join(J.dir, 'web', 'c.txt'), 'agent\r\n'); repoGit.commitProject(J, 'agent round');
+    const r = repoGit.revertToCommit(J, base, 'revert');
+    assert.deepEqual(r.skipped, [], '使用者沒改過的檔案不能因為 CRLF 被當成「之後改過」');
+    assert.equal(readFileSync(join(J.dir, 'web', 'c.txt'), 'utf8'), 'line1\r\nline2\r\n');
+    assert.equal(git(root, ['status', '--porcelain', '--', 'project-site/Demo/web/c.txt']).trim(), '');
+  } finally { git(root, ['config', 'core.autocrlf', 'false']); }
+});

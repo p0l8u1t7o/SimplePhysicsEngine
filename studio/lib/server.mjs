@@ -101,6 +101,8 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
   });
   // 這個專案在不在佇列裡（執行中或排隊中）
   const busyWith = id => runner.current?.id === id || runner.queue.some(q => q.id === id);
+  // 別的工作區專案的代理正在跑：這輪結束時 isolation 會把其他專案的改動當成越界並還原（git reset），所以先不要寫
+  const othersRunning = id => !loc(id).repo && runner.current && !String(runner.current.id).startsWith('@') && runner.current.id !== id;
 
   // 3D 預覽：工作區 core 的 serve.mjs（工作區模式會從 projects/ 找專案）
   // serve.mjs 只聽本機（previewInner），對外的是代理（previewPort）
@@ -140,7 +142,8 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
   };
   const detail = id => {
     const J = Jof(id), s = loadState(J), qs = loadQuestions(J);
-    const rounds = existsSync(J.rounds) ? readFileSync(J.rounds, 'utf8').trim().split('\n').filter(Boolean).map(l => JSON.parse(l)) : [];
+    // 執行中可能讀到寫一半的最後一行：略過壞行，不要讓整個專案頁回 500（dashboard.readRounds 也是這樣）
+    const rounds = existsSync(J.rounds) ? readFileSync(J.rounds, 'utf8').trim().split('\n').filter(Boolean).flatMap(l => { try { return [JSON.parse(l)]; } catch { return []; } }) : [];
     const shotDir = s.shots && join(s.shots, loc(id).name), shots = shotDir && existsSync(shotDir) ? readdirSync(shotDir).filter(f => f.endsWith('.png') && !f.endsWith('.diff.png')).sort() : [];
     const rel = f => f.slice(J.dir.length + 1).replace(/\\/g, '/');
     // 可以取消的流程：本庫的站不是「完成」，或工作區的專案在完成第一段之後開始的流程（重新審查、補強、修改指令、第二段）
@@ -460,6 +463,7 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
             const A = await import('./assess.mjs'), J = Jof(id), sj = readJson(J.studioJson, {}), before = A.componentsOf(sj);
             let next; try { next = A.cleanComponents((await jbody()).components); } catch (e) { return json(400, { error: e.message }); }
             if (loc(id).repo) return json(400, { error: '本庫的站固定是 3D 動畫' });
+            if (othersRunning(id)) return json(409, { error: `目前在執行 ${runner.current.id}，等它這輪結束再改專案組成` });
             writeJson(J.studioJson, { ...sj, components: next });
             const s = loadState(J);
             if (next.includes('3d') && !before.includes('3d') && s.stage === 'done' && !s.buildStarted) writeJson(J.state, { ...s, stage: 'build' });
@@ -513,6 +517,7 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
           if (b === 'answer' && req.method === 'POST') {
             const v = await jbody(), J = Jof(id), q = loadQuestions(J).list.find(x => x.id === v.qid);
             if (!q) return json(404, { error: `找不到問題 ${v.qid}` });
+            if (othersRunning(id)) return json(409, { error: `目前在執行 ${runner.current.id}，等它這輪結束再回答（答案會寫進本專案的 AGENTS.md）` });
             const parsed = v.text ? { choices: [], text: v.text } : parseChoice(q, (v.choices || []).map(i => i + 1).join(','));
             recordAnswer(J, q, { ...parsed, note: v.note || '' });
             resumeIfReady(id, user?.name || '');
@@ -542,6 +547,8 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
         return json(404, { error: '未知的 API' });
       }
       if (seg[0] === 'files' && seg[1]) {
+        // 專案代號要是現有的專案：seg 已經 decode，%2F 會變成真的 ../，不檢查的話 J.dir 可以指到工作區外
+        if (!projectIds().includes(seg[1])) { res.writeHead(404); res.end('404'); return; }
         const J = Jof(seg[1]), relPath = seg.slice(2).join('/');
         const file = normalize(join(J.dir, relPath));
         if (!FILE_AREAS.test(relPath) || !inside(J.dir, file) || !existsSync(file) || statSync(file).isDirectory()) { res.writeHead(404); res.end('404'); return; }

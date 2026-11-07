@@ -3,11 +3,11 @@
 //       提案、審查、每輪紀錄；不含代理的完整對話記錄 logs/）＋client-names.txt（這個專案用得到的不得顯示名稱）。
 // 匯入後代理的工作階段（session id）屬於原本那台電腦，會清掉；階段、拍板、提問都保留，對方可以直接 vs3d resume。
 import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync, readdirSync, statSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { tmpdir } from 'node:os';
 import { projectPaths, readClientNames, addClientNames, paths, readProjectNames } from './workspace.mjs';
-import { git, readJson, writeJson, now } from './util.mjs';
+import { git, readJson, writeJson, now, inside } from './util.mjs';
 
 // zip 用工作區 core 的 tools/zip.mjs（core 1.6.0 起）
 const zipLib = async ws => {
@@ -59,7 +59,10 @@ export async function importHandoff(ws, file, { id: newId, log = console.log } =
   const entries = readZip(file), get = n => entries.find(e => e.name === n);
   const meta = JSON.parse(get('handoff.json')?.data.toString('utf8') || 'null');
   if (meta?.format !== 'vs3d-handoff') throw new Error('不是 vs3d 交接包（缺少 handoff.json）');
-  const id = newId || meta.id, J = projectPaths(ws, id);
+  const id = newId || meta.id;
+  // 和新建專案同一條規則：代號含 ../ 的話 clone 與解開的檔案都會落到工作區外
+  if (!/^[\w][\w .-]*$/.test(String(id || ''))) throw new Error(`專案名稱請用英數、空白、- 或 _：${id}`);
+  const J = projectPaths(ws, id);
   if (existsSync(J.dir)) throw new Error(`專案已存在：${id}（用 --name 換一個名稱）`);
   const tmp = join(tmpdir(), `vs3d-import-${process.pid}-${Date.now()}.bundle`);
   writeFileSync(tmp, get('repo.bundle').data);
@@ -71,7 +74,8 @@ export async function importHandoff(ws, file, { id: newId, log = console.log } =
   } finally { rmSync(tmp, { force: true }); }
   for (const e of entries) {
     const m = /^(docs|studio)\/(.+)$/.exec(e.name); if (!m) continue;
-    const dest = join(m[1] === 'docs' ? J.docs : J.studio, ...m[2].split('/'));
+    const base = m[1] === 'docs' ? J.docs : J.studio, dest = resolve(base, ...m[2].split(/[\\/]/));
+    if (!inside(base, dest)) { log(`! 略過交接包裡不安全的路徑：${e.name}`); continue; }   // docs/../../x 之類
     mkdirSync(dirname(dest), { recursive: true }); writeFileSync(dest, e.data);
   }
   // 代理工作階段屬於原本的電腦；執行中的狀態也重設
