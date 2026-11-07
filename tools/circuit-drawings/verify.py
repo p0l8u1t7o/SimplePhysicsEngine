@@ -29,7 +29,7 @@ def check(datafile):
     for i,(page,svg) in enumerate(zip(pages,svgfiles)):
         if abs(float(page.mediabox.width)-W)>.1 or abs(float(page.mediabox.height)-H)>.1:errors.append('Not A3 landscape')
         text=page.extract_text();texts.append(text)
-        if 'P02' not in text or 'TESTCODE' not in text:errors.append('Missing title block')
+        if str(d.get('revision','P02')) not in text or 'TESTCODE' not in text:errors.append('Missing title block')
         root=ET.parse(svg).getroot();items=[]
         for group,sy,dy in [(root,1,0),(root.find('s:g',NS),.94,-39)]:
             for t in group.findall('s:text',NS):
@@ -42,7 +42,9 @@ def check(datafile):
                 dx=min(bounds[2],b[2])-max(bounds[0],b[0]);dy=min(bounds[3],b[3])-max(bounds[1],b[1])
                 if dx>1 and dy>2:overlaps.append({'page':svg.name,'a':value,'b':other})
     full='\n'.join(texts)
-    for p in d['components']:
+    # render.py 產生的資料用 components；杯體量測站另一版產生器（2026-09-29）用 devices，欄位 id／title 相同
+    components=d.get('components',d.get('devices',[]))
+    for p in components:
         if p['id'] not in full or p['title'] not in full:errors.append('Missing component '+p['id'])
     for p in d['axes']:
         if 'W-M-'+p['id'] not in full or 'W-E-'+p['id'] not in full:errors.append('Missing axis wiring '+p['id'])
@@ -51,7 +53,7 @@ def check(datafile):
         count=sum(r['wire'] in t for t in texts)
         if count<2:errors.append('IO missing drawing or schedule '+r['signal'])
     if len(d['io'])!=len({r['signal'] for r in d['io']}):errors.append('Duplicate IO signal')
-    result=dict(project=d['project'],revision=d['revision'],pdf_pages=len(pages),svg_pages=len(svgfiles),components=len(d['components']),axes=len(d['axes']),io_points=len(d['io']),pdf_sha256=hashlib.sha256(pdf.read_bytes()).hexdigest(),errors=errors,text_overlap_candidates=overlaps)
+    result=dict(project=d['project'],revision=d['revision'],pdf_pages=len(pages),svg_pages=len(svgfiles),components=len(components),axes=len(d['axes']),io_points=len(d['io']),pdf_sha256=hashlib.sha256(pdf.read_bytes()).hexdigest(),errors=errors,text_overlap_candidates=overlaps)
     (folder/'verification.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
     return d,pdf,result
 

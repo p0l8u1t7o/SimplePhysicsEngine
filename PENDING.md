@@ -17,8 +17,7 @@
 - [ ] core 模型的後續（已登記 `core/REQUESTS.md`）：`decal`／模型標籤改成建立當下判斷 `document`（SSD 的手腕相機標籤因此留在站內）；模型加 `cableHost` 選項；`codeReader` 機身預設名稱。
 - [ ] 快門站的 11 張基準截圖都拍不到三色燈（在外罩頂後方），截圖回歸對它沒有保護；考慮加一個看得到外罩頂的視角。
 - [ ] 回收物分揀：光幕依 ISO 13855 的安全距離 668 mm 在現有框架內不成立，畫面只畫示意；實機防護位置待風險評估（對客戶說明時要提）。
-- [ ] `tools/circuit-drawings/verify.py` 讀不了杯體量測站的 `docs/electrical/circuit-data.json`（2026-09-29 的新格式，頂層沒有 `components`、`axes`、`io`），跑到這站就 `KeyError` 中止；其他 5 站的結果正常（2026-11-07 搬機時以 Python 3.14＋pypdf 7 重跑，與舊機逐位元組相同）。要嘛讓 `verify.py` 認得新格式，要嘛排除這站。
-- [ ] 搬機收尾（2026-11-07）：舊機搬遷資料夾 `D:\Working Space\SimplePhysicsEngine-migration-20261105` 等 Kevin 確認新機沒問題後刪除；`TEMP/check-*.json` 已換成新機結果，舊機 2026-11-04 的兩份另存為 `TEMP/oldmachine-check-*-20261104.json`。
+- [ ] 杯體量測站的電路圖冊（`docs/circuit-diagrams.pdf`，2026-09-29 另一版產生器、版次 1.1）沒有 I/O 清單頁：`tools/circuit-drawings/verify.py`（2026-11-07 起認得這版的 `devices` 欄位）檢查出 18 個 I/O 點的線號只出現在接線圖、沒有出現在清單（其他 5 站的圖冊都有 500 系列 I/O 清單）。元件、軸、圖框、A3 尺寸、文字重疊都通過。要補 I/O 清單頁時，改用 `render.py` 的格式重產，或在該版產生器加一頁。
 
 ### 2. 3D 動畫生成應用程式（studio）
 
@@ -26,7 +25,6 @@
 
 - [ ] 內部 Pages 的發布目標：內部網頁伺服器／NAS 共用資料夾，或公司 GitHub 組織的 Pages。
 - [ ] STEP 選用元件的安裝來源：內部共用資料夾或內部套件伺服器。
-- [ ] 新開發機（2026-11-07）的 PATH 上沒有 `claude` 指令（只有 VS Code 擴充內建的），vs3d 的 Claude 代理會判定為未安裝；要用時另外安裝 Claude Code CLI 並登入（Codex CLI 已有）。
 - [ ] 本庫模式的併改偵測：代理執行中使用者也改了本站同一個檔案時，停下來轉成提問（目前會一起提交）。
 - [ ] 觀察修正迴圈的實際表現：P1、P2 共 8 次實測都第一次就通過檢查，修正迴圈只用假代理測過。
 - [ ] P2 MGPC 的第二段成品：右上角「外觀檢查」面板被電控檢視器面板蓋住（第一段就有），之後若要拿這版展示再修。（2026-10-21 核對：本機 `TEMP/` 已找不到這份成品，`TEMP/seg2-accept/`、`TEMP/p2-report/` 也不在；成品若已刪掉，這項可以拿掉。）
