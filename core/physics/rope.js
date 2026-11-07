@@ -39,7 +39,7 @@ function initial(a, b, len, n) {
 }
 
 export function bakeRope(spec) {
-  const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
+  const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();   // 計時：只算 stats.ms，不進雜湊
   const n = Math.max(2, spec.segments ?? 24), N = n + 1, L = spec.length, rest = L / n, r = spec.radius ?? 5;
   const dt = spec.dt ?? 1 / 240, hzWanted = spec.hz ?? 60, duration = spec.duration ?? 10, every = Math.max(1, Math.round(1 / hzWanted / dt));
   const hz = Math.abs(1 / hzWanted / dt - every) < 1e-9 ? hzWanted : 1 / (every * dt);
@@ -137,7 +137,7 @@ export function bakeRope(spec) {
   };
   for (let s = 0; s < steps; s++) { if (s % every === 0) record(); advance(s * dt); }
   if (f < frames) record();
-  const ms = Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0);
+  const ms = Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0);   // 計時：只算 stats.ms，不進雜湊
   const hash = fnv(2166136261, new Uint8Array(data.buffer)).toString(16).padStart(8, '0');
   return { kind: 'rope', spec, dt, hz, duration, frames, nodes: N, radius: r, data,
     stats: { bodies: 1, nodes: N, steps, maxStretch: Math.round(maxStretch * 1e4) / 1e4, minY: Math.round(minY * 10) / 10,
@@ -184,7 +184,7 @@ export function createRopeView(b, { color = 0x45acb5, radial = 8, material = nul
       Bn.crossVectors(T, Nn);
       const c = pts[i];
       for (let k = 0; k < radial; k++) {
-        const a = k / radial * Math.PI * 2, cs = Math.cos(a), sn = Math.sin(a), o = (i * radial + k) * 3;
+        const a = k / radial * Math.PI * 2, cs = Math.cos(a), sn = Math.sin(a), o = (i * radial + k) * 3;   // 顯示用：管子截面的頂點
         const nx = Nn.x * cs + Bn.x * sn, ny = Nn.y * cs + Bn.y * sn, nz = Nn.z * cs + Bn.z * sn;
         nor[o] = nx; nor[o + 1] = ny; nor[o + 2] = nz; pos[o] = c[0] + nx * R; pos[o + 1] = c[1] + ny * R; pos[o + 2] = c[2] + nz * R;
       }

@@ -28,7 +28,7 @@ export function matOf([x, y, z, w]) {
 export function fnv(h, bytes) { for (let i = 0; i < bytes.length; i++) { h ^= bytes[i]; h = Math.imul(h, 16777619) >>> 0; } return h; }
 // 決定性亂數（mulberry32，和 physics.js 的 rng 相同；這裡另抄一份，免得載入 Rapier）
 export function rng(seed = 1) { let a = seed >>> 0; return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
-export const now = () => typeof performance !== 'undefined' ? performance.now() : Date.now();
+export const now = () => typeof performance !== 'undefined' ? performance.now() : Date.now();   // 計時：只給 stats.ms 用，不進雜湊
 
 const mv = (m, v) => [m[0] * v[0] + m[1] * v[1] + m[2] * v[2], m[3] * v[0] + m[4] * v[1] + m[5] * v[2], m[6] * v[0] + m[7] * v[1] + m[8] * v[2]];
 

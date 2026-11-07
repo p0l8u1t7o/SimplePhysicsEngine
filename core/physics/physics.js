@@ -59,7 +59,7 @@ export function hashBaked(b) {
 }
 
 export async function bake(spec) {
-  const R = await loadRapier(), t0 = Date.now();
+  const R = await loadRapier(), t0 = Date.now();   // 計時：只算 stats.ms，不進雜湊
   // 每 every 步記一格，實際格距是 every × dt；hz 和 1/dt 不成整數倍時（例如 hz 100、dt 1/240）要用實際的取樣率換算時間，
   // 不然取樣與出生、移除時刻都會變成慢動作或快轉。整除時沿用指定值（現有各站的數字一位都不變）
   const dt = spec.dt ?? 1 / 240, hzWanted = spec.hz ?? 60, duration = spec.duration ?? 10, steps = Math.round(duration / dt), every = Math.max(1, Math.round(1 / hzWanted / dt));
@@ -215,7 +215,7 @@ export async function bake(spec) {
   world.free();
   for (const x of [...bodies, ...kin]) { delete x.body; }
   const out = { spec, dt, hz, duration, frames: nFrames, bodies: bodies.map(({ held, ...x }) => x), kinematics: kin.map(({ pose, body, s, ...k }) => k),
-    stats: { steps, bodies: bodies.length, maxPenetration: +(maxPen / S).toFixed(3), peakPenetration: +(peakPen / S).toFixed(3), ms: Date.now() - t0 } };
+    stats: { steps, bodies: bodies.length, maxPenetration: +(maxPen / S).toFixed(3), peakPenetration: +(peakPen / S).toFixed(3), ms: Date.now() - t0 } };   // 計時：只算 stats.ms，不進雜湊
   out.stats.hash = hashBaked(out);
   return out;
 }
@@ -229,7 +229,7 @@ export function sampler(b) {
       const lo = Math.max(i, Math.round(x.born * b.hz)), hi = Math.min(j, Math.max(lo, x.died === Infinity ? b.frames - 1 : Math.round(x.died * b.hz) - 1));
       const A = x.frames.subarray(Math.min(lo, hi) * 7, Math.min(lo, hi) * 7 + 7), B = x.frames.subarray(hi * 7, hi * 7 + 7), w = lo === hi ? 0 : u;
       const dot = A[3] * B[3] + A[4] * B[4] + A[5] * B[5] + A[6] * B[6], sg = dot < 0 ? -1 : 1;
-      const q = [0, 1, 2, 3].map(k => A[3 + k] * (1 - w) + sg * B[3 + k] * w), l = Math.hypot(...q) || 1;
+      const q = [0, 1, 2, 3].map(k => A[3 + k] * (1 - w) + sg * B[3 + k] * w), l = Math.hypot(...q) || 1;   // 顯示用：取樣時的四元數插值，不影響烘焙雜湊
       return { id: x.id, visible, pos: [0, 1, 2].map(k => A[k] * (1 - w) + B[k] * w), quat: q.map(v => v / l), item: x.item };
     });
   };
