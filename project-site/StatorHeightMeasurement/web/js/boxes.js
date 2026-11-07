@@ -41,7 +41,9 @@ export function createBox(part, name, label) {
     const seam = block(root, [5, h - 15, .6], [s * (w / 2 - 8), h / 2, d / 2 + .6], boxMat);
     seam.rotation.x = Math.atan(3 / (h - b));
   }
-  if (label) decal(root, 120, 40, [w / 2 + 6, h * .55, 0], [0, Math.PI / 2, 0], [label], { color: '#1d2a36', bg: '#e9eef2', center: true, bold: true });
+  // 流水號標籤貼在 +z 長邊（南側）：±x 短邊在品檢站被夾持墊夾、在輸送線碰擋塊、作業員也抱短邊；
+  // 高度放在 52～92 mm，避開輸送線側導板（10～50）、盒壁雷射（15）與捲邊（104 以上）。
+  if (label) decal(root, 120, 40, [0, h * .65, d / 2 + 1], [0, 0, 0], [label], { color: '#1d2a36', bg: '#e9eef2', center: true, bold: true });
   const load = createLoad(part, { name: `${name} load` }); load.group.position.y = b; root.add(load.group);
   return { root, load };
 }
