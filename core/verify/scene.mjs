@@ -77,16 +77,25 @@ export function verifyScene(project, scene, {
   const pair = (a, b) => { const A = th(a), B = th(b), tol = Math.min(A.tol ?? TOL, B.tol ?? TOL); return { tol: phys(a) || phys(b) ? Math.max(tol, PHYS) : tol, dist: Math.min(A.dist ?? ZF.dist, B.dist ?? ZF.dist), area: Math.min(A.area ?? ZF.area, B.area ?? ZF.area) }; };
 
   // ---------------------------------------------------------------- 允許的接觸（逐條說明原因）
-  // 線材群組（cable-routing 的 userData.cable）：端點 30 mm 內落在對方外框裡就是接入
+  // 線材群組（cable-routing 的 userData.cable）：端點落在對方外框（放大「半徑＋30 mm」）裡就是接入。
+  // 2026-11-08 起只放行端點附近：之前整對放行，長線只要一端在對方外框裡，沿線的穿插全部看不到（REQUESTS「cableEndIn」）
   const cableOf = m => { for (let p = m; p; p = p.parent) if (p.userData.cable) return p; return null; };
   // 只放行小型安裝五金本身（線夾、格蘭頭、護套、支撐柱）；線材外皮、線槽、拖鏈照常檢查
   const MOUNT = new Set(['clamp', 'gland', 'strain-relief', 'support']);
   const hardwareOf = m => MOUNT.has(m.userData.routingHardware) ? m : null;
+  // 回傳落在 b 外框裡的端點（世界座標）與放行半徑；沒有就是 null
   function cableEndIn(a, b) {
-    const c = cableOf(a); if (!c) return false;
+    const c = cableOf(a); if (!c) return null;
     const pts = c.userData.cable.points, r = (c.userData.cable.radius || 3) + 30;
     const box = new THREE.Box3().setFromObject(b).expandByScalar(r);
-    return [pts[0], pts.at(-1)].some(q => box.containsPoint(new THREE.Vector3(...q).applyMatrix4(c.matrixWorld)));
+    const ends = [pts[0], pts.at(-1)].map(q => new THREE.Vector3(...q).applyMatrix4(c.matrixWorld)).filter(p => box.containsPoint(p));
+    return ends.length ? { ends, r2: r * r } : null;
+  }
+  // 確定穿插之後才判斷：端點附近（半徑＋30 mm）以外的取樣點都沒有在對方體內，才算接入
+  function cableEndOnly(a, b, tol) {
+    const e = [cableEndIn(a, b), cableEndIn(b, a)].filter(Boolean); if (!e.length) return false;
+    const ends = e.flatMap(x => x.ends.map(p => ({ p, r2: x.r2 })));
+    return !vertexInside(a, b, tol, p => ends.some(x => p.distanceToSquared(x.p) < x.r2));
   }
   // 固定件的 bodyOf 為 null：「同一剛體」必須是同一個非 null 關節，否則固定件之間、頂層移動件對所有固定件都會被放行。
   // 移動件只對「安裝它的上游零件」放行：上游剛體相同，且該零件就在移動件的父群組底下（同一台設備）。
@@ -102,13 +111,14 @@ export function verifyScene(project, scene, {
   const ALLOW = [
     { why: '同一剛體或直接相連的關節（導軌、滑座、轉軸裝在上游零件上）', test: (a, b) => { const A = bodyOf(a), B = bodyOf(b); return (A && A === B) || (A && mountedOn(A, b)) || (B && mountedOn(B, a)); } },
     { why: '伸縮連桿（鏈條、活塞桿等長度會變的零件）與同一載體上的零件相接', test: (a, b) => { const A = bodyOf(a), B = bodyOf(b); return (A && stretch.has(A) && (mountedOn(A, b) || (B && sameMount(A, B)))) || (B && stretch.has(B) && (mountedOn(B, a) || (A && sameMount(A, B)))); } },
-    { why: '線材（core/electrical cable）端點接入接頭、端子或格蘭頭；線材沿線間隙由各專案的配線檢查負責', test: (a, b) => cableEndIn(a, b) || cableEndIn(b, a) },
+    { why: '線材（core/electrical cable）端點接入接頭、端子或格蘭頭（只放行端點附近「半徑＋30 mm」的穿插，沿線其他地方照常檢查）；線材沿線間隙由各專案的配線檢查負責', late: cableEndOnly },
     { why: '線夾、格蘭頭、護套、支撐柱等小型配線五金（userData.routingHardware）夾在安裝面上', test: (a, b) => !!(hardwareOf(a) || hardwareOf(b)) },
     { why: '套筒式伸縮軸：外管與內管標記為 nested', test: (a, b) => { const A = bodyOf(a), B = bodyOf(b); return !!(A && B && (A.userData.nested === B || B.userData.nested === A)); } },
     { why: '移動件在指定導軌上滑行（導軌 userData.guide，移動件 userData.on）', test: (a, b) => { const A = bodyOf(a), B = bodyOf(b); return (A && A.userData.on && b.userData.guide === A.userData.on) || (B && B.userData.on && a.userData.guide === B.userData.on); } },
     ...(cfg.allow || []).map(r => ({ why: r.why, test: (a, b) => r.test(a, b, ctx) })),
   ];
-  const allowed = (a, b) => ALLOW.find(r => r.test(a, b));
+  const allowed = (a, b) => ALLOW.find(r => r.test?.(a, b));
+  const lateAllowed = (a, b, tol) => ALLOW.find(r => r.late?.(a, b, tol));      // 確定有穿插之後才判斷的規則（看穿插的位置）
 
   // ---------------------------------------------------------------- 1. 動態
   report(`動態：${meshes.length} 個零件、${moving.length} 個會動、${joints.size} 個關節，每 ${DT} s 取樣`);
@@ -123,6 +133,7 @@ export function verifyScene(project, scene, {
       if (!aabbHit(a, b) || allowed(a.m, b.m)) continue;
       const P = pair(a.m, b.m), g = gap(a, b); if (g >= -P.tol) continue;
       if (curved(a.m, b.m) && !vertexInside(a.m, b.m, P.tol)) continue;              // 曲面件的外框偏保守，一律以實際頂點複核
+      if (lateAllowed(a.m, b.m, P.tol)) continue;
       const key = a.m.id + '|' + b.m.id, cur = dyn.get(key);
       if (!cur) dyn.set(key, { first: +t.toFixed(2), last: +t.toFixed(2), worst: g, a: desc(a), b: desc(b), count: 1 });
       else { cur.last = +t.toFixed(2); cur.count++; if (g < cur.worst) cur.worst = g; }
@@ -140,6 +151,7 @@ export function verifyScene(project, scene, {
     if ((!different && !cfg.compareFixed?.(a.m, b.m, ctx)) || allowed(a.m, b.m)) continue;
     const P = pair(a.m, b.m), g = gap(a, b); if (g >= -P.tol) continue;
     if (curved(a.m, b.m) && !vertexInside(a.m, b.m, P.tol)) continue;
+    if (lateAllowed(a.m, b.m, P.tol)) continue;
     stat.push({ worst: +g.toFixed(1), a: desc(a), b: desc(b) });
   }
 
@@ -264,7 +276,8 @@ function localSamples(geo) {
   const step = Math.max(1, Math.ceil(pts.length / MAX_SAMPLES)), out = step > 1 ? pts.filter((_, i) => i % step === 0) : pts;
   sampleCache.set(geo, out); return out;
 }
-function vertexInside(a, b, tol = TOL) {
+// skip(世界座標的點)：回傳 true 的取樣點不算（線材端點附近）
+function vertexInside(a, b, tol = TOL, skip = null) {
   for (const [m, t] of [[a, b], [b, a]]) {
     if (t.geometry.parameters?.openEnded || t.geometry.type === 'PlaneGeometry') continue;   // 開放殼不是封閉體
     if (!m.geometry.attributes.position) continue;
@@ -275,7 +288,9 @@ function vertexInside(a, b, tol = TOL) {
     for (const p of localSamples(m.geometry)) {
       q.copy(p).applyMatrix4(toT);
       if (q.x < tb.min.x || q.x > tb.max.x || q.y < tb.min.y || q.y > tb.max.y || q.z < tb.min.z || q.z > tb.max.z) continue;
-      if (inside(p.clone().applyMatrix4(m.matrixWorld), t, tol)) return true;
+      const w = p.clone().applyMatrix4(m.matrixWorld);
+      if (skip && skip(w)) continue;
+      if (inside(w, t, tol)) return true;
     }
   }
   return false;

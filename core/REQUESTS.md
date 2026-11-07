@@ -16,6 +16,20 @@
 
 ## 待處理
 
+### `cable()` 的管子分段依長度
+- 提出：RecycleSorter（2026-11-08）
+- 現象：`electrical/cable-routing.js` 的 `cable()` 管子固定 64 段，幾公尺長的線每段 40～60 mm，轉角被弦切進內側 10～20 mm；並排 9 mm 的一束線在彎道互相穿過，加大間距也沒用。
+- 暫代：`project-site/RecycleSorter/web/js/electrical-details.js` 的 `fineCable()`（沿同一條中心線重建管子，每段 ≤ 6 mm；線夾、端子、`userData.cable` 不動）
+- 期望介面：`cable(…, { segmentLength = 6 })`，分段數 `ceil(長度 ÷ segmentLength)`；或只在轉角附近加密（頂點數對手機幀率的影響要量）
+- 影響：所有有配線的站（外觀與 scene 結果都會變，要跑全站截圖與 scene）
+
+### scene 干涉檢查：InstancedMesh 不檢查、薄板可能落在取樣點之間
+- 提出：MilitaryGradePC（2026-11-08，修 S1 相機線時看到）
+- 現象：`verify/scene.mjs` 只收一般網格，拖鏈的鏈節（`carrier` 用 InstancedMesh）完全不在檢查範圍；相機線原本垂直穿過下層鏈也沒被抓到。另外沿邊取樣每 20 mm 一點，8 mm 的薄導板剛好落在兩點之間時，線材斜穿過它也會漏（雙方都沒有取樣點在對方體內）。
+- 暫代：站已改線路避開，沒有靠檢查
+- 期望：InstancedMesh 逐個實例展開成有向包圍盒（數量多時只取外框）；薄件（任一邊 < 取樣間距）改用線段對方塊的相交測試，或取樣間距依對方最薄的邊縮小
+- 影響：所有用拖鏈、InstancedMesh 陣列（光伏板、料件）的站
+
 ### 室外場景的環境光強度
 - 提出：PV DEMO（2026-11-04；該站已於 2026-11-07 移除，暫代程式留在 commit `ad4b816`）
 - 暫代：`project-site/PV DEMO/web/js/main.js`（見 `ad4b816`）的 `envMats`（逐材質設 `envMapIntensity`，隨太陽高度變化）
@@ -28,16 +42,6 @@
 - 暫代：`project-site/RecycleSorter/web/js/main.js` 的 `flip()`（緊接在 `createElectricalInspector` 之後的區塊）——在檢視器的「元件特寫」按鈕與元件選單上再掛一個事件，聚焦之後把鏡頭改放到元件群組本地 +Z 的方向
 - 期望介面：`core/electrical/electrical-inspector.js` 的 `focus()` 用元件的世界朝向（`getWorldDirection`）取景；目前固定把鏡頭放在元件包圍盒的世界 +Z 側
 - 影響：盤面不是朝 +Z 的站（本站的系統盤裝在既有電控櫃的側板上朝 −X，控制器朝 −Z）；`robotController()` 的面板朝向也固定是本地 +Z，本站用轉 180° 的安裝座暫代
-
-### 全場檢查的「線材端點接入」放行範圍太大
-- 提出：RecycleSorter（2026-10-05）
-- 現象：`core/verify/scene.mjs` 的 `cableEndIn(a, b)`（`ALLOW` 的第三條規則用它）用對方整個網格的外框（再放大 30 mm）判斷線端有沒有接入。對方如果是一條 L 形的長線，外框涵蓋一大片地面，
-  結果兩條不相干的線只要其中一條的端點落在另一條的外框裡，沿線的重合與交叉就全部被放行。本站原本地面主幹上好幾條線重合、交叉，都是這樣沒被抓到；
-  電控櫃搬位置後端點離開外框，才一次冒出 38 筆。
-- 暫代：本站已把地面主幹重排成每條線一道、不交叉（不靠放行）
-- 期望：端點接入只對「端點附近 30 mm 內的那一段」放行，或只對非線材的零件（接頭、端子、設備外殼）放行
-- 影響：所有有配線的站；改了之後可能會抓出其他站原本被蓋掉的線材重合，要逐站看
-- 2026-11-08 補充：core 1.20.2 沿邊取樣後修 RecycleSorter 時又看到它蓋掉的例子（GC1 與 E5 沿頂樑承接條平行重疊約 5 mm、急停線與投光器線斜穿前立柱、急停線立管穿過 HMI 短懸臂）；同模組的固定件預設不比（`compareFixed` 可以開）也蓋掉手臂底座附近的幾處。
 
 ### 擴張網護板材質
 - 提出：RecycleSorter（2026-10-05）

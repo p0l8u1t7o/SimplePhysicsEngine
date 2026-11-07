@@ -229,6 +229,11 @@ Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs
 
 七站 91 張基準回歸超過門檻 0 張；本站 31 張事件畫面與三場型高低畫質／深度模式逐圖檢視，外觀變更為預期。CCTV／LPR 子畫面及缺檔降級另有瀏覽器檢查。量測、圖檔位置與限制見 `project-site/ParkingEMS/review/cinematic-render.md`。
 
+## 2026-11-08：core 1.20.3 線材端點接入只放行端點附近
+
+- `verify/scene.mjs` 的線材端點放行（REQUESTS「全場檢查的『線材端點接入』放行範圍太大」）：之前一條線只要一端落在對方外框（放大「半徑＋30 mm」）裡，整對就放行，長線沿線的穿插、兩條線在共用立管裡互相穿過都看不到。改成確定有穿插之後再看位置：端點附近「半徑＋30 mm」以外的取樣點都不在對方體內才放行（`ALLOW` 的規則多一種 `late`，在頂點複核之後判斷）。全站檢查因此多抓到 MilitaryGradePC 1 筆、RecycleSorter 45 筆，都是真的線材重疊或穿過骨架，已在站裡改線路（沒有加 allow）。
+- 回歸測試 `physics/test/scene-skip.test.mjs`「線材：一端接進設備照樣放行；同一條線在別處穿過設備要抓到」（舊寫法會漏報）。
+
 ## 2026-11-07：core 1.20.2 影片涵蓋範圍、日照的發電量檢查、core 模型小需求
 
 - `movie/movie.js` 的 `.shots.json` 多記 `simulationStart`（製程鏡頭的起點；`?scope=qc` 這種只拍一段的影片不是 0），`tools/movie-export/verify.py` 改成檢查從這裡連續涵蓋到結束；舊輸出沒有這個欄位時用第一個鏡頭並印提醒。定子站 QC 影片因此通過（原本被當成漏拍 0～20.2 s）。
@@ -365,6 +370,7 @@ Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs
 
 | 版本 | 日期 | 內容 |
 |---|---|---|
+| 1.20.3 | 2026-11-08 | `scene` 線材端點接入只放行端點附近 |
 | 1.20.2 | 2026-11-07 | 影片 `simulationStart`；`verify.solar.energy` 全年發電列；光伏共用模型 `models/pv.js`（`pvModule`、`pvArray`、`stringInverter`）＋支架登記到目錄；結構範例改用 DSM 地形；截圖回歸的視角清單改讀頁面；`scene` 曲面件沿邊取樣；`hasDom()`；`codeReader` 機身名稱；`conveyor` 側樑 `skip`；追日的積雪收藏；3D Tiles（`geo/tiles.js`，含 DRACO／KTX2／meshopt 解碼器）；VM-60B1 前臂端蓋縮小；流體 `sleep`；圓桶的連續碰撞；GeoTIFF 的 JPEG 圖塊；`verify.solar.structure` |
 | 1.20.1 | 2026-11-07 | 巡檢疑點修正（twinUrl、clampable、Track.end、axisWindow、localeCompare、stage stop／dispose、scope-guard 長路徑、interference sourceHash、ui-check 標籤、movie verify）；`solar/precision.js` 高精度門檻；`robot/payload.js` 從 3D 模型估負載 |
 | 1.20.0 | 2026-11-07 | 布料（`physics/cloth.js`）、粒子流體（`physics/fluid.js`）、天候（`weather/`）、外部 CFD（`cfd/`＋`tools/cfd/`）、LAZ（`vendor/laz-perf`、`geo/laz.js`）、站層檢查 `solar`（含外部遮擋）與 `dynamics`（只警告）、core 檢查 `solar`（Node 與瀏覽器雜湊）、`structure/solar-frame.js` 座標對齊、`simulate({ hourlyLoss })` 與積雪損失、範例 `weather/`；剛體物理改用 dmath；`scene` 略過 core 標 `nonSolid` 的網格 |

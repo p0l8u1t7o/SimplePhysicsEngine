@@ -61,3 +61,18 @@ test('compareFixed：同模組的固定件預設不比，宣告後照比', () =>
   assert.equal(run(false), 0);
   assert.equal(run(true), 1);
 });
+
+// 線材端點接入只放行端點附近（2026-11-08，REQUESTS「cableEndIn」）：之前一端在對方外框裡就整對放行，沿線的穿插看不到
+test('線材：一端接進設備照樣放行；同一條線在別處穿過設備要抓到', async () => {
+  const { cable } = await import('../../electrical/cable-routing.js');
+  const run = points => {
+    const scene = new THREE.Scene(), dev = new THREE.Mesh(new THREE.BoxGeometry(1000, 60, 60), new THREE.MeshBasicMaterial()); dev.name = 'device';
+    const g1 = new THREE.Group(); g1.name = 'dev'; g1.add(dev); const g2 = new THREE.Group(); g2.name = 'wires'; scene.add(g1, g2);
+    cable(g2, 'W1', points, { radius: 4, clips: 0 }); scene.updateMatrixWorld(true);
+    return verifyScene({ total: 1, apply() {}, verify: { moduleOf: m => { for (let p = m; p; p = p.parent) if (p.name === 'dev' || p.name === 'wires') return p.name; return 'x'; } } }, scene, { probes: 2, zfightTimes: 1 });
+  };
+  const plugged = run([[480, 0, 0], [480, 150, 0], [-300, 150, 0], [-300, 400, 0]]);         // 端點插在設備右端，其餘都在外面
+  assert.equal(plugged.static.length, 0, `只有端點在設備裡要放行：${JSON.stringify(plugged.static)}`);
+  const through = run([[480, 0, 0], [480, 150, 0], [0, 150, 0], [0, -150, 0], [-300, -150, 0]]);   // 同一條線在 x=0 從上往下穿過設備
+  assert.ok(through.static.some(s => /W1/.test(s.a + s.b) && /device/.test(s.a + s.b)), `沿線穿過設備要抓到：${JSON.stringify(through.static)}`);
+});
