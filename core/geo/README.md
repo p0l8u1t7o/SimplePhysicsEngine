@@ -11,6 +11,7 @@
 | `terrain.js` | DSM／DTM → 分塊地形網格、`heightAt`／`surfaceAt`、正射影像貼圖 `applyOrthophoto` |
 | `las.js` | LAS 1.2～1.4 讀取、`createPointCloud`（RGB／強度／分類／高度著色） |
 | `obj.js` | OBJ 實景網格（ODM、Pix4D、DJI Terra 的貼圖網格）：`readOBJ`（float64 解析、多邊形三角化、負索引、`offset`）、`readMTL`、`createOBJMesh`（減掉案場原點後分塊，每塊頂點相對塊中心存 Float32；`up: 'z'` 投影座標／`'y'` Y 朝上／`local`）。不用 three 的 OBJLoader：它直接把數十萬公尺的座標讀成 Float32，北距 254 萬公尺只剩 0.25 m 的解析度 |
+| `tiles.js` | 3D Tiles（`vendor/3d-tiles-renderer` 0.5.3）：`createTiles(url, site, { camera, renderer, geoidOffset, exact })` 串流載入 tileset 放進案場座標；`siteFromECEF`（剛體：ENU 切平面＋收斂角＋尺度，離原點 d 的誤差約 d²／2R：600 m 約 28 mm）、`exact: true` 逐頂點換成經緯度 → 投影座標的精確位置；`geoidOffset` 是大地起伏 N（橢球高 − 正高，台灣約 17～25 m，沒有內建模型）；`ecefToGeodetic`。範例 `/core/examples/tiles/`。第一版只支援未壓縮的圖磚 |
 | `asbuilt.js` | 設計與現況比對：樁頂高程、平面偏移、排直線度、排距、支架傾角與方位（`layoutChecks` 格式） |
 | `dronecam.js` | 空拍相機對位：GPS＋雲台姿態 → three.js 相機；DJI XMP／SRT 解析；視野角 |
 | `index.js` | 全部匯出 |
