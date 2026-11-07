@@ -48,6 +48,8 @@
 //   --no-wait（有問題時寫出後結束，不在終端機詢問）、--auto-approve（配置提案不必確認）、--max-rounds 40、--timeout 90（分鐘／輪）
 //   new 另有 --create-only（只建立專案，之後用 resume 開始）
 //   每段完成後預設自動審查與補強；--no-review、--no-render 關掉，--no-perf 不量效能，--pick 讓你先挑補強項目；--no-stage2 第一段完成後不問第二段
+//   開發後預設自我檢查 1 次（開發角色看自己的截圖修正）：--self-review <0～3> 改次數、--no-self-review 關掉（new 時指定會寫進 studio.json 的 selfReview）
+//   --no-references 這次不給參考站（本庫已完成的站；固定關掉用 studio.json 的 "references": []）
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -64,7 +66,7 @@ import { exportHandoff, importHandoff } from './lib/handoff.mjs';
 import * as repoGit from './lib/repo.mjs';
 import { REPO, git, findFfmpeg } from './lib/util.mjs';
 
-const VALUE = new Set(['--text', '--text-file', '--workspace', '--private', '--prompt', '--prompt-file', '--title', '--summary', '--cli', '--model', '--role', '--effort', '--note', '--max-rounds', '--timeout', '--other', '--focus', '--port', '--out', '--name', '--category', '--project', '--db', '--host', '--password', '--level', '--pfx', '--cert', '--key', '--purge', '--older-than', '--job', '--fields', '--keys', '--download', '--status', '--components', '--set', '--format']);
+const VALUE = new Set(['--text', '--text-file', '--workspace', '--private', '--prompt', '--prompt-file', '--title', '--summary', '--cli', '--model', '--role', '--effort', '--note', '--max-rounds', '--timeout', '--other', '--focus', '--port', '--out', '--name', '--category', '--project', '--db', '--host', '--password', '--level', '--pfx', '--cert', '--key', '--purge', '--older-than', '--job', '--fields', '--keys', '--download', '--status', '--components', '--set', '--format', '--self-review']);
 
 // 測試用：VS3D_EXTRA_ADAPTERS 指向一個匯出 { adapters: { 名稱: adapter } } 的模組（例如假代理），讓介面的端對端測試走真正的命令列
 if (process.env.VS3D_EXTRA_ADAPTERS) Object.assign(ADAPTERS, (await import(pathToFileURL(resolve(process.env.VS3D_EXTRA_ADAPTERS)).href)).adapters);
@@ -86,7 +88,16 @@ const override = { cli: o.cli, model: o.model, roles: parseRoleOverrides(o.role 
 if (o.effort) for (const r of Object.keys(ROLES)) override.roles[r] = { ...override.roles[r], effort: o.effort };
 if (o.cli && !ADAPTERS[o.cli]) fail(`--cli 只能是 ${Object.keys(ADAPTERS).join('、')}`);
 const runOpts = () => ({ interactive: !!process.stdin.isTTY && !o['no-wait'], override, maxRounds: +(o['max-rounds'] || 40), timeoutMin: +(o.timeout || 90),
-  review: !o['no-review'], reviewFix: !o['no-fix'], render: !o['no-render'], perf: !o['no-perf'], stage2: !o['no-stage2'] });
+  review: !o['no-review'], reviewFix: !o['no-fix'], render: !o['no-render'], perf: !o['no-perf'], stage2: !o['no-stage2'],
+  ...(selfReviewOpt() != null ? { selfReview: selfReviewOpt() } : {}), references: !o['no-references'] });
+// 自我檢查次數：--no-self-review＝0，--self-review <n>；沒指定時看專案 studio.json（預設 1）
+function selfReviewOpt() {
+  if (o['no-self-review']) return 0;
+  if (o['self-review'] == null) return null;
+  const n = Number(o['self-review']);
+  if (!Number.isInteger(n) || n < 0 || n > 3) fail('--self-review 要寫 0～3 的整數');
+  return n;
+}
 // 本庫模式的指令：先做開工檢查並開本機分支（目前已經在本站的 vs3d 分支上就沿用）
 function beginRepoFlow(J, s, label) {
   if (!J.repo) return;
@@ -131,6 +142,7 @@ switch (cmd) {
       const x = { ...(o.cli ? { cli: o.cli } : {}), ...(o.model ? { model: o.model } : {}), ...(override.roles[r] || {}) };
       if (Object.keys(x).length) sj.roles = { ...sj.roles, [r]: x };
     }
+    if (selfReviewOpt() != null) sj.selfReview = selfReviewOpt();
     // 專案組成（評估平台 Q6）：評估＋成本／3D 動畫／AOI，至少一項；沒指定是只有 3D（原本的流程）
     if (o.components) { const { cleanComponents } = await import('./lib/assess.mjs'); try { sj.components = cleanComponents(o.components); } catch (e) { fail(e.message); } }
     writeJson(J.studioJson, sj);

@@ -180,7 +180,7 @@ export function ProjectView({ id, tick, running, queue = [], onChange, onDeleted
           <h3>每輪紀錄</h3>
           {!p.rounds.length ? <p className="mute">還沒有紀錄（app 執行過的開發、檢查、審查、補強會列在這裡）。</p> : <table><thead><tr><th>輪</th><th>角色</th><th>CLI／模型</th><th>時間</th><th>摘要</th></tr></thead><tbody>
             {p.rounds.map((r, i) => r.role
-              ? <tr key={i}><td>{r.round}</td><td>{ROLE[r.role] || r.role}{r.resumed ? '（續接）' : ''}</td><td>{r.cli} {r.model}{r.effort ? ` ${r.effort}` : ''}</td><td>{min(r.seconds)}</td><td>{r.ok ? '' : <span className="bad">失敗 </span>}{r.violations?.length ? <span className="warn">越界 {r.violations.length}　</span> : ''}{r.summary}</td></tr>
+              ? <tr key={i}><td>{r.round}</td><td>{ROLE[r.role] || r.role}{r.step === 'self-review' ? '・自我檢查' : ''}{r.resumed ? '（續接）' : ''}</td><td>{r.cli} {r.model}{r.effort ? ` ${r.effort}` : ''}</td><td>{min(r.seconds)}</td><td>{r.ok ? '' : <span className="bad">失敗 </span>}{r.violations?.length ? <span className="warn">越界 {r.violations.length}　</span> : ''}{r.summary}</td></tr>
               : r.check ? <tr key={i}><td></td><td>檢查 {r.check}</td><td></td><td>{r.seconds} s</td><td className={r.ok ? 'ok' : 'bad'}>{r.ok ? '通過' : r.failures.join('；')}</td></tr>
               : r.review ? <tr key={i}><td></td><td>審查 {r.review}</td><td></td><td></td><td>必修 {r.must.length}、建議 {r.suggest}</td></tr>
               : r.guard ? <tr key={i}><td></td><td>守門</td><td></td><td></td><td className={r.ok ? 'ok' : 'bad'}>{r.ok ? '通過' : r.fails.join('；')}</td></tr>

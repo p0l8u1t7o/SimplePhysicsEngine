@@ -13,10 +13,20 @@ const tool = (name, file_path) => say({ type: 'assistant', message: { content: [
 say({ type: 'system', subtype: 'init', session_id: sid });
 const cwd = process.cwd(), w = (f, s) => { mkdirSync(join(f, '..'), { recursive: true }); writeFileSync(f, s); tool('Write', f); };
 const log = process.env.FAKE_LOG; if (log) appendFileSync(log, prompt.split('\n')[0] + '\n');
+if (process.env.FAKE_PROMPT_LOG) appendFileSync(process.env.FAKE_PROMPT_LOG, prompt + '\n=====\n');      // 整份提示（測試檢查參考站、截圖路徑）
 
 let text = 'DONE';
 const reviewN = /任務：審查(?:第一段|修改後的|第二段（[^）]*）)成品（第 (\d+) 次）/.exec(prompt)?.[1];
-if (/任務：元件補全/.test(prompt)) {
+if (/任務：自我檢查/.test(prompt)) {
+  // 自我檢查：把看到的截圖路徑寫進 web/self-review-<段>-<次>.txt；FAKE_SELF_FAIL 模擬這一輪中斷；
+  // FAKE_SELF_BREAK2：第二段的自我檢查改到第一段的節拍（要被排程指紋擋下）
+  if (process.env.FAKE_SELF_FAIL) { say({ type: 'result', subtype: 'error_during_execution', is_error: true, result: '中斷', session_id: sid }); process.exit(1); }
+  const pass = /（第 (\d+)\/\d+ 次）/.exec(prompt)?.[1], seg2 = /自我檢查（第二段）/.test(prompt);
+  w(join(cwd, `web/self-review-${seg2 ? 2 : 1}-${pass}.txt`), [...prompt.matchAll(/`([^`]+\.png)`/g)].map(m => m[1]).join('\n'));
+  const pj = join(cwd, 'web/js/project.js');
+  if (seg2 && process.env.FAKE_SELF_BREAK2) { writeFileSync(pj, readFileSync(pj, 'utf8').replace('total: tl.total,', 'total: tl.total + 1,')); tool('Edit', pj); }
+  text = '自我檢查完成';
+} else if (/任務：元件補全/.test(prompt)) {
   // 元件補全：照 part.json 寫 result.json（一個合格、一個沒有來源、一個數字欄位寫錯；FAKE_ENRICH_FILE 是可以下載的網址）
   const part = JSON.parse(readFileSync(join(cwd, 'part.json'), 'utf8')), src = 'https://example.com/cam';
   w(join(cwd, 'result.json'), JSON.stringify({

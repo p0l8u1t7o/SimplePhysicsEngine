@@ -64,11 +64,13 @@ node studio/vs3d.mjs parts search 相機 GigE                    # 查元件資�
 | `--workspace <資料夾>` | 工作區位置；預設 `%USERPROFILE%\Documents\3D-Studio`，也可設環境變數 `VS3D_WORKSPACE` |
 | `--cli claude｜codex` | 這次所有角色改用指定的 CLI |
 | `--model <名稱>`、`--role plan=opus,fix=haiku` | 這次所有角色／個別角色的模型；`--role render=codex:<模型>` 可以同時換 CLI |
-| `--effort <等級>` | 推理強度（Claude `--effort`、Codex `model_reasoning_effort`） |
+| `--effort <等級>` | 推理強度（Claude `--effort`、Codex `model_reasoning_effort`）；沒指定時 Claude 的主要角色是 `high`（見「工作區」的角色指派） |
 | `--no-wait` | 有問題時寫出後就結束（預設在終端機直接詢問） |
 | `--auto-approve` | 配置提案不必確認，直接開始開發 |
 | `--no-review`、`--no-render`、`--no-perf`、`--no-fix` | 第一段完成後不自動審查／不補強／補強時不量效能；`--no-fix` 審查的必修項不送修正（只審查） |
 | `--no-stage2` | 第一段完成後不出「開始第二段？」卡片（之後可以用 `vs3d stage2`） |
+| `--self-review <0～3>`、`--no-self-review` | 開發後自我檢查的次數（預設看專案 `studio.json` 的 `selfReview`，沒寫是 1）；`new` 時指定會寫進 `studio.json` |
+| `--no-references` | 這次不給參考站（固定關掉用 `studio.json` 的 `"references": []`） |
 | `--repo`、`--no-repo` | 對本庫 `project-site/` 的站下指令（見「本庫模式」）；`ui --no-repo` 只看工作區 |
 | `--db <檔案>` | 元件資料庫位置（預設 `studio/data/studio.db`，或環境變數 `VS3D_DB`） |
 | `--private "名稱,…"` | `new` 時指定不得顯示的用戶名稱 |
@@ -84,6 +86,7 @@ node studio/vs3d.mjs parts search 相機 GigE                    # 查元件資�
 new → 規劃（配置提案＋問題）⇄ 使用者回答 → 確認提案 → 開發第一段
     → 快速檢查 → 完整檢查（含 ui 四尺寸）→ 截圖
            └ 失敗 → 修正（續接同一個工作階段）→ 再檢查；同一項連續失敗 3 次轉成提問
+    → 自我檢查：續接開發的工作階段看自己的截圖，修掉明顯的缺漏 → 再檢查與截圖（預設 1 次）
     → 審查（比對拍板事項與規則、看截圖）
            └ 必修 → 修正 → 再檢查 → 再審查（最多 3 次）
     → 渲染與細節補強（建議補強全部交給 render 角色；--pick 先挑）
@@ -94,10 +97,21 @@ new → 規劃（配置提案＋問題）⇄ 使用者回答 → 確認提案 �
     → 第二段規劃（.studio/plan/segment2.md＋segment2.json：電控元件、電盤、走線、相機與光源）⇄ 回答 → 確認提案
     → 記下第一段的排程指紋 → 第二段開發（照 core/examples/segment2）
     → 檢查（含 electrical：電盤、櫃內連線、穿板孔、配線動態取樣）＋排程指紋與第一段相同 ⇄ 修正
+    → 自我檢查（第二段；之後的檢查一樣比對排程指紋）
     → 審查（第二段）→ 補強 B（電盤內部、線材、相機與光源外觀）→ 守門 → 對照 → 第二段完成
 ```
 
 第二段的開發與修正預設用 Codex `gpt-6-astra` 高推理，審查仍用 Claude `opus`（`lib/roles.mjs` 的 `SEGMENT_DEFAULTS`）。只想改某一段的指派時寫「角色@段」，例如 `studio.json` 的 `roles: { "build@2": { "cli": "claude", "model": "opus" } }` 或 `--role build@2=claude:opus`。工作階段也分段保存（`state.sessions['build@2']`），第二段不會續接第一段的開發工作階段。
+
+### 自我檢查與參考站（2026-11-07）
+
+studio 產生的專案原本比在 VS Code 裡和 Claude 互動做的粗糙，原因是開發角色看不到自己的成品（工作區規則不准開瀏覽器，只有審查角色看截圖），也沒有品質範例。所以加了兩件事：
+
+- **自我檢查**：每段開發之後，第一次檢查通過並截圖時，app 續接**同一個開發工作階段**（Claude 的 `--resume`、Codex 的 `exec resume`），把這次的截圖交給它（Claude 在提示裡列路徑、用讀檔工具開圖片；Codex 用 `--image`），對照配置提案（第二段是 `segment2.md`／`json`）、`AGENTS.md` 拍板事項與參考站，修掉明顯不對或粗糙的地方（漏做的設備、位置錯、懸空、空蕩、沒有標籤），不改使用者決定的事，改完跑快速檢查；之後照常檢查 → 審查。第二段的自我檢查之後一樣比對第一段的排程指紋，改到節拍會被退回修正。次數在專案 `studio.json` 的 `selfReview`（0～3，預設 1；0 關掉），命令列 `--self-review <n>`、`--no-self-review` 蓋過。進度記在 `state.json`（`selfReviewDue`、`selfReviews`），中斷後 `resume` 會重做沒完成的那一次、不會重做已經完成的；這次沒拍到截圖就略過。每輪紀錄的這一輪是 `role: build`、`step: self-review`。修改指令（`change`）、重新審查、補強不做自我檢查。
+- **參考站**（`lib/references.mjs`）：規劃、開發（含自我檢查、修改指令）、審查、補強這幾輪，把本庫 `project-site/` 的 1～2 個已完成的站唯讀交給代理，提示的交接摘要會列出站名、程式路徑，並要求「看細節水準與寫法，不要複製場景、不要套用它們的規格、不要改它們」。來源：本庫模式就是本庫（不挑自己這站）；工作區模式要 app 在本庫裡執行（`studio/` 的上一層有 `core/` 與 `project-site/`），部署版沒有就不給。挑法：專案 `studio.json` 的 `references: ["MilitaryGradePC", …]` 指定；沒寫就自動挑——專案 `AGENTS.md`＋配置提案，和各站 `project.json` 標題、說明＋`AGENTS.md`＋`README.md` 比關鍵字（中文兩字詞、英數單字；依出現在幾個站加權、每站都有的字不算、依站的字數正規化），取前 2 名（同分依名稱，決定性；分數 0 的不挑）。`"references": []` 關掉，命令列 `--no-references` 只關這次。只做評估的專案不給。
+  - **給法**：`--add-dir` 只能給整個資料夾，而站的根目錄底下有 `docs/`（使用者的圖面、規劃與成本資料）、`.studio/`、`TEMP/` 這些只留本機的資料，所以**不給站的根目錄**：Claude 只加 `<站>/web`（`--add-dir`），站的 `AGENTS.md`、`README.md` 由 app 複製到專案的 `.studio/references/<站>/`（用工作區與本庫的名單遮掉用戶名稱，每輪重寫，不進版控）；Codex 的沙箱本來就能讀，提示列出絕對路徑。Claude 另外在寫檔關卡掛上讀取限制（`guard.mjs` 的 `VS3D_NOREAD`）：參考站的 `docs/`、`.studio/`、`TEMP/` 不能用 Read／Glob／Grep 讀，搜尋範圍包含它們（例如對整個 `project-site/` 搜尋）也擋。shell 指令（`cat` 等）和 Codex 攔不到，靠提示與規則約束。
+  - **寫入**：參考站整站加進寫檔關卡的禁止清單，Codex 的沙箱只能寫專案資料夾；本庫模式由每輪的專案外比對偵測，工作區模式另外比對參考站 `web/`、`AGENTS.md`、`README.md`、`project.json` 的雜湊，有變動就警告並列為越界（那是本庫的工作目錄，app 不還原）。
+  - 工作區的 core 可能比本庫舊：提示會說 API 以工作區的 `core/README.md` 為準。
 
 **用戶名稱**：任何產出都不得出現用戶（客戶）名稱。`new --private "名稱,…"`（介面的「不得顯示的用戶名稱」欄）會加進工作區的 `.studio/client-names.txt`，需求原文裡的名稱換成「（用戶）」；規劃角色在資料裡發現的名稱寫進 `.studio/plan/client-names.txt`，app 併進名單並遮掉專案 `AGENTS.md`。core 的 `names` 檢查（快速）擋下出現名稱的檔案，審查角色把它當必修。
 
@@ -123,15 +137,17 @@ new → 規劃（配置提案＋問題）⇄ 使用者回答 → 確認提案 �
 ├── AGENTS.md、CLAUDE.md     代理的共通規則（studio/templates/）
 └── projects/<專案>/         每個專案一個 git 庫
     ├── AGENTS.md            需求、已拍板事項（app 寫入）
-    ├── studio.json          角色與模型、效能預算
+    ├── studio.json          角色與模型、效能預算、自我檢查次數（selfReview）、參考站（references）
     ├── docs/                上傳檔（不進版控）；Office 檔另有 <檔名>.extract/（text.md＋圖片）
-    ├── .studio/             狀態、問題與回答、配置提案、每輪紀錄與事件記錄（不進版控）
+    ├── .studio/             狀態、問題與回答、配置提案、每輪紀錄與事件記錄、參考站的規格摘要（references/）（不進版控）
     └── web/ tools/ review/  與本庫各站相同
 ```
 
 代理 CLI 讀不了 Office 檔，所以建立專案時（`new --files` 與網頁上傳都一樣）由 `lib/office.mjs` 自動抽出（純 Node，自己解 zip，不用套件）：pptx 依投影片順序抽文字（含表格、SmartArt、備忘稿），圖片命名 `slideNN-…` 標出所在投影片；docx 抽段落、標題、清單、表格，圖片位置以 `[圖片：…]` 標在本文；xlsx 每個工作表轉成 Markdown 表格（列號＋欄字母，日期與百分比依儲存格格式，最多 2000 列），圖片標出錨點儲存格。結果寫到 `docs/<檔名>.extract/text.md`，專案 `AGENTS.md` 的上傳檔清單會標出路徑。檔案損壞只記警告；舊格式（.ppt／.doc／.xls）不處理，建立時提示另存成新格式。圖表數據、版面位置不會保留。
 
-角色指派的優先順序：app 預設（`lib/roles.mjs`）＜ 工作區 `.studio/settings.json` ＜ 專案 `studio.json` ＜ 命令列。正式預設（2026-10-04 拍板）：規劃、開發、修正、審查用 Claude `opus`；渲染與細節補強用 Codex `gpt-6-astra` 高推理（`lib/roles.mjs` 的 `ROLE_DEFAULTS`）；第二段的開發與修正也預設 Codex `gpt-6-astra` 高推理（`SEGMENT_DEFAULTS`）。這是使用者的實務分工：opus 做規劃與主體實作，gpt-6 補強渲染、電盤、電線與細節。評估平台另有兩個角色：光學 `optics`（Claude 預設 opus）與元件補全 `enrich`（Claude 預設 sonnet）。角色改用 Codex 而沒指定模型時，用 Codex 帳號的預設模型（`~/.codex/config.toml`）。命令列 `--cli` 會讓所有角色改用同一種 CLI。`new` 時指定的 `--cli`、`--model`、`--effort`、`--role` 會寫進專案 `studio.json`，之後 `resume` 沿用。
+角色指派的優先順序：app 預設（`lib/roles.mjs`）＜ 工作區 `.studio/settings.json` ＜ 專案 `studio.json` ＜ 命令列。正式預設（2026-10-04 拍板）：規劃、開發、修正、審查用 Claude `opus`（推理強度 `high`，見下）；渲染與細節補強用 Codex `gpt-6-astra` 高推理（`lib/roles.mjs` 的 `ROLE_DEFAULTS`）；第二段的開發與修正也預設 Codex `gpt-6-astra` 高推理（`SEGMENT_DEFAULTS`）。這是使用者的實務分工：opus 做規劃與主體實作，gpt-6 補強渲染、電盤、電線與細節。評估平台另有兩個角色：光學 `optics`（Claude 預設 opus）與元件補全 `enrich`（Claude 預設 sonnet）。角色改用 Codex 而沒指定模型時，用 Codex 帳號的預設模型（`~/.codex/config.toml`）。命令列 `--cli` 會讓所有角色改用同一種 CLI。`new` 時指定的 `--cli`、`--model`、`--effort`、`--role` 會寫進專案 `studio.json`，之後 `resume` 沿用。
+
+推理強度（2026-11-07）：Claude 的規劃、開發、修正、審查、補強、光學預設 `--effort high`（`lib/roles.mjs` 的 `EFFORT_PRESETS`；元件補全 `enrich` 不設）。原因是 API 金鑰模式用獨立的 `CLAUDE_CONFIG_DIR`（`lib/agent-auth.mjs`），讀不到使用者自己的 effort 設定，不指定就是 CLI 的預設值。和模型一樣只在該 CLI 生效，工作區設定、專案 `studio.json` 的 `roles.<角色>.effort`、命令列 `--effort`／`--role` 都可以蓋過；寫空字串（`"effort": ""`）＝不帶 `--effort`，用 CLI 預設。
 
 ## 本庫模式（2026-10-04）
 

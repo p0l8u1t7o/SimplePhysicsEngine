@@ -58,15 +58,17 @@ export const claude = {
 
   // settings：認證要加的設定（API 金鑰模式的 apiKeyHelper，lib/agent-auth.mjs），和寫檔關卡一起用 --settings 傳入
   // tools：這個角色另外的工具清單 { allow, deny }（例如元件補全只能讀寫檔與上網、不能用 shell）
-  command({ prompt, sessionId, model, effort, readDirs = [], allowWrite = [], denyWrite = [], settings: extra = {}, tools = null }) {
-    const settings = { ...extra, hooks: { PreToolUse: [{ matcher: 'Write|Edit|MultiEdit|NotebookEdit', hooks: [{ type: 'command', command: `node "${posix(GUARD)}"` }] }] } };
+  // denyRead：不能讀的資料夾（參考站的本機資料）；有的話寫檔關卡另外掛在 Read／Glob／Grep 上
+  command({ prompt, sessionId, model, effort, readDirs = [], allowWrite = [], denyWrite = [], denyRead = [], settings: extra = {}, tools = null }) {
+    const hook = [{ type: 'command', command: `node "${posix(GUARD)}"` }];
+    const settings = { ...extra, hooks: { PreToolUse: [{ matcher: 'Write|Edit|MultiEdit|NotebookEdit', hooks: hook }, ...(denyRead.length ? [{ matcher: 'Read|Glob|Grep', hooks: hook }] : [])] } };
     const args = ['-p', '--output-format', 'stream-json', '--verbose', '--permission-mode', 'acceptEdits', '--settings', JSON.stringify(settings)];
     if (model) args.push('--model', model);
     if (effort) args.push('--effort', effort);
     if (sessionId) args.push('--resume', sessionId);
     for (const d of readDirs) args.push('--add-dir', d);
     args.push('--disallowedTools', ...(tools?.deny || DISALLOWED_TOOLS), '--allowedTools', ...(tools?.allow || ALLOWED_TOOLS));
-    return { cmd: resolveClaude(), args, input: prompt, env: { VS3D_ALLOW: JSON.stringify(allowWrite), VS3D_DENY: JSON.stringify(denyWrite) } };
+    return { cmd: resolveClaude(), args, input: prompt, env: { VS3D_ALLOW: JSON.stringify(allowWrite), VS3D_DENY: JSON.stringify(denyWrite), VS3D_NOREAD: JSON.stringify(denyRead) } };
   },
 
   parse(e) {

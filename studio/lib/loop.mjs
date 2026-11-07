@@ -1,6 +1,8 @@
 // 流程主體：規劃 → 提問 → 開發 → 檢查 ⇄ 修正 → 審查 → 渲染與細節補強 → 完成；第一段完成後出卡片問要不要開始第二段（電控、電盤、配線、相機），
 //   第二段走同一套流程（規劃寫 .studio/plan/segment2.md／json、開發不能改第一段的排程指紋），角色依段落指派（roles.mjs SEGMENT_DEFAULTS）。
 // 原本：規劃 → 提問 → 開發 → 檢查 ⇄ 修正 → 審查 → 渲染與細節補強 → 完成。狀態存在 .studio/state.json，隨時可以中斷後用 resume 續跑。
+//   自我檢查（2026-11-07）：每段開發後第一次檢查通過並截圖，續接同一個開發工作階段看自己的截圖修一次（studio.json selfReview，預設 1），再檢查 → 審查
+//   參考站（2026-11-07，lib/references.mjs）：規劃、開發、審查、補強時把本庫 1～2 個已完成的站唯讀交給代理看細節水準
 //   每輪：開工前 commit → 記雜湊 → 執行代理 → 比對還原（越界）→ 角色範圍檢查 → commit → 記錄 rounds.jsonl
 //   品質迴圈：快速檢查 → 完整檢查（含 ui 四尺寸）→ 截圖；失敗就回送修正角色，同一項連續失敗 3 次轉成提問
 //   審查（計畫書 4.7）：看截圖、比對拍板事項與規則；必修項自動送修正 → 重新檢查 → 再審查（最多 3 次）
@@ -15,7 +17,8 @@ import { paths, projectPaths, acquireLock, addClientNames, readClientNames, reda
 import { snapshot, verifyAndRestore } from './isolation.mjs';
 import { loadQuestions, pendingQuestions, askInteractive, writeAppQuestion, readAnswer, printQuestion } from './questions.mjs';
 import { runChecks, takeShots, failureSummary, runFingerprint, runCycle, compareRenderFingerprint, runPerf, comparePerf } from './checks.mjs';
-import { header, rolePrompt, answersPrompt, fixAgainPrompt, invalidQuestionsPrompt, mustFixPrompt, renderGuardPrompt, renderRevisePrompt } from './prompts.mjs';
+import { header, rolePrompt, answersPrompt, fixAgainPrompt, invalidQuestionsPrompt, mustFixPrompt, renderGuardPrompt, renderRevisePrompt, selfReviewPrompt } from './prompts.mjs';
+import { REF_ROLES, refRootFor, pickReferences, prepareReferences, snapshotRefs, diffRefs } from './references.mjs';
 import { writeComparePage } from './compare.mjs';
 import { componentsOf, checkPlanFiles, importAssessment, writePlanFiles, writeBomSummary } from './assess.mjs';
 import * as repoGit from './repo.mjs';
@@ -42,8 +45,12 @@ export const loadState = J => readJson(J.state, { stage: J.repo ? 'done' : 'plan
 // full：快速檢查通過後是否再跑完整檢查（含 ui）；shots：通過後是否截圖；perf：補強前後是否量效能（測試時可關掉以節省時間）
 // stage2：第一段完成後是否出卡片問要不要開始第二段
 // review／render：每段完成後是否自動審查、補強；reviewFix：必修項是否自動送修正（override.pick 時先讓使用者挑補強項目，override.focus 限定範圍）
+// selfReview：開發後自我檢查幾次（不給就看 studio.json 的 selfReview，預設 1；0 關掉）
+// references：是否給參考站（false 關掉）；refRoot：參考站來源的本庫根目錄（不給就自動判斷，null 不用；測試用）
+// shotsFn：截圖函式（測試用，預設 checks.mjs 的 takeShots）
 export async function runProject(ws, id, { interactive = false, override = {}, maxRounds = 40, timeoutMin = 90, full = true, shots: wantShots = true,
-  perf: wantPerf = true, review: wantReview = true, reviewFix: wantReviewFix = true, render: wantRender = true, stage2: wantStage2 = true, log = console.log } = {}) {
+  perf: wantPerf = true, review: wantReview = true, reviewFix: wantReviewFix = true, render: wantRender = true, stage2: wantStage2 = true,
+  selfReview, references: wantRefs = true, refRoot: refRootOpt, shotsFn = takeShots, log = console.log } = {}) {
   const P = paths(ws), J = projectPaths(ws, id);
   if (!existsSync(J.dir)) throw new Error(`找不到專案：${J.dir}`);
   let release;
@@ -95,12 +102,30 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
   }
   // 段落：工作階段與角色指派分段（第二段的開發不續接第一段的工作階段）
   const seg = () => state.segment || 1, sk = role => seg() === 2 ? role + '@2' : role, resolve = role => resolveRole(role, roleCtx(), seg());
+  // 自我檢查次數：命令列 ＞ 專案 studio.json 的 selfReview ＞ 1；限制在 0～3
+  const selfReviewMax = () => { const v = Number(selfReview ?? readJson(J.studioJson, {}).selfReview ?? 1); return Math.max(0, Math.min(3, Math.floor(v) || 0)); };
+  // 參考站：挑選結果改變時才重新複製規格摘要並記一行
+  const refRoot = refRootOpt !== undefined ? refRootOpt : refRootFor(ws, J);
+  let refCache = null;
+  function referencesFor(role) {
+    if (!REF_ROLES.has(role) || !has('3d')) return [];      // 只做評估的專案用不到
+    const pick = pickReferences({ root: refRoot, J, studioJson: readJson(J.studioJson, {}), enabled: wantRefs }), key = pick.list.map(s => s.name).join('|');
+    if (refCache?.key !== key) {
+      refCache = { key, refs: prepareReferences(ws, J, pick.list, refRoot) };
+      if (pick.unknown.length) log(`  ! studio.json 的 references 找不到這些站：${pick.unknown.join('、')}`);
+      if (key) log(`  參考站（${pick.how === 'set' ? 'studio.json 指定' : '自動挑選'}）：${pick.list.map(s => s.name).join('、')}`);
+      state.references = pick.list.map(s => s.name);
+    }
+    return refCache.refs;
+  }
   const abort = new AbortController();
   const onInt = () => { log('\n中斷：停止代理，狀態已保存，之後用 vs3d resume 續跑。'); abort.abort(); };
   process.once('SIGINT', onInt);
 
   // ---------------------------------------------------------------- 一輪
-  async function round(role, prompt, { resume = false, images = [] } = {}) {
+  // prompt 可以是函式 (續接了沒有) => 文字：續接不到原本的工作階段時要補上共通開頭（自我檢查用）
+  // step：同一個角色的特別步驟（例如 'self-review'），記在 rounds.jsonl 與記錄檔名
+  async function round(role, prompt, { resume = false, images = [], step = '' } = {}) {
     if (state.round >= maxRounds) throw new Error(`已達 ${maxRounds} 輪上限（--max-rounds 可調整）`);
     const rc = resolve(role), adapter = adapterFor(rc.cli);
     // 認證（訂閱帳號或 API 金鑰）：金鑰沒設好就在這裡停下；工作階段存在各認證方式自己的設定目錄，換了就不能續接
@@ -110,27 +135,32 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
     if (resume && prev && prev.cli !== rc.cli) log(`  ! ${role} 上次用 ${prev.cli}，這次指派為 ${rc.cli}：無法續接，改開新的工作階段`);
     else if (resume && prev && !sameAuth) log(`  ! ${role} 上次用${AUTH_MODES[prev.auth || 'subscription']}，這次是${AUTH_MODES[auth.mode]}：無法續接，改開新的工作階段`);
     commitAll(`Changes before round ${state.round + 1}`);
+    // 參考站：程式資料夾唯讀加進來（Claude 的 --add-dir；Codex 的沙箱本來就能讀），整站禁止寫入，本機資料禁止讀取；
+    //   工作區模式的參考站在工作區外，另外比對雜湊（本庫模式由 diffOutside 涵蓋）
+    const refs = referencesFor(role), refSnap = !J.repo && refs.length ? snapshotRefs(refs) : null;
     const startHead = git(J.dir, ['rev-parse', 'HEAD']).trim(), snap = J.repo ? repoGit.snapshotOutside(J) : snapshot(ws, id), scope = roleScope(role, J);
     const n = ++state.round, t0 = now();
     state.lastRole = role;
-    log(`\n▶ 第 ${n} 輪 ${role}${seg() === 2 ? '（第二段）' : ''}（${adapter.label}${rc.model ? ' ' + rc.model : ''}${rc.effort ? ` effort=${rc.effort}` : ''}${sessionId ? '，續接' : ''}）`);
+    log(`\n▶ 第 ${n} 輪 ${role}${step === 'self-review' ? '（自我檢查）' : ''}${seg() === 2 ? '（第二段）' : ''}（${adapter.label}${rc.model ? ' ' + rc.model : ''}${rc.effort ? ` effort=${rc.effort}` : ''}${sessionId ? '，續接' : ''}）`);
     save();
     const res = await runAgent(adapter, {
-      cwd: J.dir, prompt, sessionId, model: rc.model || undefined, effort: rc.effort || undefined,
-      readDirs: [P.core], allowWrite: scope.allow, denyWrite: scope.deny, images,
-      logFile: join(J.logs, `round-${String(n).padStart(2, '0')}-${role}${seg() === 2 ? '-s2' : ''}.jsonl`), timeoutMs: timeoutMin * 60000, signal: abort.signal,
+      cwd: J.dir, prompt: typeof prompt === 'function' ? prompt(!!sessionId) : prompt, sessionId, model: rc.model || undefined, effort: rc.effort || undefined,
+      readDirs: [P.core, ...refs.map(r => r.web).filter(d => existsSync(d))], allowWrite: scope.allow, denyWrite: [...scope.deny, ...refs.map(r => r.dir)], denyRead: refs.flatMap(r => r.noRead), images,
+      logFile: join(J.logs, `round-${String(n).padStart(2, '0')}-${role}${step ? '-' + step : ''}${seg() === 2 ? '-s2' : ''}.jsonl`), timeoutMs: timeoutMin * 60000, signal: abort.signal,
       env: auth.env, unsetEnv: auth.unset, settings: auth.settings,
     }, e => printEvent(e, log));
     // 本庫模式：專案外的變動只警告（可能是使用者同時在改；代理已被寫檔關卡與沙箱擋在專案外），不自動還原
     const iso = J.repo ? { violations: [], warnings: repoGit.diffOutside(J, snap) } : verifyAndRestore(ws, id, snap), roleViol = enforceRoleScope(role, J, startHead);
     for (const w of iso.warnings || []) log(`  ! 專案外有變動：${w.path}（${w.change}）；可能是你同時在改，app 沒有動它，請自行確認`);
-    const violations = [...iso.violations, ...roleViol];
+    const refViol = refSnap ? diffRefs(refs, refSnap) : [];
+    for (const w of refViol) log(`  ! 參考站有變動：${w.area} ${w.path}（${w.change}）；那是本庫的工作目錄，app 沒有還原，請自行確認`);
+    const violations = [...iso.violations, ...roleViol, ...refViol];
     if (role === 'plan') syncClientNames();
     for (const v of violations) log(`  ⚠ 越界：${v.area} ${v.path}（${v.change}）${v.restored ? '→ 已還原' : '→ 未能自動還原，請檢查'}`);
     const commit = commitAll(`${J.repo ? 'vs3d ' : ''}Round ${n} (${role}): ${short(res.text.split('\n').find(l => l.trim()) || 'no summary', 60)}`);
     if (res.sessionId) state.sessions[sk(role)] = { cli: rc.cli, model: rc.model, sessionId: res.sessionId, ...(auth.mode ? { auth: auth.mode } : {}) };
     state.violations = violations;
-    appendJsonl(J.rounds, { round: n, role, segment: seg(), cli: rc.cli, model: rc.model, effort: rc.effort, sessionId: res.sessionId, resumed: !!sessionId, startedAt: t0, seconds: res.seconds,
+    appendJsonl(J.rounds, { round: n, role, ...(step ? { step } : {}), ...(refs.length ? { references: refs.map(r => r.name) } : {}), segment: seg(), cli: rc.cli, model: rc.model, effort: rc.effort, sessionId: res.sessionId, resumed: !!sessionId, startedAt: t0, seconds: res.seconds,
       ok: res.ok, aborted: res.aborted, timedOut: res.timedOut, usage: res.usage, costUsd: res.costUsd, turns: res.turns, commit, violations, summary: short(res.text, 400),
       ...(process.env.VS3D_BY ? { by: process.env.VS3D_BY } : {}),      // 從介面啟動時記下是誰（代理佇列給的環境變數）
       ...(auth.mode ? { auth: auth.mode } : {}) });                       // 這一輪用訂閱帳號還是 API 金鑰
@@ -157,7 +187,7 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
     const names = readClientNames(ws), text = readText(J.agents);
     if (names.length && text && names.some(n => text.includes(n))) writeFileSync(J.agents, redactNames(text, names));
   }
-  const ctxFor = extra => ({ ws, J, adapter: adapterFor(resolve(extra.role).cli), scope: roleScope(extra.role, J).text, violations: state.violations, segment: seg(), components: comps(), ...extra });
+  const ctxFor = extra => ({ ws, J, adapter: adapterFor(resolve(extra.role).cli), scope: roleScope(extra.role, J).text, violations: state.violations, segment: seg(), components: comps(), references: referencesFor(extra.role), ...extra });
 
   // ---------------------------------------------------------------- 回答後續接
   async function handleAnswers(answers) {
@@ -320,6 +350,7 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
             writeJson(join(J.studio, 'segment2', 'base-fingerprint.json'), fp); state.segBase = { commit: git(J.dir, ['rev-parse', 'HEAD']).trim() };
           }
           await round('build', rolePrompt('change', ctxFor({ role: 'build', request: state.changeRequest, lockSchedule: !!state.lockSchedule })));
+          state.selfReviewDue = false;     // 修改指令不做自我檢查（之後直接審查）
           state.stage = 'check';
           break;
         }
@@ -332,8 +363,10 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
             if (!fp.ok) throw new Stop(`無法產生排程指紋，不能開始第二段：${fp.error}`);
             writeJson(join(J.studio, 'segment2', 'base-fingerprint.json'), fp); state.segBase = { commit: git(J.dir, ['rev-parse', 'HEAD']).trim() };
           }
+          if (!again) state.selfReviews = 0;
           state.buildStarted = true; save();
           await round('build', again ? `上一輪開發中斷了。請檢查目前的進度，繼續完成${seg() === 2 ? '第二段' : '第一段'}開發，完成後跑快速檢查。` : rolePrompt('build', ctxFor({ role: 'build', check: state.lastCheck })), { resume: again });
+          state.selfReviewDue = true;      // 第一次檢查通過並截圖後做自我檢查
           state.stage = 'check';
           break;
         }
@@ -355,9 +388,25 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
           if (c.ok) {
             // 本庫的站：檢查寫出的 review 結果跟著流程分支提交（只有時間變動的寫回原內容），否則下次開工會被當成未提交的改動
             if (J.repo) { const h = commitAll(`vs3d check results (round ${state.round})`); if (h) log(`  已提交檢查結果 ${h}`); }
-            if (wantShots) { log('▶ 截圖'); const s = await takeShots(ws, id, join(J.temp, `shots-r${state.round}`)); state.shots = s.ok ? s.dir : null; }
+            let taken = [];
+            if (wantShots) { log('▶ 截圖'); const s = await shotsFn(ws, id, join(J.temp, `shots-r${state.round}`)); state.shots = s.ok ? s.dir : null; taken = pngs(state.shots && join(state.shots, id)); }
+            // 開發後的自我檢查：用這次拍的截圖（沒有截圖就略過，不拿舊的截圖）
+            if (state.selfReviewDue && (state.selfReviews || 0) < selfReviewMax()) {
+              if (taken.length) { state.stage = 'self-review'; break; }
+              log('  ! 這次沒有截圖，略過自我檢查');
+            }
+            state.selfReviewDue = false;
             state.stage = wantReview ? 'review' : wantRender ? 'render' : 'done';
           } else state.stage = 'fix';
+          break;
+        }
+        case 'self-review': {   // 續接開發的工作階段看自己的截圖修一次，之後重新檢查（第二段的排程指紋比對也在檢查裡）
+          const n = (state.selfReviews || 0) + 1, max = Math.max(n, selfReviewMax()), shotList = pngs(state.shots && join(state.shots, id));
+          if (!shotList.length) { log('  ! 截圖不見了，重新檢查與截圖'); state.stage = 'check'; break; }
+          log(`\n▶ 自我檢查 ${n}/${max}：開發角色看 ${shotList.length} 張截圖，對照提案與拍板事項修正`);
+          await round('build', resumed => selfReviewPrompt(ctxFor({ role: 'build', shots: shotList.map(f => rel(J.dir, f)), pass: n, total: max, fresh: !resumed })),
+            { resume: true, images: shotList, step: 'self-review' });
+          state.selfReviews = n; state.stage = 'check';
           break;
         }
         case 'review': {
@@ -512,6 +561,7 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
           }
           if (!has('3d')) { log(`\n✔ 評估完成：提案、可行性分析與成本表在資料庫（介面的「可行性」「成本表」分頁可以修改與匯出），共 ${state.round} 輪。`); save(); return { status: 'done', rounds: state.round }; }
           log(`\n✔ ${seg() === 2 ? '第二段' : '第一段'}完成：${state.lastCheck?.ok ? '檢查全部通過' : '依你的選擇結束（檢查未全過）'}，共 ${state.round} 輪。`);
+          if (state.selfReviews) log(`  自我檢查 ${state.selfReviews} 次`);
           if (state.reviewData) log(`  審查 ${state.reviews} 次：剩餘必修 ${state.reviewData.must.length} 項`);
           if (state.render) log(`  補強：${{ accepted: '已接受', reverted: '已整批還原', 'accepted-with-failures': '接受（守門檢查未全過）' }[state.render.result] || '未完成'}${state.render.page ? `；對照 ${state.render.page}` : ''}`);
           if (state.shots) log(`  截圖：${state.shots}`);
@@ -560,7 +610,7 @@ export function cancelFlow(ws, id) {
     for (const q of pending) renameSync(join(J.questions, q.file), join(J.questions, 'cancelled', q.file));
     const from = state.stage;
     Object.assign(state, { stage: 'done', segment: seg2 && state.stage !== 'done' ? 1 : state.segment, waiting: null, flow: null, flowActive: false, changeRequest: null, lockSchedule: false,
-      segBase: null, streak: {}, renderBase: null, renderPicked: false, renderItems: null, renderTries: 0 });
+      segBase: null, streak: {}, renderBase: null, renderPicked: false, renderItems: null, renderTries: 0, selfReviewDue: false });
     writeJson(J.state, state);
     appendJsonl(J.rounds, { cancel: from, at: now(), branch: state.branch || null });
     return { from, branch: state.branch || null, questions: pending.length };
@@ -569,9 +619,10 @@ export function cancelFlow(ws, id) {
 
 // 開始第二段：保留第一段的摘要，重設每段各自的狀態（工作階段用「角色@2」另存，不會續接第一段）
 export function beginSegment2(state) {
-  state.segments = { ...state.segments, 1: { rounds: state.round, reviews: state.reviews || 0, must: state.reviewData?.must?.length ?? null, render: state.render?.result || null } };
+  state.segments = { ...state.segments, 1: { rounds: state.round, selfReviews: state.selfReviews || 0, reviews: state.reviews || 0, must: state.reviewData?.must?.length ?? null, render: state.render?.result || null } };
   Object.assign(state, { segment: 2, stage: 'plan', waiting: null, stage2Asked: true, proposalApproved: false, planFeedback: null, planTries: 0, planNote: '', buildStarted: false,
-    reviews: 0, reviewData: null, renderBase: null, render: null, renders: 0, renderTries: 0, renderPicked: false, renderItems: null, streak: {}, invalidRetries: 0, segBase: null });
+    reviews: 0, reviewData: null, renderBase: null, render: null, renders: 0, renderTries: 0, renderPicked: false, renderItems: null, streak: {}, invalidRetries: 0, segBase: null,
+    selfReviews: 0, selfReviewDue: false });
   return state;
 }
 

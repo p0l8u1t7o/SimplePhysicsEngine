@@ -9,6 +9,8 @@
 // 各層可以用「角色@段」只指定某一段，例如 studio.json 的 roles: { "build@2": { cli: 'claude', model: 'opus' } }、--role build@2=codex:gpt-6-astra。
 // P2 中 sonnet 在兩站都明顯較弱，而且規劃時容易偏離範圍。
 // 元件補全（enrich，Q5）工作單純、次數多，Claude 預設用 sonnet。
+// 推理強度（2026-11-07 使用者同意）：Claude 的規劃、開發、修正、審查、補強、光學預設 high（enrich 不設，用 CLI 預設）；
+//   API 金鑰模式用獨立的 CLAUDE_CONFIG_DIR，讀不到使用者自己的 effort 設定，不指定就會用 CLI 的預設值。各層照樣可以蓋過。
 import { readJson } from './util.mjs';
 
 export const ROLES = {
@@ -25,6 +27,11 @@ export const ROLES = {
 export const PRESETS = {
   claude: { plan: 'opus', build: 'opus', fix: 'opus', review: 'opus', render: 'opus', optics: 'opus', enrich: 'sonnet' },
   codex: { plan: '', build: '', fix: '', review: '', render: '', optics: '', enrich: '' },
+};
+
+// 依 CLI 的推理強度預設（和 PRESETS 一樣只在該 CLI 生效；空字串＝CLI 預設）
+export const EFFORT_PRESETS = {
+  claude: { plan: 'high', build: 'high', fix: 'high', review: 'high', render: 'high', optics: 'high' },
 };
 
 // 指定 CLI 的角色預設（最底層；工作區、專案或命令列指定 CLI 時會被蓋過）
@@ -60,7 +67,7 @@ export function resolveRole(role, { workspaceSettings = {}, studioJson = {}, ove
   const layers = [[ROLE_DEFAULTS[role], null], [SEGMENT_DEFAULTS[segment]?.[role], null], [workspaceSettings.roles?.[role], wsCli], [workspaceSettings.roles?.[seg], wsCli],
     [studioJson.roles?.[role], projCli], [studioJson.roles?.[seg], projCli], [Object.keys(ov).length ? ov : null, null]].filter(([l]) => l);
   const cli = ov.cli || override.cli || [...layers].reverse().find(([l]) => l.cli)?.[0].cli || projCli;
-  const r = { cli, model: PRESETS[cli]?.[role] ?? '', effort: '' };
+  const r = { cli, model: PRESETS[cli]?.[role] ?? '', effort: EFFORT_PRESETS[cli]?.[role] ?? '' };
   // 只套用同一個 CLI 的層：沒寫 cli 的層屬於該層的預設 CLI（單次指定的層跟著這次的 CLI）；不同 CLI 的模型名稱不通用
   for (const [l, layerCli] of layers) {
     if ((l.cli || layerCli || cli) !== cli) continue;

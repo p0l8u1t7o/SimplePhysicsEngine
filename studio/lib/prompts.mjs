@@ -31,7 +31,7 @@ export function header({ ws, J, role, adapter, scope, segment = 1 }) {
   return lines.join('\n');
 }
 
-export function handoff({ J, check, shotsDir, notes = [], violations = [] }) {
+export function handoff({ J, check, shotsDir, notes = [], violations = [], references = [] }) {
   const out = ['## 交接摘要', ''];
   out.push(`- 需求與已拍板事項：\`AGENTS.md\``);
   if (readText(join(J.plan, 'proposal.md'))) out.push(`- 配置提案：\`.studio/plan/proposal.md\``);
@@ -40,8 +40,18 @@ export function handoff({ J, check, shotsDir, notes = [], violations = [] }) {
   if (check) out.push(`- 最近一次檢查（${check.quick ? '快速' : '完整'}）：${check.ok ? '全部通過' : `${check.failures.length} 項失敗`}`);
   if (shotsDir) out.push(`- 截圖：\`${rel(J.dir, shotsDir)}\``);
   for (const n of notes) out.push(`- ${n}`);
+  if (references.length) out.push(referencesText(references, J));
   if (violations.length) out.push('', '**上一輪有越界寫入，已被 app 還原，不要再寫這些路徑：**', ...violations.slice(0, 20).map(v => `- ${v.area}：${v.path}（${v.change}${v.restored ? '，已還原' : '，未能自動還原'}）`));
   return out.join('\n');
+}
+
+// 參考站（lib/references.mjs）：本庫已完成的站，唯讀，只看細節水準與寫法
+const short = (s, n) => (s = String(s || '').replace(/\s+/g, ' ').trim()).length > n ? s.slice(0, n) + '…' : s;
+export function referencesText(refs = [], J = {}) {
+  if (!refs.length) return '';
+  return ['- 參考站（本庫已完成的站，唯讀）：',
+    ...refs.map(r => `  - \`${r.name}\`（${short(r.title, 30)}${r.summary ? `：${short(r.summary, 80)}` : ''}）：程式 \`${r.web}\`${r.docs?.length ? `；規格摘要 ${r.docs.map(d => `\`${d}\``).join('、')}` : ''}`),
+    `  讀它們的 \`web/js/\` 看細節水準與寫法（設備的細部幾何、材質、標籤、視角、側欄說明），不要複製場景，不要套用它們的規格與已拍板事項，也不要改它們（寫入會被擋下）。它們的 \`docs/\`、\`.studio/\`、\`TEMP/\` 是使用者的本機資料，不要讀。${J.repo ? '' : '參考站用的是本庫的 core，版本可能和工作區的 core 不同：API 以工作區的 `core/README.md` 為準。'}`].join('\n');
 }
 
 // 只做 3D 的專案：元件表 parts.json（提案確認後匯入元件資料庫）
@@ -129,7 +139,7 @@ ${components.includes('assess') ? ASSESS_TASK : PARTS_JSON}
 - \`tools/verify.mjs\` 改成本專案的製程規則檢查（例如節拍上限、放置位置）
 - \`project.json\` 的 \`title\`、\`summary\`
 
-範本裡的示範龍門與工件要換成本專案的內容；範本的相機子畫面屬於第二段，第一段不要顯示（相機設備本身可以建模）。完成後跑快速檢查並修到通過。`,
+範本裡的示範龍門與工件要換成本專案的內容；範本的相機子畫面屬於第二段，第一段不要顯示（相機設備本身可以建模）。完成後跑快速檢查並修到通過。app 檢查通過後會截圖，再把截圖交給你自我檢查一次。`,
 
   fix: ({ check }) => `## 任務：修正檢查失敗
 
@@ -192,7 +202,7 @@ ${check ? failureText(check) : '（沒有檢查結果）'}
 - \`project.js\` 的 \`verify.cables\` 宣告會動的機構與要讓開的零件（app 會做配線動態取樣）
 - 側欄或面板加上電控與相機的說明（型號未定的標「示意」）
 
-**不能改第一段**：時間軸總長、事件、\`apply(t)\` 原有的狀態、會動物件的軌跡都要相同（可以新增欄位與會動的細節，例如拖鏈、光源亮度）；app 會比對第一段的排程指紋，不同就退回。完成後跑快速檢查（含 \`electrical\`）並修到通過。`,
+**不能改第一段**：時間軸總長、事件、\`apply(t)\` 原有的狀態、會動物件的軌跡都要相同（可以新增欄位與會動的細節，例如拖鏈、光源亮度）；app 會比對第一段的排程指紋，不同就退回。完成後跑快速檢查（含 \`electrical\`）並修到通過。app 檢查通過後會截圖，再把截圖交給你自我檢查一次。`,
 };
 
 // 審查：看截圖、對照拍板事項與規則，輸出必修與建議補強
@@ -233,7 +243,7 @@ ${refs.length ? `\n使用者提供的參考資料（照片、圖面）：\n\n${r
 \`\`\`
 
 - **must（必修）只放違反已拍板事項、需求或工作區規則的問題**，例如順序做反、做了明講不做的東西、拍板的設備沒出現、畫面或檔案出現用戶名稱。外觀好不好看不算必修。
-- **suggest（建議補強）**只放外觀：材質、細部幾何（倒角、螺絲、溝槽、管線、標示）、燈光、鏡頭構圖、標籤樣式；不可以要求改節拍、動作或站位。priority 1 最重要、3 最次要，最多 15 項。
+- **suggest（建議補強）**只放外觀：材質、細部幾何（倒角、螺絲、溝槽、管線、標示）、燈光、鏡頭構圖、標籤樣式；不可以要求改節拍、動作或站位。priority 1 最重要、3 最次要，最多 15 項。有參考站的話，拿它們的細節水準當比較基準。
 ${components.includes('assess') && segment === 1 && !request ? ASSESS_REVIEW : ''}${segment === 2 ? '- 第二段的必修另外看：提案列的電控元件、相機與光源有沒有做出來，位置與視野是否照提案；電盤是否擋到動線或門打不開；線路或相機懸空沒有固定；相機子畫面與疊圖有沒有呈現；第一段的內容有沒有被改壞。\n- 第二段的建議補強集中在電盤內部（線槽、標籤、端子）、線材（束帶、固定座、彎曲）、相機與光源外觀。\n' : ''}- 沒有問題就給空陣列。寫完檔案就結束。`;
 
 // 渲染與細節補強：只改「看起來」，不改「做了什麼」
@@ -295,6 +305,37 @@ export const renderRevisePrompt = (text, ctx) => [
   ctx?.violations?.length ? handoff(ctx) : '',
   `使用者看過補強前後對照，要求調整：\n\n${text}\n\n其餘補強保留。改完跑快速檢查確認，硬性限制同前。`,
 ].filter(Boolean).join('\n');
+
+// 自我檢查（開發後、審查前）：同一個開發工作階段看自己成品的截圖，修掉明顯不對或粗糙的地方。
+// fresh：沒有續接到開發的工作階段（換了 CLI 或認證方式）時，前面補上共通開頭與交接摘要
+export function selfReviewPrompt(ctx) {
+  const { shots = [], pass = 1, total = 1, segment = 1, fresh = false, references = [] } = ctx, seg2 = segment === 2;
+  const items = seg2 ? [
+    '- `segment2.json` 列的電控元件、電盤、相機與光源沒做出來，或位置、朝向和提案不同',
+    '- 線路、拖鏈、相機或支架懸空沒有固定，穿進別的設備；電盤擋到動線或門打不開',
+    '- 相機子畫面、疊圖、電控檢視器沒有呈現，或標籤、側欄說明和畫面對不上',
+  ] : [
+    '- 提案列的設備、工件、治具沒做出來，或數量、位置、朝向和提案不同',
+    '- 零件懸空沒有支撐、穿進別的設備、比例明顯不對',
+    '- 看起來很空或很粗糙的區域：只有方塊、該有的機架、外罩、輸送與管線細節沒做',
+    '- 工站沒有標籤、側欄說明和畫面對不上、預設視角看不到重點',
+  ];
+  const head = fresh ? [header({ ...ctx, role: 'build' }), handoff(ctx)]
+    : [ctx.violations?.length ? handoff(ctx) : '', references.length ? referencesText(references, ctx.J) : ''].filter(Boolean);
+  return [
+    ...head.flatMap(x => [x, '']),
+    `## 任務：自我檢查${seg2 ? '（第二段）' : ''}（第 ${pass}/${total} 次）`, '',
+    `你的${seg2 ? '第二段' : '第一段'}開發通過了 app 的檢查。下面是 app 剛拍的成品截圖，用讀檔工具逐張開啟來看：`, '',
+    ...(shots.length ? shots.map(s => `- \`${s}\``) : ['- （沒有截圖）']), '',
+    `對照 \`.studio/plan/${seg2 ? 'segment2.md' : 'proposal.md'}\`${seg2 ? '、`segment2.json`' : ''}、\`AGENTS.md\` 的需求與「已拍板事項」${references.length ? '，以及參考站的完成度' : ''}，找出明顯不對或看起來粗糙的地方並修正，例如：`, '',
+    ...items, '',
+    '- **不要改使用者決定的事**：`AGENTS.md`「已拍板事項」與確認過的提案（站位、選型、流程）照舊；真的需要改就寫問題檔。',
+    '- 這一輪不是外觀補強：材質、燈光、倒角這類細部美化之後有補強角色處理，這裡只修明顯的缺漏與錯誤。',
+    seg2 ? '- **不能改第一段**：時間軸總長、事件、`apply(t)` 原有的狀態、會動物件的軌跡都要相同；app 會比對第一段的排程指紋，不同就退回。'
+      : '- 改到節拍或動作的話，同步更新側欄說明、`layoutChecks()` 與 `tools/verify.mjs`。',
+    '- 改完跑快速檢查並修到通過。結束訊息條列：看到哪些問題、改了什麼；畫面沒有要改的就直接說沒有。',
+  ].join('\n');
+}
 
 // 問題檔格式錯誤時回送
 export const invalidQuestionsPrompt = invalid => [

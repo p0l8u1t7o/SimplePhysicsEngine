@@ -1,6 +1,6 @@
 // 專案交接包（換人接手）：vs3d handoff 匯出、vs3d import 匯入。
 // 內容：handoff.json（說明）＋repo.bundle（專案 git 全部歷史）＋docs/（上傳檔與抽取結果）＋studio/（.studio 的狀態、提問、回答、
-//       提案、審查、每輪紀錄；不含代理的完整對話記錄 logs/）＋client-names.txt（這個專案用得到的不得顯示名稱）。
+//       提案、審查、每輪紀錄；不含代理的完整對話記錄 logs/ 與參考站的規格摘要 references/）＋client-names.txt（這個專案用得到的不得顯示名稱）。
 // 匯入後代理的工作階段（session id）屬於原本那台電腦，會清掉；階段、拍板、提問都保留，對方可以直接 vs3d resume。
 import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
@@ -46,7 +46,7 @@ export async function exportHandoff(ws, id, outFile, { log = console.log } = {})
       { name: 'repo.bundle', data: readFileSync(tmp) },
       { name: 'client-names.txt', data: ['# 不得顯示的用戶名稱（匯入時加進工作區名單）', ...names].join('\n') + '\n' },
       ...dirEntries(J.docs, { prefix: 'docs' }),
-      ...dirEntries(J.studio, { prefix: 'studio', filter: rel => !/^logs(\/|$)/.test(rel) && rel !== 'run.lock' }),
+      ...dirEntries(J.studio, { prefix: 'studio', filter: rel => !/^(logs|references)(\/|$)/.test(rel) && rel !== 'run.lock' }),   // 參考站的複本每輪重寫，不帶
     ];
     const r = writeZip(outFile, entries);
     log(`✓ 交接包：${outFile}（${(r.bytes / 1048576).toFixed(1)} MB；階段 ${meta.segment === 2 ? '第二段 ' : ''}${meta.stage}、${meta.rounds} 輪、不得顯示的名稱 ${names.length} 個）`);
