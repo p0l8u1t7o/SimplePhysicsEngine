@@ -2,7 +2,7 @@
   "title": "200L 化學桶清洗＋填裝線",
   "summary": "倉庫＋AGV、龍門翻桶、側標與頂面貼標、自動開蓋、FANUC 手臂沖洗與負壓抽乾、三碼比對分線、4 線填裝鎖蓋與組板。",
   "order": 2,
-  "coreVersion": "1.14.0",
+  "coreVersion": "1.16.1",
   "checks": {
     "quick": [
       "tools/verify.mjs"

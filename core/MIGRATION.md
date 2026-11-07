@@ -229,6 +229,16 @@ Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs
 
 七站 91 張基準回歸超過門檻 0 張；本站 31 張事件畫面與三場型高低畫質／深度模式逐圖檢視，外觀變更為預期。CCTV／LPR 子畫面及缺檔降級另有瀏覽器檢查。量測、圖檔位置與限制見 `project-site/ParkingEMS/review/cinematic-render.md`。
 
+## 2026-11-07：core 1.16.1 Node 端 loader 改用 registerHooks
+
+開發機搬到新電腦並升到 Node 26.13.0（Python 3.14）時，Node 26 對 `module.register()` 印出 DEP0205 棄用警告（`run.mjs` 等啟動子程序時加了 `--no-warnings`，平常看不到）。
+
+- `tools/register.mjs` 改用同步的 `module.registerHooks({ resolve })`（同一執行緒）；沒有 `registerHooks` 的舊版 Node 22（22.15 以前）自動退回 `module.register()`。
+- `tools/loader.mjs` 的 `resolve` 改成同步函式，兩種註冊方式共用；解析規則（`three`、`three/addons/`、`@core/`）不變。
+- 只影響 Node 端的檢查與工具，網頁畫面不受影響。
+- 回歸：改動前在新機拍基準（本機 `TEMP/shots-newmachine-base`，之後改 core 也以它為基準）；改動後 14 站 161 張桌面截圖 0 張超過門檻；完整檢查 184/184 通過（含 14 站 `ui` 四種尺寸、core 的 `twin` 62/62，Automation-Schema 在鎖定的 preview.3）；重新產生的 102 個 review JSON 用 `compare-review.py` 對照舊機提交的版本，結果不同 0 個。14 站的 `coreVersion` 改為 1.16.1。
+- 同一天移除 PV DEMO 站；它提出的兩條 core 需求仍留在 `REQUESTS.md`。
+
 ## 2026-11-02：core 1.16.0 錄影只錄某一站
 
 - `movie/movie.js` 的 `installMovie` 加選項 `overview`：片頭與片尾全景的鏡位 `{ p, t }`（或回傳它的函式）。不給時照舊框整個場景，現有各站的錄影不變。
@@ -252,6 +262,7 @@ Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs
 
 | 版本 | 日期 | 內容 |
 |---|---|---|
+| 1.16.1 | 2026-11-07 | Node 端 loader 改用 `module.registerHooks`（Node 26 對 `module.register` 有 DEP0205 棄用警告；舊版 Node 22 自動退回）；`loader.mjs` 的 `resolve` 改成同步。API 與畫面不變，14 站檢查與截圖結果不變 |
 | 1.16.0 | 2026-11-02 | 錄影：`installMovie` 的 `overview`（片頭片尾鏡位）、`export-mp4.mjs --query`（附加網址參數）；只錄某一站時用。其他站畫面與檢查結果不變。首用：StatorHeightMeasurement 品檢站影片 |
 | 1.15.0 | 2026-10-22 | 數位孿生 `core/twin/`（Twin Protocol v2 server：握手、鎖步、cmd、故障、感測器、即時干涉、工件持有權、SSE 觀看）與 `tools/twin*.mjs`；Automation-Schema 版本鎖 `twin/automation-schema.lock.json`；新 core 檢查 `twin`、`names`；三色燈 `setLamps`。示範站 MilitaryGradePC。其他站畫面與檢查結果不變 |
 | 1.14.0 | 2026-10-07 | 新共用模型 FANUC M-710iC/45M（`models/robots/fanuc-m710ic.js`，介面與 R-2000iC 相同，另匯出型錄負載能力 `RATING`；臂長為推估值待型錄核對），共 81 個。其他站畫面與檢查結果不變。來源：SolarDismantling 手臂改選 45 kg 級 |

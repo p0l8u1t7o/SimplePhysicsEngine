@@ -10,7 +10,8 @@ const MAP = [
   ['@core/', CORE.href, false],
 ];
 
-export async function resolve(specifier, context, next) {
+// 同步函式：registerHooks 只接受同步 hook；module.register 的 loader 執行緒也接受同步回傳值
+export function resolve(specifier, context, next) {
   for (const [key, target, exact] of MAP) {
     if (exact ? specifier === key : specifier.startsWith(key)) return { url: exact ? target : target + specifier.slice(key.length), shortCircuit: true };
   }
