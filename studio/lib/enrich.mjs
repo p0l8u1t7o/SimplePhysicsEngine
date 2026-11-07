@@ -165,23 +165,30 @@ export function enrichOps({ all, get, run, insert, now, fail, findPart, api }) {
   return ops;
 }
 
-// 下載檔案成附件：類型與大小上限照系統設定的附件規則（lib/settings.mjs 的 attachmentRule），逾時 60 秒；db 是 partsdb
-export async function downloadFile(url, db, { timeoutMs = 60000 } = {}) {
-  const { attachmentRule, readSystem } = await import('./settings.mjs'), { fileType } = await import('./partsdb.mjs'), system = readSystem(db);
-  const res = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(timeoutMs), headers: { 'User-Agent': 'vs3d-enrich' } });
-  if (!res.ok) throw new Error(`下載失敗（HTTP ${res.status}）`);
-  const ctype = res.headers.get('content-type') || '', disp = res.headers.get('content-disposition') || '';
-  let name = /filename\*=UTF-8''([^;]+)/i.exec(disp)?.[1] || /filename="?([^";]+)"?/i.exec(disp)?.[1] || decodeURIComponent(new URL(res.url || url).pathname.split('/').pop() || '');
-  if (!fileType(name)) {
-    const ext = { 'application/pdf': 'pdf', 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif', 'application/zip': 'zip' }[ctype.split(';')[0].trim()];
-    if (ext) name = `${name.replace(/\.[^.]*$/, '') || 'download'}.${ext}`;
-  }
-  const rule = attachmentRule(system, fileType(name));
-  if (Number(res.headers.get('content-length')) > rule.limit) throw new Error(`超過附件上限 ${rule.mb} MB`);
-  const chunks = []; let size = 0;
-  for await (const c of res.body) { size += c.length; if (size > rule.limit) throw new Error(`超過附件上限 ${rule.mb} MB`); chunks.push(c); }
-  if (!size) throw new Error('下載到的檔案是空的');
-  return { name, data: Buffer.concat(chunks) };
+// 下載檔案成附件：類型與大小上限照系統設定的附件規則（lib/settings.mjs 的 attachmentRule），整體逾時 60 秒；db 是 partsdb。
+// 網址是代理給的，連線經過 lib/safe-fetch.mjs：只收 http／https，不連本機與內部網路（每一次轉址都檢查）。
+export async function downloadFile(url, db, { timeoutMs = 60000, ...net } = {}) {
+  const { attachmentRule, readSystem } = await import('./settings.mjs'), { fileType } = await import('./partsdb.mjs'), { safeGet } = await import('./safe-fetch.mjs'), system = readSystem(db);
+  const { res, url: finalUrl, abort, signal } = await safeGet(url, { timeoutMs, headers: { 'User-Agent': 'vs3d-enrich' }, ...net });
+  try {
+    if (res.statusCode < 200 || res.statusCode >= 300) throw new Error(`下載失敗（HTTP ${res.statusCode}）`);
+    const ctype = String(res.headers['content-type'] || ''), disp = String(res.headers['content-disposition'] || '');
+    let name = /filename\*=UTF-8''([^;]+)/i.exec(disp)?.[1] || /filename="?([^";]+)"?/i.exec(disp)?.[1] || new URL(finalUrl).pathname.split('/').pop() || '';
+    try { name = decodeURIComponent(name); } catch { /* 不是合法的百分比編碼就照原樣 */ }
+    name = name.replace(/[\\/]/g, '_');
+    if (!fileType(name)) {
+      const ext = { 'application/pdf': 'pdf', 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif', 'application/zip': 'zip' }[ctype.split(';')[0].trim()];
+      if (ext) name = `${name.replace(/\.[^.]*$/, '') || 'download'}.${ext}`;
+    }
+    const rule = attachmentRule(system, fileType(name));
+    if (Number(res.headers['content-length']) > rule.limit) throw new Error(`超過附件上限 ${rule.mb} MB`);
+    const chunks = []; let size = 0;
+    try {
+      for await (const c of res) { size += c.length; if (size > rule.limit) throw new Error(`超過附件上限 ${rule.mb} MB`); chunks.push(c); }
+    } catch (e) { throw signal.aborted && !/附件上限/.test(e.message) ? signal.reason : e; }
+    if (!size) throw new Error('下載到的檔案是空的');
+    return { name, data: Buffer.concat(chunks) };
+  } finally { abort(); }
 }
 
 // 給代理的元件資料（part.json）

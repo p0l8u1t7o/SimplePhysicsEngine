@@ -7,8 +7,8 @@
 // 統一事件（onEvent）：
 //   { kind: 'session', id }                  工作階段 ID（續接用）
 //   { kind: 'text', text }                   代理的文字訊息
-//   { kind: 'tool', name, detail }           工具呼叫（檔案路徑、指令）
-//   { kind: 'tool_result', ok, detail }      工具結果
+//   { kind: 'tool', name, detail, id?, paths?, done? }   工具呼叫（檔案路徑、指令）；寫檔工具帶 paths，改完才送的（Codex file_change）標 done
+//   { kind: 'tool_result', ok, detail, id? }  工具結果（id 對應 tool 的 id；本庫模式的併改偵測用）
 //   { kind: 'usage', usage } / { kind: 'rate', info }
 //   { kind: 'end', ok, text, usage, costUsd?, turns? }
 //   { kind: 'error', message }               整輪失敗

@@ -217,7 +217,8 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
           if (act === 'logout' && post) return json(200, { ok: true }, set(''));
           if (act === 'setup' && post) {      // 建立第一個管理者：只有還沒有任何帳號時可以
             if (auth.enabled()) return json(400, { error: '已經有帳號了，請登入' });
-            const v = await jbody(); auth.create({ ...v, role: 'admin' }); const r = auth.login(v.name, v.password);
+            // 讀完內容後由 auth.setup 再檢查一次並建立（同步、不會被別的請求插隊）；上面的檢查只是提早拒絕
+            const v = await jbody(); auth.setup(v); const r = auth.login(v.name, v.password);
             auth.audit({ user: r.user.name, action: '建立第一個管理者' }); return json(200, { user: r.user }, set(r.token));
           }
           if (act === 'password' && post) {

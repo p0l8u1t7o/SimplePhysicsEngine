@@ -40,7 +40,17 @@ if (/任務：自我檢查/.test(prompt)) {
 } else if (/任務：依使用者的要求修改/.test(prompt)) {
   // 修改指令：在專案裡加一個檔，並改一個既有檔
   w(join(cwd, 'web/change.txt'), 'changed');
-  const readme = join(cwd, 'README.md'); appendFileSync(readme, '\n修改紀錄：假代理\n'); tool('Edit', readme);
+  const readme = join(cwd, 'README.md');
+  if (process.env.FAKE_USER_EDIT) {
+    // 模擬併改（本庫模式）：照真的 Claude 的順序送 tool_use → 改檔 → tool_result，停一下讓 app 記下代理改完的內容，
+    // 再由「使用者」改 FAKE_USER_EDIT 指的檔（相對於站），最後代理再讀一次檔（查核點）
+    say({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 'edit-1', name: 'Edit', input: { file_path: readme } }] } });
+    appendFileSync(readme, '\n修改紀錄：假代理\n');
+    say({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'edit-1', content: 'ok' }] } });
+    await new Promise(r => setTimeout(r, 800));
+    const f = join(cwd, process.env.FAKE_USER_EDIT); mkdirSync(join(f, '..'), { recursive: true }); appendFileSync(f, '\n使用者同時在改\n');
+    say({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 'read-1', name: 'Read', input: { file_path: readme } }] } });
+  } else { appendFileSync(readme, '\n修改紀錄：假代理\n'); tool('Edit', readme); }
   text = '修改完成';
 } else if (/任務：第二段規劃/.test(prompt)) {
   // 第二段規劃：寫提案與元件表，並列出一個用戶名稱（測試名單同步）

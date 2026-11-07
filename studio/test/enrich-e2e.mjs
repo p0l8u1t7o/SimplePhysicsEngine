@@ -14,10 +14,10 @@ import { openBrowser } from '../../core/tools/cdp.mjs';
 
 const argv = process.argv.slice(2), shotDir = argv.includes('--shots') ? resolve(argv[argv.indexOf('--shots') + 1]) : null;
 const ws = mkdtempSync(join(tmpdir(), 'vs3d-enrich-ui-')), port = await freePort(), base = `http://127.0.0.1:${port}`, t0 = Date.now();
-// 假的原廠網站：規格書 PDF
+// 假的原廠網站：規格書 PDF（在本機 127.0.0.1，所以要用 VS3D_ENRICH_ALLOW_PRIVATE=1 關掉下載的內部位址檢查，見 lib/safe-fetch.mjs）
 const site = createServer((req, res) => { if (req.url === '/ds.pdf') { res.writeHead(200, { 'Content-Type': 'application/pdf' }); res.end('%PDF-1.4 demo datasheet'); } else { res.writeHead(404); res.end(); } });
 await new Promise(r => site.listen(0, '127.0.0.1', r));
-const env = { ...process.env, VS3D_USERS: join(ws, 'users.json'), VS3D_EXTRA_ADAPTERS: join(STUDIO, 'test', 'fake-adapters.mjs'), FAKE_ENRICH_FILE: `http://127.0.0.1:${site.address().port}/ds.pdf` };
+const env = { ...process.env, VS3D_USERS: join(ws, 'users.json'), VS3D_EXTRA_ADAPTERS: join(STUDIO, 'test', 'fake-adapters.mjs'), FAKE_ENRICH_FILE: `http://127.0.0.1:${site.address().port}/ds.pdf`, VS3D_ENRICH_ALLOW_PRIVATE: '1' };
 const server = spawn(process.execPath, [join(STUDIO, 'vs3d.mjs'), 'ui', '--port', String(port), '--no-open', '--no-repo', '--workspace', ws, '--db', join(ws, 'studio.db')], { env, stdio: ['ignore', 'pipe', 'pipe'] });
 let out = ''; server.stdout.on('data', d => { out += d; }); server.stderr.on('data', d => { out += d; });
 const log = s => console.log(`[${((Date.now() - t0) / 1000).toFixed(0).padStart(3)} s] ${s}`);

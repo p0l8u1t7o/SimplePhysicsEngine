@@ -59,11 +59,12 @@ export const codex = {
   parse(e) {
     const out = [], it = e.item || {};
     if (e.type === 'thread.started') out.push({ kind: 'session', id: e.thread_id });
-    if (e.type === 'item.started' && it.type === 'command_execution') out.push({ kind: 'tool', name: 'shell', detail: short(it.command.replace(/^"[^"]*powershell\.exe"\s+-Command\s+/i, '')) });
+    // id、paths、done 給本庫模式的併改偵測（lib/repo.mjs 的 createEditTracker）；file_change 是改完才送，所以標 done
+    if (e.type === 'item.started' && it.type === 'command_execution') out.push({ kind: 'tool', name: 'shell', detail: short(it.command.replace(/^"[^"]*powershell\.exe"\s+-Command\s+/i, '')), id: it.id });
     if (e.type === 'item.completed') {
       if (it.type === 'agent_message' && it.text?.trim()) out.push({ kind: 'text', text: it.text });
-      if (it.type === 'command_execution') out.push({ kind: 'tool_result', ok: it.exit_code === 0, detail: short(it.aggregated_output, 160) });
-      if (it.type === 'file_change') out.push({ kind: 'tool', name: 'edit', detail: short((it.changes || []).map(c => `${c.kind || ''} ${c.path}`).join('、')) });
+      if (it.type === 'command_execution') out.push({ kind: 'tool_result', ok: it.exit_code === 0, detail: short(it.aggregated_output, 160), id: it.id });
+      if (it.type === 'file_change') out.push({ kind: 'tool', name: 'edit', detail: short((it.changes || []).map(c => `${c.kind || ''} ${c.path}`).join('、')), id: it.id, paths: (it.changes || []).map(c => c.path).filter(Boolean), done: true });
       if (it.type === 'error') out.push({ kind: 'warn', message: it.message || '' });
     }
     if (e.type === 'turn.completed') out.push({ kind: 'usage', usage: e.usage });

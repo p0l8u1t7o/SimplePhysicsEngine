@@ -7,6 +7,12 @@ const NATURE = { equipment: '設備與材料', labor: '工程人日', option: '�
 const FLAG = { estimate: '估價', expired: '報價過期', pending: '元件待確認', noPrice: '沒有單價', noFx: '沒有匯率', noGrade: '沒填等級（當 C）', partialSum: '模組加總不完整' };
 const H = { s: 'head' };
 const D = "'明細'!", S = "'摘要'!";
+// SUMIFS／COUNTIFS 的「等於這段文字」條件（公式裡的字串常值，含外層引號）：
+//   - 前面加 =：開頭是 <、>、= 的名稱不會被當成比較運算子
+//   - ~、*、? 前面加 ~：條件裡的 * ? 是萬用字元，~ 是跳脫字元
+//   - 公式字串裡的 " 要寫成 ""
+//   - 空白名稱維持 ""（比對空白儲存格，和以前一樣）
+export const sumifsEquals = s => (s = String(s ?? '')) ? `"=${s.replace(/[~*?]/g, '~$&').replace(/"/g, '""')}"` : '""';
 
 // data：bom.get() 或 bom.getSnapshot() 的結果；title：專案名稱
 export function costWorkbook(data, { title = '', subtitle = '' } = {}) {
@@ -62,7 +68,7 @@ export function costWorkbook(data, { title = '', subtitle = '' } = {}) {
   if (s.groups.length > 1) {
     sum.push([], [{ v: '分部', ...H }, { v: '設備與材料', ...H }, { v: '工程人日', ...H }, { v: '選配', ...H }, { v: '小計（未稅）', ...H }, { v: '含預備費', ...H }, { v: '含稅', ...H }]);
     for (const g of s.groups) {
-      const r = sum.length + 1, by = (nat, v) => ({ v, f: `SUMIFS(${col('K')},${col('O')},"${nat}",${col('C')},"${g.grp}")`, s: 'money' });
+      const r = sum.length + 1, by = (nat, v) => ({ v, f: `SUMIFS(${col('K')},${col('O')},"${nat}",${col('C')},${sumifsEquals(g.grp)})`, s: 'money' });
       sum.push([g.grp, by('設備與材料', g.equipment), by('工程人日', g.labor), by('選配', g.option), { v: g.subtotal, f: `SUM(B${r}:D${r})`, s: 'money' },
         { v: g.total, f: `E${r}*(1+$B$7)`, s: 'money' }, { v: g.taxed, f: `F${r}*(1+$B$8)`, s: 'money' }]);
     }

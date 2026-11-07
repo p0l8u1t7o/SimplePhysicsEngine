@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { createServer } from 'node:http';
 import { spawnSync } from 'node:child_process';
 import { openPartsDb } from '../lib/partsdb.mjs';
-import { validateResult, runEnrichJob, jobDir } from '../lib/enrich.mjs';
+import { validateResult, runEnrichJob, jobDir, downloadFile } from '../lib/enrich.mjs';
 import { ADAPTERS } from '../lib/adapters/index.mjs';
 import { claude } from '../lib/adapters/claude.mjs';
 import { codex } from '../lib/adapters/codex.mjs';
@@ -70,7 +70,8 @@ test('工作的流程：建立 → 假代理查詢 → 待審核 → 逐欄採�
 
     await assert.rejects(() => db.enrich.accept(job.id, { keys: ['model'] }), /不能採用/);
     const before = db.getPart(p.id).version;
-    const r = await db.enrich.accept(job.id, { keys: ['brand', 'attrs.像素尺寸', 'attrs.介面'], price: true, files: [0, 3], by: 'kevin' });
+    // 測試站在本機 127.0.0.1：下載預設會擋內部位址（lib/safe-fetch.mjs），這裡明確打開
+    const r = await db.enrich.accept(job.id, { keys: ['brand', 'attrs.像素尺寸', 'attrs.介面'], price: true, files: [0, 3], by: 'kevin' }, { download: (u, api) => downloadFile(u, api, { allowPrivate: true }) });
     assert.equal(r.part.brand, '示範廠'); assert.equal(r.part.attrs.像素尺寸, '3.45'); assert.equal(r.part.attrs.介面, 'GigE');
     assert.equal(r.part.version, before + 1, '欄位一次寫進去，只升一版');
     assert.equal(r.part.prices[0].grade, 'C'); assert.equal(r.part.prices[0].unit_price, 21000); assert.match(r.part.prices[0].source, /^網路查詢 https:\/\/example.com/);

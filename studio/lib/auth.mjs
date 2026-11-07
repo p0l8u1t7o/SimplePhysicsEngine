@@ -80,6 +80,14 @@ export function createAuth({ file = process.env.VS3D_USERS || join(STUDIO, 'data
       data.users.push({ name, display: String(display).trim(), role, salt, hash: hash(password, salt), ver: 1, disabled: false, createdAt: now() });
       save(); return pub(find(name));
     },
+    // 建立第一個管理者（介面的 setup）：「還沒有帳號」的檢查和建立在同一段同步程式裡做完，兩個並行請求只會有一個成功；
+    // 先重新讀檔，命令列（另一個程序）已經建了帳號的話也拒絕
+    setup(v) {
+      const disk = readJson(file, null);
+      if (disk?.users?.length) data = disk;
+      if (data.users.length) bad('已經有帳號了，請登入');
+      return this.create({ ...v, role: 'admin' });
+    },
     // 可以改顯示名稱、角色、停用、密碼；不能讓系統沒有可用的管理者
     update(name, v) {
       const u = find(name) || bad('找不到帳號', 404);

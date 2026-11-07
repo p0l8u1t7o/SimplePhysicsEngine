@@ -8,12 +8,13 @@ import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { STUDIO, REPO, git } from '../lib/util.mjs';
 import { projectPaths, isRepo } from '../lib/workspace.mjs';
-import { loadState } from '../lib/loop.mjs';
+import { loadState, cancelFlow } from '../lib/loop.mjs';
 import * as repoGit from '../lib/repo.mjs';
 
 let root;
-const vs3d = (...args) => spawnSync(process.execPath, [join(STUDIO, 'vs3d.mjs'), ...args, '--workspace', root, '--cli', 'fake', '--no-wait'],
-  { encoding: 'utf8', env: { ...process.env, VS3D_EXTRA_ADAPTERS: join(STUDIO, 'test', 'fake-adapters.mjs'), VS3D_DB: join(root, 'studio.db') } });      // 元件資料庫用暫存檔
+const run = (env, ...args) => spawnSync(process.execPath, [join(STUDIO, 'vs3d.mjs'), ...args, '--workspace', root, '--cli', 'fake', '--no-wait'],
+  { encoding: 'utf8', env: { ...process.env, VS3D_EXTRA_ADAPTERS: join(STUDIO, 'test', 'fake-adapters.mjs'), VS3D_DB: join(root, 'studio.db'), ...env } });      // 元件資料庫用暫存檔
+const vs3d = (...args) => run({}, ...args);
 before(() => {
   root = mkdtempSync(join(tmpdir(), 'vs3d-repo-'));
   cpSync(join(REPO, 'core'), join(root, 'core'), { recursive: true, filter: s => !/[\\/]review([\\/]|$)/.test(s.slice(REPO.length)) });
@@ -87,4 +88,51 @@ test('本庫模式：core.autocrlf=true（Windows 的 Git 預設）時，整批�
     assert.equal(readFileSync(join(J.dir, 'web', 'c.txt'), 'utf8'), 'line1\r\nline2\r\n');
     assert.equal(git(root, ['status', '--porcelain', '--', 'project-site/Demo/web/c.txt']).trim(), '');
   } finally { git(root, ['config', 'core.autocrlf', 'false']); }
+});
+
+// 併改偵測：假代理改完 README.md 之後，「使用者」在代理執行中也改了 README.md（FAKE_USER_EDIT，見 test/fake-agent.mjs）
+test('本庫模式：代理執行中你也改了代理改的檔 → 這一輪不提交、轉成提問；選「照常提交」才一起提交，選「先停下」就停在未提交', () => {
+  const J = projectPaths(root, 'Demo'), readme = () => readFileSync(join(J.dir, 'README.md'), 'utf8');
+  const dirty = p => git(root, ['status', '--porcelain', '--', `project-site/Demo/${p}`]).trim() !== '';
+  // 前面的測試留下的：autocrlf 改回 false 後只差換行的 c.txt、故意設成另一個分支的流程狀態
+  for (const c of repoGit.changes(J)) repoGit.writeBack(J, 'HEAD', c.path);
+  if (existsSync(J.state)) writeFileSync(J.state, JSON.stringify({ ...loadState(J), stage: 'done', flowActive: false, branch: repoGit.branch(J) }));
+  assert.deepEqual(repoGit.changes(J), [], '前面的測試沒有留下未提交的改動');
+  // 1. 偵測到併改：不提交、寫出提問
+  let r = run({ FAKE_USER_EDIT: 'README.md' }, 'change', 'Demo', '--text', '加一行紀錄', '--no-review');
+  assert.equal(r.status, 10, r.stdout + r.stderr);                    // 10：有問題等回答
+  assert.match(r.stdout, /併改：README\.md/);
+  let s = loadState(J);
+  assert.deepEqual(s.concurrent.files, ['README.md']); const qid = s.concurrent.qid;
+  assert.ok(dirty('README.md'), '這一輪的成果（含使用者的改動）還沒提交');
+  assert.match(readme(), /修改紀錄：假代理[\s\S]*使用者同時在改/);
+  // 還沒回答就續跑：照樣等，不會提交
+  r = vs3d('resume', 'Demo'); assert.equal(r.status, 10, r.stdout + r.stderr); assert.ok(dirty('README.md'));
+  // 2. 回答「照常提交」→ 一起提交，流程繼續到完成
+  r = vs3d('answer', 'Demo', qid, '1'); assert.equal(r.status, 0, r.stdout + r.stderr);
+  r = vs3d('resume', 'Demo', '--no-review', '--no-render'); assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.ok(!dirty('README.md'), r.stdout);
+  assert.match(git(root, ['log', '--format=%s', '-8']), /\(with concurrent user edits\)/);
+  s = loadState(J); assert.equal(s.concurrent, null); assert.equal(s.stage, 'done');
+  // 3. 再一次，回答「先停下」→ 不提交、流程停下，之後續跑才會提交當下的內容
+  r = run({ FAKE_USER_EDIT: 'README.md' }, 'change', 'Demo', '--text', '再加一行', '--no-review');
+  assert.equal(r.status, 10, r.stdout + r.stderr);
+  const q2 = loadState(J).concurrent.qid; assert.notEqual(q2, qid);
+  vs3d('answer', 'Demo', q2, '2');
+  r = vs3d('resume', 'Demo', '--no-review', '--no-render');
+  assert.equal(r.status, 1, r.stdout + r.stderr); assert.match(r.stdout, /沒有提交/);
+  assert.ok(dirty('README.md')); assert.equal(loadState(J).concurrent, null);
+});
+
+test('本庫模式：代理執行中你改的是代理沒碰的檔 → 不是併改，照常提交並在記錄裡提醒', () => {
+  const J = projectPaths(root, 'Demo');
+  // 上一個測試停在未提交：當成使用者整理好了自己提交，並取消那個流程（省掉續跑的檢查時間）
+  git(root, ['add', '-A', '--', 'project-site/Demo']); git(root, ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'user tidy']);
+  if (loadState(J).stage !== 'done') cancelFlow(root, 'Demo');
+  const r = run({ FAKE_USER_EDIT: 'web/user-note.txt' }, 'change', 'Demo', '--text', '第三次', '--no-review');
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.doesNotMatch(r.stdout, /併改：/);
+  assert.match(r.stdout, /被別人改過（代理沒有改它們）：web\/user-note\.txt/);
+  assert.equal(loadState(J).concurrent ?? null, null);
+  assert.equal(git(root, ['status', '--porcelain', '--', 'project-site/Demo/web/user-note.txt']).trim(), '', '沒有重疊：照舊一起提交');
 });

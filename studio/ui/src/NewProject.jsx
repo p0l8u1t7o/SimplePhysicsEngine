@@ -4,6 +4,8 @@ import { api } from './api.js';
 import { CliSelect, ModelSelect, EffortSelect } from './fields.jsx';
 
 const newToken = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
+// 檔案清單每一列的唯一編號：同名檔（不同資料夾或重傳）也各自一列、各自更新狀態，React key 不重複
+let fileSeq = 0;
 
 // 匯入同事給的交接包（vs3d handoff 產生的 zip）：上傳後直接建成專案，之後按續跑
 function ImportHandoff({ onCreated, disabled }) {
@@ -31,7 +33,7 @@ function ImportHandoff({ onCreated, disabled }) {
 export function NewProject({ info, running, onCreated }) {
   const [token] = useState(newToken);
   const [form, setForm] = useState({ id: '', title: '', prompt: '', clientNames: '', cli: '', model: '', effort: '', autoApprove: false, pick: false, components: ['assess', '3d'] });
-  const [files, setFiles] = useState([]);             // { name, size, status, extra }
+  const [files, setFiles] = useState([]);             // { id, name, size, status, extra }
   const [over, setOver] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -40,12 +42,14 @@ export function NewProject({ info, running, onCreated }) {
 
   async function add(list) {
     for (const file of list) {
-      setFiles(fs => [...fs, { name: file.name, size: file.size, status: '上傳中…' }]);
+      const id = ++fileSeq, patch = v => setFiles(fs => fs.map(x => x.id === id ? { ...x, ...v } : x));
+      // 伺服器的暫存資料夾以檔名存放，同名檔會蓋掉前一個：舊的那列標成已取代
+      setFiles(fs => [...fs.map(x => x.name === file.name ? { ...x, replaced: true } : x), { id, name: file.name, size: file.size, status: '上傳中…' }]);
       try {
         const r = await api.upload(token, file);
         const frames = r.files.filter(n => n !== file.name);
-        setFiles(fs => fs.map(x => x.name === file.name ? { ...x, status: '✓', extra: frames.length ? `已擷取 ${frames.length} 張影格` : r.notice || '' } : x));
-      } catch (e) { setFiles(fs => fs.map(x => x.name === file.name ? { ...x, status: `✗ ${e.message}` } : x)); }
+        patch({ status: '✓', extra: frames.length ? `已擷取 ${frames.length} 張影格` : r.notice || '' });
+      } catch (e) { patch({ status: `✗ ${e.message}` }); }
     }
   }
   async function submit(e) {
@@ -87,7 +91,7 @@ export function NewProject({ info, running, onCreated }) {
               <input type="file" multiple hidden onChange={e => add([...e.target.files])} />
               {!info?.ffmpeg && <div className="warn" style={{ marginTop: 6 }}>找不到 ffmpeg：影片不會自動擷取影格（代理看不了影片）</div>}
             </label>
-            {files.length > 0 && <table className="files"><tbody>{files.map(f => <tr key={f.name}><td>{f.name}</td><td className="mute">{mb(f.size)}</td><td>{f.status} <span className="mute">{f.extra}</span></td></tr>)}</tbody></table>}
+            {files.length > 0 && <table className="files"><tbody>{files.map(f => <tr key={f.id}><td>{f.name}</td><td className="mute">{mb(f.size)}</td><td>{f.replaced ? <span className="mute">已被後來上傳的同名檔取代</span> : <>{f.status} <span className="mute">{f.extra}</span></>}</td></tr>)}</tbody></table>}
           </div>
         </section>
 

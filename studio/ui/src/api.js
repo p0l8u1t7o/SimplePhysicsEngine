@@ -1,14 +1,7 @@
 // 和 vs3d ui 伺服器溝通的小工具
 import { useEffect, useRef } from 'react';
-
-async function call(method, url, body) {
-  const r = await fetch(url, { method, headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined });
-  const j = await r.json().catch(() => ({}));
-  // 登入過期或帳號被停用：通知主畫面回到登入頁
-  if (r.status === 401 && !url.startsWith('/api/auth/')) dispatchEvent(new Event('vs3d-unauthorized'));
-  if (!r.ok) throw new Error(j.error || `${r.status} ${r.statusText}`);
-  return j;
-}
+import { call, send } from './net.js';      // 401 一律通知主畫面回到登入頁（含上傳）
+export { createThrottle, UNAUTHORIZED_EVENT } from './net.js';
 export const api = {
   // 登入與帳號
   me: () => call('GET', '/api/auth/me'),
@@ -91,10 +84,7 @@ export const api = {
   deleteFx: (currency, date) => call('DELETE', `/api/fx/${currency}/${date}`),
   // core 共用模型（元件的 3D 顯示）與元件的附件（CAD 檔等）
   models: () => call('GET', '/api/models'),
-  async uploadPartFile(partId, file) {
-    const r = await fetch(`/api/parts/${partId}/files?name=${encodeURIComponent(file.name)}`, { method: 'POST', body: file });
-    const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || r.statusText); return j;
-  },
+  uploadPartFile: (partId, file) => send(`/api/parts/${partId}/files?name=${encodeURIComponent(file.name)}`, file),
   updatePartFile: (id, v) => call('PUT', `/api/files/${id}`, v),
   deletePartFile: id => call('DELETE', `/api/files/${id}`),
   // 系統設定（附件上限、允許的檔案類型、成本費率；改只有管理者）
@@ -111,10 +101,7 @@ export const api = {
   suppliers: () => call('GET', '/api/suppliers'),
   saveSupplier: (id, v) => id ? call('PUT', `/api/suppliers/${id}`, v) : call('POST', '/api/suppliers', v),
   deleteSupplier: id => call('DELETE', `/api/suppliers/${id}`),
-  async upload(token, file) {
-    const r = await fetch(`/api/uploads?token=${encodeURIComponent(token)}&name=${encodeURIComponent(file.name)}`, { method: 'POST', body: file });
-    const j = await r.json(); if (!r.ok) throw new Error(j.error || r.statusText); return j;
-  },
+  upload: (token, file) => send(`/api/uploads?token=${encodeURIComponent(token)}&name=${encodeURIComponent(file.name)}`, file),
 };
 // 預覽與模型目錄在另一個 port（伺服器的代理）：伺服器給的是 http://127.0.0.1，換成目前的協定（HTTPS 時一起）與主機名稱
 export const sameHost = u => String(u || '').replace(/^https?:\/\/127\.0\.0\.1:/,`${location.protocol}//${location.hostname}:`);

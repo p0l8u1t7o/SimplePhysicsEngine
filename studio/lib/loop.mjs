@@ -127,6 +127,8 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
   // step：同一個角色的特別步驟（例如 'self-review'），記在 rounds.jsonl 與記錄檔名
   async function round(role, prompt, { resume = false, images = [], step = '' } = {}) {
     if (state.round >= maxRounds) throw new Error(`已達 ${maxRounds} 輪上限（--max-rounds 可調整）`);
+    // 上一輪的併改還沒確認：不開新的一輪（開工前的「Changes before round」會把沒確認的內容提交掉）
+    if (state.concurrent) throw new Stop(`第 ${state.concurrent.round} 輪有併改（${state.concurrent.files.join('、')}）還沒確認，請先回答問題 ${state.concurrent.qid}`);
     const rc = resolve(role), adapter = adapterFor(rc.cli);
     // 認證（訂閱帳號或 API 金鑰）：金鑰沒設好就在這裡停下；工作階段存在各認證方式自己的設定目錄，換了就不能續接
     const auth = await agentEnv(rc.cli);
@@ -143,12 +145,21 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
     state.lastRole = role;
     log(`\n▶ 第 ${n} 輪 ${role}${step === 'self-review' ? '（自我檢查）' : ''}${seg() === 2 ? '（第二段）' : ''}（${adapter.label}${rc.model ? ' ' + rc.model : ''}${rc.effort ? ` effort=${rc.effort}` : ''}${sessionId ? '，續接' : ''}）`);
     save();
+    // 本庫模式的併改偵測：使用者在同一個工作目錄改檔，代理改的檔案如果也被使用者改了，這一輪不提交、轉成提問
+    let tracker = null;
+    if (J.repo) try { tracker = repoGit.createEditTracker(J.dir); } catch (e) { log(`  ! 併改偵測沒辦法啟動（${e.message}），這一輪照舊提交`); }
+    const onEvent = e => {
+      if (tracker) try { tracker.on(e); } catch (err) { tracker = null; log(`  ! 併改偵測中斷（${err.message}），這一輪照舊提交`); }
+      printEvent(e, log);
+    };
     const res = await runAgent(adapter, {
       cwd: J.dir, prompt: typeof prompt === 'function' ? prompt(!!sessionId) : prompt, sessionId, model: rc.model || undefined, effort: rc.effort || undefined,
       readDirs: [P.core, ...refs.map(r => r.web).filter(d => existsSync(d))], allowWrite: scope.allow, denyWrite: [...scope.deny, ...refs.map(r => r.dir)], denyRead: refs.flatMap(r => r.noRead), images,
       logFile: join(J.logs, `round-${String(n).padStart(2, '0')}-${role}${step ? '-' + step : ''}${seg() === 2 ? '-s2' : ''}.jsonl`), timeoutMs: timeoutMin * 60000, signal: abort.signal,
       env: auth.env, unsetEnv: auth.unset, settings: auth.settings,
-    }, e => printEvent(e, log));
+    }, onEvent);
+    let edits = null;
+    if (tracker) try { edits = tracker.finish(); } catch (e) { log(`  ! 併改偵測中斷（${e.message}），這一輪照舊提交`); }
     // 本庫模式：專案外的變動只警告（可能是使用者同時在改；代理已被寫檔關卡與沙箱擋在專案外），不自動還原
     const iso = J.repo ? { violations: [], warnings: repoGit.diffOutside(J, snap) } : verifyAndRestore(ws, id, snap), roleViol = enforceRoleScope(role, J, startHead);
     for (const w of iso.warnings || []) log(`  ! 專案外有變動：${w.path}（${w.change}）；可能是你同時在改，app 沒有動它，請自行確認`);
@@ -157,15 +168,20 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
     const violations = [...iso.violations, ...roleViol, ...refViol];
     if (role === 'plan') syncClientNames();
     for (const v of violations) log(`  ⚠ 越界：${v.area} ${v.path}（${v.change}）${v.restored ? '→ 已還原' : '→ 未能自動還原，請檢查'}`);
-    const commit = commitAll(`${J.repo ? 'vs3d ' : ''}Round ${n} (${role}): ${short(res.text.split('\n').find(l => l.trim()) || 'no summary', 60)}`);
+    const message = `${J.repo ? 'vs3d ' : ''}Round ${n} (${role}): ${short(res.text.split('\n').find(l => l.trim()) || 'no summary', 60)}`;
+    if (edits?.others.length) log(`  ! 代理執行中，本站還有 ${edits.others.length} 個檔案被別人改過（代理沒有改它們）：${short(edits.others.join('、'), 200)}；沒有和代理重疊，會一起提交`);
+    let commit = null;
+    if (edits?.conflicts.length) askConcurrent(n, role, edits.conflicts, message);
+    else commit = commitAll(message);
     if (res.sessionId) state.sessions[sk(role)] = { cli: rc.cli, model: rc.model, sessionId: res.sessionId, ...(auth.mode ? { auth: auth.mode } : {}) };
     state.violations = violations;
     appendJsonl(J.rounds, { round: n, role, ...(step ? { step } : {}), ...(refs.length ? { references: refs.map(r => r.name) } : {}), segment: seg(), cli: rc.cli, model: rc.model, effort: rc.effort, sessionId: res.sessionId, resumed: !!sessionId, startedAt: t0, seconds: res.seconds,
       ok: res.ok, aborted: res.aborted, timedOut: res.timedOut, usage: res.usage, costUsd: res.costUsd, turns: res.turns, commit, violations, summary: short(res.text, 400),
+      ...(edits?.conflicts.length ? { concurrent: edits.conflicts } : {}),      // 併改的檔案（這一輪沒提交，等使用者確認）
       ...(process.env.VS3D_BY ? { by: process.env.VS3D_BY } : {}),      // 從介面啟動時記下是誰（代理佇列給的環境變數）
       ...(auth.mode ? { auth: auth.mode } : {}) });                       // 這一輪用訂閱帳號還是 API 金鑰
     save();
-    log(`  ${res.ok ? '✓' : '✗'} 第 ${n} 輪結束（${res.seconds} s${commit ? `，commit ${commit}` : '，沒有變更'}）`);
+    log(`  ${res.ok ? '✓' : '✗'} 第 ${n} 輪結束（${res.seconds} s${commit ? `，commit ${commit}` : state.concurrent?.round === n ? '，有併改，先不提交' : '，沒有變更'}）`);
     if (!res.ok) {
       if (res.aborted) throw new Stop('中斷');
       throw new Stop(`代理執行失敗（${res.timedOut ? `超過 ${timeoutMin} 分鐘` : `exit ${res.code}`}）：${short(res.stderr || res.text, 300)}\n之後可用 vs3d resume 重試。`);
@@ -174,7 +190,7 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
   }
   // 提交：工作區＝專案自己的 git 全部提交；本庫＝只提交該專案路徑（review JSON 只有時間變動的不提交）
   function commitAll(message) {
-    if (J.repo) return repoGit.commitProject(J, message);
+    if (J.repo) return state.concurrent ? null : repoGit.commitProject(J, message);      // 併改還沒確認：什麼都不提交
     if (!git(J.dir, ['status', '--porcelain']).trim()) return null;
     git(J.dir, ['add', '-A']); git(J.dir, [...GIT_ID, 'commit', '-qm', message]);
     return git(J.dir, ['rev-parse', '--short', 'HEAD']).trim();
@@ -200,6 +216,16 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
       await round(asker, answersPrompt(agentAnswers, ctxFor({ role: asker })), { resume: true });
   }
   function applyAppAnswer(a) {
+    if (a.id.startsWith('vs3d-concurrent')) {
+      const c = state.concurrent; state.concurrent = null;
+      if (c && a.choices[0] === 0 && !a.text) {
+        const h = commitAll(`${c.message} (with concurrent user edits)`);
+        log(`  ✓ 第 ${c.round} 輪的成果連同你同時改的 ${c.files.join('、')} 一起提交${h ? `（commit ${h}）` : ''}`);
+      } else if (c) {
+        save();
+        throw new Stop(`第 ${c.round} 輪的成果沒有提交（${c.files.join('、')} 代理和你都改了）。請整理本站的檔案後再續跑（vs3d resume），續跑時本站當下的內容會一起提交`);
+      }
+    }
     if (a.id.startsWith('vs3d-proposal')) {
       if (a.choices[0] === 0 && !a.text) state.proposalApproved = true;
       else state.planFeedback = [a.text, a.note].filter(Boolean).join('；') || '請修改提案';
@@ -578,6 +604,21 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
     throw e;
   } finally { process.off('SIGINT', onInt); release(); }
 
+  // 併改：這一輪代理改的檔案，使用者（或別的工具）在代理執行中也改了。先不提交，問使用者（state.waiting 由主迴圈依問題檔算）
+  function askConcurrent(n, role, files, message) {
+    const qid = `vs3d-concurrent-r${n}`;
+    state.concurrent = { round: n, role, files, qid, message };
+    writeAppQuestion(J, {
+      id: qid, header: '併改', question: `第 ${n} 輪（${role}）代理執行中，本站有 ${files.length} 個代理也改了的檔案同時被你（或別的工具）改過：${files.join('、')}。這一輪的成果先不提交，要怎麼處理？`,
+      options: [
+        { label: '我看過了，照常提交', description: '目前工作目錄的內容（代理的改動＋你的改動）一起提交成這一輪的 commit，然後繼續流程' },
+        { label: '先停下，我自己整理', description: '不提交、流程停在這裡；整理好後按「續跑」（vs3d resume），續跑時本站當下的內容會一起提交' },
+      ], recommended: 0,
+    });
+    log(`  ⚠ 併改：${files.join('、')} 代理和你（或別的工具）都改了；這一輪先不提交，等你確認（問題 ${qid}）`);
+    save();
+  }
+
   function askStreak(stuck) {
     const names = stuck.map(([k, v]) => `${k}（${v - 1} 次）`).join('、');
     writeAppQuestion(J, {
@@ -609,7 +650,7 @@ export function cancelFlow(ws, id) {
     if (pending.length) mkdirSync(join(J.questions, 'cancelled'), { recursive: true });
     for (const q of pending) renameSync(join(J.questions, q.file), join(J.questions, 'cancelled', q.file));
     const from = state.stage;
-    Object.assign(state, { stage: 'done', segment: seg2 && state.stage !== 'done' ? 1 : state.segment, waiting: null, flow: null, flowActive: false, changeRequest: null, lockSchedule: false,
+    Object.assign(state, { stage: 'done', segment: seg2 && state.stage !== 'done' ? 1 : state.segment, waiting: null, flow: null, flowActive: false, changeRequest: null, lockSchedule: false, concurrent: null,
       segBase: null, streak: {}, renderBase: null, renderPicked: false, renderItems: null, renderTries: 0, selfReviewDue: false });
     writeJson(J.state, state);
     appendJsonl(J.rounds, { cancel: from, at: now(), branch: state.branch || null });
@@ -647,18 +688,22 @@ export function roleScope(role, J) {
 
 // 用 git 檢查這一輪追蹤中的變更；不在角色範圍內的檔案退回開工前的版本（工作區的專案由 app 管理，可以直接還原）
 function enforceRoleScope(role, J, startHead) {
-  const changed = J.repo ? repoGit.changes(J) : git(J.dir, ['status', '--porcelain', '-z', '--untracked-files=all']).split('\0').filter(Boolean).map(l => ({ code: l.slice(0, 2), path: l.slice(3) }));
+  // 已 stage 的改名拆成兩筆：新路徑當成新增（要移除）、原路徑當成刪除（要寫回），保護的檔案被改名走也抓得到
+  const changed = (J.repo ? repoGit.changes(J) : repoGit.parseStatusZ(git(J.dir, ['status', '--porcelain=v1', '-z', '--untracked-files=all'])))
+    .flatMap(c => c.from != null && c.code[0] === 'R' ? [{ code: 'A ', path: c.path }, { code: 'D ', path: c.from }] : [c]);
   const bad = changed.filter(c => role === 'plan' || role === 'review' || role === 'optics' || ['AGENTS.md', 'CLAUDE.md', 'studio.json', '.gitignore'].includes(c.path));
   const out = [];
   for (const c of bad) {
     let restored = false;
+    const added = c.code.includes('?') || c.code[0] === 'A';
     try {
       if (J.repo) repoGit.writeBack(J, startHead, c.path);     // 本庫不用 clean／checkout
       else if (c.code.includes('?')) git(J.dir, ['clean', '-fq', '--', c.path]);
+      else if (c.code[0] === 'A') git(J.dir, ['rm', '-qf', '--', c.path]);       // 已 stage 的新增：開工前的版本沒有這個檔
       else git(J.dir, ['checkout', '-q', startHead, '--', c.path]);
       restored = true;
     } catch { /* 留給使用者 */ }
-    out.push({ area: `角色 ${role} 範圍`, path: c.path, change: c.code.includes('?') ? 'added' : 'modified', restored });
+    out.push({ area: `角色 ${role} 範圍`, path: c.path, change: added ? 'added' : c.code.includes('D') ? 'deleted' : 'modified', restored });
   }
   return out;
 }

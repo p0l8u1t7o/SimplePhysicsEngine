@@ -40,6 +40,7 @@ export const DISALLOWED_TOOLS = [
 ];
 
 const short = (s, n = 120) => (s = String(s ?? '').replace(/\s+/g, ' ').trim()).length > n ? s.slice(0, n) + '…' : s;
+const EDIT_TOOLS = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit']);
 const toolDetail = (name, i = {}) => short(i.file_path || i.notebook_path || i.command || i.pattern || i.path || i.query || i.url || i.description || '');
 
 export const claude = {
@@ -76,11 +77,12 @@ export const claude = {
     if (e.session_id && (e.type === 'system' && e.subtype === 'init')) out.push({ kind: 'session', id: e.session_id });
     if (e.type === 'assistant') for (const c of e.message?.content || []) {
       if (c.type === 'text' && c.text.trim()) out.push({ kind: 'text', text: c.text });
-      if (c.type === 'tool_use') out.push({ kind: 'tool', name: c.name, detail: toolDetail(c.name, c.input) });
+      // id 與 paths 給本庫模式的併改偵測（lib/repo.mjs 的 createEditTracker）：寫檔工具寫了哪些檔、哪個 tool_result 是它的結束
+      if (c.type === 'tool_use') out.push({ kind: 'tool', name: c.name, detail: toolDetail(c.name, c.input), id: c.id, ...(EDIT_TOOLS.has(c.name) ? { paths: [c.input?.file_path || c.input?.notebook_path].filter(Boolean) } : {}) });
     }
     if (e.type === 'user') for (const c of e.message?.content || []) if (c.type === 'tool_result') {
       const text = Array.isArray(c.content) ? c.content.map(x => x.text || '').join(' ') : c.content;
-      out.push({ kind: 'tool_result', ok: !c.is_error, detail: short(text, 160) });
+      out.push({ kind: 'tool_result', ok: !c.is_error, detail: short(text, 160), id: c.tool_use_id });
     }
     if (e.type === 'rate_limit_event') out.push({ kind: 'rate', info: e.rate_limit_info || e });
     // API 重試（例如金鑰錯誤的 401）：顯示出來，不然看起來像卡住

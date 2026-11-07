@@ -2,8 +2,8 @@
 // 本庫 project-site/ 的站不放在側欄，集中在「本庫的站」那一頁。
 // 網址 hash 記住目前的畫面（#home 儀表板、#stations、#new、#parts、#optics 光學工作台、#settings、#accounts、#p/<專案>）。
 // 有帳號之後要先登入（App 先問 /api/auth/me，沒登入就顯示登入頁）；還沒有任何帳號時和以前一樣直接使用。
-import { useCallback, useEffect, useState } from 'react';
-import { api, useEvents, STAGE } from './api.js';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { api, useEvents, STAGE, createThrottle } from './api.js';
 import { NewProject } from './NewProject.jsx';
 import { ProjectView } from './ProjectView.jsx';
 import { Settings } from './Settings.jsx';
@@ -42,11 +42,14 @@ function Shell({ me, onAuthChange }) {
     try { const j = await api.projects(); setProjects(j.projects); setRunning(j.running); setQueue(j.queue || []); } catch { /* 伺服器重啟中 */ }
   }, []);
   useEffect(() => { api.info().then(setInfo).catch(() => {}); refresh(); const t = setInterval(refresh, 5000); return () => clearInterval(t); }, [refresh]);
+  // 執行輸出每一行都會送 line：專案頁與儀表板的重新載入合併成 500 ms 最多一次，執行結束時馬上再載一次
+  const bump = useMemo(() => createThrottle(() => setTick(t => t + 1), 500), []);
+  useEffect(() => () => bump.cancel(), [bump]);
   useEvents({
     hello: d => { setRunning(d.running); setQueue(d.queue || []); },
     queue: d => { setRunning(d.running); setQueue(d.queue || []); refresh(); },
-    line: () => setTick(t => t + 1),
-    exit: () => { refresh(); setTick(t => t + 1); },
+    line: () => bump.call(),
+    exit: () => { refresh(); bump.flush(); },
   });
 
   const q = query.trim().toLowerCase(), match = p => !q || `${p.title} ${p.name}`.toLowerCase().includes(q);

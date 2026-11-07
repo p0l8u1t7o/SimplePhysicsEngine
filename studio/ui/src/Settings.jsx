@@ -4,6 +4,11 @@ import { useEffect, useState } from 'react';
 import { api, ROLE } from './api.js';
 import { CliSelect, ModelSelect, EffortSelect, ConfirmButton } from './fields.jsx';
 
+// 卡片的資料載入失敗：顯示原因與重試（不要整張卡片消失或一直顯示「載入中」）
+function LoadFailed({ title, msg, retry }) {
+  return <section className="card"><h3>{title}</h3><p className="bad">載入失敗：{String(msg).replace(/^✗ /, '')}</p><div className="bar"><button type="button" onClick={retry}>重試</button></div></section>;
+}
+
 // 比例在畫面上用百分比（0.15 ↔ 15）
 const PCT = new Set(['cost.contingency', 'cost.tax']);
 const pct = v => +(v * 100).toFixed(4), unpct = v => v === '' ? '' : Number(v) / 100;
@@ -53,7 +58,7 @@ function AgentCli({ isAdmin }) {
   return <section className="card"><h3>代理 CLI</h3>
     <p className="mute hint">{sys?.subscription ? '開發機：每種 CLI 可以用自己的訂閱帳號登入，或改用 API 金鑰（換了之後，進行中的工作階段會重新開始）。'
       : '部署版：只用 API 金鑰（2026-10-06 拍板：多人共用的主機不使用個人訂閱帳號，避免違反條款）。'}</p>
-    {!doctor ? <p className="mute">偵測中…</p> : <table><tbody>{doctor.map(a => <tr key={a.name}><td><b>{a.label}</b></td><td>{a.installed ? a.version : <span className="bad">未安裝</span>}</td>
+    {!doctor ? (msg ? null : <p className="mute">偵測中…</p>) : <table><tbody>{doctor.map(a => <tr key={a.name}><td><b>{a.label}</b></td><td>{a.installed ? a.version : <span className="bad">未安裝</span>}</td>
       <td>{sys?.subscription && isAdmin ? <select value={a.mode} onChange={e => setMode(a.name, e.target.value)} aria-label={`${a.label} 的認證方式`}>
         <option value="subscription">訂閱帳號登入</option><option value="apiKey">API 金鑰</option></select> : a.modeLabel}</td>
       <td>{a.installed && (a.loggedIn ? <span className="ok">● 可以用 <span className="mute">{a.detail}</span></span> : <span className="bad">● 不能用：{a.detail}</span>)}</td></tr>)}</tbody></table>}
@@ -66,7 +71,7 @@ function ApiKeys() {
   const [d, setD] = useState(null), [input, setInput] = useState({}), [msg, setMsg] = useState('');
   const load = () => api.secrets().then(setD).catch(e => setMsg('✗ ' + e.message));
   useEffect(() => { load(); }, []);
-  if (!d) return null;
+  if (!d) return msg ? <LoadFailed title="API 金鑰" msg={msg} retry={() => { setMsg(''); load(); }} /> : null;
   const act = fn => { setMsg(''); fn().then(() => { setInput({}); setMsg('✓ 已更新'); load(); }).catch(e => setMsg('✗ ' + e.message)); };
   return <section className="card form"><h3>API 金鑰</h3>
     <p className="mute hint">給選了「API 金鑰」的 CLI 用（部署版一律用它）。金鑰只存在這台主機（Windows 用 DPAPI 加密），畫面只顯示末四碼；執行代理時才解開，以環境變數交給 CLI。</p>
@@ -83,8 +88,9 @@ function ApiKeys() {
 // 匯率（管理者）：每 1 單位外幣折合多少新台幣，帶日期；成本表用 BOM 設定的「匯率日期」以前最近的一筆
 function FxRates() {
   const [rates, setRates] = useState(null), [f, setF] = useState({ currency: 'USD', rate: '', date: new Date().toLocaleDateString('sv'), note: '' }), [msg, setMsg] = useState('');
-  useEffect(() => { api.fx().then(r => setRates(r.rates)).catch(e => setMsg('✗ ' + e.message)); }, []);
-  if (!rates) return null;
+  const load = () => api.fx().then(r => setRates(r.rates)).catch(e => setMsg('✗ ' + e.message));
+  useEffect(() => { load(); }, []);
+  if (!rates) return msg ? <LoadFailed title="匯率" msg={msg} retry={() => { setMsg(''); load(); }} /> : null;
   const act = fn => { setMsg(''); fn().then(r => { setRates(r.rates); setMsg('✓ 已更新'); }).catch(e => setMsg('✗ ' + e.message)); };
   return <section className="card form"><h3>匯率<span className="chip">{rates.length}</span></h3>
     <p className="mute hint">成本表把外幣單價換成新台幣：用專案成本表設定的「匯率日期」那天以前最近的一筆。改了匯率不會改變已經存成快照的金額。</p>
@@ -106,7 +112,7 @@ function Trash() {
   const [d, setD] = useState(null), [keep, setKeep] = useState(null), [days, setDays] = useState('30'), [msg, setMsg] = useState('');
   const load = () => Promise.all([api.trash().then(setD), api.system().then(s => setKeep(String(s.values['trash.keepDays'])))]).catch(e => setMsg('✗ ' + e.message));
   useEffect(() => { load(); }, []);
-  if (!d) return null;
+  if (!d) return msg ? <LoadFailed title="回收桶（刪除的專案）" msg={msg} retry={() => { setMsg(''); load(); }} /> : null;
   const act = fn => { setMsg(''); fn().then(r => { setMsg(r?.purged ? `✓ 永久刪除 ${r.purged.length} 個` : '✓ 已儲存'); load(); }).catch(e => setMsg('✗ ' + e.message)); };
   const mb = b => `${(b / 1048576).toFixed(1)} MB`;
   return <section className="card form"><h3>回收桶（刪除的專案）<span className="chip">{d.items.length}</span></h3>
@@ -132,9 +138,9 @@ export function Settings({ info, user }) {
   const [roles, setRoles] = useState({});
   const [defaultCli, setDefaultCli] = useState('claude');
   const [msg, setMsg] = useState('');
-  useEffect(() => {
-    api.settings().then(d => { setData(d); setRoles(d.settings.roles || {}); setDefaultCli(d.settings.defaultCli || 'claude'); });
-  }, []);
+  const [loadError, setLoadError] = useState('');
+  const load = () => { setLoadError(''); api.settings().then(d => { setData(d); setRoles(d.settings.roles || {}); setDefaultCli(d.settings.defaultCli || 'claude'); }).catch(e => setLoadError(e.message)); };
+  useEffect(() => { load(); }, []);
   const set = (r, k, v) => { setMsg(''); setRoles(x => ({ ...x, [r]: { ...x[r], [k]: v || undefined } })); };
   // 換 CLI 時清掉模型與推理強度（另一個 CLI 不一定有同名的值）；選模型時一併固定 CLI，之後預設 CLI 改了也不會配錯
   const setCli = (r, v) => { setMsg(''); setRoles(x => ({ ...x, [r]: { cli: v || undefined } })); };
@@ -148,6 +154,7 @@ export function Settings({ info, user }) {
     <div className="page narrow">
       <h2>設定</h2>
       <p className="sub">工作區：{info?.ws}</p>
+      {loadError && <div className="notice bad">設定載入失敗：{loadError}　<button type="button" onClick={load}>重試</button></div>}
       <AgentCli isAdmin={isAdmin} />
       {isAdmin && <ApiKeys />}
       <section className="card"><h3>角色與模型（這個工作區的預設）</h3>
@@ -160,7 +167,7 @@ export function Settings({ info, user }) {
             <td><EffortSelect cli={eff} options={opts} value={roles[r]?.effort} onChange={v => set(r, 'effort', v)} defaultLabel="（預設）" /></td>
             <td className="mute">{data?.resolved?.[r] ? `${data.resolved[r].cli} ${data.resolved[r].model || '（帳號預設）'}${data.resolved[r].effort ? ` ${data.resolved[r].effort}` : ''}` : ''}</td></tr>; })}
         </tbody></table></div>
-        <div className="bar"><button className="primary" onClick={() => save().catch(e => setMsg('✗ ' + e.message))}>儲存</button><span className={msg.startsWith('✗') ? 'bad' : 'ok'}>{msg}</span></div>
+        <div className="bar"><button className="primary" disabled={!data} title={data ? undefined : '設定還沒載入，不能儲存'} onClick={() => save().catch(e => setMsg('✗ ' + e.message))}>儲存</button><span className={msg.startsWith('✗') ? 'bad' : 'ok'}>{msg}</span></div>
       </section>
       <SystemSettings canEdit={isAdmin} />
       {isAdmin && <FxRates />}
