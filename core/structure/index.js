@@ -7,3 +7,4 @@ export { layoutTracker, rotatePoint, TRACKER_DEFAULTS } from './tracker.js';
 export { ESTIMATE, windPressure, cfMonoslope, CF_MONOSLOPE, snowMu1, snowOnPlane, groupLoads } from './loads.js';
 export { structureChecks } from './checks.js';
 export { buildStructure, profileGeometry, sectionShape, memberMatrix, pvFixedRack, pvTracker, STRUCT_MAT } from './build.js';
+export { solarFrame } from './solar-frame.js';

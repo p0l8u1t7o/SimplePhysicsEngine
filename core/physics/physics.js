@@ -19,6 +19,7 @@
 //     grippers:   [{ id, pose: t => ({ pos, rot }), finger = [12, 50, 40], open = 40（手指內面到中心）, force = 20 N, closeAt, openAt, friction = 0.6, mass = 0.1 kg }] }   兩指夾爪（力控制，會滑）
 import * as THREE from 'three';
 import RAPIER from '../vendor/rapier/rapier.mjs';
+import { sin as dsin, cos as dcos, hypot3 } from '../math/dmath.js';   // 決定性：Node 與 Chrome 的 Math.sin／cos／hypot 在部分輸入差 1 ulp
 
 const S = 0.001;                     // mm → m
 let ready = null;
@@ -27,7 +28,7 @@ export const loadRapier = () => ready ||= RAPIER.init().then(() => RAPIER);
 const rad = d => d * Math.PI / 180;
 // 歐拉角（度，XYZ）→ 四元數 { x, y, z, w }
 export function quatOf(rot = [0, 0, 0]) {
-  const [x, y, z] = rot.map(v => rad(v) / 2), c = [Math.cos(x), Math.cos(y), Math.cos(z)], s = [Math.sin(x), Math.sin(y), Math.sin(z)];
+  const [x, y, z] = rot.map(v => rad(v) / 2), c = [dcos(x), dcos(y), dcos(z)], s = [dsin(x), dsin(y), dsin(z)];
   return { x: s[0] * c[1] * c[2] + c[0] * s[1] * s[2], y: c[0] * s[1] * c[2] - s[0] * c[1] * s[2], z: c[0] * c[1] * s[2] + s[0] * s[1] * c[2], w: c[0] * c[1] * c[2] - s[0] * s[1] * s[2] };
 }
 const qmul = (a, b) => ({ x: a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y, y: a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x, z: a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w, w: a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z });
@@ -175,7 +176,7 @@ export async function bake(spec) {
       const k = kinById.get(h.by); if (!k) continue;
       if (h.state === 'wait' && t >= h.from) {
         const c = k.body.translation(); let best = null, bd = h.radius * S;
-        for (const x of live) { const p = x.body.translation(), d = Math.hypot(p.x - c.x, p.y - c.y, p.z - c.z); if (d < bd) { bd = d; best = x; } }
+        for (const x of live) { const p = x.body.translation(), d = hypot3(p.x - c.x, p.y - c.y, p.z - c.z); if (d < bd) { bd = d; best = x; } }
         h.state = 'held'; h.target = best;
         if (best) { const kq = k.body.rotation(), p = best.body.translation(), q = best.body.rotation(); h.rel = { p: qrot(qinv(kq), { x: p.x - c.x, y: p.y - c.y, z: p.z - c.z }), q: qmul(qinv(kq), q) }; best.body.setBodyType(R.RigidBodyType.KinematicPositionBased, true); best.held = h.by; }
       }
@@ -199,7 +200,7 @@ export async function bake(spec) {
     for (const bt of belts) bt.body.setTranslation(bt.home, true);
     // 穿透深度（每 4 步取樣一次）：靜止接觸（兩邊都比 50 mm/s 慢，畫面上看得到）與瞬間撞擊（只當資訊）分開記
     if (s % 4 === 0) for (const x of live) {
-      const c = x.body.collider(0), slow = b => { if (!b || !b.isDynamic()) return true; const v = b.linvel(); return Math.hypot(v.x, v.y, v.z) < 0.05; };
+      const c = x.body.collider(0), slow = b => { if (!b || !b.isDynamic()) return true; const v = b.linvel(); return hypot3(v.x, v.y, v.z) < 0.05; };
       world.contactPairsWith(c, o => world.contactPair(c, o, m => {
         for (let i = 0; i < m.numContacts(); i++) { const p = -m.contactDist(i); if (p > peakPen) peakPen = p; if (p > maxPen && slow(x.body) && slow(o.parent())) maxPen = p; }
       }));

@@ -229,6 +229,22 @@ Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs
 
 七站 91 張基準回歸超過門檻 0 張；本站 31 張事件畫面與三場型高低畫質／深度模式逐圖檢視，外觀變更為預期。CCTV／LPR 子畫面及缺檔降級另有瀏覽器檢查。量測、圖檔位置與限制見 `project-site/ParkingEMS/review/cinematic-render.md`。
 
+## 2026-11-07：core 1.20.0 布料、粒子流體、天候、外部 CFD、LAZ、站層日照與動力學檢查、鋼構與日照對齊
+
+- **布料與粒子流體**（`physics/cloth.js`、`fluid.js`、共用碰撞 `collide.js`；原型在本機 `TEMP/physx-dev/`）：XPBD 布料（釘點可移動或放開、側風）、PBF 粒子流體（噴嘴與流量、開口方槽、圓桶、移除區；畫面用，不是 CFD）。`verify/physics.mjs` 依 `kind` 重烘比雜湊：布料檢查伸長率（`clothStretchTol` 0.05）、流體檢查密度誤差（`densityTol` 0.05）、鄰居溢位、留在容器內的比例（`containTol` 0.98）；只用線材、布料、流體的站不載入 Rapier。物理範例加「篷布覆蓋」「噴嘴注入方槽」，七個情境 Node 與無頭 Chrome 逐位元相同。
+- **天候**（`weather/`）：雨雪粒子（位置直接由時間算，可以任意跳）、板面積雪與滑落（Marion 2013）與發電損失、雪與風載重的規範形式估算（標 `estimate`）、板面逕流。
+- **鋼構與日照對齊**（`structure/solar-frame.js`）：`solarFrame()` 把 structure 的本地座標（列與追日軸沿 +X）轉到 core/solar 的世界座標（X 東、Z 南）；南北軸追日的 yaw = −90°，轉角 φ 就是 solar 的 θ（測試逐片對照 `trackerArray` 與 3D 實例）。`/core/examples/structure/` 的追日改成南北軸、依太陽轉（回溯／不回溯／手動），並和固定式、地形一起算遮陰；原本手動轉角的拉桿保留。
+- **積雪損失接全年發電**：`solar/energy.js` 的 `simulate` 加選用的 `hourlyLoss`（逐筆額外直流損失，遮陰之後、變流器之前扣，`annual.hourlyLossKWh`；沒給時逐位元不變），`readEPW` 多讀第 30 欄雪深 `snowDepth`；`weather/snow.js` 加 `snowLossSeries`（天候檔 → 逐時積雪損失）。
+- 範例頁 `/core/examples/weather/`：大雪後放晴（10° 與 35° 的積雪、滑落、損失、雪載重）、午後雷雨（雨絲、逕流、風載重），板面日射由 `core/solar` 算。
+- **外部 CFD**：OpenFOAM v2412 的案例產生、不需要 OpenFOAM 的字典檢查、PowerShell 執行腳本（Docker／WSL／Linux 偵測）在根目錄 `tools/cfd/`；VTK legacy／forces／probes 讀檔、`.cfdpack` 與 `createFlowView` 在 `core/cfd/`。OpenFOAM 是 GPL，只當外部程式執行。本機沒有 Docker／WSL，還沒實跑過。
+- **LAZ**：`vendor/laz-perf/`（0.0.7，Apache-2.0，wasm 以 base64 內嵌）與 `geo/laz.js`（`readLAZ`、`lazToLas`：解壓成一般 LAS，保留 VLR 座標系與 1.4 的 EVLR，清掉 laszip VLR）；laspy 寫的 LAZ 逐點和參考值相同。
+- **站層的日照檢查 `solar`**（`verify/solar.mjs`）：`project.verify.solar` 宣告固定式或追日陣列時，檢查冬至列間遮陰、排距 90% 的對照組（追日的回溯仍用設計排距，模擬列距被做短）、真追日的遮陰（資訊）。宣告 `obstacles`（方塊、四邊形、地形函式）時另列「含外部遮擋的最大遮陰」，給 `obstacleTol` 才判定。目前沒有站宣告。
+- **決定性**：`physics/physics.js` 的旋轉、吸附找最近物體、靜止判斷改用 `math/dmath.js`（`Math.cos/sin/hypot` 在 Node 與 Chrome 的部分輸入差 1 ulp）；`physics/collide.js` 自帶的三角函式統一成 dmath。
+- `verify/scene.mjs`：`userData.fluid`、`cloth`、`weather`、`cfd` 的網格不算實體，和 `fx` 一樣不做干涉與重合面檢查。
+- **站層的手臂動力學檢查 `dynamics`**（`verify/dynamics.mjs`）：`project.verify.dynamics.arms` 宣告型號、負載與 `sample(t)`，用 MuJoCo 算峰值扭矩對型錄上限、負載質量與手腕力矩、軌跡連續；照拍板只警告（`warn`），型號不存在才失敗。core 的 `dynamics` 自我檢查多驗證站層的略過、警告與擋錯。目前沒有站宣告。
+- core 檢查新增 `solar`（`solar/test/browser-check.mjs`）：日照的 SPA、追日、遮陰、全年發電在 Node 與無頭 Chrome 逐位元相同（約 3 秒）。
+- core 檢查 `engineering` 加上 `physics/test`（布料、流體、天候）、`solar/test/verify.test.mjs` 與 `tools/cfd/test`。
+
 ## 2026-11-07：core 1.19.0 日照與發電（core/solar）、決定性數學函式
 
 - **新模組 `solar/`**（使用者拍板的太陽能案場第一階段）：NREL SPA、固定式與單軸追日（回溯、坡地 cross-axis）、Ineichen–Perez 晴空（台灣 Linke 濁度表）、Erbs／DISC、Perez／Hay–Davies 斜面日射、IAM、雙面背面（uniform 與 resolved）、自寫 BVH 遮陰（逐片、旁路二極體區段、地平線、天空視角因子、太陽分箱快取）、EPW／TMY3／CSV、SAPM／Faiman 溫度、PVWatts、全年模擬。和 pvlib 0.16.1 交叉驗證全部在浮點捨入等級（`tools/solar-pvlib/`）；決定性：Node 與 Chrome 157 逐位元相同。效能：1 萬片＋8 萬三角形地形，全年逐時遮陰 5.6 分、太陽分箱 1°×2° 1.5 分。原型在本機 `TEMP/solar-dev/`。
@@ -311,6 +327,7 @@ Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs
 
 | 版本 | 日期 | 內容 |
 |---|---|---|
+| 1.20.0 | 2026-11-07 | 布料（`physics/cloth.js`）、粒子流體（`physics/fluid.js`）、天候（`weather/`）、外部 CFD（`cfd/`＋`tools/cfd/`）、LAZ（`vendor/laz-perf`、`geo/laz.js`）、站層檢查 `solar`（含外部遮擋）與 `dynamics`（只警告）、core 檢查 `solar`（Node 與瀏覽器雜湊）、`structure/solar-frame.js` 座標對齊、`simulate({ hourlyLoss })` 與積雪損失、範例 `weather/`；剛體物理改用 dmath；`scene` 略過流體、布料、天候、CFD 網格 |
 | 1.19.0 | 2026-11-07 | 新模組 `solar/`（SPA、追日回溯、晴空與斜面日射、雙面、BVH 遮陰、全年發電；和 pvlib 一致到浮點捨入）與 `math/dmath.js`（決定性超越函式）；`physics/rope.js` 改用 dmath。各站畫面與檢查不受影響 |
 | 1.18.0 | 2026-11-07 | three.js r187（`three.core.js`、PCF 陰影、RoomEnvironment 位置、網片 alphaToCoverage、ParkingEMS 頂點色）；MuJoCo 4.0.0 與 `robot/dynamics.js`；新模組 `structure/`、`piping/`、`geo/`；core 檢查 `dynamics`、`engineering`。陰影邊緣與部分材質著色有刻意的外觀變化；完整檢查 184/184 |
 | 1.17.0 | 2026-11-07 | 線材 XPBD `physics/rope.js`（`bakeRope`、`ropeSampler`、`createRopeView`、`ropeStats`），`physics` 檢查認得線材並檢查線長（`stretchTol`）；範例加線材情境；手臂幾何初值補肩部翻轉（8 組）。PlumbingFixtureInspection 的 IK 誤差 0.01 → 0.04 mm，其他站場景傾印完全相同；161 張截圖 0 張超過門檻；完整檢查 184/184 |

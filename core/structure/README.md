@@ -11,6 +11,7 @@
 - 列沿 +X。固定式的模組朝 +Z 傾斜（低邊在 +Z、往 −Z 升高），+Z 是受光方向；北半球案場把 root 轉到 +Z 朝南。第 r 列低邊在 `z = origin[1] − r·pitch`。
 - 追日的轉軸沿 +X，在 `z = origin[1] − r·pitch`；轉角 φ > 0 時模組法向往 +Z 傾（右手定則繞 +X）。
 - 地形 `height(x, z) → y`（mm）。
+- **和 `core/solar` 對齊**（`solar-frame.js`，core 1.20.0）：案場的世界座標照 core/solar（X 東、Y 上、Z 南）。`solarFrame({ kind, azimuth | axisAzimuth, origin })` 給 yaw（固定式 180° − 朝向，朝南為 0；追日 90° − 軸方位，南北軸為 −90°，本地 +X → 南、+Z → 西），這時追日的 φ 就是 solar 的 θ（pvlib 號誌，下午 > 0 朝西）。`localGround(世界地形)` 給 layout 的 `height`，`place(root)` 擺 3D，`modules(layout, θ)` 轉成 core/solar 的板片（`o`、`a`、`b`）給 `modulesToTriangles`／`shadeModules`，`angle(θ)` 給 `set({ angle })`。範例在 `/core/examples/structure/`（追日依太陽轉、固定式與地形一起算遮陰）。
 
 | 函式 | 用途 |
 |---|---|
@@ -19,6 +20,7 @@
 | `bom(members, { cutRound })` | 依斷面（`byProfile`）、依構件類型（`byKind`）彙總支數、總長 m、重量；`cuts` 是切長清單（進位到 cutRound） |
 | `structureChecks(layout, limits)` | `layoutChecks` 列（見下） |
 | `groupLoads(layout, site)`、`windPressure`、`snowOnPlane`、`cfMonoslope`、`snowMu1` | 風、雪載重**估算**（見下） |
+| `solarFrame(opts)` | structure 本地座標 ↔ core/solar 世界座標：`yaw`、`toWorld`、`toLocal`、`localGround`、`angle`、`modules`、`place`（見上） |
 | `rotatePoint(p, pivot, deg)` | 追日可動件轉角後的位置（不需要 three） |
 | `pvFixedRack.create(p)`、`pvTracker.create(p)` | 照 core/models 的 `meta`＋`create` 慣例：回傳 `{ root, set, meshes, layout, members, bom, summary, meta, checks }`；追日 `set({ angle })` |
 | `buildStructure(layout, opts)` | layout → 3D（`materials {galv, module}`、`modules: false`、`buried: false` 只畫外露段） |

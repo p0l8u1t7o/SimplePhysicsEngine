@@ -4,6 +4,8 @@
 //       electrical（電控元件在櫃內、不重疊、櫃內連線、穿板孔；project.verify.cables 宣告時另做配線動態取樣；場景沒有電控時略過）、
 //       bom（場景的共用模型對照平台的 BOM：場景有但沒列進成本、BOM 有但沒畫出來；只警告，沒有 BOM 資料就略過）
 //       physics（core/physics 的烘焙：決定性、靜止接觸穿透、烘焙時間；沒用物理就略過）
+//       solar（verify.solar 宣告的光伏陣列：冬至列間遮陰、對照組、追日回溯；沒宣告就略過）
+//       dynamics（verify.dynamics 宣告的手臂軌跡：MuJoCo 峰值扭矩、負載力矩、軌跡連續；只警告；沒宣告就略過）
 //       cycle（節拍分析：各站佔用時間、稼動率、瓶頸；只印一行 CYCLE {...}，給 studio 回填可行性分析）
 //       fingerprint（排程指紋＋空間檢核結果，只輸出一行 JSON，供渲染補強前後比對）
 // 讀取專案 web/js/project.js 的 createProject({ scene, headless, ...params })，結果寫入 <專案>/review/<檢查>.json。
@@ -20,6 +22,8 @@ import { fingerprint } from './fingerprint.mjs';
 import { verifyElectrical } from './electrical.mjs';
 import { verifyPhysics } from './physics.mjs';
 import { verifyBom } from './bom.mjs';
+import { verifySolar } from './solar.mjs';
+import { verifyDynamics } from './dynamics.mjs';
 import { cycleReport } from '../anim/cycle.js';
 
 const check = process.argv[2], opts = Object.fromEntries(process.argv.slice(3).filter(a => a.startsWith('--')).map(a => a.slice(2).split('=')).map(([k, v]) => [k, v === undefined ? true : isNaN(+v) ? v : +v]));
@@ -38,6 +42,8 @@ for (const v of variants) {
   else if (check === 'layout') { const rows = project.layoutChecks?.() || []; r = { ok: rows.every(x => x.ok), count: rows.length, failures: rows.filter(x => !x.ok), rows }; }
   else if (check === 'electrical') r = verifyElectrical(project, scene, { interval: opts.dt, name: v.name });
   else if (check === 'physics') r = await verifyPhysics(project);
+  else if (check === 'solar') r = verifySolar(project);
+  else if (check === 'dynamics') r = await verifyDynamics(project);
   else if (check === 'bom') { project.apply(0); scene.updateMatrixWorld(true); r = verifyBom(scene, dir); }
   else if (check === 'cycle') { console.log('CYCLE ' + JSON.stringify(cycleReport(project))); process.exit(0); }
   else if (check === 'fingerprint') r = { ok: true, ...fingerprint(project, scene), layout: (project.layoutChecks?.() || []).map(x => [x.group || '', x.name, !!x.ok, x.value ?? null]) };
@@ -55,9 +61,9 @@ const result = runs.length === 1 ? runs[0] : { ok: runs.every(r => r.ok), varian
 if (check === 'fingerprint') { console.log('FINGERPRINT ' + JSON.stringify(result)); process.exit(0); }
 // 耗時只印在終端機、不寫進 review（提交的報告只在結果改變時才有差異）
 const seconds = +((Date.now() - t0) / 1000).toFixed(1);
-const name = { scene: 'scene-verification', determinism: 'determinism', layout: 'layout-checks', electrical: 'electrical-checks', physics: 'physics-checks', bom: 'bom-checks' }[check];
+const name = { scene: 'scene-verification', determinism: 'determinism', layout: 'layout-checks', electrical: 'electrical-checks', physics: 'physics-checks', bom: 'bom-checks', solar: 'solar-checks', dynamics: 'dynamics-checks' }[check];
 // 沒有電控的專案不產生 electrical 報告
-if (!['electrical', 'physics', 'bom'].includes(check) || runs.some(r => r.applicable)) { mkdirSync(join(dir, 'review'), { recursive: true }); writeFileSync(join(dir, 'review', name + '.json'), JSON.stringify(result, null, 2)); }
+if (!['electrical', 'physics', 'bom', 'solar', 'dynamics'].includes(check) || runs.some(r => r.applicable)) { mkdirSync(join(dir, 'review'), { recursive: true }); writeFileSync(join(dir, 'review', name + '.json'), JSON.stringify(result, null, 2)); }
 if (check === 'scene') writeFileSync(join(dir, 'review', name + '.txt'), runs.map(r => (runs.length > 1 ? `# ${r.variant}\n` : '') + sceneText(r)).join('\n'));
 
 for (const r of runs) {
@@ -76,6 +82,14 @@ for (const r of runs) {
     if (!r.applicable) { console.log(`${tag}略過：沒有 BOM 資料（本機沒有平台資料庫，或站還沒有成本表）`); continue; }
     console.log(tag + JSON.stringify({ ok: r.ok, models: r.sceneModels, lines: r.bomLines, matched: r.matched, sceneOnly: r.sceneOnly.length, bomOnly: r.bomOnly.length }));
     for (const w of r.warnings.slice(0, 30)) console.log(tag + '  ! ' + w);
+  } else if (check === 'solar') {
+    if (!r.applicable) { console.log(`${tag}略過：沒有宣告 verify.solar`); continue; }
+    console.log(`${tag}${r.rows.filter(x => x.ok).length}/${r.rows.length} 通過`);
+    for (const x of r.rows) console.log(`${tag}  ${x.ok ? '✓' : '✗'} ${x.name}：${x.value}（${x.note}）`);
+  } else if (check === 'dynamics') {
+    if (!r.applicable) { console.log(`${tag}略過：沒有宣告 verify.dynamics`); continue; }
+    console.log(`${tag}${r.rows.filter(x => x.ok).length}/${r.rows.length} 通過（${r.arms.length} 支手臂，${r.warnings.length} 列警告，只警告不擋）`);
+    for (const x of r.rows) console.log(`${tag}  ${!x.ok ? '✗' : x.warn ? '!' : '✓'} ${x.group} ${x.name}：${x.value}（${x.note}）`);
   } else if (check === 'physics') {
     if (!r.applicable) { console.log(`${tag}略過：沒有用 core/physics`); continue; }
     console.log(tag + JSON.stringify({ ok: r.ok, bakes: r.bakes, bodies: r.bodies, rest: r.rest, ms: r.ms }));

@@ -6,17 +6,18 @@ import { createServer } from 'node:net';
 import { bake } from '../../physics/physics.js';
 import { flowStats, landings, pileStats, slip } from '../../physics/analysis.js';
 import { bakeRope } from '../../physics/rope.js';
+import { bakeScenario } from './kinds.js';
 import { SCENARIOS, grip, cable } from './scenarios.js';
 
 const REST_TOL = 8, BUDGET_MS = 5000;      // 靜止接觸穿透門檻（mm，堆疊的薄壁箱與圓柱會有幾 mm）、每個情境的烘焙時間預算
 const fails = [], node = {}, notes = [];
 for (const [k, s] of Object.entries(SCENARIOS)) {
-  const run = () => s.kind === 'rope' ? bakeRope(s.spec) : bake(s.spec), a = await run(), b = await run();
+  const run = () => bakeScenario(s), a = await run(), b = await run();
   node[k] = a.stats.hash;
   if (a.stats.hash !== b.stats.hash) fails.push(`${k}：同一份設定烘焙兩次結果不同（${a.stats.hash} / ${b.stats.hash}）`);
   if (a.stats.maxPenetration > REST_TOL) fails.push(`${k}：靜止接觸穿透 ${a.stats.maxPenetration} mm 超過 ${REST_TOL} mm`);
   if (a.stats.ms > BUDGET_MS) fails.push(`${k}：烘焙 ${a.stats.ms} ms 超過預算 ${BUDGET_MS} ms`);
-  notes.push(s.kind === 'rope' ? `${k} 伸長 ${(a.stats.maxStretch * 100).toFixed(1)}%／${a.stats.ms} ms` : `${k} ${a.stats.bodies} 件／${a.stats.ms} ms`);
+  notes.push(s.kind === 'rope' || s.kind === 'cloth' ? `${k} 伸長 ${(a.stats.maxStretch * 100).toFixed(1)}%／${a.stats.ms} ms` : s.kind === 'fluid' ? `${k} ${a.stats.particles} 顆／${a.stats.ms} ms` : `${k} ${a.stats.bodies} 件／${a.stats.ms} ms`);
   if (k === 'cable' && a.stats.maxStretch > 0.03) fails.push(`cable：線長夠時最大伸長 ${(a.stats.maxStretch * 100).toFixed(1)}%（應該 < 3%）`);
   if (k === 'flow') { const f = flowStats(a, { at: 0, from: 2, to: a.duration }); if (f.count < 15) fails.push(`flow：通過中線只有 ${f.count} 件`); }
   if (k === 'chute') { const L = landings(a, { region: { min: [260, 100, -220], max: [780, 400, 220] } }); if (L.some(x => x.t == null)) fails.push(`chute：${L.filter(x => x.t == null).length} 件沒有落進料箱`); }
@@ -49,6 +50,6 @@ if (!process.argv.includes('--no-browser')) {
     }
   } finally { await browser.close(); server.close(); }
 }
-console.log(`${fails.length ? '✗' : '✓'} physics：五個情境決定性${process.argv.includes('--no-browser') ? '' : '（Node 與瀏覽器相同）'}；${notes.join('、')}；夾取 20 N 位移 ${held.final.toFixed(2)} mm、3 N 滑落；線長不夠時伸長 ${(shortCable.stats.maxStretch * 100).toFixed(0)}%`);
+console.log(`${fails.length ? '✗' : '✓'} physics：七個情境決定性${process.argv.includes('--no-browser') ? '' : '（Node 與瀏覽器相同）'}；${notes.join('、')}；夾取 20 N 位移 ${held.final.toFixed(2)} mm、3 N 滑落；線長不夠時伸長 ${(shortCable.stats.maxStretch * 100).toFixed(0)}%`);
 for (const f of fails) console.log('   ' + f);
 process.exit(fails.length ? 1 : 0);

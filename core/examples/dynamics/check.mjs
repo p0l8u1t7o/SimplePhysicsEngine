@@ -45,6 +45,18 @@ if (!a.rows.some(r => /峰值扭矩/.test(r.name)) || !a.rows.some(r => /負載�
 if (!(a.peak.j2.tau > a.peak.j2.gravity)) fails.push(`J2 峰值扭矩 ${a.peak.j2.tau.toFixed(2)} 沒有大於靜止保持 ${a.peak.j2.gravity.toFixed(2)} N·m（加速度項沒算進去？）`);
 if (a.rows.some(r => !r.ok)) fails.push(`合成軌跡的檢查列有不通過的項目：${a.rows.filter(r => !r.ok).map(r => r.name).join('、')}`);
 
-console.log(`${fails.length ? '✗' : '✓'} dynamics：靜態扭矩與手算差 ${worst.toExponential(1)} N·m；合成軌跡 ${samples.length} 點兩次相同（${a.hash}）；J2 峰值 ${a.peak.j2.tau.toFixed(1)} N·m（靜止保持 ${a.peak.j2.gravity.toFixed(1)}）、負載 2 kg 的 J5 力矩 ${a.wrist.moment.j5.toFixed(2)} N·m`);
+// ---- 站層宣告（core/verify/dynamics.mjs）：沒宣告略過；正常軌跡沒有警告；超重只警告不擋；型號打錯要擋
+const { verifyDynamics } = await import('../../verify/dynamics.mjs');
+const traj = t => { const u = smooth((t % 2) / 2), s = Math.floor(t / 2) % 2 ? 1 - u : u; return { j1: 0, j2: (-20 + 40 * s) * D, j3: (30 + 40 * s) * D, j4: 0, j5: -60 * D, j6: 0 }; };
+const proj = (arm, extra = {}) => ({ total: 4, verify: { dynamics: { arms: [{ name: '手臂', spec: 'denso-vs068', sample: traj, ...arm }], ...extra } } });
+const skip = await verifyDynamics({ total: 4, verify: {} }), normal = await verifyDynamics(proj({ payload: PAYLOAD })), heavy = await verifyDynamics(proj({ payload: { mass: 9, com: [0, 0, 50] } })), typo = await verifyDynamics(proj({ spec: 'denso-vs999' }));
+if (skip.applicable !== false) fails.push('站層：沒宣告 verify.dynamics 應該略過');
+if (!normal.ok || normal.warnings.length) fails.push(`站層：正常軌跡不應有警告：${normal.warnings.join('；')}`);
+const direct = await inverseDynamics(S, Array.from({ length: 401 }, (_, i) => ({ t: i * 0.01, q: traj(i * 0.01) })), { payload: PAYLOAD });   // 站層用 from + i·step 取樣
+if (normal.arms[0]?.hash !== direct.hash) fails.push(`站層：同一段軌跡的扭矩雜湊應和直接呼叫相同（${normal.arms[0]?.hash} / ${direct.hash}）`);
+if (!heavy.ok || !heavy.warnings.some(w => /負載質量/.test(w))) fails.push('站層：9 kg 超過型錄 7 kg，應該只警告（ok 仍為 true）');
+if (typo.ok) fails.push('站層：型號不存在應該擋下');
+
+console.log(`${fails.length ? '✗' : '✓'} dynamics：靜態扭矩與手算差 ${worst.toExponential(1)} N·m；合成軌跡 ${samples.length} 點兩次相同（${a.hash}）；J2 峰值 ${a.peak.j2.tau.toFixed(1)} N·m（靜止保持 ${a.peak.j2.gravity.toFixed(1)}）、負載 2 kg 的 J5 力矩 ${a.wrist.moment.j5.toFixed(2)} N·m；站層 verify.dynamics 略過、警告、擋錯都正確`);
 for (const f of fails) console.log('   ' + f);
 process.exit(fails.length ? 1 : 0);

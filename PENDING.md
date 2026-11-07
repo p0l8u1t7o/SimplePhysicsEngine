@@ -18,7 +18,6 @@
 - [ ] 快門站的 11 張基準截圖都拍不到三色燈（在外罩頂後方），截圖回歸對它沒有保護；考慮加一個看得到外罩頂的視角。
 - [ ] 回收物分揀：光幕依 ISO 13855 的安全距離 668 mm 在現有框架內不成立，畫面只畫示意；實機防護位置待風險評估（對客戶說明時要提）。
 - [ ] 杯體量測站的電路圖冊（`docs/circuit-diagrams.pdf`，2026-09-29 另一版產生器、版次 1.1）沒有 I/O 清單頁：`tools/circuit-drawings/verify.py`（2026-11-07 起認得這版的 `devices` 欄位）檢查出 18 個 I/O 點的線號只出現在接線圖、沒有出現在清單（其他 5 站的圖冊都有 500 系列 I/O 清單）。元件、軸、圖框、A3 尺寸、文字重疊都通過。要補 I/O 清單頁時，改用 `render.py` 的格式重產，或在該版產生器加一頁。
-- [ ] 手臂的幾何初值少了「肩部翻轉」分支（2026-11-07 巡檢）：VS-068、VM-60B1、COBOTTA、FANUC 的 `seeds` 用 `hypot` 算水平距離、永遠為正，腕點在 J1 軸後方的姿態 J1 會被夾到限位（例：VS-068 `{j1:8,j2:16,j3:134,j4:187,j5:83,j6:35}` 差 12.5 mm 被判不可達）。各站的動畫 IK 也用這些初值，加一組 `j1+π` 的初值可能改變手臂動作，要照「改 core」流程做截圖與場景傾印比對，再決定。
 - [ ] 2026-11-07 巡檢沒能證實、先記著的疑點（core）：
   - `twin/view.js` 的 `twinUrl` 註解說只給埠號時用目前主機，程式寫死 `127.0.0.1`（從區網其他電腦開頁面會連錯）。
   - `electrical/cable-routing.js` 的 `clampable`：`parameters.shapes` 是陣列時判斷不到開孔（`verify/scene.mjs` 有用 `[shapes].flat()`）。
@@ -70,17 +69,18 @@
 
 ### 5. 太陽能案場平台與物理擴充（2026-11-07 拍板，評估在本機 `TEMP/太陽能案場平台評估_2026-11-07.md`）
 
-建議順序：先升 three.js（後面的元件都依賴它），再做 `core/solar`，地形、鋼構管路、天候可以並行。「高精度」先定成檢查門檻：幾何 ±3～5 cm（RTK 空拍）、太陽位置 ±0.01°、發電量與 pvlib 相差 < 2%（數字待使用者確認）。
+2026-11-07 已完成並進 core（1.17.0～1.20.0，細節在 `core/MIGRATION.md`）：three.js r187、XPBD 線材／布料、PBF 粒子流體、天候（雨雪、積雪、雪風載重估算、逕流）、MuJoCo 手臂動力學、`core/solar`、`core/geo`（含 LAZ）、`core/structure`、`core/piping`、外部 CFD 的案例產生與匯入（`tools/cfd`、`core/cfd`）、範例頁 `/core/examples/solar/`、`/core/examples/structure/`。剩下的：
 
-- [ ] three.js r160 → 新版：worktree 升級、全部站截圖／場景傾印／完整檢查，逐站修正，記進 `core/MIGRATION.md`。
-- [ ] `core/solar`：NREL SPA 太陽位置、固定式與單軸追日（含回溯）、BVH 逐片／逐組串遮陰（three-mesh-bvh）、Perez 斜面日射、全年發電（TMY）、雙面板；Python 工具用 pvlib 0.15 交叉驗證；檢查：冬至排距遮陰、發電量誤差。沿用 PV DEMO（`ad4b816`）的 `solar.js` 與 `core/REQUESTS.md` 登記的 `pvModule`／`pvRack`／`stringInverter`。
-- [ ] `core/geo`：WGS84／TWD97（proj4js）、DSM／DTM 建地形（geotiff.js）、正射影像貼圖、點雲（LAS/LAZ）與 3D Tiles（3d-tiles-renderer）、浮動原點（km 級場景用 mm 單位時 float32 會抖）；設計與現況比對（樁高、排距、傾角偏差）；影片依 GPS／雲台姿態對位虛擬相機疊圖、熱影像熱斑標記。
-- [ ] `core/structure`：支架立柱、斜樑、檁條、斜撐依地形算高度與長度，切長清單、重量、基樁深度，接 BOM；風、雪載重依規範公式。
-- [ ] `core/piping`：直管＋彎頭（依管徑的最小彎曲半徑、坡度）、套管、電纜槽；組串線長與壓降；1D 管網水力（Darcy–Weisbach＋彎頭 K 值）；彎曲半徑與坡度檢查。
-- [ ] 天候與粒子：雪（積雪深度、板面滑落、雪載重、發電損失）、雨（板面逕流、排水）、CPU 預先烘焙的粒子流體（PBF，決定性）、XPBD 延伸到布與軟體。
-- [ ] 外部 CFD：OpenFOAM（GPL，外部離線）的案例產生與結果匯入（速度場、壓力）流程；平台不內嵌。
-- [ ] MuJoCo 整合（原型 `TEMP/mujoco-proto/`，4.0.0、瘦身後 wasm 5.2 MB、Node 與 Chrome 逐位元相同）：`core/vendor/mujoco/`（附 LICENSE 與第三方授權清單）、`core/robot/dynamics.js`、`check.mjs` 內建 `dynamics`（只在 Node 跑、扭矩比例先只警告）、`serve.mjs` 補 `.wasm` 的 MIME；各手臂的質量與扭矩上限要換成實際資料（DENSO 的 URDF 或型錄）。原型代理提醒：如果近期沒有孿生跟隨誤差或並聯手臂的需求，純 JS 的逆動力學就夠，MuJoCo 可以只當驗證工具，整合前再確認一次。
-- [ ] XPBD 線材接進各站：先挑手臂外露線多的站（MilitaryGradePC、RobotArmPressSSD、PlumbingFixtureInspection）把手臂到電盤的自由段改成 `bakeRope`，`verify.physics.stretchTol` 檢查線長。
+- [ ] 「高精度」的門檻請使用者確認後寫進檢查：幾何 ±3～5 cm（RTK 空拍）、太陽位置 ±0.01°、發電量與 pvlib 相差 < 2%（目前 core/solar 對 pvlib 的差在浮點捨入等級）。
+- [ ] 日照檢查的後續：站層 `verify.solar`（`core/verify/solar.mjs`，2026-11-07）已有冬至列間遮陰、排距 90% 的對照組與追日回溯；外部遮擋（`obstacles`：方塊、四邊形、地形函式）另列一列；還沒做發電量對 pvlib 或上次結果的檢查列。目前沒有站宣告 `verify.solar`。
+- [ ] 台灣天候資料來源（PVGIS、NSRDB Himawari、中央氣象署、Meteonorm 擇一）與實測 ΔT 預設值；全年遮陰的 Worker 平行與先篩可能被遮的排。
+- [ ] 案場整合：鋼構與日照的座標慣例已定（`core/structure/solar-frame.js`，追日 φ = θ；範例 `/core/examples/structure/` 依太陽轉並算遮陰，2026-11-07）；還沒做的是地形改用 `core/geo` 的 DSM、鋼構檢查列與 `verify.solar` 合併成一個站層宣告；`core/REQUESTS.md` 的 `pvModule`／`pvRack`／`stringInverter` 共用模型用 `solar/layout.js` 的配置與 InstancedMesh 做。
+- [ ] `core/geo`：3D Tiles（3d-tiles-renderer 0.5.3，Apache-2.0，要一起放 r187 的 GLTFLoader、BufferGeometryUtils；壓縮圖磚另要 DRACO／KTX2）；大檔用 HTTP Range 分段讀；JPEG 壓縮的正射影像；大地起伏模型；OBJ 匯入；影片疊圖介面；熱影像熱斑標記。
+- [ ] 外部 CFD 實跑：本機沒有 Docker 也沒有 WSL 發行版，產生的字典還沒在真的 OpenFOAM（v2412）上跑過；要確認 `atmBoundaryLayerInletOmega` 參數、`z0`／`d` 寫法、VTK legacy 輸出、streamLine 與 surfaces 的檔名配置；之後做網格獨立性、interFoam、OpenFOAM.org 版本開關、殘差與 y+ 圖表；展示頁（本機 `TEMP/cfd-dev/view/`）搬進 `core/examples`。注意 `cpu-cap.ps1` 管不到 Docker／WSL 的虛擬機，要用 `--cpus` 或 `.wslconfig` 限制。
+- [ ] MuJoCo：各手臂的質量、慣量與扭矩上限換成實際資料（DENSO 的 URDF 或型錄，先確認授權），目前只有 VS-068 而且是估計值；站層檢查 `verify.dynamics` 已有（`core/verify/dynamics.mjs`，只警告，2026-11-07），還沒有站宣告，第一個候選是 MilitaryGradePC（手臂的 `sample(t)` 從排程與 IK 取）；孿生的跟隨誤差（`mj_step`＋位置致動器）。
+- [ ] 天候與流體：規範係數核對（台灣耐風規範的 zs、ASCE 7-22 差異、JIS C 8955:2017）、雪模型參數校正；積雪損失已能接進全年發電（`snowLossSeries` → `simulate({ hourlyLoss })`，2026-11-07），追日的變動傾角與收藏策略還沒做；流體的休眠、Worker 烘焙、圓形容器的連續碰撞；布料的自我碰撞。
+- [ ] XPBD 線材接進各站：先挑手臂外露線多的站（MilitaryGradePC、RobotArmPressSSD、PlumbingFixtureInspection），把手臂到電盤的自由段改成 `bakeRope`，用 `verify.physics.stretchTol` 檢查線長；站寫的錨點函式要用 `core/math/dmath.js`，不要用 `Math.sin`。
+- [ ] 表格數值核對：`structure`、`piping`、`weather` 的斷面、管徑、K 值、風雪係數多是記憶值（各 README 有清單），正式使用前要對照原文。
 
 ## 各站待確認
 

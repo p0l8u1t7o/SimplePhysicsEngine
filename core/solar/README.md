@@ -69,6 +69,14 @@ const res = solar.simulate({ weather: w, site: { lat, lon, elevation, tz: 8 },
 // → { annual: { acKWh, dcKWh, poaKWhm2, rearKWhm2, pr, specificYield, shadeLossPct, clipLossPct, … }, monthly, hourly? }
 ```
 
+額外的逐時損失（積雪等）用 `hourlyLoss`（Float64Array 或 `(i, { poa, tCell }) => 比例`），在遮陰之後、變流器之前扣，`annual.hourlyLossKWh` 是扣掉的直流電量（不算進 `shadeKWh`）；沒給時結果不變。積雪損失用 `weather/snow.js` 的 `snowLossSeries`（EPW 的第 30 欄雪深由 `readEPW` 讀成 `snowDepth`）：
+
+```js
+const r0 = solar.simulate({ weather: w, site, system, keepHourly: true });
+const snow = snowLossSeries({ weather: w, poa: r0.hourly.poa, tilt: 25 });
+const r1 = solar.simulate({ weather: w, site, system, hourlyLoss: snow.loss });   // r1.annual.hourlyLossKWh
+```
+
 ### 部分遮陰模型（`bypassMismatch`）
 
 一串板的每個旁路二極體區段 k 有日射 E_k（直達 × 區段可用比例 ＋ 散射）。電流 ∝ 日射、每段電壓視為相同，電流低於串電流的區段被旁路（電壓 0，忽略約 0.5 V 的二極體壓降）。MPPT 取 `max_j E_(j)·j / N`（E 由大到小）。全部相同時等於平均；一段被遮時整串跟著掉或把那段旁路，取較好者。區段的直達可用比例以「最暗的一格」為準（串聯電池的電流由最被遮的那片決定）；半片板兩半並聯取平均。`model: 'linear'` 是面積比例模型（對照用）。

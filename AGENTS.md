@@ -102,7 +102,7 @@ node --import ./core/tools/register.mjs tools/verify-interference.mjs   # 四站
 
 ## 檢查與回歸的做法
 
-- **`check.mjs` 內建項目**：`imports`、`structure`、`names`、`determinism`、`layout`、`scene`（干涉＋閃爍，部署前也會擋）、`electrical`（配線與電盤）、`physics`（剛體動力學烘焙）、`bom`（場景 ↔ 平台 BOM，只警告）、`ui`（只在完整檢查跑；平行執行時設 `UI_PORT`），再加上 `project.json` 列的自有檢查。core 本身另有 `models`、`physics`、`examples`、`structure` 檢查（不指定專案時才跑）。
+- **`check.mjs` 內建項目**：`imports`、`structure`、`names`、`determinism`、`layout`、`scene`（干涉＋閃爍，部署前也會擋）、`electrical`（配線與電盤）、`physics`（剛體、線材、布料、流體的烘焙）、`bom`（場景 ↔ 平台 BOM，只警告）、`solar`（`verify.solar` 的冬至列間遮陰與對照組）、`dynamics`（`verify.dynamics` 的手臂峰值扭矩與負載力矩，只警告）、`ui`（只在完整檢查跑；平行執行時設 `UI_PORT`），再加上 `project.json` 列的自有檢查。core 本身另有 `models`、`physics`、`dynamics`、`solar`（Node 與瀏覽器雜湊）、`engineering`、`examples`、`twin`、`structure`、`names` 檢查（不指定專案時才跑）。
 - **改 core 或渲染時**：
   1. 先拍基準：`git worktree add <暫存資料夾> HEAD`，在 worktree 裡跑 `shots.mjs --out TEMP/shots-<名>-base`，用完 `git worktree remove`。
   2. 改完比對：全部站的桌面截圖要 0 張超過門檻（`shots.mjs` 不指定專案就是全部）。刻意的外觀改變要逐張看過，並記進 `core/MIGRATION.md`。

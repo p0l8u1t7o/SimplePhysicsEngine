@@ -11,6 +11,7 @@ export const ZF = { dist: .6, area: 25 };    // 預設重合面：距離 mm、�
 
 // 專案可在 verify 設定裡標記：
 //   物件 userData.fx         效果（噴霧、光束），不是實體
+//   core 自己標的非實體也略過：userData.fluid（粒子流體）、cloth（布料，本來就貼著物體）、weather（雨雪粒子、板面積雪）、cfd（CFD 結果顯示）
 //   物件 userData.guide = id 導軌；移動件 userData.on = id 在其上滑行
 //   物件 userData.nested = 另一個關節物件：套筒式伸縮（內外管）
 export function verifyScene(project, scene, {
@@ -25,7 +26,7 @@ export function verifyScene(project, scene, {
   const meshes = [];
   scene.traverse(o => {
     if (!o.isMesh || o.isInstancedMesh || !o.geometry) return;
-    for (let p = o; p; p = p.parent) if (p.userData.fx || skip(p)) return;
+    for (let p = o; p; p = p.parent) { const u = p.userData; if (u.fx || u.fluid || u.cloth || u.weather || u.cfd || skip(p)) return; }
     meshes.push(o);
   });
   const topModule = o => { let p = o; while (p.parent && p.parent !== scene) p = p.parent; return p.name || 'misc'; };

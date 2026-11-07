@@ -2,6 +2,7 @@
 // 每個情境：{ title, note, spec, view: [相機位置, 注視點], analyze(baked) → [{ label, value }] }。尺寸 mm，y 朝上。
 // 範例頁（index.html）與檢查（check.mjs）共用；檢查會在 Node 與瀏覽器各烘焙一次，比對雜湊。
 import { flowStats, settleTime, landings, pileStats, slip } from '../../physics/analysis.js';
+import { SCENARIOS_EXTRA } from './scenarios-extra.js';
 
 const box = (id, size, pos, rot) => ({ id, size, pos, ...(rot ? { rot } : {}) });
 const floor = box('地面', [6000, 20, 3000], [0, -10, 0]);
@@ -93,4 +94,5 @@ export const SCENARIOS = {
         { label: '節點', value: `${b.nodes} 個` }];
     },
   },
+  ...SCENARIOS_EXTRA,                 // 布料（tarp）、流體（fill）：scenarios-extra.js
 };

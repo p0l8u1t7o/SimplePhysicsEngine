@@ -14,14 +14,16 @@
 | `catalog/` | 模型目錄頁（發布在 Pages） |
 | `anim/` | `sampling.js`：取樣時間（網頁與檢查共用，不依賴 three）；`cycle.js`：節拍分析（各站佔用、稼動率、瓶頸）；`track.js`：時間軌與時間軸（`createTimeline`、`Track`、`smooth`），狀態只由時間決定；`sequence.js`：單一手臂的步驟序列；`arrival.js`：手臂到位閘門（播放時等手臂到位、逾時故障） |
 | `electrical/` | `cable-routing.js`（線材 `cable`、拖鏈 `carrier`、`solidMeshes`）、`electrical-cabinet.js`（電盤櫃、背板、穿板接頭）、`electrical-components.js`（電控元件、`component()` 元件表、`robotController`）、`electrical-inspector.js`／`.css`（電控檢視器） |
-| `examples/` | `segment2/`：第二段（電控、電盤、配線、相機子畫面、視覺疊圖）的完整範例與說明，跟著 core 一起檢查；新專案照 `examples/segment2/README.md` 做。`physics/`：剛體動力學四種用途（物料流、掉落與滑槽、料箱堆積、夾取穩定）與線材的範例頁與檢查。`dynamics/`：手臂動力學的自我檢查。`structure/`：起伏地形上的固定式與追日支架、清洗水管（1D 水力）、電纜槽（電壓降）。`solar/`：追日陣列的日照遮陰（SPA、回溯、BVH 逐片遮陰、晴空日射；`?h=10&d=12,21&bt=1` 指定時間、日期、回溯） |
+| `examples/` | `segment2/`：第二段（電控、電盤、配線、相機子畫面、視覺疊圖）的完整範例與說明，跟著 core 一起檢查；新專案照 `examples/segment2/README.md` 做。`physics/`：剛體動力學四種用途（物料流、掉落與滑槽、料箱堆積、夾取穩定）與線材的範例頁與檢查。`dynamics/`：手臂動力學的自我檢查。`structure/`：起伏地形上的固定式與追日支架、清洗水管（1D 水力）、電纜槽（電壓降），追日依太陽轉（SPA、回溯）並和固定式、地形一起算遮陰（`?h=8&d=12,21&bt=0`）。`solar/`：追日陣列的日照遮陰（SPA、回溯、BVH 逐片遮陰、晴空日射；`?h=10&d=12,21&bt=1` 指定時間、日期、回溯）。`weather/`：天候（大雪後放晴：10° 與 35° 的積雪、滑落、發電損失與雪載重；午後雷雨：雨絲、板面逕流、風載重；日射接 `core/solar`；`?sc=snow&h=38`） |
 | `optics/` | 機器視覺的光學計算（純函式：L1 視野、倍率、每像素、最小缺陷、景深、運動模糊、行頻、像圈、接口、頻寬、打光；L2 `lighting.js` 明暗場、缺陷對比、遮擋、近似模擬影像）與 3D 配置檢視頁 `optics/view.html`；studio 的光學工作台、`vs3d optics eval`、相機模型共用，說明在 `optics/README.md` |
-| `physics/` | 剛體動力學（Rapier 決定性版）：`physics.js` 預先烘焙軌跡（輸送帶、投料、移除區、治具、吸附、力控制兩指夾爪），`apply(t)` 只取樣、可以倒著拖；`analysis.js` 物料流、靜止時間、落點、料箱堆積與可抓取件、夾取滑移。`rope.js` 線材、軟管的 XPBD（錨點跟著時間動、會垂下與擺動，檢查線長夠不夠；1.17.0）。範例 `/core/examples/physics/`，說明在 `physics/README.md` |
-| `structure/` | 光伏支架鋼構（2026-11-07）：固定式與單軸追日，依地形 `height(x, z)` 算每支構件的位置、切長、角度、重量與基樁埋深，`bom()` 彙總；`pvFixedRack`／`pvTracker` 三維模型（每種構件一個 InstancedMesh）；風、雪載重只做估算；`structureChecks()` 回傳 layoutChecks 的列。說明在 `structure/README.md` |
+| `physics/` | 剛體動力學（Rapier 決定性版）：`physics.js` 預先烘焙軌跡（輸送帶、投料、移除區、治具、吸附、力控制兩指夾爪），`apply(t)` 只取樣、可以倒著拖；`analysis.js` 物料流、靜止時間、落點、料箱堆積與可抓取件、夾取滑移。`cloth.js` 布料與薄膜（XPBD，釘點可移動、可放開、側風）；`fluid.js` 粒子流體（PBF，噴嘴與流量、開口方槽與圓桶，畫面用，不是 CFD）；`collide.js` 兩者共用的碰撞形狀；`rope.js` 線材、軟管的 XPBD（錨點跟著時間動、會垂下與擺動，檢查線長夠不夠；1.17.0）。範例 `/core/examples/physics/`，說明在 `physics/README.md` |
+| `structure/` | 光伏支架鋼構（2026-11-07）：固定式與單軸追日，依地形 `height(x, z)` 算每支構件的位置、切長、角度、重量與基樁埋深，`bom()` 彙總；`pvFixedRack`／`pvTracker` 三維模型（每種構件一個 InstancedMesh）；風、雪載重只做估算；`structureChecks()` 回傳 layoutChecks 的列；`solarFrame()` 和 `core/solar` 的座標對齊（追日 φ = θ）。說明在 `structure/README.md` |
 | `piping/` | 管線管路（2026-11-07）：`routePipe` 把折線倒角成直管＋彎頭（依管徑的最小彎曲半徑），切長、配件、坡度、對地淨空；`solveNetwork` 1D 管網水力（Darcy–Weisbach、K 值、高程、泵揚程）；直流／交流電壓降；`createPipeBatch`、電纜槽幾何；檢查列。說明在 `piping/README.md` |
 | `geo/` | 案場座標與空拍資料（2026-11-07）：WGS84／TWD97／UTM（和 PROJ 一致到 1e-6 mm）、案場座標（mm、+X 東、+Y 上、+Z 南）、浮動原點；自寫 GeoTIFF 讀取（DSM／DTM／正射影像，BigTIFF、COG、LZW／Deflate）、地形網格與正射貼圖、LAS 點雲；設計與現況比對（樁位、排距、傾角）；空拍相機對位（DJI 雲台角、SRT）。說明在 `geo/README.md` |
 | `solar/` | 日照與發電（2026-11-07）：NREL SPA 太陽位置、固定式與單軸追日（含回溯、坡地）、Ineichen–Perez 晴空與台灣 Linke 濁度、Erbs／DISC 分解、Perez 斜面日射、IAM、雙面背面、自寫 BVH 逐片／旁路二極體區段遮陰與地平線、EPW／TMY3／CSV、PVWatts 直流與變流器、全年模擬；和 pvlib 交叉驗證（`tools/solar-pvlib/`）。說明在 `solar/README.md` |
 | `math/` | `dmath.js`：決定性的超越函式（fdlibm 移植）。Node 與 Chrome 的 `Math.sin`、`cos`、`exp` 等在 3～19% 的輸入差 1 ulp，要逐位元一致的模擬（`solar/`、`physics/rope.js`）用它；`Math.sqrt` 各引擎一致，可以直接用 |
+| `weather/` | 天候（2026-11-07）：`precip.js` 雨雪粒子（位置直接由時間算出，可以任意跳時間，含風與陣風）；`snow.js` 板面積雪、密實、融雪、滑落（Marion 2013）與發電損失；`loads.js` 雪載重（ASCE 7-16、EN 1991-1-3、建築基準法形式）與風壓（ASCE 7、台灣耐風規範形式、JIS C 8955 陣列係數）——全部是估算、標 `estimate`；`runoff.js` 板面逕流。說明在 `weather/README.md` |
+| `cfd/` | 外部 CFD（OpenFOAM）的瀏覽器端：案例產生（`case-gen.js`，命令列在根目錄 `tools/cfd/`）、VTK legacy／forces／probes 讀檔、`.cfdpack`、`createFlowView`（切面、流線、箭頭、面板 Cp）。OpenFOAM 只當外部程式（Docker／WSL／Linux），平台只交換檔案。說明在 `tools/cfd/README.md` |
 | `twin/` | AutoSequence 數位孿生的 SPE 端（Twin Protocol v2 server）：`session.js`（握手、鎖步、cmd、故障、增量 state，純模組、決定性）、`framing.js`、`binding.js`、`dynamics/`（軸、致動器、機器人）、`sensors.js`、`geometry.js`（photoEye 射線）、`view.js`（網頁孿生觀看）、`automation-schema.lock.json`（要求的 Automation-Schema 版本）；命令列 `tools/twin.mjs`。說明在 `twin/README.md` |
 | `movie/` | 錄影程式（4K 取樣 1080p、絕對時間取樣、追焦運鏡），各專案以 `?movie` 呼叫 |
 | `ui/` | `stage.js`（renderer／場景／相機／燈光／3D 標籤／視角轉場／畫面迴圈／`exposeSim`）、`player.js`（標準播放列）、`viewer-workspace.js`／`.css`（相機視窗、焦點追隨與精簡版面，所有專案共用）、`vision-overlay.js`（視覺疊圖） |
@@ -213,7 +215,8 @@ node core/tools/check.mjs --only scene     # 只跑某項
 | `twin`（core） | ✓ | `node --test core/twin/test/*.test.mjs`：分框、握手、鎖步順序、增量 state、cmd 與動態、六種故障、感測器、決定性（兩個工作階段、兩個行程逐位元相同）、即時模式、TCP 連線、Automation-Schema 定位與版本檢查，以及 `core/twin` 沒有掛鐘、亂數、`node:*`、Automation-Schema import 的靜態檢查。找不到相鄰的 Automation-Schema 時，需要它的項目略過並寫出略過幾項 |
 | `physics`（core） | ✓ | 物理範例（`examples/physics`）剛體四個情境與線材一個情境在 Node 烘焙兩次相同、無頭 Chrome 的雜湊和 Node 相同、分析數字合理 |
 | `dynamics`（core） | ✓ | 手臂動力學（`examples/dynamics`）：MuJoCo 靜態重力扭矩對照獨立手算（差 ≤ 1e-9 N·m）、同一段軌跡算兩次相同、檢查列齊全 |
-| `engineering`（core） | ✓ | `structure/`、`piping/`、`geo/`、`solar/` 的 node:test 單元測試（手算值、PROJ 參考座標、合成 GeoTIFF／LAS、決定性） |
+| `solar`（core） | ✓ | `solar/test/browser-check.mjs`：SPA、追日＋Perez、BVH 遮陰、全年發電的工作量在 Node 跑兩次、無頭 Chrome 跑一次，雜湊逐位元相同 |
+| `engineering`（core） | ✓ | `structure/`、`piping/`、`geo/`、`solar/`、`physics/`（布料、流體、天候）與 `tools/cfd/` 的 node:test 單元測試（手算值、PROJ 參考座標、合成 GeoTIFF／LAS／LAZ、決定性） |
 | `structure` | ✓ | 開發架構（不管專案是哪個工具做的）：`project.json` 合法且有 `title`、`summary`、`coreVersion`（語意化版本、不超過 `core/VERSION`）；`AGENTS.md`、`CLAUDE.md`（引用 `@AGENTS.md`）；本庫的站有 `.claude/settings.json` 寫檔關卡；`docs/` 被 git 忽略；`web/` 每個 HTML 連 `../core/favicon.svg`、importmap 的 `@core/` 指到 `../core/`。跑全部專案時另查 `project-site/` 底下沒有 `web/index.html` 的資料夾（`core · structure`）。pre-commit 也會檢查這次提交到的站 |
 | `names` | ✓ | 專案資料夾（不含 `docs/`、`TEMP/`）不得出現用戶名稱；名單只放本機 `.private/client-names.txt`（studio 工作區是 `.studio/client-names.txt`），沒有名單就略過。pre-commit 也會掃要提交的內容 |
 | `imports` | ✓ | 從 index.html 走遍 import 圖，找不到的檔案（部署後才會壞的路徑） |
@@ -223,6 +226,8 @@ node core/tools/check.mjs --only scene     # 只跑某項
 | `physics` | ✓ | 用 `core/physics` 的站（`project.physics`）：再烘焙一次雜湊相同、靜止接觸穿透 ≤ 8 mm、烘焙時間 ≤ 10 s（`verify.physics` 可改）；結果寫入 `review/physics-checks.json`；沒有用物理就略過 |
 | `electrical` | ✓ | 場景有電控元件或電盤時：元件在櫃內、編號不重複、機身不重疊、櫃內連線不穿元件、穿板孔與接頭；`verify.cables` 有宣告時另做配線動態取樣（線路與拖鏈對障礙物）。結果寫入 `review/electrical-checks.json`；沒有電控就略過 |
 | `bom` | ✓ | 場景的共用模型（`userData.coreModel`，優先用 `partRef` 編號）對照平台的 BOM：場景有但沒列進成本、成本表有模型但場景沒畫（標 `noScene` 的除外）；標 `noBom` 的現場既有設備不算。只警告；本機沒有平台資料庫（例如 CI）或站沒有成本表就略過。結果寫入 `review/bom-checks.json` |
+| `solar` | ✓ | `project.verify.solar` 宣告的光伏陣列（固定式或單軸追日）：冬至 9～15 時列間遮陰 ≤ `tol`（預設 0.5%）；對照組把排距縮成 90%（追日的回溯仍用設計排距）一定要抓得到遮陰，抓不到代表檢查放水；追日另列真追日的遮陰（資訊）；有 `obstacles`（`box`、`quads`、`terrain`）時另列含外部遮擋的最大遮陰（給 `obstacleTol` 才判定）。沒宣告就略過。結果寫入 `review/solar-checks.json`（`core/verify/solar.mjs`） |
+| `dynamics` | ✓ | `project.verify.dynamics.arms` 宣告的手臂（型號 `denso-vs068` 或 spec 物件、負載、`sample(t)` 關節角）：MuJoCo 逆動力學的每軸峰值扭矩對型錄上限、負載質量、手腕力矩與慣量、軌跡連續。**只警告**（超過的列標 `warn`，不擋）；型號不存在才失敗。沒宣告就略過。結果寫入 `review/dynamics-checks.json`（`core/verify/dynamics.mjs`） |
 | `ui` |  | 標準互動測試（`core/tools/ui-check.mjs`）：桌面、手機直向、手機橫向、觸控平板四種尺寸，檢查載入與主控台錯誤、版面不溢出、畫布面積、播放／暫停、上一步／下一步／步驟選單、視角按鈕與選單收合、側欄、標籤在畫布內且（精簡版面）不重疊、點按目標 ≥ 30 px、`?movie`；結果寫入 `review/ui-check.json`，`--shots 資料夾` 另存截圖；`project.json` 的 `ui.skip`／`ui.params` 可設定 |
 | 專案自有 | 依 `checks` | `project.json` 的 `checks.quick`／`checks.full` |
 

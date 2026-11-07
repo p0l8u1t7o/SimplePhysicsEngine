@@ -3,15 +3,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { readLAS, readLASHeader, createPointCloud } from '../las.js';
+import { readLAZ, lazToLas } from '../laz.js';
 import { twd97, createSiteFrame } from '../coords.js';
 
 const dir = new URL('./fixtures/las/', import.meta.url);
 const exp = JSON.parse(readFileSync(new URL('expect.json', dir), 'utf8'));
 
-test('LAS 1.2～1.4 和 laspy 讀回的值相同', () => {
-  for (const c of exp.cases.filter(c => c.file.endsWith('.las'))) {
+test('LAS 1.2～1.4 與 LAZ（laz-perf 解壓）和 laspy 讀回的值相同', async () => {
+  for (const c of exp.cases) {
     const buf = readFileSync(new URL(c.file, dir));
-    const las = readLAS(buf);
+    const las = c.file.endsWith('.laz') ? await readLAZ(buf) : readLAS(buf);
     assert.equal(las.count, c.count, c.file);
     assert.equal(las.header.format, c.format);
     assert.equal(las.header.version, c.version);
@@ -39,10 +40,11 @@ test('抽樣與分類篩選', () => {
   assert.ok(ground.count > 0 && [...ground.classification].every(c => c === 2));
 });
 
-test('LAZ 偵測並說明轉檔方式', () => {
+test('LAZ 偵測；lazToLas 解壓成一般 LAS', async () => {
   const buf = readFileSync(new URL('v14-f7.laz', dir));
   assert.equal(readLASHeader(buf).compressed, true);
-  assert.throws(() => readLAS(buf), /LAZ.*pdal/i);
+  assert.throws(() => readLAS(buf), /LAZ.*pdal/i);                           // readLAS 本身不解壓：要用 laz.js 的 readLAZ
+  assert.equal(readLASHeader(Buffer.from(await lazToLas(buf))).compressed, false);   // 解壓後旗標與 laszip VLR 都清掉
 });
 
 test('createPointCloud：案場座標、分塊、顏色線性化', () => {

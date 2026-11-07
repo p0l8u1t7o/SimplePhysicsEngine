@@ -86,6 +86,95 @@ const view = createRopeView(rope, { color: CABLE.power }); scene.add(view.root);
 
 限制：線和線之間不互相碰撞；不算扭轉；彎曲是「隔一點的距離」近似，不是真的彎曲剛性，彎曲半徑限制要另外檢查。
 
+
+## 布料與粒子流體（`cloth.js`、`fluid.js`、`collide.js`，core 1.20.0）
+
+
+和 `rope.js` 同一套用法：**烘焙一次、`apply(t)` 只取樣**，可以拖、倒著拖；Node 與瀏覽器逐位元相同（`stats.hash`）；不載入 Rapier。
+
+| 檔案 | 內容 |
+|---|---|
+| `collide.js` | 布料與流體共用的碰撞形狀（plane、box＋rot、sphere、直立 cylinder、開口方槽 `tank`、圓桶 `drum`；`pos` 可以是 `t => [x, y, z]`）、連續碰撞、決定性的 `dsin`／`dcos`／`dexp`、`rng`、`fnv` |
+| `cloth.js` | XPBD 布料、薄膜、軟墊：`bakeCloth`、`clothSampler`、`clothStats`、`createClothView` |
+| `fluid.js` | Position-Based Fluids（Macklin & Müller 2013）：`bakeFluid`、`fluidSampler`、`fluidStats`、`createFluidView` |
+
+### 決定性：時間函式裡不要用 `Math.sin`
+
+2026-11-07 實測 Node 26.13（V8 14.6）與 Chrome 157 的 `Math.sin`、`Math.cos`、`Math.exp`、`Math.atan2` 有 3～15% 的輸入差 1 ulp（`pow`、`hypot`、`sqrt` 相同）。烘焙只要用到一次，雜湊就不同。
+
+- 解算器本身只用加減乘除與 `Math.sqrt`；旋轉矩陣（`rot`）改用 `collide.js` 的 `dsin`／`dcos`（fdlibm 多項式，只用四則運算，誤差 < 1e-14）。
+- **站裡寫的 `pos(t)`、`move(t)`、風速函式要用 `dsin`／`dcos`**，不要用 `Math.sin`。
+- 影響現有 core：`rope.js` 註解寫「錨點函式裡的 Math.sin 在 Node 與瀏覽器實測相同」不再成立（範例的 `cable` 只用 `smooth()`，所以檢查還是過）；`physics.js` 的 `quatOf` 也用 `Math.cos`／`sin`（現有 check 會過，代表用到的角度剛好相同）。建議 core 一起改用 `dsin`／`dcos`（rope 的雜湊不變，剛體情境有 `rot` 的可能變）。
+
+### 布料 `bakeCloth(spec)`
+
+```js
+import { bakeCloth, createClothView, clothStats } from '@core/physics/cloth.js';
+import { dsin } from '@core/physics/collide.js';
+const tarp = bakeCloth({ name: '篷布', size: [1800, 1600], segments: [36, 32], origin: [0, 1100, 0], duration: total,
+  pins: [{ corners: true, move: t => [0, -250 * smooth(t / 1.5), 0], until: 2 }],          // 四角吊著往下，2 s 放開
+  wind: { velocity: t => [900 * dsin(t), 0, 0], drag: 1 },
+  colliders: [{ shape: 'plane', y: 0 }, { shape: 'box', size: [1000, 700, 800], pos: [0, 350, 0] }] });
+const view = createClothView(tarp, { color: 0x2f7d5b }); scene.add(view.root);          // apply(t) 裡呼叫 view.apply(t)
+// project.physics 放 tarp（可以和剛體、線材的烘焙放同一個陣列）
+```
+
+| 欄位 | 內容 |
+|---|---|
+| `size: [U, V]`、`segments: [nu, nv]`（20 × 20）、`origin`、`axes`（`'xz'` 水平、`'xy'`／`'zy'` 直立，或 `{ u, v }`） | 布的尺寸、網格、中心、方向；節點 (i, j) 的編號 = j × (nu + 1) + i |
+| `thickness`（3） | 碰撞半厚 mm |
+| `dt`（1/240）、`substeps`（8）、`iterations`（每子步 2）、`hz`（60） | 和線材一樣，**子步比迭代有效**：小布 8 → 16 子步伸長 1.7% → 0.85%，2 → 4 次迭代幾乎不變 |
+| `stretch`（0）、`shear`（0.001）、`bend`（1） | 拉伸、剪切（對角）、彎曲（隔一點）柔度；布 1～10、軟墊 0.01～0.1 |
+| `damping`（1／s）、`friction`（0.5）、`gravity`、`settle`（0 s） | |
+| `pins: [{ node \| nodes \| edge: 'u0'\|'u1'\|'v0'\|'v1' \| corners, pos?, move?, until? }]` | `pos`（單一節點的絕對位置，可為函式）、`move`（整組相對起始位置的位移函式）、`until` 之後放開 |
+| `colliders` | `collide.js` 的形狀；會動的碰撞體（`pos` 是函式）摩擦以碰撞體為參考（被移動的板子帶著走） |
+| `wind: { velocity, drag = 2 }` | 每個節點依面積加權法向受「法向相對風速 × drag」的加速度 |
+
+結果：`{ kind: 'cloth', data（Float32，frames × 節點 × 3）, segments, stats: { nodes, constraints, steps, maxStretch, minY, maxPenetration, hash, ms } }`；`clothStats(b, { region })` 另外給結束時的外框與落在 region 的節點比例。
+
+限制：布和布自己不碰撞（摺疊多層會穿過自己）；碰撞以節點計（細的邊角會從網格之間穿過，`thickness` 要大於物體的尖角）；彎曲是「隔一點的距離」近似；沒有撕裂。
+
+### 流體 `bakeFluid(spec)`
+
+```js
+import { bakeFluid, createFluidView, fluidStats } from '@core/physics/fluid.js';
+const fluid = bakeFluid({ name: '注入方槽', spacing: 10, duration: 5, max: 4000,
+  emitters: [{ type: 'nozzle', pos: [0, 500, 0], dir: [0, -1, 0], speed: 1500, flow: 40, stop: 3 }],     // 40 L/min 注入 3 s
+  colliders: [{ shape: 'tank', size: [300, 300, 200], wall: 10, pos: [0, 0, 0] }],
+  kill: [{ min: [-1e5, -1e5, -1e5], max: [1e5, -200, 1e5] }], contain: { min: [-150, -1, -100], max: [150, 400, 100] } });
+const view = createFluidView(fluid, { mode: 'spheres' }); scene.add(view.root);
+fluidStats(fluid, t, { region }) // → { count, outside, volumeL, level（體積 ÷ 面積）, surface（95 百分位的 y） }
+```
+
+| 欄位 | 內容 |
+|---|---|
+| `spacing`（10 mm）、`kernel`（2 × spacing） | 一顆粒子 = spacing³ 的液體（10 mm → 1 mL；35 mm → 43 mL，5000 顆約 200 L） |
+| `dt`（1/120）、`substeps`（1）、`iterations`（3）、`hz`（30） | 1/120 s 單步在 1.5～3.5 m/s 的注入下不漏（有連續碰撞）；1/60 s 會穿過 10 mm 的壁 |
+| `max`（5000） | 同時存在的上限，到了就停止注入（`stats.capped`） |
+| `viscosity`（XSPH 0.02）、`vorticity`（0；50～500 mm/s 量級）、`relax`（0.05）、`clamp`（0.2 × spacing）、`friction`（0.1）、`wallDensity`（true） | `clamp` 限制每輪修正量（不然衝擊處會像彈簧一樣把粒子彈出槽外）；`wallDensity` 補上牆後的密度（不然粒子擠向牆、液位矮 20%） |
+| `emitters` | `nozzle`：`pos`、`dir`、`speed`，以及 `radius`／`rate`（顆／s）／`flow`（L/min）其一、`start`、`stop`、`count`；給 `rate`／`flow` 時層距微調，流量剛好符合。`fill`：`min`、`max` 方塊排滿（初始液體） |
+| `colliders`、`kill: [{ min, max }]`、`bounds` | 碰撞、移除區（排水口、掉出畫面）、離開就移除的範圍 |
+| `contain`（選用） | 容器內部；檢查提案會用它算「留在容器內的比例」 |
+
+結果：`{ kind: 'fluid', data, lo, offsets（每格記錄編號 [lo, lo + n) 的位置，中間被移除的填 NaN）, emitted, stats: { particles, alive, peak, killed, capped, steps, avgDensityError, maxDensityError, neighborOverflow, maxPenetration, emitters: [{ radius, perLayer, rate, flowLmin }], hash, ms } }`。
+
+演算法：每步 預測 → 密集格子（格邊 = 核半徑／2，同一列五格在排序後連續）找鄰居、範圍太大時退回空間雜湊（都依粒子編號，順序固定）→ 3 輪單向密度約束（只在壓縮時推開，Poly6 密度、Spiky 梯度）＋牆面密度＋修正上限＋碰撞（上一步所在的一側推出、薄板連續碰撞）→ 速度 → XSPH →（選用）渦度補償。
+
+烘焙時間（本機 24 執行緒，**背景有完整檢查在跑**，單執行緒）：
+
+| 情境 | 粒子 | 長度 | 烘焙 |
+|---|---|---|---|
+| 注入方槽（範例 `fill`） | 2000 | 5 s | 1.7 s（Chrome 1.8 s） |
+| 注入方槽 60 L/min × 4 s | 4000 | 6 s | 3.9 s |
+| 注入方槽 60 L/min × 5 s | 5000 | 10 s | 10.2 s |
+| 小情境（斜噴嘴＋初始液塊＋渦度） | 約 800 | 1.5 s | 0.23 s |
+
+大約 2 µs／粒子・步；靜止的粒子一樣要算（沒有休眠）。網頁上超過 3 s 的烘焙建議放 Web Worker（決定性不受影響）。
+
+精度（範例 `fill`）：平均壓縮誤差 1.0%；表面（95 百分位粒子中心＋半顆）比「體積 ÷ 面積」矮約 7%（自由表面的粒子缺鄰居、離散）。牆面密度關掉時矮 20%。
+
+限制：這是畫面用的粒子，不是 CFD（流量、壓降用 1D 管網水力；流場用外部 OpenFOAM）；沒有表面張力（單向約束、不黏）；粒子太少時液面是一顆顆的（螢幕空間流體的外觀不在範圍內）；圓桶、圓柱沒有連續碰撞（方塊有）；牆面密度把碰撞面當局部平面，內角會重複計算一點（往內推得稍多）。
+
 ## 限制
 
 - 遊戲物理引擎的接觸模型：堆疊與撞擊時有幾 mm 的穿透；細長或很薄的物體要注意（固定物不要比 10 mm 薄）。

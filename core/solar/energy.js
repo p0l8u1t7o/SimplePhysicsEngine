@@ -24,20 +24,21 @@ const lines = text => text.replace(/^﻿/, '').split(/\r?\n/).filter(l => l.trim
 /**
  * EnergyPlus 天候檔（EPW）。時間標記是「該小時結束」（hour 1 = 00:00～01:00 的平均）。
  * 缺值（GHI/DNI/DHI ≥ 9999、氣溫 ≥ 99.9、風速 ≥ 999、反照率 ≥ 999）轉成 NaN。
- * @returns {{ meta: { name, country, source, wmo, lat, lon, tz, elevation }, n, year, month, day, hour, minute, ghi, dni, dhi, tempAir, windSpeed, pressure, albedo }}
+ * @returns {{ meta: { name, country, source, wmo, lat, lon, tz, elevation }, n, year, month, day, hour, minute, ghi, dni, dhi, tempAir, windSpeed, pressure, albedo, snowDepth（cm） }}
  */
 export function readEPW(text) {
   const L = lines(text), h = splitCSV(L[0]);
   if (h[0].trim().toUpperCase() !== 'LOCATION') throw new Error('不是 EPW 檔（第一列應為 LOCATION）');
   const meta = { name: h[1], state: h[2], country: h[3], source: h[4], wmo: h[5], lat: +h[6], lon: +h[7], tz: +h[8], elevation: +h[9] };
   const data = L.slice(8).map(splitCSV).filter(r => r.length >= 22);
-  const w = emptyWeather(data.length); w.meta = meta;
+  const w = emptyWeather(data.length); w.meta = meta; w.snowDepth = new Float64Array(data.length);
   const nan = (v, bad) => (v >= bad ? NaN : v);
   data.forEach((r, i) => {
     w.year[i] = +r[0]; w.month[i] = +r[1]; w.day[i] = +r[2]; w.hour[i] = +r[3]; w.minute[i] = +r[4] === 60 ? 0 : +r[4];
     w.tempAir[i] = nan(+r[6], 99.9); w.pressure[i] = nan(+r[9], 999999);
     w.ghi[i] = nan(+r[13], 9999); w.dni[i] = nan(+r[14], 9999); w.dhi[i] = nan(+r[15], 9999);
     w.windSpeed[i] = nan(+r[21], 999); w.albedo[i] = r.length > 32 ? nan(+r[32], 999) : NaN;
+    w.snowDepth[i] = r.length > 30 ? nan(+r[30], 999) : NaN;   // 第 30 欄：雪深 cm（weather/snow.js 的 snowLossSeries 用）
   });
   w.intervalHours = 1; w.label = 'end';
   return w;
@@ -192,10 +193,12 @@ export function prepareSolar(weather, site, { year = null, shiftHours = null, te
  *   shading（可省略）：{ strings, blocksPerString, model: 'bypass' | 'linear',
  *     evaluate(ctx) → { blocks: Float64Array(strings × blocksPerString)（直達可用比例）, sky?: number（天空視角因子） } }
  *     ctx = { i, zenith, azimuth, sun（場景向量）, orientation（tilt、surfaceAzimuth、theta…） }；可配合 shading.js 的 createSunBinCache。
+ *   hourlyLoss（可省略）：逐筆的額外直流損失比例（0～1；Float64Array 或 (i, { poa, tCell }) => 比例），例如 weather/snow.js 的 snowLossSeries；
+ *     有給時 annual 多一個 hourlyLossKWh。沒給時結果和之前逐位元相同。
  *   keepHourly：true 時回傳逐時陣列
  * @returns {{ annual, monthly, hourly? }}
  */
-export function simulate({ weather, site, system, solar = null, shading = null, keepHourly = false }) {
+export function simulate({ weather, site, system, solar = null, shading = null, hourlyLoss = null, keepHourly = false }) {
   const S = solar || prepareSolar(weather, site);
   const n = S.n, dt = S.intervalHours;
   const sys = { gamma: -0.0037, albedo: 0.2, transposition: 'perez', iam: { model: 'physical' }, temperature: { model: 'sapm', ...SAPM_TEMP.open_rack_glass_glass }, losses: 0, decompose: 'erbs', ...system };
@@ -207,6 +210,8 @@ export function simulate({ weather, site, system, solar = null, shading = null, 
   const H = keepHourly ? { poa: new Float64Array(n), effective: new Float64Array(n), tCell: new Float64Array(n), dc: new Float64Array(n), ac: new Float64Array(n), theta: new Float64Array(n), aoi: new Float64Array(n), shadeLoss: new Float64Array(n) } : null;
   const A = { rearKWhm2: 0, poaKWhm2: 0, effectiveKWhm2: 0, ghiKWhm2: 0, dcKWh: 0, dcUnshadedKWh: 0, acKWh: 0, clipKWh: 0, shadeKWh: 0, hoursProducing: 0 };
   const M = Array.from({ length: 12 }, () => ({ poaKWhm2: 0, dcKWh: 0, acKWh: 0 }));
+  const hl = typeof hourlyLoss === 'function' ? hourlyLoss : hourlyLoss ? (i => hourlyLoss[i] || 0) : null;
+  if (hl) A.hourlyLossKWh = 0;
   const sun = [0, 0, 0], scratch = shading ? new Float64Array(2 * shading.blocksPerString) : null;
   for (let i = 0; i < n; i++) {
     const z = S.zenith[i], az = S.azimuth[i];
@@ -245,11 +250,13 @@ export function simulate({ weather, site, system, solar = null, shading = null, 
         const k = 1 - lossPct / 100;
         dc = pvwattsDC(eff, tCell, sys.pdc0, sys.gamma) * k;
         const dcU = pvwattsDC(effUnshaded, tCell, sys.pdc0, sys.gamma) * k;
+        A.dcUnshadedKWh += dcU * dt / 1000;
+        A.shadeKWh += (dcU - dc) * dt / 1000;
+        // 額外損失（積雪等）在遮陰之後、變流器之前扣，不算進 shadeKWh
+        if (hl) { const f = Math.min(1, Math.max(0, hl(i, { poa: poaG, tCell }) || 0)); if (f > 0) { A.hourlyLossKWh += dc * f * dt / 1000; dc *= 1 - f; } }
         ac = pvwattsInverter(dc, inv.pdc0, inv.etaNom, inv.etaRef);
         const acNoClip = pvwattsInverterNoClip(dc, inv.pdc0, inv.etaNom, inv.etaRef);
         A.clipKWh += (acNoClip - ac) * dt / 1000;
-        A.dcUnshadedKWh += dcU * dt / 1000;
-        A.shadeKWh += (dcU - dc) * dt / 1000;
         if (ac > 0) A.hoursProducing += dt;
       }
     }

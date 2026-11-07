@@ -35,3 +35,6 @@ studio/ui/dist/
 
 # vs3d 本庫模式的 app 狀態（提問、回答、每輪紀錄、代理記錄）只留本機
 /project-site/*/.studio/
+
+# Playwright MCP 的頁面快照（瀏覽器檢查時產生）
+/.playwright-mcp/

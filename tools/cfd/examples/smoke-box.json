@@ -1,0 +1,13 @@
+{
+  "name": "smoke-box",
+  "description": "第一次在新環境實跑用的最小案例：一個 2 m 方塊、一片傾斜板，粗網格、200 步、2 核，幾分鐘內跑完，用來確認字典、函數物件與匯入流程。",
+  "flow": { "direction": [1, 0, 0], "profile": "abl", "Uref": 10, "Zref": 10000, "z0": 30 },
+  "domain": { "upstream": "3H", "downstream": "8H", "lateral": "3H", "height": "4H" },
+  "mesh": { "baseCell": 500, "nCellsBetweenLevels": 2, "wake": { "level": 1 } },
+  "obstacles": [
+    { "name": "cube", "type": "box", "center": [0, 1000, 0], "size": [2000, 2000, 2000], "level": [2, 2], "report": true },
+    { "name": "panel", "type": "plate", "center": [6000, 1200, 0], "size": [3000, 2000], "thickness": 150, "tiltDeg": 25, "yawDeg": 90, "level": [3, 3] }
+  ],
+  "solver": { "iterations": 200, "writeInterval": 100, "nProcs": 2 },
+  "sampling": { "streamlines": { "nSeeds": 12 } }
+}

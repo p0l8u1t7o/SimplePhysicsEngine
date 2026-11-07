@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><title>core/solar 決定性</title><link rel="icon" href="../../favicon.svg"></head>
+<body><pre id="out">計算中…</pre>
+<script type="module">
+// 和 browser-check.mjs 的 Node 端跑同一份工作量（workload.mjs），雜湊必須逐位元相同
+import { workload } from './workload.mjs';
+const gz = await (await fetch('./fixtures/synthetic-tainan.epw.gz')).arrayBuffer();
+const epw = await new Response(new Blob([gz]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+const h = workload(epw);
+window.solarHash = h;
+document.getElementById('out').textContent = JSON.stringify(h, null, 1);
+</script></body></html>

@@ -8,7 +8,8 @@
 //     "full":  ["tools/verify-detail.mjs", …]             // 只在完整檢查跑
 //   }
 // core 本身（不指定專案時才跑）：names（core、tools、scripts、studio 與根目錄文件）、models（core/models 每個模型走完狀態範圍的干涉與重合面，快速）、examples（core/examples/segment2 第二段範例的電控與配線檢查，快速）、
-//   physics（core/examples/physics 四個情境：Node 與瀏覽器烘焙逐位元相同、分析數字合理，快速）、
+//   physics（core/examples/physics 七個情境：Node 與瀏覽器烘焙逐位元相同、分析數字合理，快速）、dynamics（MuJoCo 手臂動力學）、
+//   solar（core/solar 的 SPA、追日、遮陰、全年發電在 Node 與無頭 Chrome 逐位元相同，快速）、engineering（structure、geo、solar、physics、weather、tools/cfd 的 node:test）、
 //   twin（core/twin 的 Twin Protocol 引擎測試：分框、握手、鎖步、cmd、故障、決定性、Automation-Schema 版本檢查，快速）。
 // core 內建檢查（每個專案都跑；後三項需要 web/js/project.js）：
 //   imports      靜態 import 路徑（快速）
@@ -51,7 +52,9 @@ const BUILTIN = {
   scene: { quick: true, needsProject: true, run: viaRunner('scene') },     // 干涉與閃爍也擋部署
   electrical: { quick: true, needsProject: true, run: viaRunner('electrical') },
   physics: { quick: true, needsProject: true, run: viaRunner('physics') },
-  bom: { quick: true, needsProject: true, run: viaRunner('bom') },      // 場景 ↔ 平台 BOM（只警告；沒有 BOM 資料就略過）      // core/physics 的烘焙（沒用就略過）
+  bom: { quick: true, needsProject: true, run: viaRunner('bom') },
+  solar: { quick: true, needsProject: true, run: viaRunner('solar') },
+  dynamics: { quick: true, needsProject: true, run: viaRunner('dynamics') },   // verify.dynamics：手臂峰值扭矩、負載力矩（只警告；沒宣告就略過）     // verify.solar：冬至列間遮陰與對照組（沒宣告就略過）      // 場景 ↔ 平台 BOM（只警告；沒有 BOM 資料就略過）      // core/physics 的烘焙（沒用就略過）
   ui: { quick: false, run: async p => {
     const r = await runScript(p, join(CORE, 'tools', 'ui-check.mjs'), [p.id, '--port', process.env.UI_PORT || '8771'], { echo: false }), lines = r.out.trim().split('\n');
     const rows = lines.filter(l => /^[✓✗] /.test(l));
@@ -69,7 +72,7 @@ if (!argv.some(a => !a.startsWith('--')) && (!only || only.includes('models'))) 
   console.log(`${r.code === 0 ? '✓' : '✗'} core · models  ${results.at(-1).note}  (${sec.toFixed(1)} s)`);
   if (r.code) for (const l of lines.filter(l => !l.startsWith('✓'))) console.log('     ' + l);
 }
-// core 本身：剛體動力學範例（core/examples/physics）四個情境決定性（Node 與瀏覽器相同）、分析數字合理
+// core 本身：物理範例（core/examples/physics）七個情境決定性（Node 與瀏覽器相同）、分析數字合理
 if (!argv.some(a => !a.startsWith('--')) && (!only || only.includes('physics'))) {
   const t0 = Date.now(), r = await runScript({ dir: CORE }, join(CORE, 'examples', 'physics', 'check.mjs'), [], { echo: false });
   const lines = r.out.trim().split('\n'), sec = (Date.now() - t0) / 1000;
@@ -85,9 +88,17 @@ if (!argv.some(a => !a.startsWith('--')) && (!only || only.includes('dynamics'))
   console.log(`${r.code === 0 ? '✓' : '✗'} core · dynamics  ${results.at(-1).note}  (${sec.toFixed(1)} s)`);
   if (r.code) for (const l of lines.slice(1)) console.log('     ' + l);
 }
-// core 本身：案場工程模組的單元測試（core/structure 鋼構、core/piping 管路與水力、core/geo 座標／地形／點雲／現況比對、core/solar 日照）
+// core 本身：日照（core/solar）跨引擎決定性：SPA、追日、遮陰、全年發電在 Node 與無頭 Chrome 逐位元相同
+if (!argv.some(a => !a.startsWith('--')) && (!only || only.includes('solar'))) {
+  const t0 = Date.now(), r = await runScript({ dir: CORE }, join(CORE, 'solar', 'test', 'browser-check.mjs'), [], { echo: false });
+  const lines = r.out.trim().split('\n'), sec = (Date.now() - t0) / 1000;
+  results.push({ project: 'core', check: 'solar', ok: r.code === 0, note: lines.find(l => /^[✓✗]/.test(l))?.slice(2) || `exit ${r.code}`, seconds: +sec.toFixed(1) });
+  console.log(`${r.code === 0 ? '✓' : '✗'} core · solar  ${results.at(-1).note}  (${sec.toFixed(1)} s)`);
+  if (r.code) for (const l of lines.slice(1)) console.log('     ' + l);
+}
+// core 本身：案場工程模組的單元測試（core/structure 鋼構、core/piping 管路與水力、core/geo 座標／地形／點雲／現況比對、core/solar 日照、core/physics 的布料／流體與 core/weather 天候）
 if (!argv.some(a => !a.startsWith('--')) && (!only || only.includes('engineering'))) {
-  const files = ['structure', 'geo', 'solar'].flatMap(m => { const d = join(CORE, m, 'test'); return existsSync(d) ? readdirSync(d).filter(f => f.endsWith('.test.mjs')).sort().map(f => join(d, f)) : []; });
+  const files = [...['structure', 'geo', 'solar', 'physics'].map(m => join(CORE, m, 'test')), join(REPO, 'tools', 'cfd', 'test')].flatMap(d => { return existsSync(d) ? readdirSync(d).filter(f => f.endsWith('.test.mjs')).sort().map(f => join(d, f)) : []; });
   const t0 = Date.now(), r = await runScript({ dir: CORE }, '--test', files, { echo: false });
   const sec = (Date.now() - t0) / 1000, num = k => +(new RegExp(`^ℹ ${k} (\\d+)`, 'm').exec(r.out)?.[1] ?? NaN);
   results.push({ project: 'core', check: 'engineering', ok: r.code === 0 && num('fail') === 0, note: `${num('pass')}/${num('tests')} 項（${files.length} 個測試檔）`, seconds: +sec.toFixed(1) });

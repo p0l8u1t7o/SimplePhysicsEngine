@@ -9,6 +9,7 @@
   "rows": [
     {
       "name": "分流帶尾端與收料箱",
+      "kind": "rigid",
       "bodies": 12,
       "steps": 13943,
       "rest": 6.475,
