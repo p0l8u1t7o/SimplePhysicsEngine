@@ -69,3 +69,17 @@ test('檢查提案：cloth 與 fluid 都能重烘比雜湊，漏出容器會擋'
   const r = await verifyPhysics({ physics: [bakeFluid(bad)] });
   assert.ok(!r.ok && r.failures.some(f => f.includes('留在容器內')), r.failures.join('；'));
 });
+
+test('噴嘴截面：斜噴嘴的粒子分布在半徑內、最外圈貼近半徑（截面基底有正規化）', () => {
+  const R = 40, d = [1, 1, 0], dl = Math.SQRT2, pos = [0, 0, 0];
+  const b = bakeFluid({ spacing: 10, duration: 1 / 60, dt: 1 / 120, hz: 120, gravity: 0, iterations: 0, emitters: [{ type: 'nozzle', pos, dir: d, speed: 1800, radius: R }] });   // 不解密度約束：只看噴出來的截面
+  const f = fluidSampler(b)(b.duration);
+  assert.ok(f.count > 10, `第一格就有粒子：${f.count}`);
+  let far = 0;
+  for (let k = 0; k < f.count; k++) {
+    const x = f.positions[3 * k] - pos[0], y = f.positions[3 * k + 1] - pos[1], z = f.positions[3 * k + 2] - pos[2];
+    const along = (x * d[0] + y * d[1] + z * d[2]) / dl, r2 = x * x + y * y + z * z - along * along;
+    far = Math.max(far, Math.sqrt(Math.max(0, r2)));
+  }
+  assert.ok(Math.abs(far - R) < 0.5, `離軸最遠 ${far.toFixed(2)} mm，應約 ${R}（截面基底沒正規化時斜噴嘴只有 0.707 倍）`);
+});

@@ -26,7 +26,7 @@ const PI = Math.PI;
 function discLattice(dir, radius, s) {
   const l = Math.sqrt(dir[0] ** 2 + dir[1] ** 2 + dir[2] ** 2), d = dir.map(x => x / l);
   const a = Math.abs(d[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0];
-  let u = [d[1] * a[2] - d[2] * a[1], d[2] * a[0] - d[0] * a[2], d[0] * a[1] - d[1] * a[0]]; const ul = Math.hypot(...u); u = u.map(x => x / ul);
+  let u = [d[1] * a[2] - d[2] * a[1], d[2] * a[0] - d[0] * a[2], d[0] * a[1] - d[1] * a[0]]; const ul = Math.sqrt(u[0] * u[0] + u[1] * u[1] + u[2] * u[2]); u = u.map(x => x / ul);   // 不用 Math.hypot（Node 與 Chrome 在部分輸入差 1 ulp）
   const w = [d[1] * u[2] - d[2] * u[1], d[2] * u[0] - d[0] * u[2], d[0] * u[1] - d[1] * u[0]];
   const pts = [], n = Math.ceil(radius / s);
   for (let i = -n; i <= n; i++) for (let j = -n; j <= n; j++) {
