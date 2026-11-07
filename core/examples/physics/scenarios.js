@@ -19,6 +19,14 @@ const PARTS = [
 // 平滑的位移（0→1，加減速 S 曲線）
 const smooth = u => u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u);
 
+// 線材（rope.js，XPBD）：一端固定在電盤頂，一端跟著滑台來回，中間跨過擋塊。length 是線長（mm）
+export function cable(length = 1800) {
+  const slide = t => 300 + 900 * smooth(((t % 4) < 2 ? t % 4 : 4 - t % 4) / 2);      // 滑台 300 → 1200 → 300 mm，4 s 一個來回
+  return { name: '滑台電纜', length, segments: 30, radius: 6, duration: 8,
+    anchors: [{ at: 0, pos: [0, 1200, 0] }, { at: 1, pos: t => [slide(t), 900, 0] }],
+    colliders: [{ shape: 'plane', y: 0 }, { shape: 'box', size: [200, 400, 300], pos: [500, 200, 0] }] };
+}
+
 // 夾取：force 是每根手指的夾持力（N）
 export function grip(force = 20) {
   const lift = t => smooth((t - 1.0) / 0.5) * 120, move = t => smooth((t - 1.7) / 0.6) * 500;
@@ -73,6 +81,16 @@ export const SCENARIOS = {
     analyze(b) {
       const s = slip(b, '工件-1', '夾爪', { from: 0.9, to: 3.2 });
       return [{ label: '工件在夾爪裡的最大位移', value: s ? `${s.max.toFixed(2)} mm` : '—' }, { label: '移動結束時', value: s ? `${s.final.toFixed(2)} mm` : '—' }];
+    },
+  },
+  cable: {
+    kind: 'rope',
+    title: '線材下垂與擺動', note: '1.8 m 的電纜（XPBD，core/physics/rope.js）一端固定在電盤頂、一端接在滑台上來回 900 mm，中間垂下並跨過擋塊、不穿過地面；統計最大伸長率（線長夠不夠）與下垂量。線長改成 1.1 m 時，滑台走到最遠會把線拉長 13%，檢查會擋。',
+    spec: cable(1800),
+    view: [[600, 1100, 2200], [600, 600, 0]],
+    analyze(b) {
+      return [{ label: '最大伸長率', value: `${(b.stats.maxStretch * 100).toFixed(2)}%` }, { label: '最低點', value: `${b.stats.minY.toFixed(0)} mm` },
+        { label: '節點', value: `${b.nodes} 個` }];
     },
   },
 };

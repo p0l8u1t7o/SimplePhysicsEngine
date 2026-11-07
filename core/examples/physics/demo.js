@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { createStage, exposeSim } from '@core/ui/stage.js';
 import { bake, createPhysicsView, quatOf, sampler } from '@core/physics/physics.js';
+import { bakeRope, createRopeView } from '@core/physics/rope.js';
 import { SCENARIOS } from './scenarios.js';
 
 const $ = id => document.getElementById(id);
@@ -27,16 +28,18 @@ async function load(k) {
   for (const st of s.spec.statics || []) group.add(boxMesh(st.size, st.id === '地面' ? floorMat : fixedMat, st.pos, st.rot));
   for (const c of s.spec.conveyors || []) group.add(boxMesh(c.size, beltMat, c.pos, c.rot));
   const t0 = performance.now();
-  baked = await bake(s.spec);
+  // 線材情境（rope.js）：擋塊與地面照 colliders 畫，管子用 createRopeView
+  if (s.kind === 'rope') for (const c of s.spec.colliders || []) if (c.shape === 'box') group.add(boxMesh(c.size, fixedMat, c.pos, c.rot));
+  baked = s.kind === 'rope' ? bakeRope(s.spec) : await bake(s.spec);
   const ms = performance.now() - t0;
-  view = createPhysicsView(baked); group.add(view.root);
+  view = s.kind === 'rope' ? createRopeView(baked, { color: 0xe89139 }) : createPhysicsView(baked); group.add(view.root);
   // 治具與夾爪手指：照烘焙的軌跡畫
-  kin = baked.kinematics.filter(x => x.size).map(x => ({ x, m: group.add(boxMesh(x.size, gripMat)) && group.children.at(-1) }));
+  kin = (baked.kinematics || []).filter(x => x.size).map(x => ({ x, m: group.add(boxMesh(x.size, gripMat)) && group.children.at(-1) }));
   const at = sampler(baked);
-  kin.apply = t => { const now = new Map(at(t).map(o => [o.id, o])); for (const { x, m } of kin) { const o = now.get(x.id); m.position.set(...o.pos); m.quaternion.set(...o.quat); } };
+  kin.apply = s.kind === 'rope' ? () => {} : t => { const now = new Map(at(t).map(o => [o.id, o])); for (const { x, m } of kin) { const o = now.get(x.id); m.position.set(...o.pos); m.quaternion.set(...o.quat); } };
   $('t').max = baked.duration;
   $('stats').innerHTML = s.analyze(baked).map(r => `<li><span>${r.label}</span><b>${r.value}</b></li>`).join('');
-  $('meta').textContent = `${baked.stats.bodies} 個物體、${baked.stats.steps} 步（1/${Math.round(1 / baked.dt)} s），烘焙 ${Math.round(ms)} ms；靜止接觸最大穿透 ${baked.stats.maxPenetration} mm；雜湊 ${baked.stats.hash}`;
+  $('meta').textContent = s.kind === 'rope' ? `線材 ${baked.nodes} 個節點、${baked.stats.steps} 步（1/${Math.round(1 / baked.dt)} s），烘焙 ${Math.round(ms)} ms；最大伸長 ${(baked.stats.maxStretch * 100).toFixed(2)}%；雜湊 ${baked.stats.hash}` : `${baked.stats.bodies} 個物體、${baked.stats.steps} 步（1/${Math.round(1 / baked.dt)} s），烘焙 ${Math.round(ms)} ms；靜止接觸最大穿透 ${baked.stats.maxPenetration} mm；雜湊 ${baked.stats.hash}`;
   stage.goTo(...s.view, true);
   seek(baked.duration * (k === 'grip' ? 0.6 : 0.5));
 }
@@ -57,7 +60,7 @@ exposeSim({
   get total() { return baked?.duration ?? 0; }, seekTo: t => seek(t), views: ['iso'], setView: () => stage.goTo(...SCENARIOS[key].view, true),
   get ready() { return !!baked; }, play: () => { if (!playing) $('play').click(); }, pause: () => { if (playing) $('play').click(); }, get stats() { return baked?.stats; },
   load: k => load(k),
-  // 四個情境都在瀏覽器烘焙一次（檢查用）：{ 情境: 雜湊 }
-  async bakeAll() { const out = {}; for (const [k, s] of Object.entries(SCENARIOS)) out[k] = (await bake(s.spec)).stats.hash; return out; },
+  // 每個情境都在瀏覽器烘焙一次（檢查用）：{ 情境: 雜湊 }
+  async bakeAll() { const out = {}; for (const [k, s] of Object.entries(SCENARIOS)) out[k] = (s.kind === 'rope' ? bakeRope(s.spec) : await bake(s.spec)).stats.hash; return out; },
 });
 load(key);

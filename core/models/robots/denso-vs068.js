@@ -100,13 +100,15 @@ export function createVS068({ q: pose = READY, ik: ikOptions = {}, dress = true,
   }
 
   // 幾何初始解：給工具安裝座的世界位置 origin 與姿態 quaternion（root 不旋轉、無父層變換），
-  // 回傳肘部上下 × 手腕翻轉共四組關節角（rad），角度折回限位內；供 ik.solve 當初值逐組求解。
+  // 回傳肩部前後 × 肘部上下 × 手腕翻轉共八組關節角（rad；肩部朝前的四組在前），角度折回限位內；供 ik.solve 當初值逐組求解。
   function wrapJ(n, v) { const [lo, hi] = limits[n].map(x => x * D2R); for (const k of [0, 2 * Math.PI, -2 * Math.PI]) if (v + k >= lo && v + k <= hi) return v + k; return THREE.MathUtils.clamp(v, lo, hi); }
   function seeds(origin, quaternion) {
     const dir = new THREE.Vector3(0, 0, 1).applyQuaternion(quaternion);
     const wrist = origin.clone().addScaledVector(dir, -L.wrist2 - L.flange).sub(new THREE.Vector3(root.position.x, root.position.y + L.base + L.shoulderY, root.position.z));
-    const radial = Math.hypot(wrist.x, wrist.z) - L.shoulderX, a = L.upper, b = Math.hypot(L.fore, L.foreOffset), phi = Math.atan2(L.foreOffset, L.fore);
-    const j1 = Math.atan2(-wrist.z, wrist.x), elbow = Math.acos(THREE.MathUtils.clamp((radial * radial + wrist.y * wrist.y - a * a - b * b) / (2 * a * b), -1, 1)), out = [];
+    const a = L.upper, b = Math.hypot(L.fore, L.foreOffset), phi = Math.atan2(L.foreOffset, L.fore), reach = Math.hypot(wrist.x, wrist.z), j1f = Math.atan2(-wrist.z, wrist.x), out = [];
+    // 肩部兩個分支：J1 朝向腕點（原本的四組，排在前面），以及 J1 轉 180°、上臂往後伸（腕點在 J1 軸後方的姿態要靠它）
+    for (const [j1, radial] of [[j1f, reach - L.shoulderX], [j1f + Math.PI, -reach - L.shoulderX]]) {
+    const elbow = Math.acos(THREE.MathUtils.clamp((radial * radial + wrist.y * wrist.y - a * a - b * b) / (2 * a * b), -1, 1));
     for (const beta of [-elbow, elbow]) {
       const j2 = Math.atan2(wrist.y, radial) - Math.atan2(b * Math.sin(beta), a + b * Math.cos(beta)) - Math.PI / 2, j3 = beta + Math.PI / 2 - phi;
       const shoulderQ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), j1).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), j2 + j3));
@@ -117,6 +119,7 @@ export function createVS068({ q: pose = READY, ik: ikOptions = {}, dress = true,
       for (const [w4, w5, w6] of [[j4, j5, j6], [j4 + Math.PI, -j5, j6 + Math.PI]]) {
         const c = { j1, j2, j3, j4: w4, j5: w5, j6: w6 }; for (const n in limits) c[n] = wrapJ(n, c[n]); out.push(c);
       }
+    }
     }
     return out;
   }

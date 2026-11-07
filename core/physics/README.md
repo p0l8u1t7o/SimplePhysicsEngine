@@ -61,6 +61,31 @@ export async function createProject({ scene, headless }) {
 - 全場干涉（`scene`）：祖先有 `userData.physics` 的網格（`createPhysicsView` 的網格都有），和任何零件的穿插門檻放寬到 `restTol`（接觸本來就有幾 mm 的穿透）。
 - core 的 `physics`：`examples/physics/check.mjs` 在 Node 烘焙四個情境兩次逐位元相同、無頭 Chrome 烘焙的雜湊和 Node 相同，並檢查分析數字（物料流有通過、滑槽全部落進料箱、料箱有可抓取的件、夾持力 20 N 夾得住、3 N 會掉）。
 
+## 線材、軟管（`rope.js`，XPBD，core 1.17.0）
+
+不載入 Rapier 的純 JS 位置式動力學：錨點釘在會動的位置（手臂工具端、拖鏈出口、電盤接頭），中間受重力下垂、跟著擺動，被地面、方塊、圓柱、球擋住。一樣是烘焙一次、`apply(t)` 只取樣。
+
+```js
+import { bakeRope, createRopeView, ropeStats } from '@core/physics/rope.js';
+const rope = bakeRope({ name: '手臂電纜', length: 1800, segments: 30, radius: 6, duration: total,
+  anchors: [{ at: 0, pos: [0, 1200, 0] }, { at: 1, pos: t => toolEnd(t) }],            // pos 可以是固定點或 t => [x, y, z]
+  colliders: [{ shape: 'plane', y: 0 }, { shape: 'box', size: [200, 400, 300], pos: [500, 200, 0] }] });
+const view = createRopeView(rope, { color: CABLE.power }); scene.add(view.root);     // apply(t) 裡呼叫 view.apply(t)
+// project.physics 放 rope（可以和剛體的烘焙一起放陣列）：physics 檢查會重烘比雜湊，並檢查線長
+```
+
+| 欄位 | 內容 |
+|---|---|
+| `length`、`segments`（預設 24）、`radius`（預設 5） | 線長 mm、分段數、管半徑（碰撞與顯示） |
+| `dt`（1/240）、`substeps`（8）、`iterations`（每子步 4）、`hz`（60） | 子步比多迭代有效：1/240 s × 40 次迭代仍有 5% 伸長，8 子步 × 4 次只剩 0.5% |
+| `stretch`（0）、`bend`（0.1）、`damping`（2／s）、`friction`（0.4）、`settle`（1.5 s） | 拉伸柔度（0 = 不可伸長）、彎曲柔度（越大越軟；氣管 0.3、粗電纜 0.02 左右）、阻尼、接觸摩擦、t = 0 前先靜置的時間 |
+| `anchors: [{ at: 0～1, pos }]` | 釘住的位置（沿線長的比例；至少兩個） |
+| `colliders` | `plane`（`y`）、`box`（`size`、`pos`、`rot`）、`sphere`（`r`、`pos`）、`cylinder`（`r`、`h`、`pos`，軸沿 y） |
+
+結果的 `stats`：`maxStretch`（整段時間的最大伸長率）、`minY`、`maxPenetration`、`hash`；`ropeStats(rope)` 另外算最大下垂。`physics` 檢查對線材多一項：**最大伸長率超過 `verify.physics.stretchTol`（預設 3%）就失敗**——兩端在某個時刻比線長還遠，實機上線會被扯，要加長線或改走線。範例：`/core/examples/physics/?s=cable`（線長 1.8 m 伸長 0.5%；改成 1.1 m 時 13%，檢查會擋）。
+
+限制：線和線之間不互相碰撞；不算扭轉；彎曲是「隔一點的距離」近似，不是真的彎曲剛性，彎曲半徑限制要另外檢查。
+
 ## 限制
 
 - 遊戲物理引擎的接觸模型：堆疊與撞擊時有幾 mm 的穿透；細長或很薄的物體要注意（固定物不要比 10 mm 薄）。

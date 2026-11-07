@@ -85,14 +85,16 @@ export function createArm({ name = 'robot' } = {}) {
     approach = approach || new THREE.Vector3(1, 0, 0).applyQuaternion(toFlange);
     const ik = createIK({ q, j, tool, apply, limits: LIMITS, ...IK_OPTIONS });
     const wrapJ = (n, v) => { const [lo, hi] = LIMITS[n].map(x => x * D2R); for (const k of [0, 2 * Math.PI, -2 * Math.PI]) if (v + k >= lo && v + k <= hi) return v + k; return THREE.MathUtils.clamp(v, lo, hi); };
-    // 幾何初始解：肘上／肘下 × 手腕翻轉共四組
+    // 幾何初始解：肩部前後 × 肘上／肘下 × 手腕翻轉共八組（肩部朝前的四組在前）
     function seeds(pose) {
       const dir = approach.clone().applyQuaternion(pose.rot);
       const origin = pose.target.clone().sub(tcp.position.clone().applyQuaternion(pose.rot));
       const base = root.quaternion.clone(), unbase = base.clone().invert();   // 底座只繞 Y 旋轉
       const w = origin.addScaledVector(dir, -(K.wrist + K.flange)).sub(root.position).applyQuaternion(unbase).sub(new THREE.Vector3(0, K.j2h, 0));
-      const radial = Math.hypot(w.x, w.z) - K.j1x, a = K.upper, b = Math.hypot(K.fore, K.foreOff), phi = Math.atan2(K.foreOff, K.fore);
-      const j1 = Math.atan2(-w.z, w.x), elbow = Math.acos(THREE.MathUtils.clamp((radial * radial + w.y * w.y - a * a - b * b) / (2 * a * b), -1, 1)), out = [];
+      const a = K.upper, b = Math.hypot(K.fore, K.foreOff), phi = Math.atan2(K.foreOff, K.fore), reach = Math.hypot(w.x, w.z), j1f = Math.atan2(-w.z, w.x), out = [];
+      // 肩部兩個分支：J1 朝向腕點（原本的四組，排在前面），以及 J1 轉 180°、上臂往後伸（腕點在 J1 軸後方的姿態要靠它）
+      for (const [j1, radial] of [[j1f, reach - K.j1x], [j1f + Math.PI, -reach - K.j1x]]) {
+      const elbow = Math.acos(THREE.MathUtils.clamp((radial * radial + w.y * w.y - a * a - b * b) / (2 * a * b), -1, 1));
       for (const beta of [-elbow, elbow]) {
         const j2 = Math.atan2(w.y, radial) - Math.atan2(b * Math.sin(beta), a + b * Math.cos(beta)) - Math.PI / 2, j3 = beta + Math.PI / 2 - phi;
         const shoulder = base.clone().multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), j1)).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), j2 + j3));
@@ -103,6 +105,7 @@ export function createArm({ name = 'robot' } = {}) {
         for (const [w4, w5, w6] of [[j4, j5, j6], [j4 + Math.PI, -j5, j6 + Math.PI]]) {
           const c = { j1, j2, j3, j4: w4, j5: w5, j6: w6 }; for (const n of JOINTS) c[n] = wrapJ(n, c[n]); out.push(c);
         }
+      }
       }
       return out;
     }

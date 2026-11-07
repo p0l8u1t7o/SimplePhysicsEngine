@@ -14,9 +14,9 @@
 | `catalog/` | 模型目錄頁（發布在 Pages） |
 | `anim/` | `sampling.js`：取樣時間（網頁與檢查共用，不依賴 three）；`cycle.js`：節拍分析（各站佔用、稼動率、瓶頸）；`track.js`：時間軌與時間軸（`createTimeline`、`Track`、`smooth`），狀態只由時間決定；`sequence.js`：單一手臂的步驟序列；`arrival.js`：手臂到位閘門（播放時等手臂到位、逾時故障） |
 | `electrical/` | `cable-routing.js`（線材 `cable`、拖鏈 `carrier`、`solidMeshes`）、`electrical-cabinet.js`（電盤櫃、背板、穿板接頭）、`electrical-components.js`（電控元件、`component()` 元件表、`robotController`）、`electrical-inspector.js`／`.css`（電控檢視器） |
-| `examples/` | `segment2/`：第二段（電控、電盤、配線、相機子畫面、視覺疊圖）的完整範例與說明，跟著 core 一起檢查；新專案照 `examples/segment2/README.md` 做。`physics/`：剛體動力學四種用途（物料流、掉落與滑槽、料箱堆積、夾取穩定）的範例頁與檢查 |
+| `examples/` | `segment2/`：第二段（電控、電盤、配線、相機子畫面、視覺疊圖）的完整範例與說明，跟著 core 一起檢查；新專案照 `examples/segment2/README.md` 做。`physics/`：剛體動力學四種用途（物料流、掉落與滑槽、料箱堆積、夾取穩定）與線材的範例頁與檢查 |
 | `optics/` | 機器視覺的光學計算（純函式：L1 視野、倍率、每像素、最小缺陷、景深、運動模糊、行頻、像圈、接口、頻寬、打光；L2 `lighting.js` 明暗場、缺陷對比、遮擋、近似模擬影像）與 3D 配置檢視頁 `optics/view.html`；studio 的光學工作台、`vs3d optics eval`、相機模型共用，說明在 `optics/README.md` |
-| `physics/` | 剛體動力學（Rapier 決定性版）：`physics.js` 預先烘焙軌跡（輸送帶、投料、移除區、治具、吸附、力控制兩指夾爪），`apply(t)` 只取樣、可以倒著拖；`analysis.js` 物料流、靜止時間、落點、料箱堆積與可抓取件、夾取滑移。範例 `/core/examples/physics/`，說明在 `physics/README.md` |
+| `physics/` | 剛體動力學（Rapier 決定性版）：`physics.js` 預先烘焙軌跡（輸送帶、投料、移除區、治具、吸附、力控制兩指夾爪），`apply(t)` 只取樣、可以倒著拖；`analysis.js` 物料流、靜止時間、落點、料箱堆積與可抓取件、夾取滑移。`rope.js` 線材、軟管的 XPBD（錨點跟著時間動、會垂下與擺動，檢查線長夠不夠；1.17.0）。範例 `/core/examples/physics/`，說明在 `physics/README.md` |
 | `twin/` | AutoSequence 數位孿生的 SPE 端（Twin Protocol v2 server）：`session.js`（握手、鎖步、cmd、故障、增量 state，純模組、決定性）、`framing.js`、`binding.js`、`dynamics/`（軸、致動器、機器人）、`sensors.js`、`geometry.js`（photoEye 射線）、`view.js`（網頁孿生觀看）、`automation-schema.lock.json`（要求的 Automation-Schema 版本）；命令列 `tools/twin.mjs`。說明在 `twin/README.md` |
 | `movie/` | 錄影程式（4K 取樣 1080p、絕對時間取樣、追焦運鏡），各專案以 `?movie` 呼叫 |
 | `ui/` | `stage.js`（renderer／場景／相機／燈光／3D 標籤／視角轉場／畫面迴圈／`exposeSim`）、`player.js`（標準播放列）、`viewer-workspace.js`／`.css`（相機視窗、焦點追隨與精簡版面，所有專案共用）、`vision-overlay.js`（視覺疊圖） |
@@ -206,7 +206,7 @@ node core/tools/check.mjs --only scene     # 只跑某項
 | `models`（core） | ✓ | 每個共用模型以預設參數建立，狀態走完全範圍，做干涉與重合面檢查（`core/review/models.json`） |
 | `examples`（core） | ✓ | 第二段範例（`examples/segment2`）的電控與配線檢查 |
 | `twin`（core） | ✓ | `node --test core/twin/test/*.test.mjs`：分框、握手、鎖步順序、增量 state、cmd 與動態、六種故障、感測器、決定性（兩個工作階段、兩個行程逐位元相同）、即時模式、TCP 連線、Automation-Schema 定位與版本檢查，以及 `core/twin` 沒有掛鐘、亂數、`node:*`、Automation-Schema import 的靜態檢查。找不到相鄰的 Automation-Schema 時，需要它的項目略過並寫出略過幾項 |
-| `physics`（core） | ✓ | 剛體動力學範例（`examples/physics`）四個情境在 Node 烘焙兩次相同、無頭 Chrome 的雜湊和 Node 相同、分析數字合理 |
+| `physics`（core） | ✓ | 物理範例（`examples/physics`）剛體四個情境與線材一個情境在 Node 烘焙兩次相同、無頭 Chrome 的雜湊和 Node 相同、分析數字合理 |
 | `structure` | ✓ | 開發架構（不管專案是哪個工具做的）：`project.json` 合法且有 `title`、`summary`、`coreVersion`（語意化版本、不超過 `core/VERSION`）；`AGENTS.md`、`CLAUDE.md`（引用 `@AGENTS.md`）；本庫的站有 `.claude/settings.json` 寫檔關卡；`docs/` 被 git 忽略；`web/` 每個 HTML 連 `../core/favicon.svg`、importmap 的 `@core/` 指到 `../core/`。跑全部專案時另查 `project-site/` 底下沒有 `web/index.html` 的資料夾（`core · structure`）。pre-commit 也會檢查這次提交到的站 |
 | `names` | ✓ | 專案資料夾（不含 `docs/`、`TEMP/`）不得出現用戶名稱；名單只放本機 `.private/client-names.txt`（studio 工作區是 `.studio/client-names.txt`），沒有名單就略過。pre-commit 也會掃要提交的內容 |
 | `imports` | ✓ | 從 index.html 走遍 import 圖，找不到的檔案（部署後才會壞的路徑） |

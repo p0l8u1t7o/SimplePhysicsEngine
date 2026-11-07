@@ -118,8 +118,10 @@ export function createCobottaPro900({ q: q0 = {}, dress = true, ik: ikOptions = 
   function seedJoints(origin, quaternion, { wrapJ1 = v => v, elbowDown = false } = {}) {
     const dir = new THREE.Vector3(0, 0, 1).applyQuaternion(quaternion);
     const wrist = origin.clone().addScaledVector(dir, -L.wrist2 - L.flange).sub(new THREE.Vector3(root.position.x, root.position.y + L.base + L.shoulderY, root.position.z));
-    const radial = Math.hypot(wrist.x, wrist.z) - L.shoulderX, a = L.upper, b = Math.hypot(L.fore, L.foreOffset), phi = Math.atan2(L.foreOffset, L.fore);
-    const j1 = wrapJ1(Math.atan2(-wrist.z, wrist.x)), elbow = Math.acos(THREE.MathUtils.clamp((radial * radial + wrist.y * wrist.y - a * a - b * b) / (2 * a * b), -1, 1)), out = [];
+    const a = L.upper, b = Math.hypot(L.fore, L.foreOffset), phi = Math.atan2(L.foreOffset, L.fore), reach = Math.hypot(wrist.x, wrist.z), j1f = Math.atan2(-wrist.z, wrist.x), out = [];
+    // 肩部兩個分支：J1 朝向腕點（原本的解，排在前面），以及 J1 轉 180°、上臂往後伸（腕點在 J1 軸後方的姿態要靠它）
+    for (const [j1raw, radial] of [[j1f, reach - L.shoulderX], [j1f + Math.PI, -reach - L.shoulderX]]) {
+    const j1 = wrapJ1(j1raw), elbow = Math.acos(THREE.MathUtils.clamp((radial * radial + wrist.y * wrist.y - a * a - b * b) / (2 * a * b), -1, 1));
     for (const beta of elbowDown ? [-elbow, elbow] : [-elbow]) {             // −elbow 為肘部朝上（j3 < 90°）
       const j2 = Math.atan2(wrist.y, radial) - Math.atan2(b * Math.sin(beta), a + b * Math.cos(beta)) - Math.PI / 2, j3 = beta + Math.PI / 2 - phi;
       const shoulderQ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), j1).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), j2 + j3));
@@ -130,6 +132,7 @@ export function createCobottaPro900({ q: q0 = {}, dress = true, ik: ikOptions = 
       for (const [w4, w5, w6] of [[j4, j5, j6], [j4 + Math.PI, -j5, j6 + Math.PI]]) {
         const c = { j1, j2, j3, j4: w4, j5: w5, j6: w6 }; for (const name in limits) c[name] = wrapJoint(name, c[name]); out.push(c);
       }
+    }
     }
     return out;
   }

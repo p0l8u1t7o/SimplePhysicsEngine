@@ -229,6 +229,14 @@ Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs
 
 七站 91 張基準回歸超過門檻 0 張；本站 31 張事件畫面與三場型高低畫質／深度模式逐圖檢視，外觀變更為預期。CCTV／LPR 子畫面及缺檔降級另有瀏覽器檢查。量測、圖檔位置與限制見 `project-site/ParkingEMS/review/cinematic-render.md`。
 
+## 2026-11-07：core 1.17.0 線材 XPBD、手臂肩部翻轉初值
+
+- **新模組 `physics/rope.js`**（使用者拍板，見根目錄 `AGENTS.md`「物理模擬擴充」）：線材、軟管的 XPBD 預先烘焙，錨點可以跟著時間移動，被地面、方塊、圓柱、球擋住；`createRopeView` 用共用的 GPU 緩衝畫圓管。子步比多迭代有效（1/240 s × 40 次迭代仍有 5% 伸長，8 子步 × 4 次只剩 0.5%）。純 JS、不載入 Rapier。
+- `verify/physics.mjs`：`project.physics` 可以放線材（`kind: 'rope'`），重烘比雜湊；多一項 **`stretchTol`（預設 3%）**：最大伸長率超過就失敗，代表線長不夠。只用線材的站不載入 Rapier。
+- 範例 `examples/physics/` 加「線材下垂與擺動」情境（`?s=cable`）；core 的 `physics` 檢查變成五個情境，線材在 Node 與無頭 Chrome 逐位元相同，並驗證線長 1.1 m 時（伸長 13%）會被擋。
+- **手臂幾何初值補上肩部翻轉**：VS-068、VM-60B1、COBOTTA、R-2000iC、M-710iC 的 `seeds`／`seedJoints` 多 4 組 J1 轉 180° 的初值（原本的排在前面）。腕點在 J1 軸後方的姿態以前只用幾何初值會差 12.5 mm，現在 0 mm；隨機 60 個姿態 VM-60B1 由 58 → 60。`reachByIK` 對 COBOTTA 改成一次取兩種手肘。
+- 回歸：用手臂的 8 站＋RecycleSorter 修改前後各做場景傾印，7 站完全相同；PlumbingFixtureInspection 2 個時間點有 ≤ 0.02 mm 的世界矩陣差（翻轉初值收斂到同一個解、數值上差一點被選中），`layout-checks.json` 的 IK 最大誤差 0.01 → 0.04 mm（仍在門檻內，已提交）。14 站 161 張截圖 0 張超過門檻；完整檢查 184/184。Rapier 維持 0.21.0（JS 決定性版最新）。
+
 ## 2026-11-07：core 1.16.2 巡檢修正
 
 主 session 派 4 個代理分區巡檢（studio 後端、studio 介面、core 工具與腳本、core 執行期），回報的項目逐一複核後修正；沒能證實的記在 `PENDING.md`。
@@ -278,6 +286,7 @@ Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs
 
 | 版本 | 日期 | 內容 |
 |---|---|---|
+| 1.17.0 | 2026-11-07 | 線材 XPBD `physics/rope.js`（`bakeRope`、`ropeSampler`、`createRopeView`、`ropeStats`），`physics` 檢查認得線材並檢查線長（`stretchTol`）；範例加線材情境；手臂幾何初值補肩部翻轉（8 組）。PlumbingFixtureInspection 的 IK 誤差 0.01 → 0.04 mm，其他站場景傾印完全相同；161 張截圖 0 張超過門檻；完整檢查 184/184 |
 | 1.16.2 | 2026-11-07 | 巡檢修正：`compare-review.py` 改成精確的欄位名單（以前會漏掉 hash、mdHash、事件時刻的變化）、`serve.mjs` 壞編碼不再當掉、`check-names` 不分大小寫並補掃 `tools/docs`、`check --only` 打錯不再算通過、啟動／停止腳本核對 PID；`reachByIK` 支援 COBOTTA 並在基座旋轉時少誤判、物理 `hz` 不整除時的時間比例、`fmtTime` 的 60 秒、光學檢視頁釋放資源、Z 向輸送線滾筒轉向、物理檢查不寫耗時。14 站 161 張截圖 0 張超過門檻；完整檢查 184/184；102 個 review 用新版 `compare-review.py` 對照舊機提交的結果，不同 0 個（RecycleSorter 的兩個物理 review 只少了 `ms`） |
 | 1.16.1 | 2026-11-07 | Node 端 loader 改用 `module.registerHooks`（Node 26 對 `module.register` 有 DEP0205 棄用警告；舊版 Node 22 自動退回）；`loader.mjs` 的 `resolve` 改成同步。API 與畫面不變，14 站檢查與截圖結果不變 |
 | 1.16.0 | 2026-11-02 | 錄影：`installMovie` 的 `overview`（片頭片尾鏡位）、`export-mp4.mjs --query`（附加網址參數）；只錄某一站時用。其他站畫面與檢查結果不變。首用：StatorHeightMeasurement 品檢站影片 |

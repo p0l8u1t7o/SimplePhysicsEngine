@@ -15,7 +15,7 @@ const fmt = v => Math.round(v * 10) / 10;
 // 手臂的幾何初值：VS-068、VM-60B1 是 seeds(origin, q)；COBOTTA 是 seedJoints(origin, q, { elbowDown })，兩種手肘都取。都回傳陣列
 function seedsOf(arm) {
   if (arm.seeds) return (t, q) => arm.seeds(t, q);
-  if (arm.seedJoints) return (t, q) => [false, true].flatMap(elbowDown => arm.seedJoints(t, q, { elbowDown }) || []);
+  if (arm.seedJoints) return (t, q) => arm.seedJoints(t, q, { elbowDown: true }) || [];
   return () => [];
 }
 
