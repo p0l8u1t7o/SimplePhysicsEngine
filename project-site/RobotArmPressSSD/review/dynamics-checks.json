@@ -1,0 +1,161 @@
+{
+  "variant": "預設",
+  "params": {},
+  "ok": true,
+  "applicable": true,
+  "rows": [
+    {
+      "group": "VS-068",
+      "name": "J1 峰值扭矩",
+      "ok": true,
+      "value": 19.01,
+      "note": "10% of 200 N·m（上限為估計值）@ t=9.82 s；靜止保持最大 0.0 N·m",
+      "warn": false
+    },
+    {
+      "group": "VS-068",
+      "name": "J2 峰值扭矩",
+      "ok": true,
+      "value": 76.27,
+      "note": "27% of 280 N·m（上限為估計值）@ t=8.28 s；靜止保持最大 62.9 N·m",
+      "warn": false
+    },
+    {
+      "group": "VS-068",
+      "name": "J3 峰值扭矩",
+      "ok": true,
+      "value": 24.19,
+      "note": "17% of 140 N·m（上限為估計值）@ t=17.56 s；靜止保持最大 18.6 N·m",
+      "warn": false
+    },
+    {
+      "group": "VS-068",
+      "name": "J4 峰值扭矩",
+      "ok": true,
+      "value": 0.89,
+      "note": "2% of 40 N·m（上限為估計值）@ t=9.82 s；靜止保持最大 0.0 N·m",
+      "warn": false
+    },
+    {
+      "group": "VS-068",
+      "name": "J5 峰值扭矩",
+      "ok": true,
+      "value": 1.1,
+      "note": "3% of 40 N·m（上限為估計值）@ t=4.72 s；靜止保持最大 0.0 N·m",
+      "warn": false
+    },
+    {
+      "group": "VS-068",
+      "name": "J6 峰值扭矩",
+      "ok": true,
+      "value": 0.46,
+      "note": "2% of 24 N·m（上限為估計值）@ t=7.12 s；靜止保持最大 0.0 N·m",
+      "warn": false
+    },
+    {
+      "group": "VS-068",
+      "name": "負載質量",
+      "ok": true,
+      "value": 2.6,
+      "note": "型錄最大可搬重量 7 kg",
+      "warn": false
+    },
+    {
+      "group": "VS-068",
+      "name": "J4 負載力矩",
+      "ok": true,
+      "value": 3.57,
+      "note": "容許 16.6 N·m（型錄，需核對）",
+      "warn": false
+    },
+    {
+      "group": "VS-068",
+      "name": "J4 負載慣量",
+      "ok": true,
+      "value": 0.0514,
+      "note": "容許 0.47 kg·m²（型錄，需核對）",
+      "warn": false
+    },
+    {
+      "group": "VS-068",
+      "name": "J5 負載力矩",
+      "ok": true,
+      "value": 3.57,
+      "note": "容許 16.6 N·m（型錄，需核對）",
+      "warn": false
+    },
+    {
+      "group": "VS-068",
+      "name": "J5 負載慣量",
+      "ok": true,
+      "value": 0.0514,
+      "note": "容許 0.47 kg·m²（型錄，需核對）",
+      "warn": false
+    },
+    {
+      "group": "VS-068",
+      "name": "J6 負載力矩",
+      "ok": true,
+      "value": 0,
+      "note": "容許 9.4 N·m（型錄，需核對）",
+      "warn": false
+    },
+    {
+      "group": "VS-068",
+      "name": "J6 負載慣量",
+      "ok": true,
+      "value": 0.0004,
+      "note": "容許 0.15 kg·m²（型錄，需核對）",
+      "warn": false
+    },
+    {
+      "group": "VS-068",
+      "name": "關節軌跡連續",
+      "ok": true,
+      "value": 0,
+      "note": "取樣 1031 點",
+      "warn": false
+    }
+  ],
+  "arms": [
+    {
+      "name": "VS-068",
+      "samples": 1031,
+      "hash": "f834c8a4",
+      "peak": {
+        "j1": {
+          "tau": 19.01,
+          "t": 9.82,
+          "ratio": 0.095
+        },
+        "j2": {
+          "tau": 76.27,
+          "t": 8.28,
+          "ratio": 0.272
+        },
+        "j3": {
+          "tau": 24.19,
+          "t": 17.56,
+          "ratio": 0.173
+        },
+        "j4": {
+          "tau": 0.89,
+          "t": 9.82,
+          "ratio": 0.022
+        },
+        "j5": {
+          "tau": 1.1,
+          "t": 4.72,
+          "ratio": 0.028
+        },
+        "j6": {
+          "tau": 0.46,
+          "t": 7.12,
+          "ratio": 0.019
+        }
+      }
+    }
+  ],
+  "warnings": [],
+  "failures": []
+}
