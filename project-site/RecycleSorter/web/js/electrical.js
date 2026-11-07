@@ -87,6 +87,11 @@ export function createElectrical(scene, { cab, frame, robot, belt, vision, hmi, 
     dressRoute(g, routeNumber(name), wires.length); wires.push(g); return g;
   };
   const tray = (name, a, b, parent = e, width = 46) => cableTray(parent, name, a, b, { width });
+  // core cableTray（寬 46、高 16）：槽中心有 1 mm 的中央隔板（高 13），兩側是電源與訊號半邊（a→b 沿 +Z 拉時電源在世界 +X、
+  // 沿 −Z 拉時在 −X），兩邊各有一條槽內線（中心離隔板 LANE、半徑 3，槽中心 Y 60 時頂面在 Y 59）。
+  // 站自己的線沿槽走時放在對應半邊、疊在那條槽內線上面（inTray），不穿隔板；轉進／轉出都在槽口外面完成。
+  // 地面線槽的方向因此依「電源側要朝哪邊」決定：C7-A 由北往南拉，電源側在 −X（A 帶支腳那側）。
+  const LANE = 46 / 4, inTray = r => 59.5 + r;
   const DZ = L.divA.z;                                                              // 分流帶中心線
   // 地面主幹 C1：既有電控櫃背後沿機台操作側往下游走的線床，每條線自己一道（BUS，由北到南）。
   // 排法的原則：線都由南邊（電控櫃）進來、往北邊（機台）出去，越早往北轉出去的排越北，轉出去時才不會跨過別條線；
@@ -95,13 +100,15 @@ export function createElectrical(scene, { cab, frame, robot, belt, vision, hmi, 
   const busX = [-2320, 600], busC = (busX[0] + busX[1]) / 2;
   block(e, [busX[1] - busX[0], 2, 116], [busC, 52, -842], MAT.steelDark).name = 'C1 / 地面主幹線床';
   for (let x = busX[0] + 40; x < busX[1]; x += 480) for (const z of [-886, -798]) block(e, [20, 51, 20], [x, 25.5, z], MAT.steelDark);
+  // C7-A／C7-B 停在分流帶支腳前 100（DZ − 100）：馬達線出槽口後還要往支腳轉，轉彎要在槽外完成。
+  // 手臂支路由南往北看電源側在 +X；手臂動力（BUS 北側那道）先轉進槽，所以槽由北往南拉，讓電源側在 −X、兩條線不交叉。
   for (const [name, a, b] of [
-    ['C7-A', [-500, 60, -784], [-500, 60, DZ - 62]], ['C7-B', [560, 60, -784], [560, 60, DZ - 62]],
-    ['手臂支路', [150, 60, -784], [150, 60, -100]], ['氣源支路', [420, 60, -730], [420, 60, 310]],
+    ['C7-A', [-500, 60, DZ - 100], [-500, 60, -784]], ['C7-B', [560, 60, -784], [560, 60, DZ - 100]],
+    ['手臂支路', [150, 60, -100], [150, 60, -784]], ['氣源支路', [420, 60, -730], [420, 60, 310]],
   ]) tray(name, a, b);
   tray('C5 / 編碼器與入料感測', [-1250, 660, -686], [-910, 660, -686], belt, 30);
   // 線槽以腳座落地，未用支架懸在地面上方。
-  for (const [x, z] of [[-500,-765],[560,-765],[150,-765],[420,-712],[-500,DZ-110],[560,DZ-110],[150,-100],[420,310]])
+  for (const [x, z] of [[-500,-765],[560,-765],[150,-765],[420,-712],[-500,DZ-125],[560,DZ-125],[150,-100],[420,310]])
     block(e, [30, 50, 30], [x, 25, z], MAT.steelDark);
   const RZ = spec.backZ - WALL - 14;                                                // 立管：側板外面 14 mm（本地 Z）
   const entries = spec.entries.map((en, i) => {
@@ -140,9 +147,10 @@ export function createElectrical(scene, { cab, frame, robot, belt, vision, hmi, 
   // E3 與手臂纜線：由 RC8A 背面到櫃背的線槽空間（上層底板後緣留 70 mm），下到地面後從櫃背底部出線接到 C1
   const WZ = K.z[1] - WALL - 35, rcX = RK.x + 100;
   fromPanel('E3', 'RC1 動力與交握', [...fromRiser(2,5,BUS.E3),[rcX,60,BUS.E3],[rcX,60,WZ],[rcX,rcY,WZ],[rcX,rcY,rcBack+2]], CABLE.power,5);
+  // 手臂支路線槽：動力走電源側（−X）、編碼器走訊號側（+X），疊在槽內線上；出槽口（Z −100）後才斜回立座的兩道立管（X 150／166）
   for (const [j,z] of [[0,-10],[1,-10]]) {
-    const x = RK.x - 155 + j * 16;
-    route(robot, j ? 'RC1 / 手臂編碼器與煞車' : 'RC1 / 手臂動力', [[x,rcY,rcBack+2],[x,rcY,WZ],[x,60,WZ],[x,60,BUS['RC'+j]],[150+j*16,60,BUS['RC'+j]],[150+j*16,60,z],[150+j*16,1025,z],[150+j*16,1040,-110],[150,1090,-128]], j?CABLE.signal:CABLE.power,j?4:5);
+    const x = RK.x - 155 + j * 16, r = j ? 4 : 5, lane = 150 + (j ? LANE : -LANE), y = inTray(r);
+    route(robot, j ? 'RC1 / 手臂編碼器與煞車' : 'RC1 / 手臂動力', [[x,rcY,rcBack+2],[x,rcY,WZ],[x,60,WZ],[x,60,BUS['RC'+j]],[lane,60,BUS['RC'+j]],[lane,y,-800],[lane,y,-60],[150+j*16,60,z],[150+j*16,1025,z],[150+j*16,1040,-110],[150,1090,-128]], j?CABLE.signal:CABLE.power,r);
   }
   // 原廠基座後方出線口離立座 120 mm：L 形托架承接服務彎，避開底座本體。
   // 托架只伸到出線口正下方（Z −121）：再往外就進到搬運中工件的掃掠範圍（0.1 s 取樣抓到瓶蓋擦過原本伸到 Z −175 的托架）。
@@ -161,11 +169,13 @@ export function createElectrical(scene, { cab, frame, robot, belt, vision, hmi, 
     for (const p of parts) p.traverse(m => { if (m.isMesh) m.name = 'drive motor'; });   // 馬達與吊架不是承載面：全場檢查要查工件有沒有撞到
     // 兩條馬達線出自同一支立管（E2）：B 帶那條一落地就往旁邊岔開 14 mm，各走各的道
     const start = key === 'A' ? fromRiser(1,3,BUS.D2) : [entries[1],...fromRiser(1,4,BUS.D3,-14).slice(1)];
-    const path=[...start,[cross,60,BUS['D'+(key==='A'?2:3)]],[cross,60,zT],[leg,60,zT],[leg,485,zT],[xm,485,zT],[xm,485,DZ-40],[xm,494,DZ-40]];
+    // 沿 C7 線槽的電源側（朝支腳那側）走、疊在槽內線上；槽口在 DZ − 100，出槽口後到 zT 才轉向支腳
+    const lane = cross + side * LANE, y = inTray(5);
+    const path=[...start,[lane,60,BUS['D'+(key==='A'?2:3)]],[lane,y,-800],[lane,y,zT],[leg,60,zT],[leg,485,zT],[xm,485,zT],[xm,485,DZ-40],[xm,494,DZ-40]];
     route(group,`D${key==='A'?2:3} / ${key} 帶馬達`,path,CABLE.power,5);
     if (Math.abs(leg - cross) > 170) tray(`${key} 帶地面分支`,[cross+side*30,60,zT],[leg-side*80,60,zT]);
   }
-  const rear = [-895,60,-730], upper = [-895,1755,-730], front = [-895,1755,670];
+  const rear = [-895,60,-730], upper = [-895,1755,-730];
   // C6 夾在立柱外側；跨到 C8 由原有托架承接。
   const toPost = (i, k, z) => [...fromRiser(i,k,z),[-850,60,z],rear];
   route(frame,'E4 / 雙相機與光源幹線',[...toPost(3,2,BUS.E4),[-895,1698,-730],[-780,1698,-730],[-730,1698,-730]],CABLE.signal,4);
@@ -181,7 +191,10 @@ export function createElectrical(scene, { cab, frame, robot, belt, vision, hmi, 
     route(vision,`LC1 / 條燈 ${lx}`,[[-730,1698,-730],[-730,1698,-570],[lx,1598,-570],[lx-23,1535,-610],[lx-23,1330,-610],[lx,1320,-585]],CABLE.signal,4,
       {backing:{offset:[0,0,-12],feet:[[0,[-780,1680,-730]],[2,[lx,1565,-540]],[4,[lx,1330,-585]]],radius:3}});
   }
-  route(frame,'E5 / 感測與操作面幹線',[...toPost(4,1,BUS.E5),upper,front,[-895,1500,670],[-810,1560,610],[-770,1560,610],[-560,1560,624],[-560,1500,640]],CABLE.signal,4);
+  // E5 到 HMI：在前立柱（Z 640…700）之前離開頂樑承接條，翻過側頂樑（頂面 Y 1775）進到骨架內側，
+  // 由 HMI 安裝板（X ≤ −798）與短懸臂（頂面 Y 1535）的上方、急停線立管（X −770／Z 610）的後方走到外殼背面，
+  // 最後沿 +Z 接進背面的接頭（外殼背面 Z 643）；不穿立柱、安裝板與光幕投光器。
+  route(frame,'E5 / 感測與操作面幹線',[...toPost(4,1,BUS.E5),upper,[-895,1755,560],[-895,1790,590],[-790,1790,590],[-790,1580,590],[-560,1580,600],[-560,1500,600],[-560,1500,640]],CABLE.signal,4);
   route(frame,'IO1 / 三色警示燈',[[-895,1755,-730],[-895,1840,-730],[-877,1840,-730]],CABLE.signal,3);
   route(belt,'HSC1 / 編碼器 A B Z',[rear,[-895,660,-730],[-1250,660,-730],[-1250,700,-757]],CABLE.signal,4);
   route(belt,'IO1 / 入料光電',[[-895,660,-730],[-1160,660,-730],[-1160,780,-730],[-1160,790,-700]],CABLE.signal,3);
@@ -222,7 +235,9 @@ export function createElectrical(scene, { cab, frame, robot, belt, vision, hmi, 
     {backing:{offset:[-12,0,0],feet:[[0,[105,470,280]],[2,[65,1000,280]],[5,[150,1038,-128]]],radius:4}});
   // 氣壓回授要由機台走回 E5 的立管，方向和其他線相反：在線床底下（Y 22）走，不和線床上的線交叉
   const vx = K.x[1] + 44, z4 = entries[4][2];
-  route(robot,'VAC1 / 氣壓回授',[[230,470,304],[240,470,304],[240,60,310],[420,60,310],[420,60,-775],[420,22,-775],[420,22,-842],[vx,22,-842],[vx,22,z4],[vx,50,z4],[K.x[1]+37,58,z4]],CABLE.signal,3);
+  // 沿氣源支路線槽的訊號側（−X）、疊在槽內線上；由槽口外（Z 350）轉進槽、出槽口（Z −730）後才往下
+  const vl = 420 - LANE, vy = inTray(3);
+  route(robot,'VAC1 / 氣壓回授',[[230,470,304],[240,470,304],[240,vy,310],[240,vy,350],[vl,vy,350],[vl,vy,-775],[vl,22,-775],[vl,22,-842],[420,22,-842],[vx,22,-842],[vx,22,z4],[vx,50,z4],[K.x[1]+37,58,z4]],CABLE.signal,3);
   route(tool,'工具 / 真空訊號',[[48,-24,48],[67,-24,70],[67,-100,70],[30,-115,80]],CABLE.signal,2,
     {backing:{offset:[8,0,0],feet:[[0,[60,-30,46]],[2,[40,-80,86]]],radius:2}});
   route(tool,'工具 / 氣管',[[46,-24,52],[67,-24,100],[67,-60,100],[42,-60,86]],CABLE.air,3);
