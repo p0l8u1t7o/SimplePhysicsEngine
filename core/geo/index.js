@@ -10,5 +10,6 @@ export {
 export { rasterSampler, createTerrain, applyOrthophoto } from './terrain.js';
 export { readLASHeader, readLAS, createPointCloud, CLASS_COLORS } from './las.js';
 export { readLAZ, lazToLas, loadLazPerf } from './laz.js';
+export { readOBJ, readMTL, createOBJMesh } from './obj.js';
 export { fitPlane, fitLine, measurePiles, pointsInFootprint, asBuiltChecks, summarize } from './asbuilt.js';
 export { droneCameraPose, fieldOfView, parseDJIXMP, extractXMP, parseDJISRT } from './dronecam.js';

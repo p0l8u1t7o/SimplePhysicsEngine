@@ -238,6 +238,7 @@ Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs
 - 範例頁 `/core/examples/weather/`：大雪後放晴（10° 與 35° 的積雪、滑落、損失、雪載重）、午後雷雨（雨絲、逕流、風載重），板面日射由 `core/solar` 算。
 - **外部 CFD**：OpenFOAM v2412 的案例產生、不需要 OpenFOAM 的字典檢查、PowerShell 執行腳本（Docker／WSL／Linux 偵測）在根目錄 `tools/cfd/`；VTK legacy／forces／probes 讀檔、`.cfdpack` 與 `createFlowView` 在 `core/cfd/`。OpenFOAM 是 GPL，只當外部程式執行。本機沒有 Docker／WSL，還沒實跑過。
 - **LAZ**：`vendor/laz-perf/`（0.0.7，Apache-2.0，wasm 以 base64 內嵌）與 `geo/laz.js`（`readLAZ`、`lazToLas`：解壓成一般 LAS，保留 VLR 座標系與 1.4 的 EVLR，清掉 laszip VLR）；laspy 寫的 LAZ 逐點和參考值相同。
+- **OBJ 實景網格**（`geo/obj.js`）：`readOBJ`／`readMTL`／`createOBJMesh`，float64 解析後減掉案場原點、分塊存 Float32（three 的 OBJLoader 直接存 Float32，北距 254 萬公尺只剩 0.25 m 解析度）。
 - **站層的日照檢查 `solar`**（`verify/solar.mjs`）：`project.verify.solar` 宣告固定式或追日陣列時，檢查冬至列間遮陰、排距 90% 的對照組（追日的回溯仍用設計排距，模擬列距被做短）、真追日的遮陰（資訊）。宣告 `obstacles`（方塊、四邊形、地形函式）時另列「含外部遮擋的最大遮陰」，給 `obstacleTol` 才判定。目前沒有站宣告。
 - **決定性**：`physics/physics.js` 的旋轉、吸附找最近物體、靜止判斷改用 `math/dmath.js`（`Math.cos/sin/hypot` 在 Node 與 Chrome 的部分輸入差 1 ulp）；`physics/collide.js` 自帶的三角函式統一成 dmath。
 - `verify/scene.mjs`：`userData.fluid`、`cloth`、`weather`、`cfd` 的網格不算實體，和 `fx` 一樣不做干涉與重合面檢查。

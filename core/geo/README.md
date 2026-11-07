@@ -10,10 +10,11 @@
 | `geotiff.js` | GeoTIFF 讀取（`readGeoTIFF`、`readElevation`、`readOrthophoto`） |
 | `terrain.js` | DSM／DTM → 分塊地形網格、`heightAt`／`surfaceAt`、正射影像貼圖 `applyOrthophoto` |
 | `las.js` | LAS 1.2～1.4 讀取、`createPointCloud`（RGB／強度／分類／高度著色） |
+| `obj.js` | OBJ 實景網格（ODM、Pix4D、DJI Terra 的貼圖網格）：`readOBJ`（float64 解析、多邊形三角化、負索引、`offset`）、`readMTL`、`createOBJMesh`（減掉案場原點後分塊，每塊頂點相對塊中心存 Float32；`up: 'z'` 投影座標／`'y'` Y 朝上／`local`）。不用 three 的 OBJLoader：它直接把數十萬公尺的座標讀成 Float32，北距 254 萬公尺只剩 0.25 m 的解析度 |
 | `asbuilt.js` | 設計與現況比對：樁頂高程、平面偏移、排直線度、排距、支架傾角與方位（`layoutChecks` 格式） |
 | `dronecam.js` | 空拍相機對位：GPS＋雲台姿態 → three.js 相機；DJI XMP／SRT 解析；視野角 |
 | `index.js` | 全部匯出 |
-| `test/` | `node --test`（30 項）；`tiff-writer.mjs` 產生合成 GeoTIFF，`fixtures/` 是 PROJ 參考座標與 laspy 寫的小 LAS 檔 |
+| `test/` | `node --test`（34 項）；`tiff-writer.mjs` 產生合成 GeoTIFF，`fixtures/` 是 PROJ 參考座標與 laspy 寫的小 LAS／LAZ 檔，OBJ 用合成的 TWD97 網格 |
 
 ## 用法
 
