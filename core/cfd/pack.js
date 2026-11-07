@@ -233,8 +233,14 @@ export function decodePack(input) {
   return resolve(header);
 }
 
+// 讀網址；gzip 壓縮的（.cfdpack.gz，檔頭 1f 8b）自動解壓（DecompressionStream，瀏覽器與 Node 18+ 都有）
 export async function loadPack(url) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`讀不到 ${url}：${res.status}`);
-  return decodePack(await res.arrayBuffer());
+  return decodePack(await gunzipIfNeeded(await res.arrayBuffer()));
+}
+export async function gunzipIfNeeded(buf) {
+  const u8 = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+  if (u8.length < 2 || u8[0] !== 0x1f || u8[1] !== 0x8b) return u8;
+  return new Uint8Array(await new Response(new Blob([u8]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer());
 }

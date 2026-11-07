@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CFD 結果範例</title>
+<script type="importmap">
+{ "imports": {
+    "three": "../../vendor/three.module.js",
+    "three/addons/": "../../vendor/addons/",
+    "@core/": "../../"
+} }
+</script>
+<style>
+:root { --fg: #e6edf3; --panel: #0b1118d9; --line: #2c3a44; --accent: #1f6f8b; }
+html, body { margin: 0; height: 100%; background: #0d1117; color: var(--fg); font: 13px/1.5 system-ui, "Noto Sans TC", "Microsoft JhengHei", sans-serif; overflow: hidden; }
+#c { width: 100%; height: 100%; display: block; }
+#side { position: absolute; left: 10px; top: 10px; display: flex; flex-direction: column; gap: 8px; max-width: min(320px, calc(100vw - 20px)); max-height: calc(100vh - 20px); overflow: auto; }
+.box { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
+.box h2 { font-size: 13px; margin: 0 0 6px; font-weight: 600; }
+.row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 3px 0; }
+select, button { background: #102734; color: var(--fg); border: 1px solid #41616d; border-radius: 4px; padding: 2px 6px; font: inherit; }
+label { cursor: pointer; }
+table { border-collapse: collapse; font-variant-numeric: tabular-nums; width: 100%; }
+td, th { padding: 1px 4px; text-align: right; } td:first-child, th:first-child { text-align: left; }
+#note { color: #ffcf8a; }
+#msg { position: absolute; right: 10px; bottom: 8px; color: #ffb4a8; }
+@media (max-width: 600px) { #side { top: auto; bottom: 10px; max-height: 45%; } }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="side">
+  <div class="box">
+    <h2 id="title">CFD 結果</h2>
+    <div id="note"></div>
+    <div class="row">切面欄位 <select id="field"></select> 色表 <select id="cmap"></select></div>
+    <div class="row">障礙物表面 <select id="pfield"></select></div>
+    <div class="row" id="vis"></div>
+  </div>
+  <div id="legends" class="row" style="flex-direction:column;align-items:stretch"></div>
+  <div class="box"><h2>風力（場景座標，N）</h2><table id="forces"></table></div>
+</div>
+<div id="msg"></div>
+<script type="module" src="./main.js"></script>
+</body>
+</html>

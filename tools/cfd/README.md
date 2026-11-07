@@ -51,9 +51,9 @@ node --import ./core/tools/register.mjs tools/cfd/import-results.mjs TEMP/cfd-ca
 # 檢查既有的案例資料夾（例如手動改過字典）
 node --import ./core/tools/register.mjs tools/cfd/validate-case.mjs TEMP/cfd-cases/pv-row-wind
 
-# 展示頁（假資料，不需要 OpenFOAM）：產生 cases/pv-row-wind-demo/results.cfdpack，再從庫根目錄開靜態伺服器
-node --import ./core/tools/register.mjs tools/cfd/make-demo.mjs
-# 展示頁（假資料）在本機 TEMP/cfd-dev/view/demo.html，還沒搬進 core/examples
+# 範例頁（假資料，不需要 OpenFOAM）：/core/examples/cfd/ 讀 core/examples/cfd/demo.cfdpack.gz；改了產生器或流場格式後重產
+node --import ./core/tools/register.mjs tools/cfd/make-demo.mjs --example
+# 真的結果：/core/examples/cfd/?pack=<results.cfdpack 或 .cfdpack.gz 的網址>（loadPack 會自動解 gzip）
 
 # 測試
 node --import ./core/tools/register.mjs --test tools/cfd/test/
