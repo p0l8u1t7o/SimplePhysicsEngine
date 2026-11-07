@@ -46,7 +46,7 @@ for (const { it } of flow.filter(x => x.it.cls !== 'other')) {
 }
 const mixed = p.throughput.mixed, spacing = p.throughput.pitch;      // 站的拍板數字：混合料流節拍與目標間距（throughput）
 const out = {
-  source: 'core/physics（Rapier 決定性版）', baked: baked.stats, items: flow.length, targets: grasp.length,
+  source: 'core/physics（Rapier 決定性版）', baked: (({ ms, ...s }) => s)(baked.stats),   /* 烘焙耗時每次不同，不寫進 review */ items: flow.length, targets: grasp.length,
   density: +(onBelt / samples / ((b.x[1] - X_IN) / 1000)).toFixed(2), minGap: +minGap.toFixed(0), touchingRatio: +(touching / Math.max(1, pairs)).toFixed(3),
   graspable: grasp.filter(g => g.ok).length, graspableRatio: +(grasp.filter(g => g.ok).length / Math.max(1, grasp.length)).toFixed(3),
   decided: { mixedCT: mixed, spacing: Math.round(spacing), densityAtSpacing: +(1000 / spacing).toFixed(2) }, grasp,

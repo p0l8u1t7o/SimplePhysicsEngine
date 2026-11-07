@@ -229,6 +229,22 @@ Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs
 
 七站 91 張基準回歸超過門檻 0 張；本站 31 張事件畫面與三場型高低畫質／深度模式逐圖檢視，外觀變更為預期。CCTV／LPR 子畫面及缺檔降級另有瀏覽器檢查。量測、圖檔位置與限制見 `project-site/ParkingEMS/review/cinematic-render.md`。
 
+## 2026-11-07：core 1.16.2 巡檢修正
+
+主 session 派 4 個代理分區巡檢（studio 後端、studio 介面、core 工具與腳本、core 執行期），回報的項目逐一複核後修正；沒能證實的記在 `PENDING.md`。
+
+- **`tools/compare-review.py` 原本會漏掉結果的變化**：它用子字串比對 key，`hash`、`mdHash`、事件時刻 `at`／`time`、`cycleSeconds`、`source` 整個子樹都被跳過（twin 的 `mdHash.ok` 翻轉也比不出來）。改成只忽略完整名稱相符的 `seconds`、`generated`、`startedAt`、`finishedAt`、`ms`、`sourceHash`，`at`、`date` 只在頂層忽略。**1.16.1 那一節說「review JSON 結果不同 0 個」是用舊版比的**，這次用新版重比，結果見下方版本表。studio 的 `revertTimestampOnly`（`studio/lib/repo.mjs`）有同樣的問題，一起改。
+- 工具：`serve.mjs` 收到格式錯誤的 `%` 編碼會整個伺服器結束（現在回 404），路徑比對補上分隔符、讀檔錯誤不再讓伺服器結束；`check-names.mjs` 英文名稱改成不分大小寫，`docs/` 只在站的那一層跳過（進版控的 `tools/docs` 以前沒掃到），core 的名單掃描補上 studio/ui 的設定檔；`check.mjs --only` 對不到任何項目時不再回報「0/0 通過」（結束碼 2）；`check-scope.mjs --scope` 接受分支用的 slug（`shutter-assembly`）；`perf-check.mjs` 沒指定專案時印用法；`tools/circuit-drawings/verify.py` 沒有資料時印「略過」並以結束碼 3 結束。
+- 腳本：`setup.ps1` 在 Automation-Schema 版本不符時不再整個中止；`start.ps1` 啟動逾時時顯示原本的錯誤訊息；`start.ps1`／`stop.ps1` 動手前核對 PID 的命令列，PID 檔過期、被別的程式重用時不會誤停。
+- 執行期：
+  - `robot/reach.js` 的 `reachByIK`：COBOTTA 改用它的 `seedJoints`（兩種手肘），每點另外用目前姿態試一次，沒有 `arm.ik` 的手臂（FANUC `createArm`）直接報錯。隨機 40 個可達姿態：COBOTTA 39 → 40，VS-068 基座轉 90°／180° 由 35 → 39／40。
+  - `physics/physics.js`：`hz` 與 `1/dt` 不成整數倍時，以實際取樣率換算時間（以前會變慢動作或快轉，例如 `hz` 100、`dt` 1/240 時自由落體 1 s 高度差 30%）。整除時數字不變。
+  - `ui/player.js` 的 `fmtTime`：整分前 0.05 s 內不再顯示「00:60.0」。
+  - `optics/view.js`：重建時釋放舊的幾何、材質與貼圖（相機模型的共用材質除外）。
+  - `models/conveyor.js`：`axis: 'z'` 時滾筒轉向和輸送方向相反，已修正（目前沒有站同時用 `axis: 'z'` 和 `set()`）。
+  - `verify/physics.mjs`：烘焙耗時 `ms` 不再寫進 review JSON（只用來比預算）；RecycleSorter 的 `tools/physics-flow.mjs` 同步拿掉。
+- 只有 `fmtTime` 有可能改變畫面上的字（剛好在整分前時），各站截圖不受影響。
+
 ## 2026-11-07：core 1.16.1 Node 端 loader 改用 registerHooks
 
 開發機搬到新電腦並升到 Node 26.13.0（Python 3.14）時，Node 26 對 `module.register()` 印出 DEP0205 棄用警告（`run.mjs` 等啟動子程序時加了 `--no-warnings`，平常看不到）。
@@ -262,6 +278,7 @@ Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs
 
 | 版本 | 日期 | 內容 |
 |---|---|---|
+| 1.16.2 | 2026-11-07 | 巡檢修正：`compare-review.py` 改成精確的欄位名單（以前會漏掉 hash、mdHash、事件時刻的變化）、`serve.mjs` 壞編碼不再當掉、`check-names` 不分大小寫並補掃 `tools/docs`、`check --only` 打錯不再算通過、啟動／停止腳本核對 PID；`reachByIK` 支援 COBOTTA 並在基座旋轉時少誤判、物理 `hz` 不整除時的時間比例、`fmtTime` 的 60 秒、光學檢視頁釋放資源、Z 向輸送線滾筒轉向、物理檢查不寫耗時。14 站 161 張截圖 0 張超過門檻；完整檢查 184/184；102 個 review 用新版 `compare-review.py` 對照舊機提交的結果，不同 0 個（RecycleSorter 的兩個物理 review 只少了 `ms`） |
 | 1.16.1 | 2026-11-07 | Node 端 loader 改用 `module.registerHooks`（Node 26 對 `module.register` 有 DEP0205 棄用警告；舊版 Node 22 自動退回）；`loader.mjs` 的 `resolve` 改成同步。API 與畫面不變，14 站檢查與截圖結果不變 |
 | 1.16.0 | 2026-11-02 | 錄影：`installMovie` 的 `overview`（片頭片尾鏡位）、`export-mp4.mjs --query`（附加網址參數）；只錄某一站時用。其他站畫面與檢查結果不變。首用：StatorHeightMeasurement 品檢站影片 |
 | 1.15.0 | 2026-10-22 | 數位孿生 `core/twin/`（Twin Protocol v2 server：握手、鎖步、cmd、故障、感測器、即時干涉、工件持有權、SSE 觀看）與 `tools/twin*.mjs`；Automation-Schema 版本鎖 `twin/automation-schema.lock.json`；新 core 檢查 `twin`、`names`；三色燈 `setLamps`。示範站 MilitaryGradePC。其他站畫面與檢查結果不變 |

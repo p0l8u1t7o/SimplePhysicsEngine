@@ -17,8 +17,17 @@ const line = (pts, color, opacity = 1) => new THREE.Line(new THREE.BufferGeometr
 const rect = (w, d, y, color, opacity = 1) => line([[-w / 2, y, -d / 2], [w / 2, y, -d / 2], [w / 2, y, d / 2], [-w / 2, y, d / 2], [-w / 2, y, -d / 2]], color, opacity);
 const plane = (w, d, y, color, opacity) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshBasicMaterial({ color, transparent: true, opacity, side: THREE.DoubleSide, depthWrite: false })); m.rotation.x = -Math.PI / 2; m.position.y = y; return m; };
 
+// 換設定重建時釋放舊的 GPU 資源（工作台每改一次參數就重建一次，只 remove 不 dispose 會一直累積）。
+// 相機模型用 core 的共用材質，標了 opticsKeep 的子樹不釋放
+function free(o) {
+  if (o.userData?.opticsKeep) return;
+  o.geometry?.dispose();
+  for (const m of [o.material].flat().filter(Boolean)) { m.map?.dispose(); m.dispose(); }
+  for (const c of o.children) free(c);
+}
+
 function build(setup) {
-  if (group) scene.remove(group);
+  if (group) { scene.remove(group); free(group); }
   group = new THREE.Group(); scene.add(group);
   const r = evaluate(setup), d = r.derived, cam = setup.camera || {}, lens = setup.lens || {}, light = setup.light || {}, sc = setup.scene || {};
   $('msg').textContent = r.results.filter(x => x.status === 'fail').map(x => `${x.label}：${x.note || '不符合'}`).join('；');
@@ -30,7 +39,7 @@ function build(setup) {
   // 相機：core 的相機模型（感光元件與焦距照設定；遠心時鏡筒畫長一點）
   const sensorW = d.sensor?.w || 8.8, sensorH = d.sensor?.h || 6.6, tele = d.telecentric;
   const body = cameraModel({ sensorW, sensorH, focal: Math.min(200, Math.max(4, lens.focal || 25)), lensL: tele ? Math.min(200, Math.max(60, wd * .6)) : 45, lensD: tele ? 60 : 34, ring: 0 });      // 光源另外畫在設定的高度
-  body.root.position.y = wd; group.add(body.root);
+  body.root.position.y = wd; Object.assign(body.root.userData, { opticsKeep: true }); group.add(body.root);
   if (fov) {
     const fw = fov[0], fd = fov[1] || Math.max(2, fw * .02);
     group.add(rect(fw, fd, 0.3, C.fov));

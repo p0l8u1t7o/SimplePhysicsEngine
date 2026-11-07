@@ -18,6 +18,15 @@
 - [ ] 快門站的 11 張基準截圖都拍不到三色燈（在外罩頂後方），截圖回歸對它沒有保護；考慮加一個看得到外罩頂的視角。
 - [ ] 回收物分揀：光幕依 ISO 13855 的安全距離 668 mm 在現有框架內不成立，畫面只畫示意；實機防護位置待風險評估（對客戶說明時要提）。
 - [ ] 杯體量測站的電路圖冊（`docs/circuit-diagrams.pdf`，2026-09-29 另一版產生器、版次 1.1）沒有 I/O 清單頁：`tools/circuit-drawings/verify.py`（2026-11-07 起認得這版的 `devices` 欄位）檢查出 18 個 I/O 點的線號只出現在接線圖、沒有出現在清單（其他 5 站的圖冊都有 500 系列 I/O 清單）。元件、軸、圖框、A3 尺寸、文字重疊都通過。要補 I/O 清單頁時，改用 `render.py` 的格式重產，或在該版產生器加一頁。
+- [ ] 手臂的幾何初值少了「肩部翻轉」分支（2026-11-07 巡檢）：VS-068、VM-60B1、COBOTTA、FANUC 的 `seeds` 用 `hypot` 算水平距離、永遠為正，腕點在 J1 軸後方的姿態 J1 會被夾到限位（例：VS-068 `{j1:8,j2:16,j3:134,j4:187,j5:83,j6:35}` 差 12.5 mm 被判不可達）。各站的動畫 IK 也用這些初值，加一組 `j1+π` 的初值可能改變手臂動作，要照「改 core」流程做截圖與場景傾印比對，再決定。
+- [ ] 2026-11-07 巡檢沒能證實、先記著的疑點（core）：
+  - `twin/view.js` 的 `twinUrl` 註解說只給埠號時用目前主機，程式寫死 `127.0.0.1`（從區網其他電腦開頁面會連錯）。
+  - `electrical/cable-routing.js` 的 `clampable`：`parameters.shapes` 是陣列時判斷不到開孔（`verify/scene.mjs` 有用 `[shapes].flat()`）。
+  - `anim/track.js`：`createTimeline().total` 不計軌尾的 `hold(until)`。
+  - `twin/sensors.js`：`axisWindow` 用 `ax.pos` 判斷、沒加追隨誤差，回報的 `pos` 有加；要對照協定原意。
+  - `physics.js` 的 spawner／drops 排序用 `localeCompare`，同時刻的中文 id 在不同語系瀏覽器順序可能不同。
+  - `ui/stage.js`：`stop()` 後立刻 `loop()` 會有兩條 rAF；`resize` 監聽不移除（目前沒有呼叫端用 `stop()`）。
+  - 工具：`scope-guard` 對 `\\?\` 長路徑前綴放行；`verify-interference.mjs` 的 sourceHash 在 Windows／Linux 不同；`ui-check.json` 的標籤可見數可能隨避讓時序變動；`movie-export/verify.py` 預設只找 `TEMP/videos/*.shots.json`、找不到子資料夾裡的輸出。
 
 ### 2. 3D 動畫生成應用程式（studio）
 
@@ -25,6 +34,8 @@
 
 - [ ] 內部 Pages 的發布目標：內部網頁伺服器／NAS 共用資料夾，或公司 GitHub 組織的 Pages。
 - [ ] STEP 選用元件的安裝來源：內部共用資料夾或內部套件伺服器。
+- [ ] 舊開發機的 3D工作室工作區（`%USERPROFILE%\Documents\3D-Studio`，用 3D工作室建立的專案）沒有在 2026-11-05 的搬遷清單裡，新機的工作區是空的；舊機還在的話整個資料夾複製過來（`.studio/` 與 `projects/` 都要）。
+- [ ] 2026-11-07 巡檢沒能證實、先記著的疑點（studio）：`setup` 建第一個管理者時兩個並行請求可能建出兩個；補全採用檔案時主機會抓代理給的任意網址（SSRF，要使用者按採用才會發生）；成本表分部名稱含 `"`、`*`、`?` 時 SUMIFS 條件會壞；`--porcelain -z` 遇到已 stage 的改名（R）時下一筆原路徑沒略過；介面每一行執行輸出都重新載入專案頁與儀表板（請求很密）；`api.upload`／`uploadPartFile` 不處理 401；新建專案的檔案清單用檔名當 key；設定頁載入失敗沒有提示。
 - [ ] 本庫模式的併改偵測：代理執行中使用者也改了本站同一個檔案時，停下來轉成提問（目前會一起提交）。
 - [ ] 觀察修正迴圈的實際表現：P1、P2 共 8 次實測都第一次就通過檢查，修正迴圈只用假代理測過。
 - [ ] P2 MGPC 的第二段成品：右上角「外觀檢查」面板被電控檢視器面板蓋住（第一段就有），之後若要拿這版展示再修。（2026-10-21 核對：本機 `TEMP/` 已找不到這份成品，`TEMP/seg2-accept/`、`TEMP/p2-report/` 也不在；成品若已刪掉，這項可以拿掉。）

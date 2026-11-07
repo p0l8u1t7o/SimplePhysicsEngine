@@ -2,7 +2,7 @@
   "title": "定子轉子自動下料與高度檢測",
   "summary": "沖壓機出口 SCARA 自動擺盒，品檢區整盒翻轉／逐顆量測高度（雷射與視覺四方案）",
   "order": 13,
-  "coreVersion": "1.16.1",
+  "coreVersion": "1.16.2",
   "checks": {
     "quick": [
       "tools/verify.mjs"

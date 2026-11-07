@@ -59,7 +59,8 @@ export function create(p = {}) {
   }
   return {
     root, params: P, top, rollers, positions, brackets, frames, legs,
-    // 滾筒繞自己的軸轉（軸沿 Z 的滾筒自轉軸是本地 Y；軸沿 X 的用 rotation.x）
-    set({ s = 0 } = {}) { for (const r of rollers) r.rotation[X ? 'y' : 'x'] = -s / P.roller; },
+    // 滾筒繞自己的軸轉（軸沿 Z 的滾筒自轉軸是本地 Y；軸沿 X 的用 rotation.x）。
+    // 轉向要讓滾筒頂面往輸送方向走：沿 +X 輸送時是 −s/r；沿 +Z 輸送時繞 +X 轉，頂面往 +Z 要 +s/r（以前也寫 −s/r，頂面往 −Z）
+    set({ s = 0 } = {}) { for (const r of rollers) r.rotation[X ? 'y' : 'x'] = (X ? -s : s) / P.roller; },
   };
 }

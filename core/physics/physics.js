@@ -59,7 +59,10 @@ export function hashBaked(b) {
 
 export async function bake(spec) {
   const R = await loadRapier(), t0 = Date.now();
-  const dt = spec.dt ?? 1 / 240, hz = spec.hz ?? 60, duration = spec.duration ?? 10, steps = Math.round(duration / dt), every = Math.max(1, Math.round(1 / hz / dt));
+  // 每 every 步記一格，實際格距是 every × dt；hz 和 1/dt 不成整數倍時（例如 hz 100、dt 1/240）要用實際的取樣率換算時間，
+  // 不然取樣與出生、移除時刻都會變成慢動作或快轉。整除時沿用指定值（現有各站的數字一位都不變）
+  const dt = spec.dt ?? 1 / 240, hzWanted = spec.hz ?? 60, duration = spec.duration ?? 10, steps = Math.round(duration / dt), every = Math.max(1, Math.round(1 / hzWanted / dt));
+  const hz = Math.abs(1 / hzWanted / dt - every) < 1e-9 ? hzWanted : 1 / (every * dt);
   const nFrames = Math.floor(steps / every) + 1, random = rng(spec.seed ?? 1);
   const world = new R.World({ x: 0, y: -(spec.gravity ?? 9810) * S, z: 0 });
   world.timestep = dt;

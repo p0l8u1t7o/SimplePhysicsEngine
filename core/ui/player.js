@@ -13,7 +13,8 @@
 //   format(T)               時鐘格式（預設 mm:ss.s）
 //   onChange(T, state, { seek })／onEnd()
 const $ = id => document.getElementById(id);
-export const fmtTime = t => `${String(Math.floor(t / 60)).padStart(2, '0')}:${(t % 60).toFixed(1).padStart(4, '0')}`;
+// 先四捨五入到 0.1 s 再拆分與秒：直接 (t % 60).toFixed(1) 在整分前 0.05 s 內會顯示「00:60.0」
+export const fmtTime = t => { const d = Math.round(t * 10); return `${String(Math.floor(d / 600)).padStart(2, '0')}:${((d % 600) / 10).toFixed(1).padStart(4, '0')}`; };
 
 export function createPlayer({
   total, apply, events = [], qp = new URLSearchParams(location.search), speeds = [.25, 4, .25], speed: defaultSpeed = 1,
