@@ -109,7 +109,7 @@ node ../../core/tools/serve.mjs "RecycleSorter"
 ## 檢查
 
 ```powershell
-node ../../core/tools/check.mjs "RecycleSorter"          # 完整：內建項目（imports、structure、names、determinism、layout、scene、electrical、physics、bom、ui）＋本專案檢查
+node ../../core/tools/check.mjs "RecycleSorter"          # 完整：內建項目（imports、structure、names、determinism、layout、scene、electrical、physics、bom、ui；solar、dynamics 本站沒有宣告，略過）＋本專案檢查
 node ../../core/tools/check.mjs "RecycleSorter" --quick  # 部署前快速檢查
 ```
 

@@ -46,8 +46,16 @@ node --import ./core/tools/register.mjs tools/verify-vision.mjs
 
 ## 共用執行檔（bin/）
 
-`bin/` 放各站共用的 ffmpeg／ffprobe（錄影輸出與影片驗證用），由 `scripts\setup.ps1 -Ffmpeg` 下載，不進版控。core 的 `export-mp4.mjs`、studio、`movie-export/verify.py` 與軍規專案的錄影工具都從這裡找；也可以用環境變數 `FFMPEG_PATH` 指到別的位置。
+`bin/` 放各站共用的 ffmpeg／ffprobe（錄影輸出與影片驗證用），由 `scripts\setup.ps1 -Ffmpeg` 下載，不進版控。core 的 `export-mp4.mjs`、studio、`movie-export/verify.py` 都從這裡找；也可以用環境變數 `FFMPEG_PATH` 指到別的位置。
 
 ## MP4 展示影片
 
 錄影由 `node core/tools/export-mp4.mjs <專案>` 全自動輸出（逐站建單站副本、逐格渲染，NVIDIA NVENC 或 libx264 編碼 1080p／30 fps MP4）；[movie-export](movie-export/README.md) 留下稽核與驗證工具。包含產品追隨、電盤剖視、整線與穿板接頭。影片與抽查影格集中於忽略版控的 `TEMP/videos/`，不放進 GitHub Pages。
+
+## 其他跨專案工具
+
+- [cfd](cfd/README.md)：外部 CFD（OpenFOAM）案例產生、字典檢查、執行腳本與結果匯入；讀檔與顯示在 `core/cfd/`。
+- [weather](weather/README.md)：案場典型氣象年（TMY）下載（`fetch-tmy.mjs`，PVGIS）與天候資料來源建議。
+- [solar-pvlib](solar-pvlib/README.md)：`core/solar` 與 pvlib 的交叉驗證（需要 Python）。
+- [circuit-drawings](circuit-drawings/README.md)：各站電路圖冊產生與驗證（需要 Python）。
+- [github-pages](github-pages/README.md)：Pages 工作流程說明。

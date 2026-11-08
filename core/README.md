@@ -6,7 +6,7 @@
 
 | 路徑 | 內容 |
 |---|---|
-| `vendor/` | three.js r187（`three.module.js`＋`three.core.js`，r171 起拆成兩個檔，`three.module.js` 以相對路徑引用 `three.core.js`）與 addons，全站只有這一份；`rapier/`：Rapier 決定性版 0.21（剛體動力學，WebAssembly 內嵌，只由 `physics/` 引用）；`mujoco/`：MuJoCo 4.0.0（手臂動力學，wasm 瘦身後 gzip 內嵌，只由 `robot/dynamics.js` 引用） |
+| `vendor/` | three.js r187（`three.module.js`＋`three.core.js`，r171 起拆成兩個檔，`three.module.js` 以相對路徑引用 `three.core.js`）與 addons（含 3D Tiles 用的 GLTF、DRACO、KTX2、meshopt 解碼器，清單見 `vendor/addons/README.md`），全站只有這一份；`rapier/`：Rapier 決定性版 0.21.0（剛體動力學，WebAssembly 內嵌，只由 `physics/` 引用）；`mujoco/`：MuJoCo 4.0.0（手臂動力學，wasm 瘦身後 gzip 內嵌，只由 `robot/dynamics.js` 引用）；`3d-tiles-renderer/`：0.5.3（3D Tiles 串流載入，只由 `geo/tiles.js` 引用）；`laz-perf/`：0.0.7（LAZ 點雲解壓，只由 `geo/laz.js` 引用）。各資料夾的 README 記來源、版本與更新步驟 |
 | `geom/` | `shapes.js`（統一形狀：block／blockBetween／cylinder／rod／tube／pipe／profile／rounded／bevelBox／screw／decal／plate／floorText／meshPanel 擴張網護板）、`materials.js`（共用材質表 MAT，含 `MAT.expandedMesh`）、`hardware.js`（倒角外殼、螺栓、腳座、馬達、感測器…）、`environment.js`（地面 `floor()`）、`finish.js`、`surfaces.js`、`perforated.js` |
 | `robot/` | `kinematics.js`：6 軸阻尼最小平方 IK（參數可調）；`reach.js`：手臂可達檢查（IK 或工作空間包絡，回傳 layoutChecks 的列）；`dynamics.js`：MuJoCo 逆動力學（沿關節軌跡算各軸扭矩、負載的手腕力矩與慣量、對上限的比例，回傳 layoutChecks 的列；參數在 `dynamics/<手臂>.js`，目前有 VS-068，質量與扭矩上限是估計值）；`payload.js`：從 3D 工具模型估負載（`estimatePayload`、`combinePayloads`，給 `verify.dynamics` 用） |
 | `models/` | 共用模型庫：每個模型有 `meta`（名稱、分類、可調參數、可動狀態、用法）與 `create(params) → { root, set(state) }`，在 `models/index.js` 登記；`models/parts.js`：`fromPart(元件編號)` 用元件庫的模型與參數建立並標 `partRef`、`tagPart`；目錄頁 `/core/catalog/` 可預覽、調參與搜尋。共 85 個，清單見下方「共用模型」 |
@@ -14,7 +14,7 @@
 | `catalog/` | 模型目錄頁（發布在 Pages） |
 | `anim/` | `sampling.js`：取樣時間（網頁與檢查共用，不依賴 three）；`cycle.js`：節拍分析（各站佔用、稼動率、瓶頸）；`track.js`：時間軌與時間軸（`createTimeline`、`Track`、`smooth`），狀態只由時間決定；`sequence.js`：單一手臂的步驟序列；`arrival.js`：手臂到位閘門（播放時等手臂到位、逾時故障） |
 | `electrical/` | `cable-routing.js`（線材 `cable`、拖鏈 `carrier`、`solidMeshes`）、`electrical-cabinet.js`（電盤櫃、背板、穿板接頭）、`electrical-components.js`（電控元件、`component()` 元件表、`robotController`）、`electrical-inspector.js`／`.css`（電控檢視器） |
-| `examples/` | `segment2/`：第二段（電控、電盤、配線、相機子畫面、視覺疊圖）的完整範例與說明，跟著 core 一起檢查；新專案照 `examples/segment2/README.md` 做。`physics/`：剛體動力學四種用途（物料流、掉落與滑槽、料箱堆積、夾取穩定）與線材的範例頁與檢查。`dynamics/`：手臂動力學的自我檢查。`structure/`：起伏地形上的固定式與追日支架、清洗水管（1D 水力）、電纜槽（電壓降），地形走 core/geo 的 DSM 流程，追日依太陽轉（SPA、回溯）並和固定式、地形一起算遮陰，電纜槽終點是組串式變流器（`?h=8&d=12,21&bt=0`）。`solar/`：追日陣列的日照遮陰（SPA、回溯、BVH 逐片遮陰、晴空日射；`?h=10&d=12,21&bt=1` 指定時間、日期、回溯）。`tiles/`：3D Tiles 放進案場座標（合成的地形＋建物，紅色標竿驗證轉換）。`cfd/`：外部 CFD 結果檢視（切面、流線、箭頭、障礙物表面 Cp、風力表；預設讀解析式假流場 `demo.cfdpack.gz`，`?pack=` 指定真的結果）。`weather/`：天候（大雪後放晴：10° 與 35° 的積雪、滑落、發電損失與雪載重；午後雷雨：雨絲、板面逕流、風載重；日射接 `core/solar`；`?sc=snow&h=38`） |
+| `examples/` | `segment2/`：第二段（電控、電盤、配線、相機子畫面、視覺疊圖）的完整範例與說明，跟著 core 一起檢查；新專案照 `examples/segment2/README.md` 做。`physics/`：剛體動力學四種用途（物料流、掉落與滑槽、料箱堆積、夾取穩定）與線材、布料、流體的範例頁與檢查（共七個情境）。`dynamics/`：手臂動力學的自我檢查。`structure/`：起伏地形上的固定式與追日支架、清洗水管（1D 水力）、電纜槽（電壓降），地形走 core/geo 的 DSM 流程，追日依太陽轉（SPA、回溯）並和固定式、地形一起算遮陰，電纜槽終點是組串式變流器（`?h=8&d=12,21&bt=0`）。`solar/`：追日陣列的日照遮陰（SPA、回溯、BVH 逐片遮陰、晴空日射；`?h=10&d=12,21&bt=1` 指定時間、日期、回溯）。`tiles/`：3D Tiles 放進案場座標（合成的地形＋建物，紅色標竿驗證轉換）。`cfd/`：外部 CFD 結果檢視（切面、流線、箭頭、障礙物表面 Cp、風力表；預設讀解析式假流場 `demo.cfdpack.gz`，`?pack=` 指定真的結果）。`weather/`：天候（大雪後放晴：10° 與 35° 的積雪、滑落、發電損失與雪載重；午後雷雨：雨絲、板面逕流、風載重；日射接 `core/solar`；`?sc=snow&h=38`） |
 | `optics/` | 機器視覺的光學計算（純函式：L1 視野、倍率、每像素、最小缺陷、景深、運動模糊、行頻、像圈、接口、頻寬、打光；L2 `lighting.js` 明暗場、缺陷對比、遮擋、近似模擬影像）與 3D 配置檢視頁 `optics/view.html`；studio 的光學工作台、`vs3d optics eval`、相機模型共用，說明在 `optics/README.md` |
 | `physics/` | 剛體動力學（Rapier 決定性版）：`physics.js` 預先烘焙軌跡（輸送帶、投料、移除區、治具、吸附、力控制兩指夾爪），`apply(t)` 只取樣、可以倒著拖；`analysis.js` 物料流、靜止時間、落點、料箱堆積與可抓取件、夾取滑移。`cloth.js` 布料與薄膜（XPBD，釘點可移動、可放開、側風）；`fluid.js` 粒子流體（PBF，噴嘴與流量、開口方槽與圓桶、靜置後休眠，畫面用，不是 CFD）；`collide.js` 兩者共用的碰撞形狀；`rope.js` 線材、軟管的 XPBD（錨點跟著時間動、會垂下與擺動，檢查線長夠不夠；1.17.0）。範例 `/core/examples/physics/`，說明在 `physics/README.md` |
 | `structure/` | 光伏支架鋼構（2026-11-07）：固定式與單軸追日，依地形 `height(x, z)` 算每支構件的位置、切長、角度、重量與基樁埋深，`bom()` 彙總；`pvFixedRack`／`pvTracker` 三維模型（每種構件一個 InstancedMesh）；風、雪載重只做估算；`structureChecks()` 回傳 layoutChecks 的列；`solarFrame()` 和 `core/solar` 的座標對齊（追日 φ = θ）。說明在 `structure/README.md` |
@@ -24,12 +24,12 @@
 | `math/` | `dmath.js`：決定性的超越函式（fdlibm 移植）。Node 與 Chrome 的 `Math.sin`、`cos`、`exp` 等在 3～19% 的輸入差 1 ulp，要逐位元一致的模擬（`solar/`、`physics/rope.js`）用它；`Math.sqrt` 各引擎一致，可以直接用 |
 | `weather/` | 天候（2026-11-07）：`precip.js` 雨雪粒子（位置直接由時間算出，可以任意跳時間，含風與陣風）；`snow.js` 板面積雪、密實、融雪、滑落（Marion 2013）與發電損失；`loads.js` 雪載重（ASCE 7-16、EN 1991-1-3、建築基準法形式）與風壓（ASCE 7、台灣耐風規範形式、JIS C 8955 陣列係數）——全部是估算、標 `estimate`；`runoff.js` 板面逕流。說明在 `weather/README.md` |
 | `cfd/` | 外部 CFD（OpenFOAM）的瀏覽器端：案例產生（`case-gen.js`，命令列在根目錄 `tools/cfd/`）、VTK legacy／forces／probes 讀檔、`.cfdpack`、`createFlowView`（切面、流線、箭頭、面板 Cp）。OpenFOAM 只當外部程式（Docker／WSL／Linux），平台只交換檔案。說明在 `tools/cfd/README.md` |
-| `twin/` | AutoSequence 數位孿生的 SPE 端（Twin Protocol v2 server）：`session.js`（握手、鎖步、cmd、故障、增量 state，純模組、決定性）、`framing.js`、`binding.js`、`dynamics/`（軸、致動器、機器人）、`sensors.js`、`geometry.js`（photoEye 射線）、`view.js`（網頁孿生觀看）、`automation-schema.lock.json`（要求的 Automation-Schema 版本）；命令列 `tools/twin.mjs`。說明在 `twin/README.md` |
+| `twin/` | AutoSequence 數位孿生的 SPE 端（Twin Protocol v2 server）：`session.js`（握手、鎖步、cmd、故障、增量 state，純模組、決定性）、`framing.js`、`binding.js`、`md.js`（MD 索引）、`dynamics/`（軸、致動器、機器人）、`sensors.js`、`geometry.js`（photoEye 射線）、`collisions.js`（即時干涉）、`workpieces.js`（工件持有權轉移）、`view.js`（網頁孿生觀看）、`automation-schema.lock.json`（要求的 Automation-Schema 版本）；命令列 `tools/twin.mjs`。說明在 `twin/README.md` |
 | `movie/` | 錄影程式（4K 取樣 1080p、絕對時間取樣、追焦運鏡），各專案以 `?movie` 呼叫 |
 | `ui/` | `stage.js`（renderer／場景／相機／燈光／3D 標籤／視角轉場／畫面迴圈／`exposeSim`）、`player.js`（標準播放列）、`viewer-workspace.js`／`.css`（相機視窗、焦點追隨與精簡版面，所有專案共用）、`vision-overlay.js`（視覺疊圖） |
-| `verify/` | 統一檢查：`scene.mjs`（全場干涉＋重合面閃爍）、`electrical.mjs`（電控配置）、`cables.mjs`（配線動態取樣）、`feedthroughs.mjs`（穿板孔）、`clearance.mjs`（有向包圍盒間距）、`determinism.mjs`（倒序一致）、`physics.mjs`（站的物理烘焙）、`bom.mjs`（場景 ↔ 平台 BOM）、`models.mjs`（共用模型檢查）、`fingerprint.mjs`／`fingerprint-compare.mjs`（排程指紋，渲染補強前後比對）、`run.mjs`（執行入口）、`dom-stub.mjs` |
+| `verify/` | 統一檢查：`scene.mjs`（全場干涉＋重合面閃爍）、`electrical.mjs`（電控配置）、`cables.mjs`（配線動態取樣）、`feedthroughs.mjs`（穿板孔）、`clearance.mjs`（有向包圍盒間距）、`determinism.mjs`（倒序一致）、`physics.mjs`（站的物理烘焙）、`bom.mjs`（場景 ↔ 平台 BOM）、`solar.mjs`（站的光伏遮陰與發電）、`dynamics.mjs`（站的手臂扭矩與負載）、`models.mjs`（共用模型檢查）、`fingerprint.mjs`／`fingerprint-compare.mjs`（排程指紋，渲染補強前後比對）、`run.mjs`（執行入口）、`dom-stub.mjs` |
 | `template/` | 新專案範本（`tools/new-project.mjs` 複製） |
-| `tools/` | 伺服器（`serve.mjs`）、檢查執行器（`check.mjs`、`run.mjs`）、Node 端模組解析（`register.mjs`＋`loader.mjs`）、import 路徑檢查（`check-imports.mjs`）、標準互動測試（`ui-check.mjs`）、截圖比對（`shots.mjs`）、場景傾印與比對（`scene-dump.mjs`）、效能量測（`perf-check.mjs`）、Pages 建置、成品匯出（`export.mjs`：網站壓縮檔、單一 HTML、MP4）、建立新專案、範圍檢查（`check-scope.mjs`、`scope-guard.mjs`、`install-hooks.mjs`）、用戶名稱檢查（`check-names.mjs`）、結構檢查（`check-structure.mjs`）、孿生 server（`twin.mjs`＋`twin-server.mjs`、Automation-Schema 版本檢查 `twin-schema.mjs`、測試用 Hub `twin-hub.mjs`）（不發布） |
+| `tools/` | 伺服器（`serve.mjs`）、檢查執行器（`check.mjs`、`run.mjs`）、Node 端模組解析（`register.mjs`＋`loader.mjs`）、import 路徑檢查（`check-imports.mjs`）、標準互動測試（`ui-check.mjs`）、截圖比對（`shots.mjs`，視角清單由 `views.mjs` 讀）、場景傾印與比對（`scene-dump.mjs`）、效能量測（`perf-check.mjs`）、無頭 Chrome（`cdp.mjs`）、Pages 建置（`build-site.mjs`、`site.mjs`）、MuJoCo 更新（`vendor-mujoco.mjs`）、成品匯出（`export.mjs`：網站壓縮檔、單一 HTML、MP4）、建立新專案、範圍檢查（`check-scope.mjs`、`scope-guard.mjs`、`install-hooks.mjs`）、用戶名稱檢查（`check-names.mjs`）、結構檢查（`check-structure.mjs`）、孿生 server（`twin.mjs`＋`twin-server.mjs`、Automation-Schema 版本檢查 `twin-schema.mjs`、測試用 Hub `twin-hub.mjs`）（不發布） |
 | `VERSION`、`REQUESTS.md` | core 版本號（語意化版本，改版紀錄在 `MIGRATION.md`）；子專案提出的 core 需求登記 |
 
 ## 新專案
@@ -98,7 +98,7 @@ node core/tools/serve.mjs Chemical        # 直接開某專案（名稱可只打
 - `checks.quick`／`checks.full`：專案自有檢查（快速檢查只跑 `quick`）。
 - `core.skip`：不跑的內建檢查；`core.quick`：本來只在完整檢查跑、但這站要放進快速檢查的內建項目。
 - `variants`：預設情境之外另外跑一次的情境（`params` 傳給 `createProject`），檢查與場景傾印都會跑。
-- `shots`：`shots.mjs` 要拍的視角（預設從 `main.js` 的 `VIEWS` 讀）與跳過的視角；`ui`：`ui-check.mjs` 跳過的項目（`load`、`play`、`labels`…）與接在 `?pause` 後面的網址參數。
+- `shots`：`shots.mjs` 要拍的視角與跳過的視角（預設跳過 `follow`）；沒給 `views` 時讀頁面的 `window.sim.views`，讀不到才解析 `main.js` 的 `views`／`VIEWS`；`ui`：`ui-check.mjs` 跳過的項目（`load`、`play`、`labels`…）與接在 `?pause` 後面的網址參數。
 
 ## 專案介面：`web/js/project.js`
 
@@ -117,7 +117,10 @@ export function createProject({ scene, headless }) {
       moduleOf(mesh) {},   //   模組名稱（預設：scene 第一層子物件的 name）
       stationOf(mesh) {},  //   同模組再分工位；不同工位的固定件穿插也算相撞
       allow: [{ why, test(a, b, ctx) {} }],   // 允許的接觸，逐條寫原因；ctx.moduleOf(m)、ctx.bodyOf(m)
+      thresholds: { 模組名: { tol, dist, area } },   // 選用：分模組的穿插門檻（預設 2 mm）與重合面門檻，兩零件取較嚴者
+      compareFixed(a, b, ctx) {},   //   選用：同模組同工位的固定件也要比的組合（預設不比）
       envelope: ['robot'], //   回報這些模組的掃掠外圍（配置圍籬用）
+      // 其他檢查的設定：cables（配線動態取樣）、physics、solar、dynamics，見下方「檢查」
     },
     // 其他給 main.js 用的物件（robot、sequence…）照常附上
   };
@@ -127,6 +130,7 @@ export function createProject({ scene, headless }) {
 物件標記（`userData`）：
 
 - `fx`：效果（噴霧、光束、氣流），不是實體，不檢查；
+- `nonSolid`：core 自己標的非實體（粒子流體、布料、雨雪與板面積雪、CFD 結果顯示），和 `fx` 一樣略過（站不必自己標）；
 - `guide = 'id'`／`on = 'id'`：導軌與在其上滑行的移動件；
 - `nested = 另一個關節物件`：套筒式伸縮（內外管）；
 - `coreModel = 模型 id`：共用模型的根群組（模型自己標）。它只是包裝——走線把它的直接子網格當成 parent 的固定面，全場檢查判斷安裝關係時往上跳過它；
@@ -145,7 +149,7 @@ export function createProject({ scene, headless }) {
 | 輸送 | `conveyor.js`：滾筒輸送線；`transport.js`：平皮帶輸送機 `beltConveyor`、邊皮帶雙軌輸送段 `edgeBeltConveyor`、V 槽滾輪輸送線 `vRollerConveyor`、止擋 `stopper`、萬向球旋轉台 `ballTurntable` |
 | 供料 | `transport.js`：柔性供料盤 `flexFeeder` |
 | 搬運 | `gantry.js`：兩軸龍門＋平行夾爪；`transport-handling.js`：塑膠棧板 `pallet`（大量靜態棧板用 `pallet.instances()`）、棧板穿梭車 `shuttleCar`、穿梭車密集架 `shuttleRack`、懸臂吊 `jibCrane`、平台台車 `dolly`、AGV 充電櫃 `agvCharger` |
-| 物流、工件 | `agv-forklift.js`：平衡重式堆高 AGV；`drum-200l.js`：200 L 閉口 HDPE 桶 |
+| 物流、工件 | `agv-forklift.js`：平衡重式堆高 AGV；`drum-200l.js`：200 L 閉口 HDPE 桶（另匯出 `createDrum`、大量桶 `createDrumInstances`、桶用夾爪 `drumJaws(parent, armTo, stroke, { arc, segments })`） |
 | 視覺 | `camera.js`：工業相機＋鏡頭＋環形光源（依感光元件與焦距決定外形與視角）；`vision.js`：逐件設定的工業相機 `visionCamera`、固定式讀碼器 `codeReader`、3D 線雷射輪廓儀 `laserProfiler`；`lights.js`：條形光 `barLight`、穹頂光 `domeLight` |
 | 運動、夾持 | `motion.js`：線性模組／滑軌 `linearAxis`、Z-θ 主軸模組 `zThetaSpindle`、伺服鎖付軸 `nutrunner`、抽屜滑軌 `drawerSlide`、平行夾爪 `parallelGripper` |
 | 氣動 | `motion.js`：氣缸 `airCylinder`、擺動式油壓／氣壓缸 `pivotCylinder`、氣動滑台 `slideTable`、浮動桿 `floatRod`、真空吸盤 `suctionCup`、真空發生器 `vacuumEjector`、電磁閥 `solenoidValve`、FRL 三點組 `frl` |
@@ -179,7 +183,7 @@ exposeSim({ seekTo, setView, views, total, play, pause, get T() { return T; } })
 
 - 網址參數一致：`?shadow=0`、`?aa=0`、`?logdepth=0/1`、`?movie`（錄影：不跑迴圈、不聽 resize、強制對數深度）。
 - `loop(tick, { render })`：多畫面專案（主畫面＋相機子畫面＋疊圖）傳自己的整格繪製；不傳則只畫主畫面。
-- 錄影：`?movie` 時在 main.js 呼叫 `installMovie({...})`（`core/movie/movie.js`），各站的取樣、追焦、細節重播設定寫在專案裡；`?movie&auto` 自動開始輸出。`installMovie` 另有 `title`（片頭與段落標題）、`far`（廠房級的站）、`glandShots: false`（接頭不在桌板上的站）、`targetSeconds`（製程段壓到指定總長）；步驟可以帶 `offset`（這一步的鏡頭偏移，約 2 秒平滑過渡）與 `speed`（展示倍率）。
+- 錄影：`?movie` 時在 main.js 呼叫 `installMovie({...})`（`core/movie/movie.js`），各站的取樣、追焦、細節重播設定寫在專案裡；`?movie&auto` 自動開始輸出。`installMovie` 另有 `title`（片頭與段落標題）、`far`（廠房級的站）、`glandShots: false`（接頭不在桌板上的站）、`targetSeconds`（製程段壓到指定總長）、`overview`（片頭片尾全景的鏡位 `{ p, t }`，不給時框整個場景；只錄某一站時用）；步驟可以帶 `offset`（這一步的鏡頭偏移，約 2 秒平滑過渡）與 `speed`（展示倍率）。
 - 成品匯出總入口：`node core/tools/export.mjs <專案> [--zip] [--html] [--mp4] [--out 資料夾]`（不指定時輸出壓縮檔＋單一 HTML，預設 `TEMP/exports/`）。`--zip` 是首頁＋本站＋core 的網站壓縮檔，附 `open-demo.cmd`（雙擊用 Windows 內建 PowerShell 的本機伺服器 `tools/offline/serve.ps1` 開啟，客戶電腦不必安裝軟體）；匯出前後都做用戶名稱檢查，有名稱就不留下成品。zip 讀寫在 `tools/zip.mjs`（交接包也用）。
 - MP4 匯出：`node core/tools/export-mp4.mjs <專案> [輸出資料夾]`（全自動：建單站網站副本、本機接收端、無頭 Chrome＋GPU、ffmpeg NVENC／libx264，結束時核對影格數；預設輸出 `TEMP/videos/<專案>-<日期>/`）；`--query "plan=…&scope=qc"` 把參數附加到錄影網址（例如只錄某一站、某個方案）。程式內用 `import { exportMp4 } from './export-mp4.mjs'`。
 - 單一 HTML 匯出：`node core/tools/export-html.mjs <專案> [輸出檔] [--verify]`（預設 `TEMP/exports/<專案>.html`），模組、css、圖示與 `new URL('…', import.meta.url)` 資源全部內嵌，離線雙擊（file://）可開；`--verify` 用 Chrome／Edge 以 file:// 開啟，確認無錯誤、`window.sim` 可跳播、畫布有畫面。程式內用 `exportHtml(專案, 輸出檔)`、`verifyHtml(檔案)`。
@@ -215,10 +219,10 @@ node core/tools/check.mjs --only scene     # 只跑某項
 | `models`（core） | ✓ | 每個共用模型以預設參數建立，狀態走完全範圍，做干涉與重合面檢查（`core/review/models.json`） |
 | `examples`（core） | ✓ | 第二段範例（`examples/segment2`）的電控與配線檢查 |
 | `twin`（core） | ✓ | `node --test core/twin/test/*.test.mjs`：分框、握手、鎖步順序、增量 state、cmd 與動態、六種故障、感測器、決定性（兩個工作階段、兩個行程逐位元相同）、即時模式、TCP 連線、Automation-Schema 定位與版本檢查，以及 `core/twin` 沒有掛鐘、亂數、`node:*`、Automation-Schema import 的靜態檢查。找不到相鄰的 Automation-Schema 時，需要它的項目略過並寫出略過幾項 |
-| `physics`（core） | ✓ | 物理範例（`examples/physics`）剛體四個情境與線材一個情境在 Node 烘焙兩次相同、無頭 Chrome 的雜湊和 Node 相同、分析數字合理 |
+| `physics`（core） | ✓ | 物理範例（`examples/physics`）七個情境（剛體四個，線材、布料、流體各一個）在 Node 烘焙兩次相同、無頭 Chrome 的雜湊和 Node 相同、分析數字合理 |
 | `dynamics`（core） | ✓ | 手臂動力學（`examples/dynamics`）：MuJoCo 靜態重力扭矩對照獨立手算（差 ≤ 1e-9 N·m）、同一段軌跡算兩次相同、檢查列齊全 |
 | `solar`（core） | ✓ | `solar/test/browser-check.mjs`：SPA、追日＋Perez、BVH 遮陰、全年發電的工作量在 Node 跑兩次、無頭 Chrome 跑一次，雜湊逐位元相同 |
-| `engineering`（core） | ✓ | `structure/`、`piping/`、`geo/`、`solar/`、`physics/`（布料、流體、天候）與 `tools/cfd/` 的 node:test 單元測試（手算值、PROJ 參考座標、合成 GeoTIFF／LAS／LAZ、決定性） |
+| `engineering`（core） | ✓ | `structure/`（含 piping）、`geo/`、`solar/`、`physics/`（布料、流體、天候、scene 略過規則）、`electrical/`、`anim/`、`tools/`、`robot/`、`models/` 的 `test/*.test.mjs` 與根目錄 `tools/cfd/test/` 的 node:test 單元測試（手算值、PROJ 參考座標、合成 GeoTIFF／LAS／LAZ、決定性） |
 | `structure` | ✓ | 開發架構（不管專案是哪個工具做的）：`project.json` 合法且有 `title`、`summary`、`coreVersion`（語意化版本、不超過 `core/VERSION`）；`AGENTS.md`、`CLAUDE.md`（引用 `@AGENTS.md`）；本庫的站有 `.claude/settings.json` 寫檔關卡；`docs/` 被 git 忽略；`web/` 每個 HTML 連 `../core/favicon.svg`、importmap 的 `@core/` 指到 `../core/`。跑全部專案時另查 `project-site/` 底下沒有 `web/index.html` 的資料夾（`core · structure`）。pre-commit 也會檢查這次提交到的站 |
 | `names` | ✓ | 專案資料夾（不含 `docs/`、`TEMP/`）不得出現用戶名稱；名單只放本機 `.private/client-names.txt`（studio 工作區是 `.studio/client-names.txt`），沒有名單就略過。pre-commit 也會掃要提交的內容 |
 | `imports` | ✓ | 從 index.html 走遍 import 圖，找不到的檔案（部署後才會壞的路徑） |
@@ -266,7 +270,7 @@ node core/tools/shots.mjs --out TEMP/shots-new --compare TEMP/shots-base # 改�
 python core/tools/compare-review.py TEMP/review-base                     # review JSON 結果比對
 ```
 
-截圖在同一台機器重拍差異為 0，超過門檻（預設 0.2% 像素，`--max` 可改；像素容差 `--tol` 預設 24）的會另存 `.diff.png`。工作目錄已經有改動時，基準改在 `git worktree add <暫存資料夾> HEAD` 開的 worktree 裡拍，用完 `git worktree remove`（根目錄 `AGENTS.md`「檢查與回歸的做法」）。
+每站拍 `iso`（0 與總長 97%）加上每個視角各一張（清單見上方 `project.json` 的 `shots`，時間輪流取總長的 12%、31%、50%、69%、88%）；預設埠 8790，平行執行時用 `--port` 錯開。截圖在同一台機器重拍差異為 0，超過門檻（預設 0.2% 像素，`--max` 可改；像素容差 `--tol` 預設 24）的會另存 `.diff.png`。工作目錄已經有改動時，基準改在 `git worktree add <暫存資料夾> HEAD` 開的 worktree 裡拍，用完 `git worktree remove`（根目錄 `AGENTS.md`「檢查與回歸的做法」）。
 
 ## GitHub Pages
 

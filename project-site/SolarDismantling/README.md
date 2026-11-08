@@ -29,7 +29,7 @@ node ../../core/tools/serve.mjs "SolarDismantling"
 ## 檢查
 
 ```powershell
-node ../../core/tools/check.mjs "SolarDismantling"          # 完整：import 路徑、結構、用戶名稱、倒序一致、空間檢核、全場干涉與閃爍、配線與電盤、物理、BOM 一致性、四種尺寸的介面測試（ui）、本專案檢查
+node ../../core/tools/check.mjs "SolarDismantling"          # 完整：import 路徑、結構、用戶名稱、倒序一致、空間檢核、全場干涉與閃爍、配線與電盤、物理、BOM 一致性、太陽能遮陰與手臂動力學（有宣告才跑）、四種尺寸的介面測試（ui）、本專案檢查
 node ../../core/tools/check.mjs "SolarDismantling" --quick  # 部署前快速檢查
 ```
 
@@ -42,11 +42,11 @@ node ../../core/tools/check.mjs "SolarDismantling" --quick  # 部署前快速檢
 | `web/css/style.css` | 桌面版面與深色主題（窄螢幕規則由 `core/ui/viewer-workspace.css` 負責，這裡不寫） |
 | `web/js/layout.js` | 配置與尺寸（工件、拆框機、交接台、移載機、手臂、吸盤架、A/B 工位、餘料、圍籬）；標「假設」的值待現場量測 |
 | `web/js/panel.js` | 層壓板、接線盒線束與 MC4、四支鋁框、角碼接縫與排水孔口；靜態板堆簡化模式 |
-| `web/js/machine.js` | 籠架、四邊夾爪（兩端外側無桿缸）、壓板與導桿、刮刀、長框輸送帶、短框抽屜料箱、接線盒漏斗與滑槽、機外料車與料箱、液壓管、後側光柵、銘牌 |
-| `web/js/transfer.js` | 交接台（托條、定位塊、置中推缸、有板感測）與懸臂移載機（導軌、台車、升降立柱、懸臂吸盤框） |
+| `web/js/machine.js` | 籠架、四邊夾爪（兩端外側無桿缸）、壓板與導桿、刮刀、長框輸送帶（core `beltConveyor`）、短框抽屜料箱、接線盒漏斗與滑槽、機外料車與料箱、液壓管、後側光柵（core `lightCurtain`）、料位感測（core `boxSensor`）、銘牌 |
+| `web/js/transfer.js` | 交接台（托條、定位塊、置中推缸、有板感測 `boxSensor`）與懸臂移載機（導軌、台車、升降立柱、懸臂吸盤框，吸盤用 core `suctionCup`） |
 | `web/js/electrical.js` | 主控制櫃、DIN 背板元件表與線槽、四個現場 I/O 盒、高架與地面配線、兩軸拖鏈；電盤剖視與配線障礙物清單 |
-| `web/js/robot.js` | M-710iC/45M（底座轉 90°）＋置中吸盤架、真空管與開關、腕部線束、雷射／吹氣效果、板位姿與逆解 |
-| `web/js/cell.js` | A/B 棧板與板堆、工位硬體（擋塊、導引、感測、滿疊光電、工位燈、按鈕盒）、圍籬與四組光柵、控制櫃、操作站 |
+| `web/js/robot.js` | M-710iC/45M（core `core/models/robots/fanuc-m710ic.js`，底座轉 90°）＋置中吸盤架（core `suctionCup`、`vacuumEjector`）、真空管與開關、腕部線束、雷射／吹氣效果、板位姿與逆解 |
+| `web/js/cell.js` | A/B 棧板與板堆、工位硬體（擋塊、導引、感測、滿疊光電、工位燈、按鈕盒）、圍籬與四組光柵、控制櫃、操作站；市購品用 core 模型：光柵 `lightCurtain`、光電 `boxSensor`（`sensors.js`）、三色燈 `signalTower`、HMI `hmi`、急停 `estop`（`indicators.js`） |
 | `web/js/sequence.js` | 六段排程（手臂 PTP／直線、移載機、拆框機、零件位置狀態）、A/B 換工位、故障情境 |
 | `web/js/selection.js` | 手臂選型評估：候選型號型錄值、兩種夾持方式的負載／力矩／慣量需求與判定 |
 | `web/js/project.js` | 組合場景、`apply(t)`（零件位置、訊號交握、工位燈、三色燈、HMI、效果）、空間檢核、放行規則 |

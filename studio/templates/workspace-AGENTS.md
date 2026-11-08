@@ -53,7 +53,7 @@
 
 ## 檢查
 
-- `check.mjs` 內建：`imports`（import 路徑）、`determinism`（倒序一致）、`layout`（`layoutChecks()` 空間檢核）、`scene`（全場干涉＋重合面閃爍）、`electrical`（第二段的電盤、櫃內連線、穿板孔、`verify.cables` 配線取樣；寫法見 `core/examples/segment2/README.md`）、`names`（不得出現用戶名稱）、`physics`（用了 `core/physics` 剛體動力學才檢查烘焙）、`bom`（場景 ↔ 平台成本表，只警告）。完整檢查另有 `ui`（桌面、手機直向、手機橫向、觸控平板四種尺寸），由 app 執行。
+- `check.mjs` 內建：`imports`（import 路徑）、`structure`（`project.json`、`AGENTS.md`／`CLAUDE.md`、favicon、importmap 等範本帶出的結構）、`determinism`（倒序一致）、`layout`（`layoutChecks()` 空間檢核）、`scene`（全場干涉＋重合面閃爍）、`electrical`（第二段的電盤、櫃內連線、穿板孔、`verify.cables` 配線取樣；寫法見 `core/examples/segment2/README.md`）、`names`（不得出現用戶名稱）、`physics`（用了 `core/physics` 剛體動力學才檢查烘焙）、`bom`（場景 ↔ 平台成本表，只警告）、`solar`／`dynamics`（`verify.solar` 列間遮陰、`verify.dynamics` 手臂扭矩，只警告；有宣告才檢查）。完整檢查另有 `ui`（桌面、手機直向、手機橫向、觸控平板四種尺寸），由 app 執行。
 - **不要自己開瀏覽器、啟動伺服器或跑 `ui-check`／`shots`**，也不要另寫替代的瀏覽器測試工具：你的沙箱可能開不了瀏覽器，app 會在你結束後跑完整檢查與截圖，有問題會把結果回送給你。你只需要跑快速檢查。
 - 開發完成、檢查通過後，app 會把截圖交給同一個開發代理**自我檢查**（用讀檔工具開圖片）：對照提案與拍板事項，修掉明顯不對或粗糙的地方，再跑快速檢查。
 - `verify.allow` 規則必須窄，而且要寫原因；不能用 allow 蓋掉真的干涉。

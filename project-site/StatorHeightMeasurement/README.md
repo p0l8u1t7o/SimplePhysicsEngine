@@ -71,10 +71,10 @@ node ../../core/tools/check.mjs "StatorHeightMeasurement" --quick  # 部署前�
 | `web/js/spec.js` | 節拍、工件、格位、量測方案、配置與量測值（示意） |
 | `web/js/parts.js` | 工件幾何（定子齒、轉子）與整盒工件（每列一個 InstancedMesh） |
 | `web/js/press.js` | 沖壓機、出料滑道、整列單元、廢料坑蓋板與落料網格（沖壓機、出料滑道與地坑是現場既有，`noBom`；整列單元是新設） |
-| `web/js/unloader.js` | 自動下料機：可移動底座、SCARA＋吸盤工具、鐵盒輸送、圍籬與光柵 |
+| `web/js/unloader.js` | 自動下料機：可移動底座、SCARA（core `createHSR065`）＋吸盤工具、鐵盒輸送（core `conveyor.js`、止擋 `stopper`）、圍籬與光柵（`lightCurtain`）、三色燈／HMI／急停 |
 | `web/js/boxes.js` | 鐵盒、推車、作業員姿勢示意 |
-| `web/js/qc-common.js`、`qc-box.js`、`qc-piece.js` | 品檢隔間、花崗岩機台；整盒翻轉站；逐顆量測站 |
-| `web/js/motion.js` | SCARA 取放（IK＋關節空間內插，時間的純函式） |
+| `web/js/qc-common.js`、`qc-box.js`、`qc-piece.js` | 品檢隔間、花崗岩機台；整盒翻轉站（core `linearAxis`、`airCylinder`、`suctionCup`、`laserProfiler`、`visionCamera`）；逐顆量測站（core `createHSR065`、`visionCamera`）；手臂與雷射以 `tagPart` 標元件編號 |
+| `web/js/motion.js` | SCARA 取放（core `denso-hsr065.js` 的 `ik`＋關節空間內插，時間的純函式） |
 | `web/js/finishes.js` | 共用拉絲、磨耗、花崗岩與沖壓端面程序貼圖 |
 | `web/js/equipment-details.js` | 沖床、整列器、廢料坑、下料機與品檢設備外觀細節 |
 | `web/js/measurement-effects.js` | 隨時間定位的雷射掃描線、共焦光點與背光亮度 |

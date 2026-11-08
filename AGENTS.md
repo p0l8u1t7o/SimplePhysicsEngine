@@ -17,8 +17,8 @@
 
 - 安裝：`powershell -ExecutionPolicy Bypass -File scripts\setup.ps1 [-All]`（會一併安裝 git hook），需求見 `REQUIREMENTS.md`。
 - 啟動網頁：`scripts\start.cmd`（不帶參數只開 vs3d 介面 8780；`-Site` 展示網站 8770、`-All` 兩個都開、`-Station <名稱>` 開某一站），停止：`scripts\stop.cmd`。腳本一律放在 `scripts/`，`.ps1` 存成 UTF-8 BOM。
-- **3D 專案只需要 Node.js 22 以上**（開發機 26.13.0），沒有 npm 套件；three.js 放在 `core/vendor/`。瀏覽器檢查用 Chrome 或 Edge（可設 `CHROME_PATH`）。
-- Python 3.14（一般版，不要 `3.14t`）＋ `requirements.txt` 只給選用工具用（錄影稽核、電路圖、視覺採購品項表）；成本表已改在 3D工作室平台維護與匯出。
+- **3D 專案只需要 Node.js 22 以上**（開發機 26.13.0），沒有 npm 套件；three.js（r187）、Rapier、MuJoCo 等放在 `core/vendor/`。瀏覽器檢查用 Chrome 或 Edge（可設 `CHROME_PATH`）。
+- Python 3.14（一般版，不要 `3.14t`）＋ `requirements.txt` 只給選用工具用（錄影稽核、電路圖、視覺採購品項表、pvlib 交叉驗證）；成本表已改在 3D工作室平台維護與匯出。
 - Node 端跑 core 模組要加 `--import ./core/tools/register.mjs`（解析 `three` 與 `@core/`）。`core/tools/run.mjs` 會自動加上。
 - Shell 是 Windows 上的 Git Bash 或 PowerShell 5.1。
 - **與 AutoSequence 同機開發時，整機 CPU 不得超過 80%**（使用者 2026-10-21 要求）：完整檢查、`shots.mjs`、`scene-dump.mjs`、`ui-check.mjs`、長時間的鎖步聯調經 `powershell -NoProfile -File "D:\Working Space\AutoSequence\temp\cpu-cap.ps1" -Percent 50 -Command "<指令>"` 執行（所有包裝行程共用一個上限；`-Command` 一次只放一個指令，不要用 `;` 串接），重工作一次只跑一個。找不到 `cpu-cap.ps1` 時先問，不要改寫 AutoSequence 的檔案。
@@ -27,9 +27,9 @@
 
 | 位置 | 內容 |
 |---|---|
-| `core/` | 共用框架（以 importmap `@core/` 引用）：geom（形狀、材質、五金、地面）、models（85 個參數化模型＋目錄頁：市購品一律放這裡——手臂、輸送與搬運、相機與視覺、氣動與運動、夾爪、指示與感測小件、實驗室與製程設備、光伏；各站換用的對照在 `core/migrations/`）、anim 的 sampling（取樣時間）、examples（第二段範例：電控、配線、相機；剛體動力學四種用途）、optics（光學計算 L1、打光與模擬影像 L2）、physics（剛體動力學，Rapier 決定性版）、twin（AutoSequence 數位孿生的 SPE 端：Twin Protocol v2 server，說明在 `core/twin/README.md`）、robot（IK、手臂可達檢查）、anim（時間軸、步驟序列、到位閘門）、ui（stage、player、viewer-workspace）、electrical、movie、verify、template、tools；版本號在 `core/VERSION`，core 需求登記在 `core/REQUESTS.md` |
+| `core/` | 共用框架（以 importmap `@core/` 引用）：geom（形狀、材質、五金、地面）、models（85 個參數化模型＋目錄頁：市購品一律放這裡——手臂、輸送與搬運、相機與視覺、氣動與運動、夾爪、指示與感測小件、實驗室與製程設備、光伏；各站換用的對照在 `core/migrations/`）、anim（時間軸、步驟序列、到位閘門、取樣時間）、examples（範例頁：第二段電控／配線／相機、物理、手臂動力學、日照、鋼構與管路、3D Tiles、天候、CFD）、optics（光學計算 L1、打光與模擬影像 L2）、physics（剛體 Rapier 決定性版、XPBD 線材與布料、PBF 粒子流體）、robot（IK、手臂可達檢查、MuJoCo 手臂動力學、負載估算）、solar（日照、追日、遮陰、全年發電）、geo（地形、GeoTIFF、LAS／LAZ、OBJ、3D Tiles）、structure、piping、weather、cfd（外部 CFD 結果讀檔與顯示）、math（決定性數學函式）、twin（AutoSequence 數位孿生的 SPE 端：Twin Protocol v2 server，說明在 `core/twin/README.md`）、ui（stage、player、viewer-workspace）、electrical、movie、verify、template、tools；版本號在 `core/VERSION`，core 需求登記在 `core/REQUESTS.md` |
 | `project-site/<專案>/` | 所有展示專案（之後新增的也放這裡）。`web/`（網站；`web/js/project.js` 是網頁與檢查共用的場景）、`project.json`（首頁說明、`coreVersion`、`checks.quick`／`checks.full`、`variants`、`ui`）、`tools/`（專案自有檢查）、`review/`（檢查結果，進版控）、`docs/`（只留本機）、`AGENTS.md`／`CLAUDE.md`（該站規則）、`.claude/settings.json`（寫檔關卡） |
-| `tools/` | 跨專案工具：干涉回歸、跨站視覺檢查（`verify-vision.mjs`）、外部 CFD（`cfd/`）、案場天候資料下載（`weather/fetch-tmy.mjs`，PVGIS）、電路圖、錄影稽核與驗證（`movie-export`；MP4 輸出是 core 的 `export.mjs --mp4`；配線與電盤檢查已移到 core 的 `electrical`）；`bin/` 是各站共用的 ffmpeg／ffprobe（`setup.ps1 -Ffmpeg` 下載，不進版控） |
+| `tools/` | 跨專案工具：干涉回歸、跨站視覺檢查（`verify-vision.mjs`）、外部 CFD（`cfd/`）、案場天候資料下載（`weather/fetch-tmy.mjs`，PVGIS）、`core/solar` 與 pvlib 交叉驗證（`solar-pvlib/`）、電路圖、錄影稽核與驗證（`movie-export`；MP4 輸出是 core 的 `export.mjs --mp4`；配線與電盤檢查已移到 core 的 `electrical`）；`bin/` 是各站共用的 ffmpeg／ffprobe（`setup.ps1 -Ffmpeg` 下載，不進版控） |
 | `scripts/` | 腳本：`setup.ps1`（環境設定）、`start`／`stop`（`.ps1`＋可點兩下的 `.cmd`，網頁啟動與停止，PID 與輸出在 `logs/`）、`migrate/`（搬庫腳本） |
 | `studio/` | 3D 動畫生成應用程式（從本庫啟動介面時也能對 `project-site/` 的站下指令：本庫模式，只提交該站路徑、每次開本機分支）：命令列 `node studio/vs3d.mjs`＋網頁介面 `vs3d ui`（第一段、第二段、審查補強、評估平台；說明見 `studio/README.md`，測試 `node --test "studio/test/*.test.mjs"`）；計畫書在本機 `TEMP/3d-app-plan.md`；元件資料庫（介面「元件庫」、`vs3d parts`，SQLite 檔 `studio/data/studio.db` 只留本機） |
 | `.githooks/` | pre-commit 範圍檢查 |
@@ -55,7 +55,7 @@ node core/tools/scene-dump.mjs <專案> --out TEMP/<檔>.json      # 場景傾�
 node core/tools/install-hooks.mjs                 # 安裝 pre-commit 範圍檢查（clone 後一次）
 node core/tools/check-scope.mjs --scope <範圍> <路徑…>   # 手動檢查路徑是否在範圍內
 node studio/vs3d.mjs parts search <關鍵字…> [--project 專案] [--json]   # 查元件資料庫：選型、單價、哪些專案用過（show <id> 看單一元件）
-node --import ./core/tools/register.mjs tools/verify-interference.mjs   # 四站干涉回歸；配線與電盤檢查是 check.mjs 內建的 electrical
+node tools/verify-interference.mjs [專案…]         # 四站干涉回歸；配線與電盤檢查是 check.mjs 內建的 electrical
 ```
 
 ## 範圍（子專案規則）

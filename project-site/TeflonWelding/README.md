@@ -19,9 +19,12 @@ node ../../core/tools/serve.mjs "TeflonWelding"
 ## 檢查
 
 ```powershell
-node ../../core/tools/check.mjs "TeflonWelding"          # 完整：import 路徑、結構、用戶名稱、倒序一致、空間檢核、全場干涉與閃爍、配線與電盤、物理、BOM 一致性、四種尺寸的介面測試（ui）、本專案檢查
+node ../../core/tools/check.mjs "TeflonWelding"          # 完整：import 路徑、結構、用戶名稱、倒序一致、空間檢核、全場干涉與閃爍、配線與電盤、物理、BOM 一致性、太陽能遮陰與手臂動力學（有宣告才跑）、四種尺寸的介面測試（ui）、本專案檢查
 node ../../core/tools/check.mjs "TeflonWelding" --quick  # 部署前快速檢查
 ```
+
+- 內建檢查跑三個情境：預設（A 案）加 `project.json` 的 `variants`（B、C 案）。
+- `dynamics`（只警告）：A、B 案的 VS-068 倒裝在桶內，負載由 3D 工具模型估（取週期內最重的時刻），結果在 `review/dynamics-checks.json`；C 案的 COBOTTA PRO 900 還沒有動力學參數，略過。
 
 ## 檔案
 
@@ -33,14 +36,15 @@ node ../../core/tools/check.mjs "TeflonWelding" --quick  # 部署前快速檢查
 | `web/js/spec.js` | 桶尺寸（STEP 量得）、焊道排版（`makeSeams`、可調範圍）、方案比較表、製程與速度、工具、三個方案的說明、動畫節奏、工時估算 |
 | `web/js/tank.js` | 桶身與封頭（LatheGeometry）、人孔、出口、管腳、PTFE 襯裡、焊道分層（規劃軌跡→間隙→V 槽→焊條→削平→焊帶→檢測綠）、模擬缺陷、剖切平面、透視、`wallAt`（間隙檢查用） |
 | `web/js/tools.js` | 6 支末端工具（3D 相機、開槽刀＋雷射循縫、LHS 21S 外形的焊條／焊帶焊槍、拖嘴、壓輪、削平刀（刮刀）、兆赫波探頭）、快換盤、工具架托叉 |
-| `web/js/robot.js` | VS-068／COBOTTA PRO 900（core 模型）＋快換盤＋TCP；安裝方式（J1 與桶軸同軸）與焊接、退刀姿態的 IK |
+| `web/js/robot.js` | VS-068／COBOTTA PRO 900（core 模型 `createVS068`、`createCobottaPro900`）＋快換盤＋TCP；安裝方式（J1 與桶軸同軸）與焊接、退刀姿態的 IK |
 | `web/js/plans.js` | 三個方案的機構：迴轉架／轉台／移動門架、伸臂／立柱懸臂／Z 伸縮柱、上料吊鉤、周邊（電控、熱風控制、兆赫波主機） |
 | `web/js/details.js` | 三案機構細節、拖鏈、手臂氣管／電源／光纖、旋轉接頭、側吸罩與排氣管、送風機、護網、HMI 焊道狀態；新增外觀不修改排程 |
 | `web/js/project.js` | 組場景、取放工具姿態與工具架格位、時間軸（上料 → 6 道製程 × 各焊道（相機定位後插入軌跡規劃）→ 卸料）、`apply(t)`、空間檢核、全場檢查設定 |
 | `web/js/thz-view.js` | 兆赫波畫面：A-scan 回波波形（菲涅耳反射係數＋時間差模型）、沿焊道 B-scan、各焊道判定（NG／補焊／複檢 OK） |
 | `web/js/main.js` | 舞台、方案切換、剖切開關、視角、標籤、焊道狀態表、焊點特寫相機、`exposeSim`、錄影 |
-| `tools/verify.mjs` | 三方案各跑預設與極端排版（環縫夾到可調範圍兩端、兩道縱縫）：TCP 跟隨焊道、桶內間隙（逐頂點對 `wallAt`）、製程順序；結果寫 `review/verification.json` |
-| `tools/verify-details.mjs` | 三案的透視／剖切／實體切換、切面跟隨、共用材質、七道工序效果、跳播旋轉、缺陷標記與法蘭螺栓實例位置；結果寫 `review/details-verification.json` |
+| `tools/verify.mjs` | 三方案各跑預設排版：TCP 跟隨焊道、桶內間隙（逐頂點對 `wallAt`）、兆赫波 NG 處補焊、製程順序；結果寫 `review/verification.json`（快速檢查） |
+| `tools/verify-extreme.mjs` | 三方案改用極端排版（環縫夾到可調範圍兩端、兩道縱縫）再跑一次 `verify.mjs` 的全部項目；結果寫 `review/verification-extreme.json`（只在完整檢查，避免 CI 超時） |
+| `tools/verify-details.mjs` | 三案的透視／剖切／實體切換、切面跟隨、共用材質、七道工序效果、跳播旋轉、缺陷標記與法蘭螺栓實例位置；結果寫 `review/details-verification.json`（快速檢查） |
 | `AGENTS.md`／`CLAUDE.md` | 本站規則：範圍、保密、規格摘要、已拍板事項 |
 | `.claude/settings.json` | 寫檔關卡：從本資料夾啟動的 Claude Code 只能改本站 |
 

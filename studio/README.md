@@ -24,10 +24,10 @@ node studio/vs3d.mjs ui               # 開啟 http://127.0.0.1:8780/（--port�
 - **代理佇列**（2026-10-06，評估平台 Q1）：從介面按下的指令（新建、續跑、審查、補強、第二段、修改指令、檢查、匯出…）先進佇列，依序一次跑一個（工作區的執行鎖與每輪的雜湊比對都假設同時只有一個代理在改檔）。別的專案在執行時，按鈕不再停用，指令會排隊；同一個專案同時只能有一筆在執行或排隊。上方狀態列顯示「排隊 N」，專案頁可以「取消排隊」（`DELETE /api/queue/<qid>`，要是專案成員）。啟動的人會傳給子程序（環境變數 `VS3D_BY`），記在每輪紀錄的 `by`，儀表板「最近的執行」列出啟動的人，並依人合計。匯入交接包要等執行結束（會直接在工作區建資料夾）。伺服器預設只聽 127.0.0.1（給區網連見「給其他電腦連」），`/files/` 只開放專案的 `TEMP/`、`docs/`、`.studio/plan|reviews|render/`。
 - 開發時 `npm --prefix studio/ui run dev`（Vite 5173，`/api` 轉給 8780 的 `vs3d ui`）。
 - 端對端測試見最後的「測試」。
-- 「元件庫」：「元件」「供應商」「AI 補全」三個分頁；元件分頁左邊是分類樹，右邊是依分類分段的清單（元件編號、渲染圖、附件數）；查詢、新增、編輯、刪除，編輯面板裡有規格欄位、3D 模型、附件、模組組成與關聯件、版本紀錄、價格與使用紀錄（見「元件資料庫」）。
+- 「元件庫」：「元件」「供應商」「AI 補全」三個分頁（見「元件資料庫」）。
 - 「光學」：光學工作台與 AOI 方案（見「光學工作台與 AOI 方案」）。
 - 「帳號」：登入帳號與權限（見「登入帳號與權限」）。
-- 專案頁的「取消流程」：流程卡在等待續跑、又不想繼續時按（要按兩次確認），回到「完成」；已經提交的內容不動，還沒回答的問題收到 `.studio/questions/cancelled/`。本庫的站隨時可以取消；工作區的專案只有完成第一段之後才開始的流程（重新審查、補強、修改指令、第二段）可以取消，第一段還沒做完的沒有可以回去的狀態。
+- 專案頁的「取消流程」：流程卡在等待續跑、又不想繼續時按（要按兩次確認），回到「完成」；已經提交的內容不動，還沒回答的問題收到 `.studio/questions/cancelled/`。本庫的站隨時可以取消；工作區的專案只有完成第一段之後才開始的流程（重新審查、補強、修改指令、修改評估、光學代理、第二段）可以取消，第一段還沒做完的沒有可以回去的狀態。
 - 專案頁的「刪除專案」（只有工作區的專案）：輸入專案名稱確認後，整個資料夾移到工作區的 `.studio/trash/<名稱>-<時間>/`，不會直接消失；想救回來就搬回 `projects/`。本庫的站在版控裡，不從介面刪。
 - **回收桶**（2026-10-06）：「設定」頁的「回收桶」卡片（管理者）列出刪除的專案（刪除時間、大小），可以永久刪除一個、清掉超過幾天的，或設定自動清理的天數（系統設定 `trash.keepDays`，預設 0 不自動清；伺服器啟動時與之後每 12 小時清一次）。命令列：`vs3d trash`（列出）、`vs3d trash --purge <項目>`、`vs3d trash --older-than <天>`。
 
@@ -44,6 +44,7 @@ node studio/vs3d.mjs resume Conveyor                          # 回答後、中�
 node studio/vs3d.mjs check Conveyor --full                    # 手動跑檢查
 node studio/vs3d.mjs review Conveyor                          # 重新審查（必修自動送修正），接著補強
 node studio/vs3d.mjs render Conveyor --pick --focus "手臂與夾爪" # 重新補強：先挑項目、限定範圍
+node studio/vs3d.mjs change Conveyor --text "出料台改成兩層" --keep-timing   # 修改指令：開發 → 檢查 → 審查（--keep-timing 不能改節拍與動作）
 node studio/vs3d.mjs stage2 Conveyor                          # 開始第二段（電控、電盤、配線、相機）
 node studio/vs3d.mjs export Conveyor [--zip] [--html] [--mp4]  # 匯出成品到專案 TEMP/exports/（不指定時壓縮檔＋單一 HTML）
 node studio/vs3d.mjs handoff Conveyor                         # 交接包：git 歷史、上傳檔、提問與紀錄、不得顯示的名稱
@@ -74,6 +75,7 @@ node studio/vs3d.mjs parts search 相機 GigE                    # 查元件資�
 | `--repo`、`--no-repo` | 對本庫 `project-site/` 的站下指令（見「本庫模式」）；`ui --no-repo` 只看工作區 |
 | `--db <檔案>` | 元件資料庫位置（預設 `studio/data/studio.db`，或環境變數 `VS3D_DB`） |
 | `--private "名稱,…"` | `new` 時指定不得顯示的用戶名稱 |
+| `--title`、`--summary`、`--prompt-file`、`--text-file` | `new` 的標題、一句說明、從檔案讀需求；`change`／`assess`／`optics` 從檔案讀要求（取代 `--text`） |
 | `--create-only` | `new` 只建立專案，之後用 `resume` 開始 |
 | `--pick`、`--focus "範圍"` | 補強前先用卡片挑項目（全部／只補高優先／自己挑編號）；限定這次補強的範圍 |
 | `--max-rounds 40`、`--timeout 90` | 輪數上限、每輪逾時（分鐘）；opus 開發複雜案子單輪可能超過 60 分鐘 |
@@ -133,7 +135,7 @@ studio 產生的專案原本比在 VS Code 裡和 Claude 互動做的粗糙，�
 <工作區>/
 ├── studio-workspace.json   標記：core 的 projects.mjs 看到它就改從 projects/ 找專案（網址配置不變）
 ├── core/                   內附的 core（唯讀屬性）
-├── .studio/                core 還原副本、工作區設定（settings.json：defaultCli、各角色預設）
+├── .studio/                core 還原副本、工作區設定（settings.json：defaultCli、各角色預設）、用戶名稱名單（client-names.txt）、回收桶（trash/）
 ├── AGENTS.md、CLAUDE.md     代理的共通規則（studio/templates/）
 └── projects/<專案>/         每個專案一個 git 庫
     ├── AGENTS.md            需求、已拍板事項（app 寫入）
@@ -151,7 +153,7 @@ studio 產生的專案原本比在 VS Code 裡和 Claude 互動做的粗糙，�
 
 ## 本庫模式（2026-10-04）
 
-從本庫啟動介面（`scripts\start.cmd -Studio` 或 `node studio/vs3d.mjs ui`）時，工作區的專案在左邊的清單，本庫 `project-site/` 的站在「本庫的站」那一頁，可以直接對本庫的站下指令；`--no-repo` 只看工作區。命令列用 `--repo`（或 `--workspace` 指到本庫根目錄）：
+從本庫啟動介面（`scripts\start.cmd` 或 `node studio/vs3d.mjs ui`）時，工作區的專案在左邊的清單，本庫 `project-site/` 的站在「本庫的站」那一頁，可以直接對本庫的站下指令；`--no-repo` 只看工作區。命令列用 `--repo`（或 `--workspace` 指到本庫根目錄）：
 
 ```powershell
 node studio/vs3d.mjs status --repo                                        # 本庫各站的狀態
@@ -242,7 +244,7 @@ node studio/vs3d.mjs users remove amy
 | Q7 | L2 打光與模擬影像、光學代理 | 「光學工作台與 AOI 方案」 |
 | Q8 | 剛體動力學（Rapier，預先烘焙） | core 的 `core/physics/README.md`（studio 沒有對應功能） |
 | Q9 | 場景、成本表與節拍的一致性 | 「場景、成本表與節拍的一致性」 |
-| Q10 | 整體驗收 | 還沒做，見根目錄 `PENDING.md` |
+| Q10 | 整體驗收 | 進行中，見根目錄 `PENDING.md` 第 3 節 |
 
 ## 光學工作台與 AOI 方案（2026-10-06，評估平台 Q4）
 
@@ -293,8 +295,8 @@ node studio/vs3d.mjs users remove amy
 各站做設計、選型與成本表時共用的參考：元件的規格、歷次價格、供應商，以及哪些專案用過。用 Node 內建的 `node:sqlite`（Node.js 22.13 以上，沒有 npm 套件）。
 
 - **資料庫檔只留本機，不進版控**（2026-10-05 拍板）：`studio/data/studio.db`（2026-10-06 以前叫 `parts.db`，第一次開啟時自動改名），環境變數 `VS3D_DB`（舊的 `VS3D_PARTS_DB` 也可以）或 `--db <檔案>` 可以改位置。換電腦或給別人用時，連同旁邊的附件資料夾 `files/` 一起複製。改名時舊檔不能被別的程式開著：先停掉舊版的 `vs3d ui`。
-- **結構升級**：資料庫結構的版本記在 `PRAGMA user_version`（目前第 9 版），開啟時自動升級，升級前先備份成 `<檔名>.bak-v<舊版>`（`VACUUM INTO`）。
-- **介面**：`vs3d ui` 左上的「元件庫」（`#parts`）。「元件」分頁可以搜尋（空白分隔多個關鍵字，比對名稱、廠牌、型號、規格、自由規格欄位、專案、編號、供應商、報價來源）、依類別／專案／供應商篩選、新增、編輯、刪除；點一列開啟編輯面板，裡面逐列管理價格紀錄與專案使用紀錄。「供應商」分頁管理供應商主檔，「AI 補全」分頁審核補全結果（見「元件補全」）。刪除都要按兩次確認。
+- **結構升級**：資料庫結構的版本記在 `PRAGMA user_version`（目前第 10 版，各版內容見 `lib/partsdb.mjs` 的 `SCHEMA_VERSION`），開啟時自動升級，升級前先備份成 `<檔名>.bak-v<舊版>`（`VACUUM INTO`）。
+- **介面**：`vs3d ui` 側欄的「元件庫」（`#parts`）。「元件」分頁左邊是分類樹，右邊是清單（元件編號、渲染圖、附件數）：可以搜尋（空白分隔多個關鍵字，比對名稱、廠牌、型號、規格、自由規格欄位、專案、編號、供應商、報價來源）、依分類／專案／供應商／種類篩選、只看「待確認」、新增、編輯、刪除；點一列開啟編輯面板（規格欄位、3D 模型、附件、模組組成與關聯件、版本紀錄、價格紀錄與專案使用紀錄）。「供應商」分頁管理供應商主檔，「AI 補全」分頁審核補全結果（見「元件補全」）。刪除都要按兩次確認。
 - **命令列**（代理與腳本查詢用，`--json` 輸出完整欄位）：
 
 ```powershell
@@ -323,6 +325,7 @@ node studio/vs3d.mjs parts bom @RecycleSorter [--json]                # 專案�
 | `assessments` | 評估資料：專案、種類（提案／可行性分析）、版本、全文、結構化資料（JSON）、結論、來源（代理／使用者）、說明、誰、時間 |
 | `enrich_jobs`／`part_sources` | 元件補全的工作（要查的欄位、狀態、驗證過的結果、採用了哪些、代理與費用）；採用的值的來源（欄位、值、網址、原文摘錄、版本、誰採用） |
 | `bom_upgrades`／`fx_rates` | 升級紀錄；匯率（每 1 單位外幣折合新台幣、日期） |
+| `project_members` | 專案成員（專案、帳號、角色；見「登入帳號與權限」的依專案分權限） |
 | `part_latest` | 檢視表：元件＋報價日最新的一筆價格＋供應商（清單的「參考單價」就是它） |
 
 **成本表匯入**（`parts seed`，`lib/parts-seed.mjs`）：讀 `project-site/<專案>/docs/*.xlsx` 裡表頭有「編號、項目或品項、單位」的工作表（各站的 `cost-estimate.xlsx`、回收物分揀的 `integration-cost.xlsx` 與 `vision-items.xlsx`）。
@@ -407,7 +410,7 @@ price, grade = db.execute("select unit_price, grade from part_latest where id = 
 ## 測試
 
 ```powershell
-node --test "studio/test/*.test.mjs"   # 不耗額度（約 1 分鐘）：事件解析、角色、提問、隔離、Office 抽取、元件資料庫、BOM、評估、光學、帳號與權限、儀表板彙整，以及用假代理跑完整流程
+node --test "studio/test/*.test.mjs"   # 不耗額度（約 1 分鐘）：事件解析、角色、提問、隔離、本庫模式、參考站、Office 抽取、元件資料庫與分類、BOM 與 xlsx、評估、光學、帳號與權限、代理認證、佇列、回收桶、儀表板彙整，以及用假代理跑完整流程
 ```
 
 介面的端對端測試（無頭 Chrome，手動執行；先 `npm --prefix studio/ui run build`，都可加 `--shots 資料夾`）：

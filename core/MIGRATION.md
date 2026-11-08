@@ -1,6 +1,6 @@
 # core 改版紀錄
 
-`core/` 的改版紀錄（版本對照在最後的「版本」表）。前半是 2026-10-03 起把原庫 `TestCode/` 各站統一到單一 `core/` 的遷移計畫（P0～P7）與之後各輪的進度，依日期記錄；本庫在 2026-10 從原庫獨立出來，2026-10-03 那幾輪的 8 碼提交編號（例如 `d1392707`）在原庫、本庫查不到，「7 站」「91 張」等數字也是當時的狀態。待辦一律記在根目錄 `PENDING.md`，core 的功能需求登記在 `core/REQUESTS.md`。
+`core/` 的改版紀錄（版本對照在最後的「版本」表）。前半是 2026-10-03 起把原庫 `TestCode/` 各站統一到單一 `core/` 的遷移計畫（P0～P7）與之後各輪的進度，依日期由舊到新記到 1.10.0（「進度紀錄」）；之後每次改版一節，由新到舊排列。本庫在 2026-10 從原庫獨立出來，2026-10-03 那幾輪的 8 碼提交編號（例如 `d1392707`）在原庫、本庫查不到，「7 站」「91 張」等數字也是當時的狀態。待辦一律記在根目錄 `PENDING.md`，core 的功能需求登記在 `core/REQUESTS.md`。
 
 2026-10-03 拍板（選項對話）：
 - 單一 `core/` 直接引用（importmap `@core/`），不再複製同步；
@@ -215,20 +215,6 @@ Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs
     - `--ignore-names` 也不比燈光與虛擬相機的名稱（`visionCamera` 的虛擬相機預設叫 `camera view`）。修正前換用的站在 `view` 傳了 `name: ''` 維持不命名，留著無妨。
     - 正規化在比對時做，傾印檔格式不變，舊的傾印可以直接再比。
 
-## 2026-10-14：ParkingEMS 實物感與操作時序（本站外觀變更）
-
-使用者批准三場型完整修正，延長客戶操作段並保留 EMS 規則。本站改用曲面車體、可開前門、固定骨長人物、跟隨槍線、戶外材質與日夜反射，補鋼構／光電模組／排水／櫃體／植栽。施工線槽與集水管改為屋面就位後出現；沒有新增干涉 allow。都會型全景與能源區、住商型入口重新取景，避免前景建物遮蔽。
-
-基準為 `e19d07f` 的獨立 worktree；原有 7 站 91 張桌面回歸圖，超過門檻 0 張（像素容差 24、差異面積 0.2%）。ParkingEMS 的刻意差異逐圖檢視：三場型各 10 張（全景、入口、設備、夜間、開門、取槍、插槍、連接後、退槍、施工），旗艦型另 1 張車棚，共 31 張。修正了首次檢視發現的夜間入口偏暗、能源區數值牌遮蔽與都會型相機進入建物問題；詳細數字及限制見 `project-site/ParkingEMS/review/render-realism.md`。
-
-此輪僅改本站執行碼與共用紀錄；core API／渲染執行碼未變，不升 core 版本。基準與回歸圖片在本機 `TEMP/shots-pems-realism-base/`、`TEMP/shots-pems-realism-regression/`，本站修改前後畫面在 `TEMP/pems-realism-audit/`，均不進版控。
-
-## 2026-10-14：ParkingEMS 寫實渲染第二輪（本站外觀變更）
-
-以 `daa9fdf` 獨立 worktree 為基準，本站新增封裝的 PBR／HDRI 素材、高低畫質管線、接觸遮蔽與亮部擴散，加密車體／輪胎、薄葉簇與立體窗框，降低充電視角。素材來源與授權在本站 `web/assets/`，core 執行碼與 API 均未改，不升版。
-
-七站 91 張基準回歸超過門檻 0 張；本站 31 張事件畫面與三場型高低畫質／深度模式逐圖檢視，外觀變更為預期。CCTV／LPR 子畫面及缺檔降級另有瀏覽器檢查。量測、圖檔位置與限制見 `project-site/ParkingEMS/review/cinematic-render.md`。
-
 ## 2026-11-08：core 1.20.4 REQUESTS 的四個小需求
 
 - `ui/stage.js`：`createStage({ envIntensity })`（預設 1，外觀不變）＋`stage.setEnvIntensity(k)`，用 r187 的 `scene.environmentIntensity` 調整整體環境光（室外大場景陰影不被洗掉、日夜變化），不必逐材質改 `envMapIntensity`。
@@ -372,6 +358,20 @@ Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs
 - 回歸：改動前以目前的 HEAD 拍基準；13 站 154 張桌面截圖 0 張超過門檻；MGPC 的場景傾印 2 個情境、18 個時間點完全相同；8 個舊站的快速檢查與介面測試通過後 `coreVersion` 改為 1.14.0（同一天的文件整理），MGPC 改為 1.15.0。
 - 三色燈 `signalTower` 加 `setLamps({ red, green, … })`（多節同時亮；`set(k)` 照舊一次一節），MGPC 的孿生紅、綠燈改用它。
 - 尚未做：由站產生 MD（S4，第二階段），登記在 `REQUESTS.md`；與 AutoSequence 的聯調 A1～A8 等 Hub 升到 preview.3（`PENDING.md` 第 4 節）。
+
+## 2026-10-14：ParkingEMS 寫實渲染第二輪（本站外觀變更）
+
+以 `daa9fdf` 獨立 worktree 為基準，本站新增封裝的 PBR／HDRI 素材、高低畫質管線、接觸遮蔽與亮部擴散，加密車體／輪胎、薄葉簇與立體窗框，降低充電視角。素材來源與授權在本站 `web/assets/`，core 執行碼與 API 均未改，不升版。
+
+七站 91 張基準回歸超過門檻 0 張；本站 31 張事件畫面與三場型高低畫質／深度模式逐圖檢視，外觀變更為預期。CCTV／LPR 子畫面及缺檔降級另有瀏覽器檢查。量測、圖檔位置與限制見 `project-site/ParkingEMS/review/cinematic-render.md`。
+
+## 2026-10-14：ParkingEMS 實物感與操作時序（本站外觀變更）
+
+使用者批准三場型完整修正，延長客戶操作段並保留 EMS 規則。本站改用曲面車體、可開前門、固定骨長人物、跟隨槍線、戶外材質與日夜反射，補鋼構／光電模組／排水／櫃體／植栽。施工線槽與集水管改為屋面就位後出現；沒有新增干涉 allow。都會型全景與能源區、住商型入口重新取景，避免前景建物遮蔽。
+
+基準為 `e19d07f` 的獨立 worktree；原有 7 站 91 張桌面回歸圖，超過門檻 0 張（像素容差 24、差異面積 0.2%）。ParkingEMS 的刻意差異逐圖檢視：三場型各 10 張（全景、入口、設備、夜間、開門、取槍、插槍、連接後、退槍、施工），旗艦型另 1 張車棚，共 31 張。修正了首次檢視發現的夜間入口偏暗、能源區數值牌遮蔽與都會型相機進入建物問題；詳細數字及限制見 `project-site/ParkingEMS/review/render-realism.md`。
+
+此輪僅改本站執行碼與共用紀錄；core API／渲染執行碼未變，不升 core 版本。基準與回歸圖片在本機 `TEMP/shots-pems-realism-base/`、`TEMP/shots-pems-realism-regression/`，本站修改前後畫面在 `TEMP/pems-realism-audit/`，均不進版控。
 
 ## 版本
 

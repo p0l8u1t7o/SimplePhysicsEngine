@@ -99,7 +99,7 @@ core 內建檢查：`imports`、`structure`、`names`、`determinism`（倒序�
 
 統一檢查讀取 `web/js/project.js`（預設 SKU `V110-STND`）。最近一次結果：
 
-- `scene`：5364 個網格、每 0.87 s 取樣，動態／靜態干涉與重合面都是 0 筆（`review/scene-verification.json`）；放行的接觸只有載具側夾與 S3 夾臂的 PU 夾墊夾住護角、鉤爪／壓頭在力控步驟的接觸（`project.js` 的 `verify.allow`）。
+- `scene`：5365 個網格、每 0.87 s 取樣，動態／靜態干涉與重合面都是 0 筆（`review/scene-verification.json`）；放行的接觸只有載具側夾與 S3 夾臂的 PU 夾墊夾住護角、鉤爪／壓頭在力控步驟的接觸（`project.js` 的 `verify.allow`）。
 - `tools/verify.mjs`（`review/verification.json`）：兩個 SKU 各 241 步、週期 347.75 s，最大 TCP 誤差 0.033 mm；涵蓋全部步驟的代表時刻、任意倒退／跳站一致性、封印保持、翻面升降與夾持條件、TCP 可達性（PTP 步驟檢查終點）、手臂對 S1／S3 固定結構的碰撞（代表時刻＋連續播放每 0.25 秒）、轉位時產品與堆料架立柱的間隙（44 mm），以及連續播放。模型計算誤差並非設備精度。
 - `tools/verify-camera.mjs`：兩種 SKU 共 50 個光軸位置、20 個接口無遮擋。
 - `tools/verify-clearance.mjs`：16 個護蓋閉合、接口與護蓋最小間隙 0.25 mm；電控櫃落地、24 處輸送線支撐最小間隙 10 mm。

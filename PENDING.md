@@ -10,6 +10,9 @@
   - 軍規的載具側夾氣缸、S3 翻轉治具的滑台與馬達（對照文件沒有涵蓋）。
   - 杯體量測站的相機、光源與運動元件（`spec.js` 的資料驅動幾何，和碰撞包絡同源，要一起處理）。
   - ABB OmniCore C30 與 DSQC 2000 屬電控元件，在 `core/electrical` 做（已登記 `core/REQUESTS.md`）。
+- [ ] 光伏共用模型（core 1.20.2 的 `models/pv.js`：`pvModule`、`pvArray`、`stringInverter`）：ParkingEMS、SolarDismantling 站內的暫代程式還沒改用（各站驗證後再換，見 `core/MIGRATION.md` 1.20.2）。
+- [ ] RobotArmPressSSD 手腕相機的標籤還在站裡自己畫（`web/js/robot.js`）：core 已改成建立當下判斷 `hasDom()`，可以交給 `visionCamera` 的標籤；換用時照「換用 core 模型時三樣都要比」。
+- [ ] ParkingEMS 的 HDR 載入器（`web/assets/vendor/RGBELoader.js`）還是 three r160 的複本，core 已升到 r187（r187 改名 `HDRLoader`）；目前可用，下次動 ParkingEMS 渲染時一起換。
 - [ ] 回收物分揀：光幕依 ISO 13855 的安全距離 668 mm 在現有框架內不成立，畫面只畫示意；實機防護位置待風險評估（對客戶說明時要提）。
 - [ ] 杯體量測站的電路圖冊（`docs/circuit-diagrams.pdf`，2026-09-29 另一版產生器、版次 1.1）沒有 I/O 清單頁：`tools/circuit-drawings/verify.py`（2026-11-07 起認得這版的 `devices` 欄位）檢查出 18 個 I/O 點的線號只出現在接線圖、沒有出現在清單（其他 5 站的圖冊都有 500 系列 I/O 清單）。元件、軸、圖框、A3 尺寸、文字重疊都通過。要補 I/O 清單頁時，改用 `render.py` 的格式重產，或在該版產生器加一頁。
 
@@ -22,7 +25,7 @@
 - [ ] 舊開發機的 3D工作室工作區（`%USERPROFILE%\Documents\3D-Studio`，用 3D工作室建立的專案）沒有在 2026-11-05 的搬遷清單裡，新機的工作區是空的；舊機還在的話整個資料夾複製過來（`.studio/` 與 `projects/` 都要）。
 - [ ] 併改偵測用真代理（Claude／Codex）在本庫的站實測一次：執行中手動改代理正在改的檔，確認會轉成提問、沒有誤報。
 - [ ] 觀察修正迴圈的實際表現：P1、P2 共 8 次實測都第一次就通過檢查，修正迴圈只用假代理測過。
-- [ ] P2 MGPC 的第二段成品：右上角「外觀檢查」面板被電控檢視器面板蓋住（第一段就有），之後若要拿這版展示再修。（2026-10-21 核對：本機 `TEMP/` 已找不到這份成品，`TEMP/seg2-accept/`、`TEMP/p2-report/` 也不在；成品若已刪掉，這項可以拿掉。）
+- [ ] P2 MGPC 的第二段成品：右上角「外觀檢查」面板被電控檢視器面板蓋住（第一段就有），之後若要拿這版展示再修。（2026-10-21、2026-11-08 核對：本機 `TEMP/` 找不到這份成品，`TEMP/seg2-accept/`、`TEMP/p2-report/` 也不在，新機的 3D工作室工作區 `projects/` 是空的；舊機也沒有的話，這項可以拿掉。）
 
 ### 3. 自動化專案評估平台
 
@@ -31,16 +34,16 @@
 - [ ] Q1 的後續：API 金鑰模式實際付費呼叫的驗收（要有公司的 Anthropic／OpenAI 金鑰；假金鑰已確認兩種 CLI 都改走金鑰、不會退回訂閱帳號）。
 - [ ] Q1 的後續：依角色選認證方式（目前是依 CLI）；代理同時執行數大於 1 要先改寫入隔離（每輪雜湊比對會把別的專案的變更當成越界），目前佇列一次跑一個。
 - [ ] Q1 的後續：打包部署時寫入 `studio/edition.json`、刪掉 `studio/lib/subscription.mjs`，並跑 `vs3d edition` 檢查。
-- [ ] Q2 的後續：各分類的預設欄位範本已補（2026-11-08，資料庫第 10 版；使用者可以在「管理分類」再調）；還沒做的是把資料庫裡已知的替代方案文字改成「替代」關聯（要逐筆判斷對應哪個元件）（66 個元件有替代方案文字，「替代」關聯目前 0 筆）。
+- [ ] Q2 的後續：把資料庫裡已知的替代方案文字改成「替代」關聯，要逐筆判斷對應哪個元件（2026-11-08 核對：66 個元件有替代方案文字，關聯件目前 0 筆）。各分類的預設欄位範本已補（2026-11-08，資料庫第 10 版；使用者可以在「管理分類」再調）。
 - [ ] Q4 的後續：和廠商的鏡頭計算器比對 10 組以上（驗收標準誤差 < 1%；目前只對照了杯體量測、快門兩站的設計文件與教科書公式）。
 - [ ] Q5 的後續：10 個資料不全的元件已用真代理跑完補全（本機 `studio/data/enrich/1～10`，2026-10-06），10 筆建議都還在「待審核」；審核後記錄欄位命中率與錯誤率。第一次實測（Claude sonnet，Basler acA2440-20gm）：13 個欄位與經銷商標價，人工核對都正確，約 US$0.8、6 分鐘。
 - [ ] Q6 的後續：用真代理跑一個只勾「評估＋成本」的新案（Q10 驗收的新案可以兼做），確認規劃角色寫得出合格的 feasibility 與 bom.json、市購品引用率。平台的 `projects` 索引表沒有做（專案組成放在 studio.json，資料庫只存評估資料）。
 - [ ] Q7 的後續：L2 是幾何近似（不是光線追蹤）；用快門站的葉片疊片實物照片或打樣影像對照一次，必要時調材質預設與缺陷模型。光學代理用真代理跑一次（Q10 驗收）。
 - [ ] Q8 的後續：烘焙在載入時做（RecycleSorter 約 240 ms），沒有另外做軌跡快取檔；之後有烘焙超過 3 秒的站再加。
-- [ ] Q9 的後續（要人判斷，app 沒有自動改成本表）：有平台 BOM 的 7 站（酸鹼、軍規、PCB、SSD、快門、杯體量測、回收物分揀）的 bom 落差清單在各站 `review/bom-checks.json`。多數是元件沒連到 3D 模型（到元件庫補 3D 模型，或 `vs3d parts link`）、現場既有設備（在場景標 `userData.noBom`）、場景用的模型 id 和元件不同；逐站修正或在 BOM 標 noScene。化學桶清洗線與之後的 5 站（Solar、Plumbing、Wheel、ParkingEMS、Stator）還沒有平台的 BOM。
+- [ ] Q9 的後續（要人判斷，app 沒有自動改成本表）：有平台 BOM 的 7 站（酸鹼、軍規、PCB、SSD、快門、杯體量測、回收物分揀）的 bom 落差清單在各站 `review/bom-checks.json`。多數是元件沒連到 3D 模型（到元件庫補 3D 模型，或 `vs3d parts link`）、現場既有設備（在場景標 `userData.noBom`）、場景用的模型 id 和元件不同；逐站修正或在 BOM 標 noScene。化學桶清洗線與之後的 6 站（Solar、Plumbing、Wheel、ParkingEMS、Stator、Teflon）還沒有平台的 BOM。
 - [ ] Q10 驗收：快門、杯體量測、回收物分揀＋1 個新案，元件補全正確率，兩位同事同時使用中央主機（目前做了回收物分揀的物理料流分析；快門、杯體量測的光學 L1 與 BOM 升版流程用資料庫副本跑過腳本，結果在本機 `TEMP/q10/stations.md`，10 個元件的補全紀錄在 `TEMP/q10/enrich.log`）。
 - [ ] 元件 3D 顯示只能連 core 共用模型：沒有模型的元件已可用封面圖當縮圖（目前 0 個元件設了封面）；專案裡自己畫的設備、匯入的 CAD 檔（STEP 轉 3D）仍不能顯示。
-- [ ] 元件資料庫的資料整理（使用者在介面上做）：類別與廠牌是匯入時從文字猜的，要校正；供應商主檔還是空的；不同專案寫法不同的同一種元件要合併（`vs3d parts merge`）；239 個元件裡 53 個連到 3D 模型（2026-10-21 核對）。
+- [ ] 元件資料庫的資料整理（使用者在介面上做）：類別與廠牌是匯入時從文字猜的，要校正；供應商主檔還是空的；不同專案寫法不同的同一種元件要合併（`vs3d parts merge`）；239 個元件裡 53 個連到 3D 模型（2026-11-08 核對，和 10-21 相同）。
 
 ### 4. AutoSequence 數位孿生（core/twin）
 
@@ -54,14 +57,14 @@
 
 ### 5. 太陽能案場平台與物理擴充（2026-11-07 拍板，評估在本機 `TEMP/太陽能案場平台評估_2026-11-07.md`）
 
-2026-11-07 已完成並進 core（1.17.0～1.20.0，細節在 `core/MIGRATION.md`）：three.js r187、XPBD 線材／布料、PBF 粒子流體、天候（雨雪、積雪、雪風載重估算、逕流）、MuJoCo 手臂動力學、`core/solar`、`core/geo`（含 LAZ）、`core/structure`、`core/piping`、外部 CFD 的案例產生與匯入（`tools/cfd`、`core/cfd`）、範例頁 `/core/examples/solar/`、`/core/examples/structure/`。剩下的：
+2026-11-07～08 已完成並進 core（1.17.0～1.20.4，細節在 `core/MIGRATION.md`）：three.js r187、XPBD 線材／布料、PBF 粒子流體、天候（雨雪、積雪、雪風載重估算、逕流）、MuJoCo 手臂動力學、`core/solar`、`core/geo`（含 LAZ、OBJ、3D Tiles）、`core/structure`、`core/piping`、光伏共用模型（`models/pv.js`）、外部 CFD 的案例產生與匯入（`tools/cfd`、`core/cfd`）、範例頁 `/core/examples/`（solar、structure、weather、tiles、cfd）。剩下的：
 
-- [ ] 日照檢查的後續：站層 `verify.solar`（`core/verify/solar.mjs`，2026-11-07）已有冬至列間遮陰、排距 90% 的對照組與追日回溯；外部遮擋（`obstacles`：方塊、四邊形、地形函式）另列一列；全年發電列（`energy`：對預期值或上次結果，2%）也有了（2026-11-07）。目前沒有站宣告 `verify.solar`。
+- [ ] 日照檢查接進站：站層 `verify.solar`（`core/verify/solar.mjs`）已有冬至列間遮陰、排距 90% 的對照組、追日回溯、外部遮擋（`obstacles`）、全年發電列（`energy`，2%）與鋼構合併宣告（`structure`），但目前沒有站宣告 `verify.solar`。
 - [ ] 天候資料來源先依建議採用（2026-11-07 授權當晚依建議進行，使用者可再改；`tools/weather/README.md`）：可行性評估用 PVGIS（`fetch-tmy.mjs`；台灣只有 PVGIS-ERA5 再分析），正式發電量用 NSRDB Himawari（要使用者申請 NREL 金鑰），中央氣象署實測校正；還沒做的是 NSRDB 實際下載後對一次欄位與時間標記、和氣象署實測的比對。ΔT 維持 pvlib 的多項式（台灣的太陽方向夾角差 < 0.0001°，在 ±0.01° 內）；全年遮陰的 Worker 平行與先篩可能被遮的排（2026-11-07 量測：10,000 片＋8 萬三角形地形，單執行緒 1°×2° 分箱全年 1.5 分、2°×4° 0.8 分，可接受；先篩用掃掠包圍盒在低太陽角時幾乎篩不掉，暫不做）。
-- [ ] `core/geo`：3D Tiles 已能載入圖磚（`geo/tiles.js`，2026-11-08；DRACO、KTX2、meshopt 壓縮的解碼器已掛上，只在瀏覽器驗過解碼器載入，還沒用真的壓縮圖磚實測——本機不能跑外部編碼器產生測試檔，拿到空拍成品時對一次）；台灣的大地起伏模型（目前 `geoidOffset` 要手填）；大檔用 HTTP Range 分段讀；大地起伏模型；OBJ 的大檔串流讀取與壓縮貼圖（`core/geo/obj.js` 已能讀地理參考 OBJ，2026-11-07）；影片疊圖介面；熱影像熱斑標記。
+- [ ] `core/geo`：3D Tiles 已能載入圖磚（`geo/tiles.js`，2026-11-08；DRACO、KTX2、meshopt 壓縮的解碼器已掛上，只在瀏覽器驗過解碼器載入，還沒用真的壓縮圖磚實測——本機不能跑外部編碼器產生測試檔，拿到空拍成品時對一次）；台灣的大地起伏模型（目前 `geoidOffset` 要手填）；大檔用 HTTP Range 分段讀；OBJ 的大檔串流讀取與壓縮貼圖（`core/geo/obj.js` 已能讀地理參考 OBJ，2026-11-07）；影片疊圖介面；熱影像熱斑標記。
 - [ ] 外部 CFD 實跑：本機沒有 Docker 也沒有 WSL 發行版，產生的字典還沒在真的 OpenFOAM（v2412）上跑過；要確認 `atmBoundaryLayerInletOmega` 參數、`z0`／`d` 寫法、VTK legacy 輸出、streamLine 與 surfaces 的檔名配置；之後做網格獨立性、interFoam、OpenFOAM.org 版本開關、殘差與 y+ 圖表（展示頁已搬到 `/core/examples/cfd/`，2026-11-07）。注意 `cpu-cap.ps1` 管不到 Docker／WSL 的虛擬機，要用 `--cpus` 或 `.wslconfig` 限制。
 - [ ] MuJoCo：VS-068 的連桿質量、慣量與扭矩上限換成實際資料（DENSO 的 URDF 或型錄，先確認授權），目前是估計值；COBOTTA PRO 900 等其他型號還沒有動力學參數；孿生的跟隨誤差（`mj_step`＋位置致動器）。站層 `verify.dynamics` 的負載改從 3D 工具模型估（2026-11-07 第二輪拍板，`core/robot/payload.js`）：RobotArmPressSSD 1.21 kg（J2 峰值約估計上限的 24%）；**TeflonWelding 5.99 kg**（夾焊帶工具時，接近 VS-068 型錄的 7 kg；J5 負載力矩 11.5／16.6 N·m），其中熱風槍本體是 782 cm³ 的實心圓柱、當鋁算就有 2.1 kg，實際是中空的——拿到焊槍重量後在模型上標 `userData.mass`。
-- [ ] 天候與流體：規範係數核對（台灣耐風規範的 zs、ASCE 7-22 差異、JIS C 8955:2017）、雪模型參數校正；積雪損失已能接進全年發電（`snowLossSeries` → `simulate({ hourlyLoss })`，2026-11-07），追日的逐時轉角與下雪收藏（`stowAngle`）也有了（2026-11-08）；流體的休眠（`sleep`，選用）與圓桶壁、底板的連續碰撞已做（2026-11-08）；Worker 烘焙（spec 裡的 `pos: t => …` 函式不能傳進 Worker，要先改成可序列化的關鍵格）；布料的自我碰撞只做到節點之間（`selfCollision`，2026-11-07），邊與面的連續碰撞還沒有。
+- [ ] 天候與流體：規範係數核對（台灣耐風規範的 zs、ASCE 7-22 差異、JIS C 8955:2017）、雪模型參數校正；Worker 烘焙（spec 裡的 `pos: t => …` 函式不能傳進 Worker，要先改成可序列化的關鍵格）；布料的自我碰撞只做到節點之間（`selfCollision`），邊與面的連續碰撞還沒有。（積雪損失接全年發電、追日下雪收藏 `stowAngle`、流體休眠 `sleep` 與圓桶壁的連續碰撞已在 core 1.20.0～1.20.2 完成。）
 - [ ] XPBD 線材接進各站：2026-11-07 盤點過 MilitaryGradePC（滑軌用拖鏈）、RobotArmPressSSD、PlumbingFixtureInspection（手臂線走在零件上），都沒有手臂到電盤的自由懸垂段，硬改不符合實際設備；等有真的懸垂線（示教器線、焊接管束、吊掛軟管）的站再用 `bakeRope`＋`verify.physics.stretchTol`，錨點函式用 `core/math/dmath.js`。
 - [ ] 表格數值核對：`structure`、`piping`、`weather` 的斷面、管徑、K 值、風雪係數多是記憶值（各 README 有清單），正式使用前要對照原文。
 
@@ -80,7 +83,7 @@
 - [ ] **PCB-CopperAssembly**：S1、S3 相機與 S2 Y 軌的間隙只剩 1.75 mm，待實機確認。
 - [ ] **MilitaryGradePC**：用 DENSO CAD 核對關節零點與尺寸。
 - [ ] **ChemicalTankWashing**（詳細見本站 README「待確認」；2026-10-31 改版的拍板在本站 `AGENTS.md`）：
-  - 改版待確認：清洗區實際可用範圍與樓高；道路與倉庫的相對位置、倉庫門位、AGV 經室外道路的雨遮與坡度；填裝區南牆開約 4.4 m 捲門、東牆開輸送口、清洗區南牆開 3.6 m AGV 捲門；料倉供液方式與 4 種液體性質（防爆、防溢堤、排氣）；鎖蓋扭力值與桶蓋供料（新蓋或回用）；倉庫儲位排列與堆疊層數；頂面標籤的位置與尺寸。
+  - 改版待確認：清洗區實際可用範圍與樓高；道路與倉庫的相對位置、倉庫門位、AGV 經室外道路的雨遮與坡度；填裝區南牆兩樘捲門（約 4.4 m 與 2.9 m）、共用牆輸送口、清洗區南牆 3 m AGV 捲門（尺寸照 `web/js/layout.js` 的 `OPENINGS`）；料倉供液方式與 4 種液體性質（防爆、防溢堤、排氣）；鎖蓋扭力值與桶蓋供料（新蓋或回用）；倉庫儲位排列與堆疊層數；頂面標籤的位置與尺寸。
   - 現場丈量：柱、門、更衣室位置、梁下淨高。
   - 桶塞位置與螺紋、最大殘液量；空桶逐桶建檔的流程與 MES 欄位。
   - 70°C 熱風下桶內殘留化學品是否揮發；標籤格式與 MES 介面、廢液處理、桶蓋是否回用。

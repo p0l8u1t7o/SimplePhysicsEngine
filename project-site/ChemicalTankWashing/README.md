@@ -30,7 +30,7 @@
 | S10 擦拭放行 | 該線的擦拭人員走到桶旁擦拭桶身 → 退回走道按放行鈕 → 區段式輸送把桶送到集貨輸送 | 擦拭約 30 s |
 | S11 組板入庫 | 集貨輸送送到暫存區取料位 → 組板龍門夾桶放到同液體的棧板（夾爪朝對角，避開同板相鄰的桶）→ 滿板後 AGV-2（出料）從倉庫充電位出發，由南牆捲門叉起，送回倉庫成品區 | 約 20 s／桶 |
 
-動畫走完「一板 4 桶（液體 A、B、A、A）」全流程約 1,288 s：3 桶 A 加上組板 A 原有的 1 桶湊成滿板送回倉庫，B 桶放到組板 B。L3、L4 的部分填裝位與組板 C、D 是「其他線生產中」的靜態示意。各站並行，交接時刻依站位占用推算。
+動畫走完「一板 4 桶（液體 A、B、A、A）」全流程約 1,290 s：3 桶 A 加上組板 A 原有的 1 桶湊成滿板送回倉庫，B 桶放到組板 B。L3、L4 的部分填裝位與組板 C、D 是「其他線生產中」的靜態示意。各站並行，交接時刻依站位占用推算。
 
 **產能**：清洗手臂約 151 s／桶（約 23 桶／h）是整線瓶頸；填裝 4 線 × 4 位各自獨立啟動，每位約 4 分鐘一桶，總產能遠大於清洗。若 4 桶到齊才一起填，平均每線約 6 桶／h，第 1 桶要等約 30 分鐘，所以改為各位獨立啟動。
 
@@ -132,7 +132,7 @@ node ../../core/tools/check.mjs ChemicalTankWashing --only scene
 ```
 
 - core 內建：`imports`、`structure`、`names`、`determinism`（[review/determinism.json](review/determinism.json)）、`layout`（[review/layout-checks.json](review/layout-checks.json)，24 項空間檢核）、`scene`；本站沒有電控櫃、沒有用剛體動力學、平台還沒有本站的 BOM，所以 `electrical`、`physics`、`bom` 略過。`ui` 只在完整檢查跑（四種尺寸，[review/ui-check.json](review/ui-check.json)，port 用環境變數 `UI_PORT` 指定）。
-- 本站自有：快速檢查跑 `tools/verify.mjs`；完整檢查再加 `tools/verify-detail.mjs`、`tools/verify-gripper.mjs`。
+- 本站自有：快速檢查跑 `tools/verify.mjs`；完整檢查再加 `tools/verify-detail.mjs`、`tools/verify-gripper.mjs`、`tools/verify-render-details.mjs`（後者會呼叫 `verify-services.mjs`）。
 
 ### 排程與幾何（`tools/verify.mjs`）
 
@@ -151,7 +151,7 @@ node --import ../../core/tools/register.mjs tools/verify.mjs
 - 交接瞬間是否跳動；
 - 倒序取樣的一致性。
 
-結果在 [review/verification.json](review/verification.json)：全數通過（總長約 1,288 s、手臂節拍 151.1 s；夾爪對相鄰桶最小淨距 20 mm）。手臂追蹤誤差 ≤ 0.05 mm；關節速度最高為額定的 84%（J6）；手臂連桿與納入檢查之設備外框最小淨距 166 mm（與搬移前相同）。未含軟管掃掠、緊固件與人員的動態干涉；這是有限取樣檢查，不是連續碰撞證明。
+結果在 [review/verification.json](review/verification.json)：全數通過（總長約 1,290 s、手臂節拍 151.1 s；夾爪對相鄰桶最小淨距 20 mm）。手臂追蹤誤差 ≤ 0.05 mm；關節速度最高為額定的 84%（J6）；手臂連桿與納入檢查之設備外框最小淨距 166 mm（與搬移前相同）。未含軟管掃掠、緊固件與人員的動態干涉；這是有限取樣檢查，不是連續碰撞證明。
 
 ### 全場干涉與閃爍（core `scene`）
 
@@ -210,7 +210,7 @@ node --import ../../core/tools/register.mjs tools/verify-gripper.mjs
 
 IBC 區、填裝線尾及廢液防溢堤北側各設沖淋／洗眼站，另有壁掛滅火器、PPE 牌、洗管捲盤、四線放行側與組板龍門急停。輸送增加 10 組齒輪馬達、傳動護罩、輸入／輸出段導軌與光電支架；導軌避開分岐與龍門取桶區。全部附件為靜態實例，沒有新增即時光源或每幀工作。
 
-`verify-services.mjs` 由展開檢查呼叫，確認牆孔、手臂範圍、門扇、AGV 掃掠及桶身對導軌。第三輪基準為 `TEMP/ctw-codex3-base/ChemicalTankWashing/`（18 視角、4295 meshes）；瀏覽器外觀與 FPS 由審查端驗收。手臂隨動 dress pack 與兩站印表碳帶暫不增加，避免本輪擴張到腕部隨動包絡與印字引擎內部配置。
+`verify-services.mjs` 由展開檢查呼叫，確認牆孔、手臂範圍、門扇、AGV 掃掠及桶身對導軌。第三輪以補強前的 18 個視角、4,295 個網格為基準比對；瀏覽器外觀與 FPS 由審查端驗收。手臂隨動 dress pack 與兩站印表碳帶暫不增加，避免本輪擴張到腕部隨動包絡與印字引擎內部配置。
 
 ## 檔案
 
@@ -245,6 +245,6 @@ IBC 區、填裝線尾及廢液防溢堤北側各設沖淋／洗眼站，另有�
 | `line.js` | `transport.js` 的 `vRollerConveyor`、`ballTurntable`；`conveyor.js`；`equipment-process.js` 的 `labeler`、`upender`、`weighIndicator`；`motion.js` 的 `loadCell`、`airCylinder`、`linearAxis`、`nutrunner`；`vision.js` 的 `visionCamera`；`lights.js` 的 `barLight`；`sensors.js` 的 `lightCurtain`；`indicators.js` 的 `signalTower`、`hmi` |
 | `washing.js` | `equipment-process.js` 的 `airKnife`、`sprayLance`、`hotAirBlower`、`vacuumPump`、`storageTank`（`pe-tank`，PE 儲槽 ×4）、`centrifugalPump`、`diaphragmPump`、`valve`、`transferCoupling`；`motion.js` 的 `linearAxis` |
 | `filling.js` | `conveyor.js`；`vision.js` 的 `codeReader`；`motion.js` 的 `nutrunner`；`indicators.js` 的 `signalTower`；`transport-handling.js` 的 `pallet` |
-| `drum.js`、`layout.js` | `drum-200l.js` |
+| `drum.js`、`layout.js` | `drum-200l.js`（桶本體；兩座龍門的窄弧夾爪用 `drumJaws` 的 `arc` 選項） |
 
-站內自畫的（加工件或站專用機構）：清洗夾具、沖洗隔間與集液漏斗、防溢堤、桶蓋收集桶、立放輸送在開蓋站斷開的側樑、貼標旋轉輥、橫躺線側板與立放線護欄、梳齒秤台、管線法蘭與泵壓表、開蓋夾緊護板、頂面貼標門型架、填裝架與填裝頭、組板龍門、料倉（IBC 示意）、作業員。core 沒有的模型（填裝頭、作業員）之後可登記 `core/REQUESTS.md` 共用。
+站內自畫的（加工件或站專用機構）：清洗夾具、沖洗隔間與集液漏斗、防溢堤、桶蓋收集桶、立放輸送在開蓋站斷開的側樑、貼標旋轉輥、橫躺線側板與立放線護欄、梳齒秤台、管線法蘭與泵壓表、開蓋夾緊護板、頂面貼標門型架、填裝架與填裝頭、組板龍門、料倉（IBC 示意）、作業員。core 沒有的填裝頭與作業員已登記在 `core/REQUESTS.md`。

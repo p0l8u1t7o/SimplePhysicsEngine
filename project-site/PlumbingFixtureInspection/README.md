@@ -21,7 +21,7 @@ node ../../core/tools/serve.mjs "PlumbingFixtureInspection"
 ## 檢查
 
 ```powershell
-node ../../core/tools/check.mjs "PlumbingFixtureInspection"          # 完整：import 路徑、結構、用戶名稱、倒序一致、空間檢核、全場干涉與閃爍、配線與電盤、物理、BOM 一致性、四種尺寸的介面測試（ui）、本專案檢查
+node ../../core/tools/check.mjs "PlumbingFixtureInspection"          # 完整：import 路徑、結構、用戶名稱、倒序一致、空間檢核、全場干涉與閃爍、配線與電盤、物理、BOM 一致性、太陽能遮陰與手臂動力學（有宣告才跑）、四種尺寸的介面測試（ui）、本專案檢查
 node ../../core/tools/check.mjs "PlumbingFixtureInspection" --quick  # 部署前快速檢查
 ```
 
@@ -36,8 +36,8 @@ node ../../core/tools/check.mjs "PlumbingFixtureInspection" --quick  # 部署前
 | `web/js/products/*.js` | 產品模組（`tools/import-cad.mjs` 產生，勿手改）：網格＋產品檔 |
 | `web/js/product-mesh.js`、`codec.js` | 產品模組解碼成 three.js 幾何 |
 | `web/js/inspection.js` | 產品登錄、判定規則庫、示範候選點 |
-| `web/js/cell.js` | 機台、抽屜、光學艙、掃描器、讀碼器、操作螢幕 |
-| `web/js/robot.js`、`poses.js` | VM-60B1＋快換器＋轉接頭、逆解選解；產品在各處的姿態 |
+| `web/js/cell.js` | 機台、抽屜、光學艙、掃描器、讀碼器、操作螢幕；市購品用 core 模型：抽屜滑軌 `drawerSlide`（`motion.js`）、相機 `visionCamera`、讀碼器 `codeReader`（`vision.js`）、三色燈 `signalTower`、操作面板 `hmi`（`indicators.js`） |
+| `web/js/robot.js`、`poses.js` | VM-60B1（core `core/models/robots/denso-vm60b1.js` 的 `createVM60B1`）＋快換器＋轉接頭、逆解選解；產品在各處的姿態 |
 | `web/js/sequence.js` | 8 站排程 |
 | `web/js/twin.js` | 數位空間 |
 | `web/js/effects.js` | 結構光條紋、掃描相機燈、硬體觸發與穩定燈號（全部由主時間 `t` 驅動） |

@@ -15,7 +15,7 @@ powershell -ExecutionPolicy Bypass -File scripts\setup.ps1 -All     # 另外建�
 | Chrome 或 Edge | 近期版本 | 瀏覽器檢查（`ui-check`、`shots`、各專案 browser 檢查）用 DevTools Protocol 驅動無頭瀏覽器 | Windows 內建 Edge 即可；其他路徑設環境變數 `CHROME_PATH` |
 | Git | 任何近期版本 | 版控；回歸比對用 `git worktree` 拍基準截圖 | `winget install Git.Git` |
 
-three.js 與 Rapier 已放在 `core/vendor/`，不需要網路或套件管理器。
+three.js（r187）、Rapier、MuJoCo、laz-perf、3d-tiles-renderer 已放在 `core/vendor/`，不需要網路或套件管理器。
 
 vs3d 網頁介面（`studio/ui/`，React＋Vite）是唯一用到 npm 套件的地方：`scripts\start.cmd` 第一次啟動時會自動 `npm install` 並建置（npm 隨 Node.js 安裝）。vs3d 的代理另外需要 Claude Code 或 Codex CLI，說明見 `studio/README.md`。
 

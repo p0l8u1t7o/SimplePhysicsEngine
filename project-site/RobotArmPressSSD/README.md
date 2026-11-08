@@ -107,7 +107,7 @@ node ../../core/tools/serve.mjs RobotArmPressSSD --no-open
 | `web/js/recipes.js` | 接頭型錄與機種配方（載盤、板子、接頭位置與方向、翹起示意、壓合力） |
 | `web/js/product.js` | 依配方建出產品；壓點、對焦點、翹起角與間隙；編織／金屬／PCB 材質與靜態網格合併用 `core/geom/surfaces.js` |
 | `web/js/cell.js` | 輸送段（後軌基準、前軌調寬）、止擋、頂升、全局相機、底櫃、外罩、電控箱與配線。市購品用 core 模型：邊皮帶輸送 `edgeBeltConveyor`、止擋 `stopper`（`transport.js`）；頂升氣缸 `airCylinder`、門開關 `doorSwitch`（`motion.js`）；全局相機 `visionCamera`（`vision.js`）、條形光 `barLight`（`lights.js`）、光電 `boxSensor`（`sensors.js`）；三色燈 `signalTower`、HMI `hmi`、急停 `estop`（`indicators.js`）。鋁擠型框架 `MAT.frame`、拋光銷 `MAT.chrome`、拉絲鋁軌與支撐板 `finished(MAT.alu, 'metal')`；綠色皮帶、PC 外罩、各段站名貼紙為本站外觀；地面用 `core/geom/environment.js` 的 `floor(g, { size: [9000, 6000], cell: 200 })` |
-| `web/js/robot.js` | 手臂本體、限位、速度與 IK 在 core 模型（`createVS068`）；本檔放共用末端工具（快拆壓頭介面、力覺感測器 `ftSensor`、手腕斜視相機 `visionCamera`、手腕條形光 `barLight`）、TCP 與關節規劃（逆解選解、PTP、位姿快取）。手腕相機的標籤留在本站畫（core 模型在沒有 `document` 時不建標籤，已登記 `core/REQUESTS.md`） |
+| `web/js/robot.js` | 手臂本體、限位、速度與 IK 在 core 模型（`createVS068`）；本檔放共用末端工具（快拆壓頭介面、力覺感測器 `ftSensor`、手腕斜視相機 `visionCamera`、手腕條形光 `barLight`）、TCP 與關節規劃（逆解選解、PTP、位姿快取）。手腕相機的標籤留在本站畫（當初 core 模型在載入時就決定有沒有 `document`，verify 腳本載入後才補，交給模型會少一個相機零件；core 已改成呼叫當下判斷 `hasDom()`，可以改用模型的標籤，見 `PENDING.md`） |
 | `web/js/sequence.js` | 由配方產生流程、拍攝分組、接頭狀態與力值計算。步驟、快照插值、`stationStart`、`total`、`events` 用共用步驟序列 `core/anim/sequence.js` 的 `createStepSequence`；本檔只加手臂姿態層（建立每步時記下起訖姿態與 `motion`；逆解規劃後用序列的 `retime` 依關節角度差重排 PTP 步驟時間；接觸／接近限速）；另匯出手臂到位規則 `ARRIVAL`（門檻、逾時 8 s、子步 10 ms），`main.js` 與 `tools/verify.mjs` 共用 |
 | `web/js/station.js` | 組裝整站並套用狀態（畫面與驗證共用） |
 | `web/js/project.js` | 專案介面 `createProject`：依配方／壓墊建整站、ROI 框與流程；`apply(t)` 把流程狀態、手臂姿態、燈號與 ROI 放到時間 t；`layoutChecks` 與配線情境 `verify.cables`（全部配方 × 可用壓墊）。`main.js` 與 core 統一檢查共用 |
@@ -139,6 +139,7 @@ node ../../core/tools/check.mjs RobotArmPressSSD --only electrical   # 只跑某
 | `scene` | 全場動態／靜態干涉＋重合面閃爍 | 1,650 個網格、56 個關節、207 個時刻：0 筆（`review/scene-verification.json`） |
 | `electrical` | 電控元件在櫃內、櫃內連線、穿板孔，加上 `verify.cables` 的配線動態取樣 | 13 個元件、14 條連線、1 個櫃體；5 種配方／壓墊情境各 17 條走線、共 1,640 個取樣通過（`review/electrical-checks.json`） |
 | `physics` | core 剛體動力學烘焙 | 本站沒有用，略過 |
+| `dynamics` | `verify.dynamics`：MuJoCo 逆動力學算手臂峰值扭矩、負載力矩（只警告；負載由 3D 工具模型估，約 1.2 kg，壓合反力不在內） | `review/dynamics-checks.json` |
 | `bom` | 場景的 core 模型對照 3D工作室平台的 BOM（只警告） | 場景 15 個模型、BOM 38 行，對上 4 項；落差清單在 `review/bom-checks.json` |
 | `ui` | 桌面、手機直向、手機橫向、觸控平板的標準互動測試（只在完整檢查，port 用環境變數 `UI_PORT`） | `review/ui-check.json` |
 | `tools/verify.mjs`（quick） | 見下 | 8 種組合都通過（`review/verification.json`） |

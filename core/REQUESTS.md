@@ -34,7 +34,7 @@
 - 提出：core 1.10.0 整合（2026-10-05，RecycleSorter 的既有分選站；已拍板不做成 `core/models`，因為它們是電控元件）
 - 暫代：`project-site/RecycleSorter/web/js/frontline.js` 的 `abbDevice()` 與其後的 DSQC 2000（`CTM1`）、OmniCore C30（`ABB1`）兩段在站內自己畫（`userData.electrical`、`electricalBody`；機身置中、轉 180° 朝門）。RC8A 用 core 的 `robotController()`，放進 `electrical.js` 轉 180° 的安裝座 `RC1 安裝座`
 - 期望介面：`core/electrical/electrical-components.js` 的 `robotController`（目前只有 RC8A 與 `crc: true` 的 CRC9M 兩種外形）加 ABB OmniCore C30 的外觀與朝向參數，`electricalDevice` 加 DSQC 類 I/O 擴充模組的外觀；原點與朝向照 core 的慣例（背面在 z = 0、正面朝本地 +Z）
-- 影響：和上面「聚焦元件要依元件朝向取景」一起處理（都卡在「面板固定朝本地 +Z」）；之後用 ABB 手臂的站都會用到
+- 影響：之後用 ABB 手臂的站都會用到。電控檢視器的「聚焦元件」已在 1.20.4 改成依元件朝向取景，轉 180° 的元件不必再翻面暫代
 
 ### 長方形棧板與木棧板
 - 提出：SolarDismantling（2026-10-07）
@@ -69,9 +69,9 @@
 - 暫代：`project-site/ParkingEMS/web/js/models.js`（全部）、`web/js/lot.js`（停車場鋪面與標線、建物、植栽）
 - 外觀與動作暫代補充（2026-10-14）：本站 `vehicles.js` 的曲面車體／開門、`surfaces.js` 的戶外材質、`site-details.js` 的植栽／立面、`outdoor-lighting.js` 的日夜天空，以及 `operator.js` 固定骨長與 `charging-cable.js` 的兩端固定下垂線。尚未提升為 core API；抽出時需保留幾何、倒序與場景回歸。
 - 寫實渲染暫代補充（2026-10-14）：`cinematic-assets.js` 封裝 PBR／HDRI 的同源載入與可見降級；`cinematic-renderer.js` 為支援標準／對數深度的 HDR 接觸遮蔽與高低畫質管線。抽入 core 前需保留多相機子畫面、手機模式、缺檔處理與全部站的基準回歸；來源授權清單在本站 `web/assets/`。
+- core 已有的（1.20.2，本站尚未換用）：太陽能板 `pvModule`／`pvArray`、組串式變流器 `stringInverter`（`core/models/pv.js`）
 - 期望介面：`evCharger.create({ type: 'AC'|'DC', kw, mount })` ＋ `set(state)`／`screen`；`bess.create({ kw, kwh, size })`；`carport.create({ cols, mod, nx, ny, tilt })`；`truckCrane.create({ boom, scale })` ＋ `aim(hook)`；`car.create({ color })` ＋ `portWorld(side)`
 - 影響：之後的能源、停車、室外工地類展示
-
 
 ### 作業員模型（站立、走動、手臂擺動）
 - 提出：ChemicalTankWashing（2026-10-31）

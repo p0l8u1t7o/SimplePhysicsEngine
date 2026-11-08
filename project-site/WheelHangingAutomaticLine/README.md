@@ -31,7 +31,7 @@ node ../../core/tools/serve.mjs "WheelHangingAutomaticLine"
 ## 檢查
 
 ```powershell
-node ../../core/tools/check.mjs "WheelHangingAutomaticLine"          # 完整：import 路徑、結構、用戶名稱、倒序一致、空間檢核、全場干涉與閃爍、配線與電盤、物理、BOM 一致性、四種尺寸的介面測試（ui）、本專案檢查
+node ../../core/tools/check.mjs "WheelHangingAutomaticLine"          # 完整：import 路徑、結構、用戶名稱、倒序一致、空間檢核、全場干涉與閃爍、配線與電盤、物理、BOM 一致性、太陽能遮陰與手臂動力學（有宣告才跑）、四種尺寸的介面測試（ui）、本專案檢查
 node ../../core/tools/check.mjs "WheelHangingAutomaticLine" --quick  # 部署前快速檢查
 ```
 
@@ -45,9 +45,9 @@ node ../../core/tools/check.mjs "WheelHangingAutomaticLine" --quick  # 部署前
 | `web/js/project.js` | 建立場景、`apply(t)`（追蹤段逆解、輪框與隔板換手、感測與 HMI）、空間檢核、全場檢查設定（網頁與檢查共用） |
 | `web/js/layout.js` | 配置與尺寸（DXF 量測值與假設值）、輪框款式、追蹤窗、取像距離、棧板格位 |
 | `web/js/sequence.js` | 排程：追蹤段用相對輪框的位姿，結束時刻的關節角以當下絕對位姿逆解 |
-| `web/js/line.js` | 吊掛線、吊鉤循環排列、取像區固定設施（防擺導軌、消光黑背板、面光源、到位光電、編碼器） |
-| `web/js/robot.js` | R-2000iC/165F、伺服夾爪與 PU 指墊、雙眼相機與濾鏡座、隔板吸盤、視野錐 |
-| `web/js/cell.js` | 棧板 A／B、隔板架、圍籬與光柵、控制櫃、操作站 |
+| `web/js/line.js` | 吊掛線、吊鉤循環排列、取像區固定設施（防擺導軌、消光黑背板、面光源 `barLight`、到位光電 `boxSensor`、編碼器 `rotaryEncoder`，後三者用 core 模型） |
+| `web/js/robot.js` | R-2000iC/165F（core `robots/fanuc-r2000ic.js`）、伺服夾爪（core `parallelGripper`）與 PU 指墊、雙眼相機（core `visionCamera`）與濾鏡座、隔板吸盤（core `suctionCup`、`vacuumEjector`）、視野錐 |
+| `web/js/cell.js` | 棧板 A／B（core `pallet`）、隔板架、圍籬與光柵（`lightCurtain`）、控制櫃、操作站（三色燈、HMI、急停用 core `indicators.js`） |
 | `web/js/wheel.js` | 參數化輪框（切削面材質） |
 | `web/js/main.js` | 舞台（`look`／`extent`）、`createViewerWorkspace`、視角、站別按鈕、3D 標籤、播放列、面板、`exposeSim` |
 | `web/js/capture-overlay.js` | 排程量測回查、輪框特徵投影與相機疊圖 |
