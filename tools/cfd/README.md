@@ -2,13 +2,13 @@
 
 依 2026-11-07 拍板：「流體：管路用 1D 管網水力，畫面用 CPU 預先烘焙的粒子；另接外部 CFD（OpenFOAM，GPL，只當外部離線程式、不內嵌，結果匯入顯示）」。這裡是外部 CFD 那一段的原型：從場景的簡單幾何產生 OpenFOAM 案例，在平台外面跑，把結果檔匯入成網頁能直接讀的格式並用 three.js 顯示。
 
-> 命令列（產生器、檢查、匯入、執行腳本）、範例與測試在根目錄 `tools/cfd/`；瀏覽器也要用的讀檔器與顯示（`vtk.js`、`dat.js`、`pack.js`、`flow-field.js`、`flow-view.js`、`case-gen.js` 等）在 `core/cfd/`。原型與展示頁在本機 `TEMP/cfd-dev/`（2026-11-07）。
+> 命令列（產生器、檢查、匯入、執行腳本）、範例與測試在根目錄 `tools/cfd/`；瀏覽器也要用的讀檔器與顯示（`vtk.js`、`dat.js`、`pack.js`、`flow-field.js`、`flow-view.js`、`case-gen.js` 等）在 `core/cfd/`。展示頁是 `/core/examples/cfd/`。下文的 `core/cfd/…` 在網頁裡以 `@core/cfd/…` 引用。
 
 ## 授權邊界（GPL）
 
 - OpenFOAM 是 GPL v3。平台**只把它當成獨立的外部程式執行**（Docker 容器、WSL、或另一台 Linux 主機），不連結、不內嵌、不把它的原始碼或執行檔放進本庫，也不放進 `core/vendor/`。
 - 本工具寫出的是**輸入檔**（OpenFOAM 的字典文字、STL），讀進來的是 OpenFOAM 的**輸出檔**（VTK、文字表格）。兩邊只透過檔案溝通，平台的程式不衍生自 OpenFOAM。
-- 字典由本工具從頭產生（`lib/foam-dict.js`），沒有複製 OpenFOAM tutorials 的檔案；檔頭也不使用 OpenFOAM 的版權橫幅。`#includeEtc "caseDicts/meshQualityDict"` 只是在執行時引用使用者自己安裝的 OpenFOAM 裡的檔案。
+- 字典由本工具從頭產生（`core/cfd/foam-dict.js`），沒有複製 OpenFOAM tutorials 的檔案；檔頭也不使用 OpenFOAM 的版權橫幅。`#includeEtc "caseDicts/meshQualityDict"` 只是在執行時引用使用者自己安裝的 OpenFOAM 裡的檔案。
 - 交付給客戶時，若要附 OpenFOAM 本身（例如 Docker 映像），要依 GPL 提供原始碼取得方式；只交付平台與結果檔則不需要。
 
 ## 需求
@@ -34,7 +34,7 @@
 | 函數物件 | `libs (sampling)`、`(forces)`、`(fieldFunctionObjects)` | `libs ("libsampling.so")` 等，部分改用 `#includeFunc` |
 | 力的輸出 | `forces_<名稱>/<t>/force.dat`（`total_x …`） | `forces.dat`（欄名不同；匯入器的欄位辨識有涵蓋常見寫法，沒有實檔驗證） |
 
-要支援 .org 時，在 `lib/case-gen.js` 加一個 `distribution` 開關換掉上面幾個檔，其餘（blockMesh、snappy、fvSchemes、fvSolution）兩邊相同。
+要支援 .org 時，在 `core/cfd/case-gen.js` 加一個 `distribution` 開關換掉上面幾個檔，其餘（blockMesh、snappy、fvSchemes、fvSolution）兩邊相同。
 
 ## 流程
 
@@ -119,7 +119,7 @@ CPU：本機規定整機不超過 80%。Docker 用 `-Cpus` 限制容器（預設
 `0.orig/`：`U`、`p`、`k`、`omega`、`nut`（external：入口 `atmBoundaryLayerInlet*`、地面 `nutkAtmRoughWallFunction`、頂面與兩側 `symmetry`；障礙物用 patch 群組 `obstacles` 一次設定）。
 `Allrun`（blockMesh → snappyHexMesh → checkMesh → restore0Dir → decomposePar → simpleFoam → reconstructPar）、`Allclean`、`cfd-case.json`（座標轉換矩陣、參考值、障礙物、取樣清單、粗估網格數與時間、警告；匯入器靠它把結果轉回場景）。
 
-### 不需要 OpenFOAM 的檢查（`lib/validate.js`）
+### 不需要 OpenFOAM 的檢查（`core/cfd/validate.js`）
 
 - 語法：每個字典都用自寫的小解析器讀過（括號、分號、註解、字串、指令），錯誤帶行號。
 - blockMesh：8 個頂點、hex 索引、格數、六個面各屬於一個 patch、面的法向朝外。
@@ -146,13 +146,13 @@ CPU：本機規定整機不超過 80%。Docker 用 `-Cpus` 限制容器（預設
 
 匯入時做的換算：座標用 `foamToScene` 轉回場景（Y 向上、mm），速度與力只轉方向；`p` 從運動壓力（m²/s²）乘 ρ 成 Pa；另算 `Umag`、`Cp = (p − p_ref)/(½ρU_ref²)`（p_ref 用上游參考探針 `ref` 最後一步的值，沒有就用出口 0）；面板的力另算法向力 `normalForce`、`CN`、沿風向的 `CD`（面積用長 × 寬），以及最後 20% 疊代的力變化 `tailVariation`（收斂指標）。
 
-瀏覽器端：`import { loadPack } from 'lib/pack.js'`（`decodePack(arrayBuffer)` 直接回傳指向原緩衝區的 typed array）。
+瀏覽器端：`import { loadPack } from '@core/cfd/pack.js'`（`decodePack(arrayBuffer)` 直接回傳指向原緩衝區的 typed array；`loadPack` 會自動解 gzip）。
 
-## 顯示（`view/flow-view.js`）
+## 顯示（`core/cfd/flow-view.js`）
 
 ```js
-import { loadPack } from './lib/pack.js';
-import { createFlowView } from './view/flow-view.js';
+import { loadPack } from '@core/cfd/pack.js';
+import { createFlowView } from '@core/cfd/flow-view.js';
 const pack = await loadPack('results.cfdpack');
 const flow = createFlowView(pack, {
   field: 'Umag', colormap: 'turbo', range: 'robust',          // 切面／流線／箭頭的色彩通道（robust = 2～98 百分位；'full' 或 [min, max]）
@@ -171,20 +171,21 @@ flow.forcesTable();                          // [{ obstacle, label, Fx, Fy, Fz, 
 flow.dispose();
 ```
 
-表面一律展開成三角形（點資料內插、cell 資料整片同色）；顏色是資料色，用不受光照的 `MeshBasicMaterial`，色表值先從 sRGB 轉線性。`lib/flow-field.js` 另外提供 `resampleSlice`、`arrowSegments`、`traceStreamlines`、`colormap`、`niceTicks`、`robustRange`，不依賴 three.js。
+表面一律展開成三角形（點資料內插、cell 資料整片同色）；顏色是資料色，用不受光照的 `MeshBasicMaterial`，色表值先從 sRGB 轉線性。`core/cfd/flow-field.js` 另外提供 `resampleSlice`、`arrowSegments`、`traceStreamlines`、`colormap`、`niceTicks`、`robustRange`，不依賴 three.js。
 
 平台上看得到的：切面上的風速／壓力／Cp 色圖、箭頭、流線（匯入的與切面內積分的）、面板與設備表面的 Cp（每個面一個顏色）、每座面板的風力與係數表、y+ 範圍與殘差（在結果包裡，介面還沒畫圖）。
 
 ## 測試
 
-`node --import ./core/tools/register.mjs --test tools/cfd/test/`（37 項，約 1 秒）：
+`node --import ./core/tools/register.mjs --test tools/cfd/test/`（39 項，約 1 秒；core 的 `engineering` 檢查也會跑）：
 
 - `foam-dict.test.mjs`：寫出→解析來回、語法錯誤與行號、座標轉換（來回一致、右手系）、面板傾斜方向、rotatedBox 角點、STL 法向朝外。
 - `case-gen.test.mjs`：範例（三座傾斜面板＋變流器箱＋監控桿）結構檢查與 0 錯誤、決定性、寫檔後讀回檢查、`bash -n Allrun`、薄板加厚警告、STL 模式、enclosure（水槽＋開口）、輸入錯誤、檢查器能抓到 8 種刻意弄壞的錯誤。
 - `vtk-dat.test.mjs`：VTK 的 ASCII／BINARY × 舊式／5.1 × FIELD／SCALARS 八種組合、UNSTRUCTURED_GRID、三角帶、錯誤處理；forces 新舊格式與合併、probes、solverInfo、yPlus。
 - `pipeline.test.mjs`：產生案例 → `test/synth-results.mjs` 寫出解析式假流場的 postProcessing（OpenFOAM.com 的檔案配置）→ 匯入 → 解碼，檢查座標與向量轉換、Pa 與 Cp、力與係數、探針、流線、決定性，再用 three.js 在 Node 端建出 `createFlowView` 的幾何（色條、patch 外推、重新上色）。
+- `pack-gzip.test.mjs`：`loadPack` 自動解 gzip、範例頁的 `demo.cfdpack.gz` 讀得出來且標示是假資料。
 
-測試輸出在 `test/out/`（TEMP 底下，不進版控）。
+測試輸出在根目錄 `TEMP/cfd-test-out/`（不進版控）。
 
 ## 準確度與限制（給看結果的人）
 
@@ -206,4 +207,3 @@ flow.dispose();
 - 面板 baffle（零厚度）、邊界層網格的預設值、STL 直接從場景模型匯出（目前只有方塊、面板、圓柱）。
 - 匯入 XML `.vtp`、平行計算不 reconstruct 時的 `processor*/` 結果。
 - 介面：殘差與力收斂的圖、y+ 警示、時間序列（暫態）播放、和站的 `project.js` 整合（風載重 → 結構檢查）。
-- 搬家：`tools/cfd/`（gen-case、validate-case、import-results、run-case.ps1、examples、test）＋`core/cfd/`（vtk、dat、pack、flow-field、flow-view、foam-dict），`REQUIREMENTS.md` 的選用表加 Docker／WSL＋OpenFOAM 一列。

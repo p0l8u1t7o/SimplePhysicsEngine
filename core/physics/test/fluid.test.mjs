@@ -1,4 +1,4 @@
-// node --import ./core/tools/register.mjs --test "TEMP/physx-dev/test/*.test.mjs"
+// node --import ./core/tools/register.mjs --test "core/physics/test/*.test.mjs"
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { bakeFluid, fluidSampler, fluidStats, createFluidView } from '../fluid.js';

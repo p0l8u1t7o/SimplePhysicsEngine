@@ -1,4 +1,4 @@
-# core/structure — 參數化光伏鋼構（原型）
+# core/structure — 參數化光伏鋼構
 
 固定式支架與水平單軸追日支架，依地形逐支算出立柱（基樁）、斜樑、檁條、斜撐、扭力管、模組檁條的位置、切長、角度、重量與基樁埋深，彙總成 BOM；3D 用每種構件一個 `InstancedMesh`。
 
@@ -82,5 +82,7 @@
 ## 測試
 
 ```powershell
-node --import ./core/tools/register.mjs --test "TEMP/struct-dev/test/*.test.mjs"
+node --import ./core/tools/register.mjs --test "core/structure/test/*.test.mjs"
 ```
+
+鋼構、`solar-frame`、3D 建置與 `core/piping` 的測試都在 `core/structure/test/`，也是 `check.mjs` 的 core `engineering` 檢查的一部分。

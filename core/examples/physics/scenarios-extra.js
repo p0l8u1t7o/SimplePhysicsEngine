@@ -1,5 +1,4 @@
-// 【提案】core/examples/physics/scenarios.js 要加的兩個情境：布料（cloth.js）與流體（fluid.js）。
-// 搬進 core 時：import 改成 '../../physics/cloth.js'、'../../physics/fluid.js'，SCENARIOS 裡加上 tarp、fill 兩項（寫法和 cable 相同，用 kind 區分）。
+// 物理範例的布料（tarp，cloth.js）與流體（fill，fluid.js）兩個情境；scenarios.js 以 SCENARIOS_EXTRA 併入（寫法和 cable 相同，用 kind 區分）。
 // 每個情境：{ kind, title, note, spec, view: [相機位置, 注視點], analyze(baked) → [{ label, value }] }。尺寸 mm，y 朝上。
 import { clothStats } from '../../physics/cloth.js';
 import { fluidStats } from '../../physics/fluid.js';

@@ -2,7 +2,7 @@
 
 評估平台 Q8（2026-10-06，core 1.13.0）。拍板：**Rapier 決定性版放 `core/vendor/rapier/`；預先模擬、烘焙成軌跡，`apply(t)` 只取樣**（播放列可以拖、倒著拖，決定性檢查照常）。用途：輸送物料流、掉落／滑槽／投料、料箱堆積與隨機取料、夾取穩定與加減速。**現有站不強制改用**。
 
-範例與說明：`/core/examples/physics/`（四個情境，選情境、播放、拖曳時間軸，右上角是分析數字），設定在 `examples/physics/scenarios.js`，照抄改尺寸就能用。
+範例與說明：`/core/examples/physics/`（七個情境：剛體四個，線材、布料、流體各一個；`?s=<情境>` 直接開，選情境、播放、拖曳時間軸，右上角是分析數字），設定在 `examples/physics/scenarios.js`（布料、流體在 `scenarios-extra.js`），照抄改尺寸就能用。
 
 ## 用法
 
@@ -59,7 +59,7 @@ export async function createProject({ scene, headless }) {
 
 - 站的 `physics` 檢查（`check.mjs` 內建，快速）：`project.physics` 的每份烘焙再烘焙一次雜湊要相同（沒有用 `Math.random` 或時間）、靜止接觸穿透 ≤ `restTol`（預設 8 mm）、烘焙時間 ≤ `budgetMs`（預設 10 s）。沒有用物理的站略過。
 - 全場干涉（`scene`）：祖先有 `userData.physics` 的網格（`createPhysicsView` 的網格都有），和任何零件的穿插門檻放寬到 `restTol`（接觸本來就有幾 mm 的穿透）。
-- core 的 `physics`：`examples/physics/check.mjs` 在 Node 烘焙四個情境兩次逐位元相同、無頭 Chrome 烘焙的雜湊和 Node 相同，並檢查分析數字（物料流有通過、滑槽全部落進料箱、料箱有可抓取的件、夾持力 20 N 夾得住、3 N 會掉）。
+- core 的 `physics`：`examples/physics/check.mjs` 在 Node 把七個情境各烘焙兩次逐位元相同、無頭 Chrome 烘焙的雜湊和 Node 相同，並檢查分析數字（物料流有通過、滑槽全部落進料箱、料箱有可抓取的件、夾持力 20 N 夾得住、3 N 會掉、線長夠時伸長 < 3%、線太短時抓得到）。
 
 ## 線材、軟管（`rope.js`，XPBD，core 1.17.0）
 
@@ -100,11 +100,10 @@ const view = createRopeView(rope, { color: CABLE.power }); scene.add(view.root);
 
 ### 決定性：時間函式裡不要用 `Math.sin`
 
-2026-11-07 實測 Node 26.13（V8 14.6）與 Chrome 157 的 `Math.sin`、`Math.cos`、`Math.exp`、`Math.atan2` 有 3～15% 的輸入差 1 ulp（`pow`、`hypot`、`sqrt` 相同）。烘焙只要用到一次，雜湊就不同。
+2026-11-07 實測 Node 26.13（V8 14.6）與 Chrome 157 的 `Math.sin`、`Math.cos`、`Math.exp`、`Math.atan2` 等有 3～19% 的輸入差 1 ulp（`Math.hypot` 也會差，`Math.sqrt` 相同）。烘焙只要用到一次，雜湊就不同。
 
-- 解算器本身只用加減乘除與 `Math.sqrt`；旋轉矩陣（`rot`）改用 `collide.js` 的 `dsin`／`dcos`（fdlibm 多項式，只用四則運算，誤差 < 1e-14）。
-- **站裡寫的 `pos(t)`、`move(t)`、風速函式要用 `dsin`／`dcos`**，不要用 `Math.sin`。
-- 影響現有 core：`rope.js` 註解寫「錨點函式裡的 Math.sin 在 Node 與瀏覽器實測相同」不再成立（範例的 `cable` 只用 `smooth()`，所以檢查還是過）；`physics.js` 的 `quatOf` 也用 `Math.cos`／`sin`（現有 check 會過，代表用到的角度剛好相同）。建議 core 一起改用 `dsin`／`dcos`（rope 的雜湊不變，剛體情境有 `rot` 的可能變）。
+- 解算器本身只用加減乘除與 `Math.sqrt`；三角與指數一律用 `core/math/dmath.js`（fdlibm 移植，只用 IEEE-754 精確運算）。`physics.js`、`rope.js`、`collide.js` 都已改用（1.19.0、1.20.0），`collide.js` 另外轉出 `dsin`／`dcos`／`dexp`。
+- **站裡寫的 `pos(t)`、`move(t)`、風速函式要用 `dsin`／`dcos`**（從 `collide.js` 或 `math/dmath.js` 匯入都可以），不要用 `Math.sin`。
 
 ### 布料 `bakeCloth(spec)`
 
@@ -155,7 +154,7 @@ fluidStats(fluid, t, { region }) // → { count, outside, volumeL, level（體�
 | `viscosity`（XSPH 0.02）、`vorticity`（0；50～500 mm/s 量級）、`relax`（0.05）、`clamp`（0.2 × spacing）、`friction`（0.1）、`wallDensity`（true） | `clamp` 限制每輪修正量（不然衝擊處會像彈簧一樣把粒子彈出槽外）；`wallDensity` 補上牆後的密度（不然粒子擠向牆、液位矮 20%） |
 | `emitters` | `nozzle`：`pos`、`dir`、`speed`，以及 `radius`／`rate`（顆／s）／`flow`（L/min）其一、`start`、`stop`、`count`；給 `rate`／`flow` 時層距微調，流量剛好符合。`fill`：`min`、`max` 方塊排滿（初始液體） |
 | `colliders`、`kill: [{ min, max }]`、`bounds` | 碰撞、移除區（排水口、掉出畫面）、離開就移除的範圍 |
-| `contain`（選用） | 容器內部；檢查提案會用它算「留在容器內的比例」 |
+| `contain`（選用） | 容器內部；`verify/physics.mjs` 檢查結束時留在容器內的比例 ≥ `containTol`（漏出或濺出） |
 
 結果：`{ kind: 'fluid', data, lo, offsets（每格記錄編號 [lo, lo + n) 的位置，中間被移除的填 NaN）, emitted, stats: { particles, alive, peak, killed, capped, steps, avgDensityError, maxDensityError, neighborOverflow, maxPenetration, emitters: [{ radius, perLayer, rate, flowLmin }], hash, ms } }`。
 

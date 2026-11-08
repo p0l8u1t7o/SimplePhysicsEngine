@@ -1,4 +1,4 @@
-// 3D 建模測試（需要 three）：node --import ./core/tools/register.mjs --test TEMP/struct-dev/test/*.test.mjs
+// 3D 建模測試（需要 three）：node --import ./core/tools/register.mjs --test "core/structure/test/*.test.mjs"
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';

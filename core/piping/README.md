@@ -1,4 +1,4 @@
-# core/piping — 配管、導線管、電纜槽、1D 水力、電壓降（原型）
+# core/piping — 配管、導線管、電纜槽、1D 水力、電壓降
 
 - 純計算（`sizes`、`route`、`hydraulics`、`cable`、`checks`）不依賴 three，Node 直接跑；3D 在 `build.js`。
 - 決定性：沒有亂數、沒有時鐘；迭代（Colebrook、Hardy Cross）固定上限與收斂門檻。
@@ -78,5 +78,7 @@
 ## 測試
 
 ```powershell
-node --import ./core/tools/register.mjs --test "TEMP/struct-dev/test/*.test.mjs"
+node --import ./core/tools/register.mjs --test core/structure/test/piping.test.mjs
 ```
+
+測試檔放在 `core/structure/test/`（和鋼構一起），也是 `check.mjs` 的 core `engineering` 檢查的一部分。

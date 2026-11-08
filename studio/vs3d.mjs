@@ -503,7 +503,12 @@ switch (cmd) {
     break;
   }
   default:
-    console.log(readText(new URL(import.meta.url)).split('\n').filter(l => l.startsWith('//')).map(l => l.slice(3)).join('\n'));
+    {
+      // 說明只印檔頭的註解區塊（shebang 之後到第一行非註解為止），內文的註解不印
+      const lines = readText(new URL(import.meta.url)).split(/\r?\n/), head = [];
+      for (const l of lines.slice(lines[0].startsWith('#!') ? 1 : 0)) { if (!l.startsWith('//')) break; head.push(l.slice(3)); }
+      console.log(head.join('\n'));
+    }
     if (cmd) process.exitCode = 2;
 }
 

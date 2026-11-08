@@ -1,23 +1,21 @@
-# core/solar：日照、遮陰與發電（原型）
+# core/solar：日照、遮陰與發電
 
-太陽能案場評估用的共用模組：NREL SPA 太陽位置、固定式與單軸追日（含回溯、坡地 cross-axis）、逐片／逐旁路二極體區段的射線遮陰（自寫 BVH）、Perez 斜面日射、雙面背面日射、PVWatts 全年發電。純 ES 模組、沒有 npm 套件、不依賴 three.js（只用鴨子型別讀 `BufferGeometry`）。**Node 與瀏覽器逐位元相同**（見「決定性」）。
-
-原型位置 `TEMP/solar-dev/core-solar/`，搬到 `core/solar/` 時檔名不變。
+太陽能案場評估用的共用模組（core 1.19.0）：NREL SPA 太陽位置、固定式與單軸追日（含回溯、坡地 cross-axis）、逐片／逐旁路二極體區段的射線遮陰（自寫 BVH）、Perez 斜面日射、雙面背面日射、PVWatts 全年發電。純 ES 模組、沒有 npm 套件、不依賴 three.js（只用鴨子型別讀 `BufferGeometry`）。**Node 與瀏覽器逐位元相同**（見「決定性」）。範例 `/core/examples/solar/`；站層檢查是 `verify.solar`（`core/verify/solar.mjs`，見 `core/README.md`「檢查」）。
 
 ## 檔案
 
 | 檔案 | 內容 |
 |---|---|
 | `spa.js` | NREL SPA（Reda & Andreas 2004）、ΔT、日期換算（不經過 `Date`）、入射角、太陽向量 |
-| `spa-tables.js` | SPA 週期項表（`gen-spa-tables.py` 由 pvlib 產生，勿手改） |
+| `spa-tables.js` | SPA 週期項表（`tools/solar-pvlib/gen-spa-tables.py` 由 pvlib 產生，勿手改） |
 | `tracking.js` | 單軸追日（pvlib `singleaxis` 同式）、坡地軸傾角與 cross-axis tilt、板面朝向與法向、1D 排間遮陰（pvlib `shaded_fraction1d` 同式） |
 | `irradiance.js` | 大氣層外日射、空氣質量、Ineichen–Perez 晴空、台灣 Linke 濁度、Erbs／DISC 分解、等向／Hay–Davies／Perez 斜面轉換、地面反射、IAM（physical、ASHRAE、Martin–Ruiz 與其散射版） |
-| `linke-tw.js` | 台灣範圍（21.5～26.5°N、118～122.5°E）每月 Linke 濁度（`gen-linke-tw.py` 由 pvlib 的全球表切出，54 KB） |
+| `linke-tw.js` | 台灣範圍（21.5～26.5°N、118～122.5°E）每月 Linke 濁度（`tools/solar-pvlib/gen-linke-tw.py` 由 pvlib 的全球表切出，54 KB） |
 | `shading.js` | 三角形收集（陣列、`BufferGeometry`、`Mesh`、`InstancedMesh`）、BVH（分箱 SAH、refit）、板片取樣與旁路二極體區段、地平線輪廓、天空視角因子、太陽位置分箱快取 |
 | `layout.js` | 追日陣列與固定傾角桌台的板片配置（給遮陰與 3D 擺放共用）、冬至排距 |
 | `bifacial.js` | 雙面板背面日射（2D 無限長排視角因子）與全年迴圈用的快取版 |
 | `energy.js` | 天候檔（EPW、TMY3、CSV）、電池溫度（SAPM、Faiman）、PVWatts 直流與變流器（含截峰）、旁路二極體部分遮陰、全年模擬、PR |
-| `dmath.js` | 決定性數學函式（fdlibm 移植：sin、cos、tan、asin、acos、atan、atan2、exp、log、pow） |
+| `precision.js` | 高精度門檻常數 `SITE_PRECISION`（平面 ±50 mm、高程 ±30 mm、太陽位置 ±0.01°、全年發電和 pvlib 相差 < 2%），檢查與測試一律引用它 |
 | `hash.js` | 決定性檢查用的 Float64 雜湊 |
 | `index.js` | 公開 API |
 
@@ -111,8 +109,8 @@ const r1 = solar.simulate({ weather: w, site, system, hourlyLoss: snow.loss }); 
 
 - 不用 `Math.random`、`Date`、`performance.now`；不依賴 `Map`／物件的疊代順序（快取以箱中心計算，與查詢順序無關）。
 - **V8 不同版本的 `Math.sin/cos/tan/atan/atan2/asin/acos/exp/log/cbrt` 結果末位不同**：實測 Node 26.13 與 Chrome 157 在 2 萬個輸入中有 3～19% 差 1 ulp（`Math.pow`、`sqrt` 相同）。只靠「都是 V8」無法保證 Node 與網頁逐位元相同。
-- 因此全部超越函式改用 `dmath.js`（fdlibm 5.3 移植，只用 IEEE-754 精確運算）：與 Node 26 的 V8（fdlibm 版）在 4.4 萬個輸入上逐位元相同（`exp(1)` 依 V8 回傳 `Math.E`），大引數（> 8.2e5 弧度）用 BigInt 精確取餘；整數次方用二進位乘法，非整數次方 `exp(y·log x)`。
-- `test/determinism.test.mjs`：靜態檢查（core-solar 不得出現 `Math.sin(`…、`**`、時鐘、亂數）＋ dmath 黃金雜湊。
+- 因此全部超越函式改用 `core/math/dmath.js`（fdlibm 5.3 移植；sin、cos、tan、asin、acos、atan、atan2、exp、log、pow，只用 IEEE-754 精確運算）：與 Node 26 的 V8（fdlibm 版）在 4.4 萬個輸入上逐位元相同（`exp(1)` 依 V8 回傳 `Math.E`），大引數（> 8.2e5 弧度）用 BigInt 精確取餘；整數次方用二進位乘法，非整數次方 `exp(y·log x)`。
+- `test/determinism.test.mjs`：靜態檢查（core/solar 不得出現 `Math.sin(`…、`**`、時鐘、亂數）＋ dmath 黃金雜湊。
 - `browser-check.mjs`：同一份工作量（SPA 6,000 筆、追日＋Perez＋晴空 3,000 筆、BVH 遮陰 36 個太陽位置、全年雙面發電）在 Node 26.13 與 Chrome 157 的雜湊相同。改用 dmath 前 SPA、追日、發電三項都不同。
 
 ## 效能（單執行緒、開發機）
@@ -138,22 +136,20 @@ const r1 = solar.simulate({ weather: w, site, system, hourlyLoss: snow.loss }); 
 ## 限制與假設
 
 - **ΔT**：預設用 Espenak–Meeus 多項式（與 pvlib 相同），2026 年估 75.4 s、實測約 69 s。ΔT 只影響星曆時間（太陽黃經每秒約 1.1e-5°），差 6 s 在台灣造成太陽方向的夾角 < 0.0001°（天頂角差也 < 0.0001°），遠在高精度門檻 ±0.01° 以內；方位角在太陽接近天頂時會放大（夏至正午天頂角 0.3° 時差 0.012°），但那是方位角在天頂附近沒有意義，不是位置誤差（`test/precision.test.mjs` 用夾角量）；要求更嚴時傳實測值（IERS Bulletin A / USNO），例如 `deltaT: 69.2`。真正影響較大的是時間本身：輸入是 UTC，與 UT1 的差（|DUT1| < 0.9 s）造成時角誤差最多約 0.004°；天候檔時間標記錯 1 分鐘就是 0.25°，比模型誤差大得多。
-- **天候資料**：本原型沒有台灣實測 TMY。可用來源：PVGIS（SARAH-3 涵蓋亞洲，TMY 下載為 EPW/CSV）、NSRDB Himawari（亞洲）、中央氣象署測站（只有 GHI 時用 Erbs／DISC 分解）、Meteonorm（商用）。驗證用的是決定性的合成台南 EPW（晴空 × 雲量因子，非真實氣候）與 pvlib 內附的美國 TMY3。
+- **天候資料**：本模組沒有內建台灣實測 TMY（案場天候檔用根目錄 `tools/weather/fetch-tmy.mjs` 從 PVGIS 下載）。可用來源：PVGIS（SARAH-3 涵蓋亞洲，TMY 下載為 EPW/CSV）、NSRDB Himawari（亞洲）、中央氣象署測站（只有 GHI 時用 Erbs／DISC 分解）、Meteonorm（商用）。驗證用的是決定性的合成台南 EPW（晴空 × 雲量因子，非真實氣候）與 pvlib 內附的美國 TMY3。
 - **Linke 濁度**：只內建台灣範圍；其他地區請直接給 `tl`。
 - **部分遮陰**：電流 ∝ 日射、區段電壓相同、忽略二極體壓降與 MPPT 電壓窗；每串一個 MPPT（多串並聯同一 MPPT 的失配未計）。精細 I-V 需要單二極體模型（之後可加）。
 - **散射遮蔽**：近處遮擋的天空視角因子（`skyViewFactor`）要由呼叫端傳進 `evaluate` 的 `sky`；地形地平線只擋直達（`createHorizon` / `horizonFromBVH`），遠地平線對散射的影響未計。
 - **雙面**：2D 無限長排、地面平坦、天空等向；不含支架遮擋（用 `structureShade`）、板面透光與排間互反射。
 - **BVH**：雙面三角形、射線起點沿法向偏移 1 mm（`eps`）並略過板片自己（owner）；km 級場景用 mm 時 Float64 精度足夠，但 three.js 的 `BufferGeometry` 是 Float32（3 km 處約 0.25 mm），地形請以場地原點為中心。
 - **地平線二分搜尋**只適用高度場（地形）；懸空物（橋、雲）請用射線直接判定。
-- **追日回溯在坡地**：每排坡度不同時，`crossAxisTilt` 要逐排給（bench.mjs：地形起伏 ±3 m 的 600 m 場地用平地回溯，取樣的 24 個時刻平均約 2 成板片有遮陰，含低太陽角與建物）。
+- **追日回溯在坡地**：每排坡度不同時，`crossAxisTilt` 要逐排給（原型的效能測試：地形起伏 ±3 m 的 600 m 場地用平地回溯，取樣的 24 個時刻平均約 2 成板片有遮陰，含低太陽角與建物）。
 
-## 驗證工具（`TEMP/solar-dev/`）
+## 驗證工具
 
 | 指令 | 內容 |
 |---|---|
-| `.venv\Scripts\python.exe TEMP\solar-dev\validate.py` | pvlib 參考值 → `ref/*.json`（含合成台南 EPW） |
-| `node TEMP/solar-dev/compare.mjs` | 與 pvlib 比對，印各項最大誤差，寫 `ref/compare-report.json` |
-| `node --test TEMP/solar-dev/test/` | 單元測試 16 項（SPA、追日回溯、3D 遮陰 vs 1D、坡地回溯、冬至排距、旁路、地平線、天空視角、天候檔、全年遮陰、雙面、決定性、three.js） |
-| `node TEMP/solar-dev/browser-check.mjs --port 8881` | Node 與無頭 Chrome 逐位元比對 |
-| `node TEMP/solar-dev/bench.mjs` | 10,000 片效能 |
-| `node TEMP/solar-dev/check-solar.mjs` | 建議併入 `check.mjs` 的 solar 檢查原型 |
+| `.venv\Scripts\python.exe tools\solar-pvlib\validate.py` | pvlib 參考值（含合成台南 EPW），寫到本機 `TEMP\solar-pvlib-ref\`；說明在 `tools/solar-pvlib/README.md` |
+| `node --import ./core/tools/register.mjs tools/solar-pvlib/compare.mjs` | 與 pvlib 比對，印各項最大誤差與門檻 |
+| `node --import ./core/tools/register.mjs --test "core/solar/test/*.test.mjs"` | 單元測試（SPA、追日回溯、3D 遮陰 vs 1D、坡地回溯、冬至排距、旁路、地平線、天空視角、天候檔、全年遮陰、雙面、決定性、高精度門檻、three.js、站層 `verify.solar`）；也是 core `engineering` 檢查的一部分 |
+| `node --import ./core/tools/register.mjs core/solar/test/browser-check.mjs` | Node 與無頭 Chrome 逐位元比對（core `solar` 檢查） |

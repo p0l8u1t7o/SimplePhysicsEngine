@@ -51,10 +51,10 @@ const BUILTIN = {
   layout: { quick: true, needsProject: true, run: viaRunner('layout') },
   scene: { quick: true, needsProject: true, run: viaRunner('scene') },     // 干涉與閃爍也擋部署
   electrical: { quick: true, needsProject: true, run: viaRunner('electrical') },
-  physics: { quick: true, needsProject: true, run: viaRunner('physics') },
-  bom: { quick: true, needsProject: true, run: viaRunner('bom') },
-  solar: { quick: true, needsProject: true, run: viaRunner('solar') },
-  dynamics: { quick: true, needsProject: true, run: viaRunner('dynamics') },   // verify.dynamics：手臂峰值扭矩、負載力矩（只警告；沒宣告就略過）     // verify.solar：冬至列間遮陰與對照組（沒宣告就略過）      // 場景 ↔ 平台 BOM（只警告；沒有 BOM 資料就略過）      // core/physics 的烘焙（沒用就略過）
+  physics: { quick: true, needsProject: true, run: viaRunner('physics') },     // core/physics 的烘焙（沒用就略過）
+  bom: { quick: true, needsProject: true, run: viaRunner('bom') },     // 場景 ↔ 平台 BOM（只警告；沒有 BOM 資料就略過）
+  solar: { quick: true, needsProject: true, run: viaRunner('solar') },     // verify.solar：冬至列間遮陰與對照組（沒宣告就略過）
+  dynamics: { quick: true, needsProject: true, run: viaRunner('dynamics') },   // verify.dynamics：手臂峰值扭矩、負載力矩（只警告；沒宣告就略過）
   ui: { quick: false, run: async p => {
     const r = await runScript(p, join(CORE, 'tools', 'ui-check.mjs'), [p.id, '--port', process.env.UI_PORT || '8771'], { echo: false }), lines = r.out.trim().split('\n');
     const rows = lines.filter(l => /^[✓✗] /.test(l));

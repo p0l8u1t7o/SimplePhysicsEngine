@@ -129,7 +129,7 @@ const common = {
 };
 export const pvFixedRack = {
   meta: {
-    id: 'pv-fixed-rack', name: '固定式光伏支架（依地形）', category: '光伏結構', source: 'TEMP/struct-dev',
+    id: 'pv-fixed-rack', name: '固定式光伏支架（依地形）', category: '光伏結構',
     params: {
       ...common,
       up: { value: 2, min: 1, max: 4, step: 1, unit: '片', label: '坡向片數' },
@@ -157,7 +157,7 @@ export const pvFixedRack = {
 
 export const pvTracker = {
   meta: {
-    id: 'pv-tracker', name: '單軸追日支架（依地形）', category: '光伏結構', source: 'TEMP/struct-dev',
+    id: 'pv-tracker', name: '單軸追日支架（依地形）', category: '光伏結構',
     params: {
       across: { value: 60, min: 4, max: 120, step: 1, unit: '片', label: '每列片數' },
       rows: { value: 3, min: 1, max: 20, step: 1, unit: '列', label: '列數' },
