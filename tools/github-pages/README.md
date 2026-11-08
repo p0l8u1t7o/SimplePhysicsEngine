@@ -12,12 +12,12 @@ PR 與推送只改到 `studio/` 時不觸發（網站內容不受影響）。PR 
 
 流程：
 
-1. `node core/tools/check.mjs --quick`：
+1. `node core/tools/check.mjs --quick`，分 5 個工作平行跑（`--core-only` 跑 core 本身、`--shard 1/4`～`4/4` 把站依順序輪流分成 4 組；單一工作跑全部站曾超過 30 分鐘的上限）：
    - core 本身：共用模型、物理烘焙、MuJoCo 手臂動力學、日照（Node 與瀏覽器逐位元相同）、案場工程模組的單元測試、第二段範例、孿生協定、專案資料夾結構、用戶名稱；
    - 每個專案的 import 路徑、結構、用戶名稱、倒序一致、空間檢核、全場干涉與閃爍（含各情境）、配線與電盤、物理、BOM 一致性（只警告）、日照（`verify.solar`）、手臂動力學（`verify.dynamics`，只警告）；
    - `project.json` 的 `checks.quick`（各專案的 `tools/verify.mjs`）。
 
-   任一項失敗就不發布，約需數分鐘。瀏覽器互動檢查（`ui`）只在本機完整檢查跑，不在 CI。
+   任一項失敗就不發布（每個工作上限 30 分鐘；五個都通過才建置）。瀏覽器互動檢查（`ui`）只在本機完整檢查跑，不在 CI。
 2. `node core/tools/build-site.mjs _site`：
    - 首頁 `/` 由 `core/tools/site.mjs` 產生，標題與說明取自各專案 `project.json`；
    - `/core/` 只發布一份共用模組與 three.js（不含 `core/tools`、`core/template`、`core/verify`、`core/review` 與文件）；

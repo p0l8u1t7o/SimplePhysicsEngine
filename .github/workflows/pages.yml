@@ -20,9 +20,14 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    # 連續推送時取消同一分支尚未跑完的舊檢查（舊 run 的 deploy 會一併略過）；deploy 本身不取消，避免發布到一半中斷。
+    # 檢查分 5 個工作平行跑（core 本身＋站分 4 組，check.mjs 的 --core-only／--shard i/n）：單一工作跑全部站曾超過 30 分鐘。
+    strategy:
+      fail-fast: false
+      matrix:
+        part: ['--core-only', '--shard 1/4', '--shard 2/4', '--shard 3/4', '--shard 4/4']
+    # 連續推送時取消同一分支、同一組尚未跑完的舊檢查（舊 run 的 build、deploy 會一併略過）；deploy 本身不取消，避免發布到一半中斷。
     concurrency:
-      group: check-${{ github.ref }}
+      group: check-${{ github.ref }}-${{ matrix.part }}
       cancel-in-progress: true
     # 上限防止單一檢查卡住或異常變慢時整段耗掉額度（曾有場景檢查跑到 2049 秒）
     timeout-minutes: 30
@@ -35,9 +40,25 @@ jobs:
         with:
           node-version: 26
 
-      # imports、structure、names、determinism、layout、scene（干涉＋閃爍）、electrical、physics、bom、core 檢查、各專案 checks.quick
+      # imports、structure、names、determinism、layout、scene（干涉＋閃爍）、electrical、physics、bom、solar、dynamics、各專案 checks.quick；core 本身的檢查在 --core-only
       - name: Quick checks
-        run: node core/tools/check.mjs --quick
+        run: node core/tools/check.mjs --quick ${{ matrix.part }}
+
+  build:
+    needs: check
+    runs-on: ubuntu-latest
+    concurrency:
+      group: build-${{ github.ref }}
+      cancel-in-progress: true
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 26
 
       - name: Build site
         run: node core/tools/build-site.mjs _site
@@ -49,7 +70,7 @@ jobs:
           path: _site
 
   deploy:
-    needs: check
+    needs: build
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:

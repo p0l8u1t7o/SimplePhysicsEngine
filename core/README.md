@@ -210,7 +210,7 @@ exposeSim({ seekTo, setView, views, total, play, pause, get T() { return T; } })
 ```powershell
 node core/tools/check.mjs                  # 全部專案完整檢查
 node core/tools/check.mjs Chemical         # 單一專案
-node core/tools/check.mjs --quick          # 部署前快速檢查（GitHub Actions）
+node core/tools/check.mjs --quick          # 部署前快速檢查（GitHub Actions 分成 --core-only 與 --shard 1/4～4/4 平行跑）
 node core/tools/check.mjs --only scene     # 只跑某項
 ```
 
@@ -274,4 +274,4 @@ python core/tools/compare-review.py TEMP/review-base                     # revie
 
 ## GitHub Pages
 
-`.github/workflows/pages.yml` 會先跑 `check.mjs --quick`，再用 `tools/build-site.mjs _site` 建置。新增專案只要有 `web/index.html` 與 `project.json` 就會出現在首頁，不必改工作流程。
+`.github/workflows/pages.yml` 會先跑 `check.mjs --quick`（5 個工作平行：`--core-only`、`--shard 1/4`～`4/4`），全部通過再用 `tools/build-site.mjs _site` 建置。新增專案只要有 `web/index.html` 與 `project.json` 就會出現在首頁，不必改工作流程。

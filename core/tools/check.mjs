@@ -1,5 +1,5 @@
 // 統一檢查：依各專案 project.json 的 checks 設定執行，所有專案用同一套流程。
-//   node core/tools/check.mjs [專案…] [--quick] [--only 名稱,…]
+//   node core/tools/check.mjs [專案…] [--quick] [--only 名稱,…] [--shard i/n | --core-only]
 // --quick：部署前的快速檢查（GitHub Actions 使用）；不加則跑完整檢查。
 //
 // project.json：
@@ -34,7 +34,11 @@ import { checkStructure, strayFolders } from './check-structure.mjs';
 
 const argv = process.argv.slice(2), quick = argv.includes('--quick');
 const only = (() => { const i = argv.indexOf('--only'); return i >= 0 ? argv.splice(i, 2)[1].split(',') : null; })();
-const projects = pickProjects(argv.filter(a => !a.startsWith('--')));
+// --shard i/n：只跑第 i 組站（依專案順序輪流分成 n 組，CI 平行用），不跑 core 本身的檢查；--core-only：只跑 core 本身的檢查
+const shard = (() => { const i = argv.indexOf('--shard'); if (i < 0) return null; const [k, n] = argv.splice(i, 2)[1].split('/').map(Number); if (!(n >= 1 && k >= 1 && k <= n)) { console.error('--shard 要寫 i/n，例如 2/4'); process.exit(2); } return { k, n }; })();
+const coreOnly = argv.includes('--core-only'), named = argv.filter(a => !a.startsWith('--'));
+const CORE_LEVEL = !named.length && !shard;
+const projects = coreOnly ? [] : pickProjects(named).filter((p, i) => !shard || i % shard.n === shard.k - 1);
 const RUN = join(CORE, 'verify', 'run.mjs');
 const viaRunner = (check, args = []) => async p => {
   const r = await runScript(p, RUN, [check, ...args], { echo: false });
@@ -65,7 +69,7 @@ const BUILTIN = {
 const split = cmd => cmd.match(/"[^"]*"|\S+/g).map(s => s.replace(/^"|"$/g, ''));
 const results = [];
 // core 本身：共用模型（core/models）的干涉與重合面；指定專案時略過
-if (!argv.some(a => !a.startsWith('--')) && (!only || only.includes('models'))) {
+if (CORE_LEVEL && (!only || only.includes('models'))) {
   const t0 = Date.now(), r = await runScript({ dir: CORE }, join(CORE, 'verify', 'models.mjs'), [], { echo: false });
   const lines = r.out.trim().split('\n'), sec = (Date.now() - t0) / 1000;
   results.push({ project: 'core', check: 'models', ok: r.code === 0, note: `${lines.filter(l => l.startsWith('✓')).length}/${lines.filter(l => /^[✓✗]/.test(l)).length} 個模型`, seconds: +sec.toFixed(1) });
@@ -73,7 +77,7 @@ if (!argv.some(a => !a.startsWith('--')) && (!only || only.includes('models'))) 
   if (r.code) for (const l of lines.filter(l => !l.startsWith('✓'))) console.log('     ' + l);
 }
 // core 本身：物理範例（core/examples/physics）七個情境決定性（Node 與瀏覽器相同）、分析數字合理
-if (!argv.some(a => !a.startsWith('--')) && (!only || only.includes('physics'))) {
+if (CORE_LEVEL && (!only || only.includes('physics'))) {
   const t0 = Date.now(), r = await runScript({ dir: CORE }, join(CORE, 'examples', 'physics', 'check.mjs'), [], { echo: false });
   const lines = r.out.trim().split('\n'), sec = (Date.now() - t0) / 1000;
   results.push({ project: 'core', check: 'physics', ok: r.code === 0, note: lines.find(l => /^[✓✗]/.test(l))?.slice(2) || `exit ${r.code}`, seconds: +sec.toFixed(1) });
@@ -81,7 +85,7 @@ if (!argv.some(a => !a.startsWith('--')) && (!only || only.includes('physics')))
   if (r.code) for (const l of lines.slice(1)) console.log('     ' + l);
 }
 // core 本身：手臂動力學（MuJoCo，core/examples/dynamics）：靜態扭矩對照手算、決定性、檢查列
-if (!argv.some(a => !a.startsWith('--')) && (!only || only.includes('dynamics'))) {
+if (CORE_LEVEL && (!only || only.includes('dynamics'))) {
   const t0 = Date.now(), r = await runScript({ dir: CORE }, join(CORE, 'examples', 'dynamics', 'check.mjs'), [], { echo: false });
   const lines = r.out.trim().split('\n'), sec = (Date.now() - t0) / 1000;
   results.push({ project: 'core', check: 'dynamics', ok: r.code === 0, note: lines.find(l => /^[✓✗]/.test(l))?.slice(2) || `exit ${r.code}`, seconds: +sec.toFixed(1) });
@@ -89,7 +93,7 @@ if (!argv.some(a => !a.startsWith('--')) && (!only || only.includes('dynamics'))
   if (r.code) for (const l of lines.slice(1)) console.log('     ' + l);
 }
 // core 本身：日照（core/solar）跨引擎決定性：SPA、追日、遮陰、全年發電在 Node 與無頭 Chrome 逐位元相同
-if (!argv.some(a => !a.startsWith('--')) && (!only || only.includes('solar'))) {
+if (CORE_LEVEL && (!only || only.includes('solar'))) {
   const t0 = Date.now(), r = await runScript({ dir: CORE }, join(CORE, 'solar', 'test', 'browser-check.mjs'), [], { echo: false });
   const lines = r.out.trim().split('\n'), sec = (Date.now() - t0) / 1000;
   results.push({ project: 'core', check: 'solar', ok: r.code === 0, note: lines.find(l => /^[✓✗]/.test(l))?.slice(2) || `exit ${r.code}`, seconds: +sec.toFixed(1) });
@@ -97,7 +101,7 @@ if (!argv.some(a => !a.startsWith('--')) && (!only || only.includes('solar'))) {
   if (r.code) for (const l of lines.slice(1)) console.log('     ' + l);
 }
 // core 本身：案場工程模組的單元測試（core/structure 鋼構、core/piping 管路與水力、core/geo 座標／地形／點雲／現況比對、core/solar 日照、core/physics 的布料／流體與 core/weather 天候）
-if (!argv.some(a => !a.startsWith('--')) && (!only || only.includes('engineering'))) {
+if (CORE_LEVEL && (!only || only.includes('engineering'))) {
   const files = [...['structure', 'geo', 'solar', 'physics', 'electrical', 'anim', 'tools', 'robot', 'models'].map(m => join(CORE, m, 'test')), join(REPO, 'tools', 'cfd', 'test')].flatMap(d => { return existsSync(d) ? readdirSync(d).filter(f => f.endsWith('.test.mjs')).sort().map(f => join(d, f)) : []; });
   const t0 = Date.now(), r = await runScript({ dir: CORE }, '--test', files, { echo: false });
   const sec = (Date.now() - t0) / 1000, num = k => +(new RegExp(`^ℹ ${k} (\\d+)`, 'm').exec(r.out)?.[1] ?? NaN);
@@ -106,7 +110,7 @@ if (!argv.some(a => !a.startsWith('--')) && (!only || only.includes('engineering
   if (!results.at(-1).ok) for (const l of r.out.split('\n').filter(l => /^✖|not ok|Error/.test(l)).slice(0, 15)) console.log('     ' + l);
 }
 // core 本身：第二段範例（core/examples/segment2，電控、配線、相機）仍然通過電控與配線檢查
-if (!argv.some(a => !a.startsWith('--')) && (!only || only.includes('examples'))) {
+if (CORE_LEVEL && (!only || only.includes('examples'))) {
   const t0 = Date.now(), r = await runScript({ dir: CORE }, join(CORE, 'examples', 'segment2', 'check.mjs'), [], { echo: false });
   const lines = r.out.trim().split('\n'), sec = (Date.now() - t0) / 1000;
   results.push({ project: 'core', check: 'examples', ok: r.code === 0, note: lines.find(l => /^[✓✗]/.test(l))?.slice(2) || `exit ${r.code}`, seconds: +sec.toFixed(1) });
@@ -115,7 +119,7 @@ if (!argv.some(a => !a.startsWith('--')) && (!only || only.includes('examples'))
 }
 // core 本身：Twin Protocol 引擎（core/twin 的 node:test，含決定性與禁止呼叫的靜態檢查）；
 // 需要 Automation-Schema 的項目在找不到相鄰 checkout 時略過，並在說明裡寫出略過幾項（不算通過，Q-22）
-if (!WORKSPACE && !argv.some(a => !a.startsWith('--')) && (!only || only.includes('twin'))) {
+if (!WORKSPACE && CORE_LEVEL && (!only || only.includes('twin'))) {
   const t0 = Date.now();
   const r = spawnSync(process.execPath, ['--test', '--test-timeout=60000', 'core/twin/test/*.test.mjs'], { cwd: REPO, encoding: 'utf8' });
   const out = (r.stdout || '') + (r.stderr || ''), num = k => +(new RegExp(`ℹ ${k} (\\d+)`).exec(out)?.[1] ?? 0), sec = (Date.now() - t0) / 1000;
@@ -125,14 +129,14 @@ if (!WORKSPACE && !argv.some(a => !a.startsWith('--')) && (!only || only.include
   if (!results.at(-1).ok) for (const l of out.split('\n').filter(l => /^✖|Error/.test(l)).slice(0, 20)) console.log('     ' + l);
 }
 // 專案根目錄底下沒有 web/index.html 的資料夾：check、首頁、studio 都看不到（例如別的工具手動建的站）；指定專案時略過
-if (!argv.some(a => !a.startsWith('--')) && (!only || only.includes('structure'))) {
+if (CORE_LEVEL && (!only || only.includes('structure'))) {
   const stray = strayFolders();
   results.push({ project: 'core', check: 'structure', ok: !stray.length, note: stray.length ? `${stray.length} 個資料夾不是專案` : '通過', seconds: 0 });
   console.log(`${stray.length ? '✗' : '✓'} core · structure  ${results.at(-1).note}`);
   for (const n of stray) console.log(`     ${n}：沒有 web/index.html，用 new-project.mjs 建立`);
 }
 // 站以外的檔案（core、tools、scripts、studio、根目錄文件）也不得出現用戶名稱；studio/data、node_modules 不掃
-if (!WORKSPACE && !argv.some(a => !a.startsWith('--')) && (!only || only.includes('names'))) {
+if (!WORKSPACE && CORE_LEVEL && (!only || only.includes('names'))) {
   const n = clientNames();
   const dirs = ['core', 'tools', 'scripts', '.github', '.githooks', 'studio/lib', 'studio/ui/src', 'studio/templates', 'studio/test',
     'studio/ui/index.html', 'studio/ui/vite.config.js', 'studio/ui/package.json', '.gitignore',
