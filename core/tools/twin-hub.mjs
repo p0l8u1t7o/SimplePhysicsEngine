@@ -1,8 +1,8 @@
 // 測試用 Hub（SPE-AC-04）：把一份工作階段紀錄（*.twin-session.jsonl）裡 hub>spe 的訊息依序送給 SPE 孿生 server，
 // 依協定等待對應的回覆（hello → snapshot n = 0、tick → tickAck、snapshot 要求 → snapshot、bye → bye），寫出這次的完整紀錄。
-// 寫出的紀錄可以交給 Automation-Schema 的 validate.py session 驗證：
+// 寫出的紀錄可以交給 AutoSequence/schema 的 validate.py session 驗證：
 //   node core/tools/twin-hub.mjs <輸入.jsonl> --port <p> [--host 127.0.0.1] --out <輸出.jsonl> [--timeout-ms 10000]
-//   cd ..\Automation-Schema\tools; uv run validate.py session <輸出.jsonl> --md ..\examples\MilitaryGradePC.md.json
+//   cd ..\AutoSequence\schema\tools; uv run validate.py session <輸出.jsonl> --md ..\examples\MilitaryGradePC.md.json
 import net from 'node:net';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';

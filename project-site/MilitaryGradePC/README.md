@@ -77,7 +77,7 @@ node ../../core/tools/serve.mjs MilitaryGradePC --no-open
 | `web/js/project.js` | 專案介面 `createProject`：建立全部設備、產品與動作序列，`apply(t)` 把場景放到時間 t，並提供 core 檢查的設定（`verify`，含配線情境 `verify.cables`）；網頁與 core 統一檢查共用 |
 | `web/js/main.js` | 控制、紀錄匯出、手臂鏡頭子畫面、`?movie` 錄影掛勾（場景物件由 `project.js` 建立）。renderer、相機、軌道控制、環境光與燈光、畫面迴圈、3D 標籤（`stage.addLabel`，畫布位移由 stage 處理）與視角轉場（`stage.goTo`／`cancelTween`）用共用舞台 `core/ui/stage.js`。光源用 `look: 'cell'` 提供配色，本站另外寫明曝光 1.0、環境光 240、天空光 .55、主光 1.6，以及主光／補光位置、陰影範圍與霧 7～14 m；沒有給 `extent`，避免改變桌面畫面。跟隨載具的特寫陰影光放在 `extraLights`。手機直向的拉遠由 stage 的 `narrowFit` 處理，俯視另外用 `fit` 改變方向；標籤用 `priority` 指定避讓順序。播放、重播、速度、時間軸、時鐘、步驟選單與前後步用 `core/ui/player.js` 的 `createPlayer`（事件取自 `sequence.events`），`advance` 交給 core 的到位閘門 `createArrivalGate`（`core/anim/arrival.js`，規則 `ARRIVAL`：子步推進、步驟終點等手臂到位、到位逾時停止），本檔只加 NG 停在 S4 的故障判斷與 `apply(T, { seek })`（跳播時手臂直接到位並清除等待與故障）；`window.sim` 由 `exposeSim` 提供 |
 | `web/js/twin-binding.js` | 數位孿生描述（`core/twin` 的綁定表、孿生 server 與網頁觀看模式共用）：MD 邏輯路徑 → 本站物件與狀態鍵、photoEye 偵測的類別（主載具）、止擋與三色燈的 setter、手臂位姿指令的逆運動學、與假 SPE 相同的設定值 |
-| `twin/MilitaryGradePC.md.json`、`twin/SOURCE.md` | 孿生用的機台描述檔（Automation-Schema `v2.0.0-preview.3` 範例的原樣複本，不得手改）與來源紀錄 |
+| `twin/MilitaryGradePC.md.json`、`twin/SOURCE.md` | 孿生用的機台描述檔（Automation-Schema `v2.0.0-preview.3` 範例的原樣複本，與 AutoSequence/schema 的同名範例內容相同，不得手改）與來源紀錄 |
 | `web/js/vision-results.js` | 相機畫面的檢測框、中心標記與模擬結果（`core/ui/vision-overlay.js`） |
 | `tools/verify.mjs` | 狀態／幾何／運動驗證（連續播放用與網頁相同的到位閘門與 `ARRIVAL`） |
 | `tools/verify-twin.mjs` | 孿生檢查：綁定解析（33 個實體、unbound `act-S3-PCLAMP`）、mdHash、applyState 等價、photoEye、手臂位姿指令（`review/twin-checks.json`） |
@@ -114,7 +114,7 @@ core 內建檢查：`imports`、`structure`、`names`、`determinism`（倒序�
 本站是 SPE 數位孿生的示範站：AutoSequence 的序列程式不改，Twin Hub 以 TCP 連進來驅動虛擬機台，SPE 回報 DI。SPE 端的說明、決定性規則與測試在 [`core/twin/README.md`](../../core/twin/README.md)。交付標籤一律 **Simulation Validated**（手臂連桿與關節零點是估計值）。
 
 ```powershell
-node core/tools/twin.mjs MilitaryGradePC --port 7600 --sse 8776   # 在庫根目錄；需要相鄰的 Automation-Schema（版本見 core/twin/automation-schema.lock.json）
+node core/tools/twin.mjs MilitaryGradePC --port 7600 --sse 8776   # 在庫根目錄；需要相鄰的 AutoSequence/schema（版本見 core/twin/automation-schema.lock.json）
 # AutoSequence 端：asq-sim run tests/Fixtures/Twin/mgpc-s2-clamp.scenario.json --spe 127.0.0.1:7600
 # 觀看：http://127.0.0.1:8770/MilitaryGradePC/?twin=8776（不跑時間軸，畫面跟著工作階段；關掉頁面不影響 Hub）
 ```

@@ -2,7 +2,7 @@
 //   node core/tools/twin.mjs <站> [--md <MD 檔>] [--schema-repo <路徑>] [--schema-unlocked] [--port 7600] [--host 127.0.0.1]
 //                            [--sse <port>] [--max-line <bytes>] [--validate] [--transcript <檔>] [--port-file <檔>] [--test-hook no-ack-at:<n>]
 //
-// 啟動時（接受連線之前）：Automation-Schema 定位與版本檢查（twin-schema.mjs，不符就拒絕啟動）→ 載入並驗證 MD、計算 mdHash
+// 啟動時（接受連線之前）：孿生用 schema（AutoSequence/schema）定位與版本檢查（twin-schema.mjs，不符就拒絕啟動）→ 載入並驗證 MD、計算 mdHash
 // → 無頭建立站的場景（web/js/project.js）→ 站的孿生描述（web/js/twin-binding.js 的 createTwinBinding）→ 綁定解析。
 // --md 省略時用 project-site/<站>/twin/<站>.md.json；--port 0 取任意空埠（實際埠號印出，並寫到 --port-file）。
 // --validate：逐則驗證收到的訊息（除錯用；握手階段一律驗證）。--transcript：寫出工作階段紀錄（{"dir","msg"} 每行一則，validate.py session 可驗）。
@@ -62,7 +62,7 @@ try {
   const b = prepared.bound;
   console.log([
     `SPE 孿生 server：${project.id}  tcp://${host}:${addr.port}${addr.ssePort ? `  SSE http://${host}:${addr.ssePort}/events` : ''}`,
-    `Automation-Schema：${as.dir}  ${as.release}${as.commit ? `  ${as.commit.slice(0, 7)}` : ''}${as.unlocked ? '（未鎖定，不得用於聯調驗收）' : ''}`,
+    `孿生用 schema：${as.dir}  ${as.release}${as.commit ? `  ${as.commit.slice(0, 7)}` : ''}${as.unlocked ? '（未鎖定，不得用於聯調驗收）' : ''}`,
     `MD：${mdFile}  ${mdHash}`,
     `綁定 ${b.bindings} 個實體；unbound：${b.unbound.length ? b.unbound.join('、') : '（無）'}`,
   ].join('\n'));

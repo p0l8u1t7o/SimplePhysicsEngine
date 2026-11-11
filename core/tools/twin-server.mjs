@@ -70,9 +70,15 @@ export function createTwinServer({ prepared, mdHash, schema = null, software, ma
 
   const tcp = net.createServer(socket => {
     sockets.add(socket);
+    // 佔用中的連線其實已失效（例如行程暫停後恢復，舊連線的 close 還沒處理）：先釋放，不要把 Hub 的重連誤判成第二條（聯調回饋 P1）
+    if (active && (active.destroyed || active.readyState !== 'open')) { log('! 前一條連線已失效，釋放工作階段'); active = null; }
     if (active) {
-      // 一次只服務一條連線（Q-15）；錯誤碼協定沒有指定，用 INTERNAL
-      socket.end(JSON.stringify({ t: 'error', code: 'INTERNAL', msg: 'SPE 一次只服務一條連線', fatal: true }) + '\n');
+      // 一次只服務一條連線（Q-15）；錯誤碼協定沒有指定，用 INTERNAL。
+      // 被拒的連線也要掛 error 監聽：對方送 RST 時沒有監聽會讓整個行程結束（聯調回饋 P1）
+      socket.on('error', e => log(`! 被拒的連線：${e.message}`));
+      socket.on('close', () => sockets.delete(socket));
+      log(`拒絕第二條連線：${socket.remoteAddress}:${socket.remotePort}`);
+      socket.end(JSON.stringify({ t: 'error', code: 'INTERNAL', msg: 'SPE 一次只服務一條連線', fatal: true }) + '\n', () => socket.destroy());
       return;
     }
     active = socket;
@@ -92,6 +98,10 @@ export function createTwinServer({ prepared, mdHash, schema = null, software, ma
     if (req.url === '/view') { res.writeHead(200, { ...cors, 'Content-Type': 'application/json' }); res.end(JSON.stringify(lastView)); return; }
     res.writeHead(404, cors); res.end();
   });
+  // 防禦性：伺服器層級的錯誤只記日誌，不讓行程結束（啟動時的 listen 錯誤另由 listen() 回報）
+  tcp.on('error', e => log(`! tcp：${e.message}`));
+  web.on('error', e => log(`! sse：${e.message}`));
+  web.on('clientError', (e, s) => { log(`! sse 用戶端：${e.message}`); s.destroy(); });
 
   return {
     tcp, web,

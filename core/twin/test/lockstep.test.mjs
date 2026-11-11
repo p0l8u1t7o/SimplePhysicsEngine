@@ -65,7 +65,7 @@ test('snapshot 要求：立即回覆、n = 最後完成的 tick，列出綁定�
   assert.equal(snap.di['io-AIR'], false);
 });
 
-test('所有輸出都通過 Automation-Schema 的訊息 schema', needSchema, () => {
+test('所有輸出都通過孿生用 schema 的訊息 schema', needSchema, () => {
   const s = newSession({ withSchema: true }), d = driver(s), out = [...d.hello()];
   d.cmd('ax-X', 'move_abs', { pos: 500 }); d.cmd('io-CYL-V', 'set', { value: true }); d.cmd('rb-ARM', 'move', { motion: 'ptp', target: { q: [0.5, -0.2] } });
   d.cmd('dev-IPC1', 'vision', { action: 'trigger', shot: 's1' }); d.cmd('rb-ARM', 'task', { action: 'start', name: 'PICK' });

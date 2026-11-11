@@ -1,5 +1,5 @@
 // SPE-AC-09 決定性：同一串 hub>spe 訊息 → 兩個新的工作階段、兩個不同的 Node 行程輸出逐位元組相同；
-// 靜態檢查 core/twin 沒有掛鐘、亂數、計時器，也沒有 import Automation-Schema（SPE-AC-25 (d)）
+// 靜態檢查 core/twin 沒有掛鐘、亂數、計時器，也沒有 import 孿生用 schema（SPE-AC-25 (d)）
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -19,6 +19,6 @@ test('兩個不同的 Node 行程：輸出逐位元組相同', () => {
   assert.equal(run(), transcript() + '\n');
 });
 
-test('靜態檢查：core/twin/*.js 沒有掛鐘、亂數、計時器、node:*，也沒有 import Automation-Schema', () => {
+test('靜態檢查：core/twin/*.js 沒有掛鐘、亂數、計時器、node:*，也沒有 import 孿生用 schema', () => {
   assert.deepEqual(staticCheck(), []);
 });

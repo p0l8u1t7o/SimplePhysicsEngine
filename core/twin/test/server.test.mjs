@@ -63,6 +63,31 @@ test('一次只服務一條連線：第二條收到 fatal error 後被關閉', a
   a.socket.destroy(); await a.closedP(); await server.close();
 });
 
+test('被拒的連線送 RST 不會讓 SPE 結束；佔用中的工作階段不受影響（聯調回饋 P1）', async () => {
+  const logs = [];
+  const { server, port } = await start({ log: m => logs.push(m) });
+  const a = connect(port); a.send(hubHello()); await a.until(m => m.t === 'snapshot');
+  // 第二條連線一連上就以 RST 關閉（SO_LINGER 0）
+  for (let i = 0; i < 3; i++) {
+    const b = net.connect(port, '127.0.0.1');
+    b.on('error', () => { });
+    await new Promise(r => b.once('connect', r));
+    b.resetAndDestroy();
+    await new Promise(r => b.once('close', r));
+  }
+  await new Promise(r => setTimeout(r, 100));
+  // SPE 仍在監聽：再來一條仍收到拒絕訊息
+  const c = connect(port);
+  assert.equal((await c.until(m => m.t === 'error')).fatal, true); await c.closedP();
+  // 原本的工作階段照常推進
+  await lockstep(a, 3);
+  assert.ok(logs.some(l => l.includes('拒絕第二條連線')));
+  a.socket.destroy(); await a.closedP(); await idle(server);
+  // 釋放後可以接受新連線
+  const d = connect(port); d.send(hubHello()); await d.until(m => m.t === 'snapshot');
+  d.socket.destroy(); await d.closedP(); await server.close();
+});
+
 test('fatal error 之後 server 關閉連線；tickAck 帶 wallUs', async () => {
   const { server, port } = await start();
   const a = connect(port); a.send(hubHello()); await a.until(m => m.t === 'snapshot');

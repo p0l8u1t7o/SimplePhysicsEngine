@@ -84,9 +84,3 @@
 - 暫代：`project-site/ChemicalTankWashing/web/js/filling.js` 的填裝頭（每位一組：換位橫樑、台車、灌裝槍升降、2"／3/4" 伺服鎖付頭，鎖付頭用 core 的 `nutrunner`）
 - 期望介面：`core/models/equipment-process.js` 的 `drumFillHead.create({ shift, bungR })`，`set({ e, sx, cy, spin })`（灌裝槍插入量、換位、鎖蓋頭下降、套筒轉數）
 - 影響：其他桶裝、IBC 填裝的站
-
-### 孿生：由站產生 MD（S4，第二階段）
-- 提出：AutoSequence 孿生開發計畫 v0.2（2026-10-22，4.6 節；藍圖 §9 P3）
-- 暫代：MGPC 用 Automation-Schema 的範例 MD 原樣複本（`project-site/MilitaryGradePC/twin/`）
-- 期望介面：`core/twin/md-export.mjs`：從站產生 MD v2（設備、軸、IO、致動器、感測器、機器人、場景綁定），只寫 SPE 擁有的欄位、AutoSequence 擁有的欄位讀入時保留，ID 穩定、輸出決定性；IO 表的版控來源要先決定（MGPC 的電控資料只在本機 `docs/`）
-- 影響：之後接孿生的站；驗收 SPE-AC-24

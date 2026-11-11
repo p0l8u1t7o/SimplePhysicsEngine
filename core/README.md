@@ -24,7 +24,7 @@
 | `math/` | `dmath.js`：決定性的超越函式（fdlibm 移植）。Node 與 Chrome 的 `Math.sin`、`cos`、`exp` 等在 3～19% 的輸入差 1 ulp，要逐位元一致的模擬（`solar/`、`physics/rope.js`）用它；`Math.sqrt` 各引擎一致，可以直接用 |
 | `weather/` | 天候（2026-11-07）：`precip.js` 雨雪粒子（位置直接由時間算出，可以任意跳時間，含風與陣風）；`snow.js` 板面積雪、密實、融雪、滑落（Marion 2013）與發電損失；`loads.js` 雪載重（ASCE 7-16、EN 1991-1-3、建築基準法形式）與風壓（ASCE 7、台灣耐風規範形式、JIS C 8955 陣列係數）——全部是估算、標 `estimate`；`runoff.js` 板面逕流。說明在 `weather/README.md` |
 | `cfd/` | 外部 CFD（OpenFOAM）的瀏覽器端：案例產生（`case-gen.js`，命令列在根目錄 `tools/cfd/`）、VTK legacy／forces／probes 讀檔、`.cfdpack`、`createFlowView`（切面、流線、箭頭、面板 Cp）。OpenFOAM 只當外部程式（Docker／WSL／Linux），平台只交換檔案。說明在 `tools/cfd/README.md` |
-| `twin/` | AutoSequence 數位孿生的 SPE 端（Twin Protocol v2 server）：`session.js`（握手、鎖步、cmd、故障、增量 state，純模組、決定性）、`framing.js`、`binding.js`、`md.js`（MD 索引）、`dynamics/`（軸、致動器、機器人）、`sensors.js`、`geometry.js`（photoEye 射線）、`collisions.js`（即時干涉）、`workpieces.js`（工件持有權轉移）、`view.js`（網頁孿生觀看）、`automation-schema.lock.json`（要求的 Automation-Schema 版本）；命令列 `tools/twin.mjs`。說明在 `twin/README.md` |
+| `twin/` | AutoSequence 數位孿生的 SPE 端（Twin Protocol v2 server，選配外接後端）：`session.js`（握手、鎖步、cmd、故障、增量 state，純模組、決定性）、`framing.js`、`binding.js`、`md.js`（MD 索引）、`dynamics/`（軸、致動器、機器人）、`sensors.js`、`geometry.js`（photoEye 射線）、`collisions.js`（即時干涉）、`workpieces.js`（工件持有權轉移）、`view.js`（網頁孿生觀看）、`automation-schema.lock.json`（要求的孿生用 schema 版本：AutoSequence/schema 的 release 與協定 schema 雜湊）；命令列 `tools/twin.mjs`。說明在 `twin/README.md` |
 | `movie/` | 錄影程式（4K 取樣 1080p、絕對時間取樣、追焦運鏡），各專案以 `?movie` 呼叫 |
 | `ui/` | `stage.js`（renderer／場景／相機／燈光／3D 標籤／視角轉場／畫面迴圈／`exposeSim`）、`player.js`（標準播放列）、`viewer-workspace.js`／`.css`（相機視窗、焦點追隨與精簡版面，所有專案共用）、`vision-overlay.js`（視覺疊圖） |
 | `verify/` | 統一檢查：`scene.mjs`（全場干涉＋重合面閃爍）、`electrical.mjs`（電控配置）、`cables.mjs`（配線動態取樣）、`feedthroughs.mjs`（穿板孔）、`clearance.mjs`（有向包圍盒間距）、`determinism.mjs`（倒序一致）、`physics.mjs`（站的物理烘焙）、`bom.mjs`（場景 ↔ 平台 BOM）、`solar.mjs`（站的光伏遮陰與發電）、`dynamics.mjs`（站的手臂扭矩與負載）、`models.mjs`（共用模型檢查）、`fingerprint.mjs`／`fingerprint-compare.mjs`（排程指紋，渲染補強前後比對）、`run.mjs`（執行入口）、`dom-stub.mjs` |
@@ -218,7 +218,7 @@ node core/tools/check.mjs --only scene     # 只跑某項
 |---|---|---|
 | `models`（core） | ✓ | 每個共用模型以預設參數建立，狀態走完全範圍，做干涉與重合面檢查（`core/review/models.json`） |
 | `examples`（core） | ✓ | 第二段範例（`examples/segment2`）的電控與配線檢查 |
-| `twin`（core） | ✓ | `node --test core/twin/test/*.test.mjs`：分框、握手、鎖步順序、增量 state、cmd 與動態、六種故障、感測器、決定性（兩個工作階段、兩個行程逐位元相同）、即時模式、TCP 連線、Automation-Schema 定位與版本檢查，以及 `core/twin` 沒有掛鐘、亂數、`node:*`、Automation-Schema import 的靜態檢查。找不到相鄰的 Automation-Schema 時，需要它的項目略過並寫出略過幾項 |
+| `twin`（core） | ✓ | `node --test core/twin/test/*.test.mjs`：分框、握手、鎖步順序、增量 state、cmd 與動態、六種故障、感測器、決定性（兩個工作階段、兩個行程逐位元相同）、即時模式、TCP 連線（含被拒連線送 RST）、聯調回饋 P1～P4 的回歸、孿生用 schema 定位與版本檢查，以及 `core/twin` 沒有掛鐘、亂數、`node:*`、schema import 的靜態檢查。找不到相鄰的 AutoSequence/schema 時，需要它的項目略過並寫出略過幾項 |
 | `physics`（core） | ✓ | 物理範例（`examples/physics`）七個情境（剛體四個，線材、布料、流體各一個）在 Node 烘焙兩次相同、無頭 Chrome 的雜湊和 Node 相同、分析數字合理 |
 | `dynamics`（core） | ✓ | 手臂動力學（`examples/dynamics`）：MuJoCo 靜態重力扭矩對照獨立手算（差 ≤ 1e-9 N·m）、同一段軌跡算兩次相同、檢查列齊全 |
 | `solar`（core） | ✓ | `solar/test/browser-check.mjs`：SPA、追日＋Perez、BVH 遮陰、全年發電的工作量在 Node 跑兩次、無頭 Chrome 跑一次，雜湊逐位元相同 |

@@ -27,7 +27,7 @@
 
 | 位置 | 內容 |
 |---|---|
-| `core/` | 共用框架（以 importmap `@core/` 引用）：geom（形狀、材質、五金、地面）、models（85 個參數化模型＋目錄頁：市購品一律放這裡——手臂、輸送與搬運、相機與視覺、氣動與運動、夾爪、指示與感測小件、實驗室與製程設備、光伏；各站換用的對照在 `core/migrations/`）、anim（時間軸、步驟序列、到位閘門、取樣時間）、examples（範例頁：第二段電控／配線／相機、物理、手臂動力學、日照、鋼構與管路、3D Tiles、天候、CFD）、optics（光學計算 L1、打光與模擬影像 L2）、physics（剛體 Rapier 決定性版、XPBD 線材與布料、PBF 粒子流體）、robot（IK、手臂可達檢查、MuJoCo 手臂動力學、負載估算）、solar（日照、追日、遮陰、全年發電）、geo（地形、GeoTIFF、LAS／LAZ、OBJ、3D Tiles）、structure、piping、weather、cfd（外部 CFD 結果讀檔與顯示）、math（決定性數學函式）、twin（AutoSequence 數位孿生的 SPE 端：Twin Protocol v2 server，說明在 `core/twin/README.md`）、ui（stage、player、viewer-workspace）、electrical、movie、verify、template、tools；版本號在 `core/VERSION`，core 需求登記在 `core/REQUESTS.md` |
+| `core/` | 共用框架（以 importmap `@core/` 引用）：geom（形狀、材質、五金、地面）、models（85 個參數化模型＋目錄頁：市購品一律放這裡——手臂、輸送與搬運、相機與視覺、氣動與運動、夾爪、指示與感測小件、實驗室與製程設備、光伏；各站換用的對照在 `core/migrations/`）、anim（時間軸、步驟序列、到位閘門、取樣時間）、examples（範例頁：第二段電控／配線／相機、物理、手臂動力學、日照、鋼構與管路、3D Tiles、天候、CFD）、optics（光學計算 L1、打光與模擬影像 L2）、physics（剛體 Rapier 決定性版、XPBD 線材與布料、PBF 粒子流體）、robot（IK、手臂可達檢查、MuJoCo 手臂動力學、負載估算）、solar（日照、追日、遮陰、全年發電）、geo（地形、GeoTIFF、LAS／LAZ、OBJ、3D Tiles）、structure、piping、weather、cfd（外部 CFD 結果讀檔與顯示）、math（決定性數學函式）、twin（AutoSequence 數位孿生的 SPE 端：Twin Protocol v2 server，2026-11-11 起為選配外接後端，說明在 `core/twin/README.md`）、ui（stage、player、viewer-workspace）、electrical、movie、verify、template、tools；版本號在 `core/VERSION`，core 需求登記在 `core/REQUESTS.md` |
 | `project-site/<專案>/` | 所有展示專案（之後新增的也放這裡）。`web/`（網站；`web/js/project.js` 是網頁與檢查共用的場景）、`project.json`（首頁說明、`coreVersion`、`checks.quick`／`checks.full`、`variants`、`ui`）、`tools/`（專案自有檢查）、`review/`（檢查結果，進版控）、`docs/`（只留本機）、`AGENTS.md`／`CLAUDE.md`（該站規則）、`.claude/settings.json`（寫檔關卡） |
 | `tools/` | 跨專案工具：干涉回歸、跨站視覺檢查（`verify-vision.mjs`）、外部 CFD（`cfd/`）、案場天候資料下載（`weather/fetch-tmy.mjs`，PVGIS）、`core/solar` 與 pvlib 交叉驗證（`solar-pvlib/`）、電路圖、錄影稽核與驗證（`movie-export`；MP4 輸出是 core 的 `export.mjs --mp4`；配線與電盤檢查已移到 core 的 `electrical`）；`bin/` 是各站共用的 ffmpeg／ffprobe（`setup.ps1 -Ffmpeg` 下載，不進版控） |
 | `scripts/` | 腳本：`setup.ps1`（環境設定）、`start`／`stop`（`.ps1`＋可點兩下的 `.cmd`，網頁啟動與停止，PID 與輸出在 `logs/`）、`migrate/`（搬庫腳本） |
@@ -50,7 +50,7 @@ node core/tools/shots.mjs [專案…] --out TEMP/<新> --compare TEMP/<基準> -
 python core/tools/compare-review.py TEMP/<review 基準>   # review JSON 比對（忽略時間與雜湊）
 node core/tools/new-project.mjs <資料夾> "<標題>" ["一句說明"]   # 由範本建立新專案（含規則檔與寫檔關卡）
 node core/tools/export.mjs <專案> [--zip] [--html] [--mp4]   # 成品匯出到 TEMP/exports/：網站壓縮檔（雙擊離線開）、單一 HTML、MP4（全自動）
-node core/tools/twin.mjs <專案> --port 7600 --sse 8776      # 數位孿生 server（AutoSequence Twin Hub 連入；網頁 ?twin=8776 觀看）；需要相鄰的 Automation-Schema（版本鎖在 core/twin/automation-schema.lock.json）
+node core/tools/twin.mjs <專案> --port 7600 --sse 8776      # 數位孿生 server（選配；AutoSequence Twin Hub 連入；網頁 ?twin=8776 觀看）；需要相鄰的 AutoSequence/schema（版本鎖在 core/twin/automation-schema.lock.json）
 node core/tools/scene-dump.mjs <專案> --out TEMP/<檔>.json      # 場景傾印（每個網格、燈光、走線五金）；--diff <前> <後> 比對，換用 core 模型或改 core 前後各傾印一次
 node core/tools/install-hooks.mjs                 # 安裝 pre-commit 範圍檢查（clone 後一次）
 node core/tools/check-scope.mjs --scope <範圍> <路徑…>   # 手動檢查路徑是否在範圍內
@@ -156,9 +156,14 @@ node tools/verify-interference.mjs [專案…]         # 四站干涉回歸；�
   - core 加入剛體動力學：Rapier 決定性版放 `core/vendor/`，預先模擬、烘焙成軌跡，`apply(t)` 只取樣；用途是物料流、掉落與投料、料箱堆積、夾取穩定，現有站不強制改用。
 - AutoSequence 數位孿生（2026-10-21／22，開發計畫在本機 `TEMP/AutoSequence孿生_SPE開發計畫_v0.2.md`）：
   - SPE 是 Twin Protocol v2 的 server（`core/twin`＋`core/tools/twin.mjs`），時間主控只有 AutoSequence 的 Hub；鎖步只依 tick 推進、不讀掛鐘，孿生路徑不經過時間軸的 `apply(t)`。示範站是 MilitaryGradePC。
-  - Automation-Schema 執行時讀相鄰的 repo，**不複製進 SPE**（專有授權；特別是會發布的 `core/vendor/`）；要求的版本鎖在 `core/twin/automation-schema.lock.json`，不符就拒絕啟動。CI 沒有它時，需要它的檢查明確印「略過」（不算通過）；換機器時 `setup.ps1` 只檢查並提示、不自動 clone。
+  - 孿生用 schema 執行時讀相鄰的 repo，**不複製進 SPE**（專有授權；特別是會發布的 `core/vendor/`）；要求的版本鎖在 `core/twin/automation-schema.lock.json`，不符就拒絕啟動。CI 沒有它時，需要它的檢查明確印「略過」（不算通過）；換機器時 `setup.ps1` 只檢查並提示、不自動 clone。
   - 範例 MD 可以進 SPE 版控（`project-site/MilitaryGradePC/twin/`，從 tag 原樣取出、記 `SOURCE.md`，不得手改）；場景綁定用 MD 的邏輯路徑，由站的 `web/js/twin-binding.js` 對照。
   - 協定的 6 項釐清（error 位置、bye 回應、bindings 計數、sensorStuck 對 io-、followingError 門檻、commLoss 對 PLC 設備）照 preview.3；其餘待決事項採計畫書的建議。交付標籤一律 Simulation Validated。
+- AutoSequence 改自建孿生（2026-11-11，AutoSequence 的告知在本機 `TEMP/AutoSequence數位孿生決定_2026-11-11.md`；SPE 端選項由使用者定案）：
+  - AutoSequence 以內建物理後端（MuJoCo 原生函式庫）自建數位孿生，SPE 降為**選配外接**後端；AutoSequence 不再依賴 SPE。SPE 的 `core/twin` **保留並持續維護**（照常修錯、跟 Twin Protocol），但聯調、TWIN-AC 端對端驗收、由站產生 MD（S4）都結案不做。
+  - 孿生用 schema 改讀相鄰的 **AutoSequence repo 的 `schema/`**（預設 `..\AutoSequence\schema`，環境變數名稱沿用 `SPE_AUTOMATION_SCHEMA`），不再讀 Automation-Schema repo。**只鎖協定**：lock 檔記 RELEASE 與 twin-protocol、machine-description、common 三個 v2 schema 的雜湊；AutoSequence 新增其他 schema 或改產生碼不擋，產生碼行為的變化由 core 的 twin 檢查把關；協定或 MD schema 改了要先確認相容再 `twin-schema.mjs --write-lock`。
+  - MD 2.2 起，軸、致動器、機器人、感測器、設備的物理與場景欄位歸 AutoSequence、由它的孿生寫回。SPE 只讀 MD；若之後要寫回或產生 MD，必須避開這些欄位。
+  - 聯調回饋 P1～P4 全修（core 1.21.0）；初始狀態改為 PLC 全部 DO OFF 的穩態（單線圈與無電磁閥的致動器從 `states[0]` 開始）。
 - 開發機搬遷與環境（2026-11-07）：開發機 Node 26.13.0、Python 3.14（一般版，不用 3.14t）；CI 改用 Node 26，最低需求仍寫 22；選用的 Python 套件（含 TEMP 腳本用的 ezdxf、matplotlib、python-pptx、xlsxwriter、lxml）都列在 `requirements.txt`；PV DEMO 站移除。
 - 物理模擬擴充（2026-11-07）：
   - 剛體維持 Rapier 決定性版（JS 版最新就是 0.21.0，Rust crate 的 0.3x 是另一套版號）。

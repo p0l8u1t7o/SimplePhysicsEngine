@@ -5,13 +5,13 @@ import { loadSchemaIfPresent } from '../../tools/twin-schema.mjs';
 
 export const FIXTURE_TEXT = readFileSync(new URL('./fixture.md.json', import.meta.url), 'utf8');
 export const fixture = () => JSON.parse(FIXTURE_TEXT);
-// validate.py hash 的結果（Automation-Schema 在時另以 mdHashOfText 核對）
+// validate.py hash 的結果（孿生用 schema 在時另以 mdHashOfText 核對）
 export const FIXTURE_HASH = 'sha256:fd0cdfcad74ccc0acf508e260a649f859be6417976def10d051e50c50764f98f';
 
-// Automation-Schema 在相鄰 checkout 時載入（不檢查 lock）；不在時為 null，需要它的測試略過（Q-22 = A）
+// 孿生用 schema（AutoSequence/schema）在相鄰 checkout 時載入（不檢查 lock）；不在時為 null，需要它的測試略過（Q-22 = A）
 export const AS = await loadSchemaIfPresent().catch(() => null);
 export const schema = AS?.schema ?? null;
-export const needSchema = schema ? {} : { skip: '找不到 Automation-Schema（相鄰 checkout）' };
+export const needSchema = schema ? {} : { skip: '找不到孿生用 schema（相鄰的 AutoSequence/schema）' };
 
 // 假站：x 在 500 ± 5 mm 時 photoEye（sen-PART）ON
 export function fakeTwin(extra = {}) {

@@ -7,6 +7,10 @@
 //   root            場景根（選填，逐段解析用）
 //   initialView()   站的初始狀態：{ keys: { 鍵: 場景值 }, paths: { 路徑: 值 } }
 //
+// 初始狀態 = 工作階段開始時 PLC 全部 DO OFF 的穩態（聯調回饋 P2、Q-2，core 1.21.0）：
+// 單線圈（solenoid single）與無電磁閥（none）的致動器 OFF 時彈簧復歸到 states[0]，所以初始行程比例一律是 0，不取 initialView；
+// 雙線圈（double）兩邊都 OFF 時維持原位，沿用 initialView。軸與機器人沿用 initialView。
+//
 // 場景值 = MD 值 × scale + offset（軸：位置；致動器：行程比例 0..1；機器人：關節角 rad，不套 scale）。
 // 解析不到（沒有 scene、物件路徑或狀態鍵不存在）的實體列入 unbound（依 MD 陣列順序）；
 // bindings = 綁定成功的軸＋致動器＋感測器＋機器人，加上有 scene 且解析成功的設備（twin-protocol README §2；不含 unbound）。
@@ -52,7 +56,8 @@ export function resolveBindings(index, twin) {
     const ch = channel(a.scene);
     if (!ch) { unbound.push(a.id); continue; }
     const scale = a.scene.scale ?? 1, offset = a.scene.offset ?? 0, p = initial(ch, scale, offset);
-    actuators.push({ md: a, ...ch, scale, offset, initial: p === null ? 0 : Math.min(1, Math.max(0, p)) });
+    const springReturn = (a.solenoid ?? 'single') === 'single' || a.solenoid === 'none';
+    actuators.push({ md: a, ...ch, scale, offset, initial: springReturn || p === null ? 0 : Math.min(1, Math.max(0, p)) });
   }
   for (const s of index.sensors) {
     // 幾何感測器（photoEye、proximity）要有射線／區域；frame = object 時物件要解析得到

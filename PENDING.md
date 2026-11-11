@@ -47,13 +47,7 @@
 
 ### 4. AutoSequence 數位孿生（core/twin）
 
-開發計畫在本機 `TEMP/AutoSequence孿生_SPE開發計畫_v0.2.md`（不進版控），SPE 端說明在 `core/twin/README.md`。M1（握手、鎖步、cmd、動態、故障、感測器、決定性、Automation-Schema 版本檢查）、M2 的 SPE 端（機器人位姿、任務、曝光、測試掛鉤）與 M3（即時模式與 SSE 觀看、即時干涉 S5、工件持有權 S6、proximity／vacuumSwitch）已完成；`v2.0.0-preview.3` 的範例 transcript 重播後以 `validate.py session` 驗證 0 error。
-
-- [ ] 與 AutoSequence 聯調（開發計畫 6.2 的 A1～A8）：要等 Hub 升到 Automation-Schema preview.3 並採用 Q-09～Q-14（AutoSequence 目前鎖 preview.2，見其 `src\External\Automation.Schema\UPSTREAM.md`）。
-- [ ] 轉告 AutoSequence（開發計畫 7.4，讀程式碼的推論、未執行驗證）：假 SPE（`ModelSpe`）對指向 PLC 設備的 `commLoss` 會凍結 DI，與 Q-14（回 `UNSUPPORTED_OP`）不同；`ModelSpe` 在鎖步中處理 `fault clear` 時送出的 fault 事件不帶 `n`、排在 state 之前，與 Q-09 的順序不符。
-- [ ] TWIN-AC-01～06 端對端驗收：排在 AutoSequence WPT3 之後（氣缸＋PLC 路徑可先用 `mgpc-s2-clamp` 預驗）。
-- [ ] 由站產生 MD（S4，第二階段）：已登記 `core/REQUESTS.md`。
-- [ ] MGPC 的 MD 資料缺口（Q-19，M1～M3 維持初始值）：S4 拉料 `pushOut` 沒有閥與感測器、`act-S3-PCLAMP` 沒有場景綁定（unbound）、S1 止擋沒有到位感測器；之後由 S4 的 MD 匯出或電控資料補。
+SPE 端說明在 `core/twin/README.md`。M1～M3 已完成；2026-11-11 AutoSequence 改以內建物理後端自建孿生（告知在本機 `TEMP/AutoSequence數位孿生決定_2026-11-11.md`），SPE 降為選配外接後端、保留並持續維護（拍板記在根目錄 `AGENTS.md`）。原本的聯調（A1～A8）、轉告 AutoSequence 的假 SPE 差異、TWIN-AC-01～06 端對端驗收、由站產生 MD（S4）與 MGPC 的 MD 資料缺口（Q-19）都已結案不做；聯調回饋 P1～P4 已在 core 1.21.0 修正，孿生用 schema 改讀 AutoSequence/schema。目前沒有待辦。
 
 ### 5. 太陽能案場平台與物理擴充（2026-11-07 拍板，評估在本機 `TEMP/太陽能案場平台評估_2026-11-07.md`）
 

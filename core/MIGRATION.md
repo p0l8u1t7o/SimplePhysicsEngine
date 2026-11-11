@@ -215,6 +215,18 @@ Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs
     - `--ignore-names` 也不比燈光與虛擬相機的名稱（`visionCamera` 的虛擬相機預設叫 `camera view`）。修正前換用的站在 `view` 傳了 `name: ''` 維持不命名，留著無妨。
     - 正規化在比對時做，傾印檔格式不變，舊的傾印可以直接再比。
 
+## 2026-11-11：core 1.21.0 孿生改為選配外接、schema 改讀 AutoSequence、聯調回饋 P1～P4
+
+AutoSequence 改以內建物理後端自建數位孿生，SPE 的 `core/twin` 降為選配外接後端、保留並持續維護（使用者拍板，見根目錄 `AGENTS.md`）。只影響孿生路徑；各站的網頁、時間軸與檢查不受影響（MilitaryGradePC 以 `verify-twin` 驗過）。
+
+- **孿生用 schema 改讀 AutoSequence repo 的 `schema/`**（`core/tools/twin-schema.mjs`）：預設位置 `..\AutoSequence\schema`（`--schema-repo`、環境變數 `SPE_AUTOMATION_SCHEMA` 照舊）。lock 檔改成**只鎖協定**：RELEASE（現為 `2.0.0`）與 `schemas/twin-protocol/v2`、`machine-description/v2`、`common/v2` 的 `*.schema.json`（換行統一後的 SHA-256）；AutoSequence 的 commit 只做紀錄。`--write-lock` 不再帶 tag。AutoSequence 新增其他 schema（例如 `twin-model`）或改產生碼不會擋住 SPE；協定或 MD schema 改了才要確認相容後重新鎖。`scripts/setup.ps1` 的檢查一起改。
+- **P1**（`core/tools/twin-server.mjs`）：被拒的第二條連線掛 `error` 監聽、送完拒絕訊息即 `destroy()`；佔用中的連線已失效時先釋放；tcp／http 伺服器層級的錯誤只記日誌。修正前對方送 RST 會讓 SPE 行程結束（已用舊版重現）。
+- **P2**（`core/twin/binding.js`）：初始狀態改為 PLC 全部 DO OFF 的穩態——單線圈與無電磁閥的致動器一律從 `states[0]`（行程比例 0）開始，不取站的 `initialView()`；雙線圈、軸、機器人照舊。MGPC 的 `act-S0-FORK`、`act-S4-FORK` 的 snapshot n = 0 從伸出變成收回，Hub 的第一批 DO OFF 不再讓它們動。
+- **P3**（`core/twin/session.js`）：有 schema 時，cmd／fault 一律驗證（`--validate` 只控制其他訊息），不合的回 non-fatal error、不執行；內建檢查也擋 `vision` 的非字串 `shot`。
+- **P4**（`core/twin/session.js`）：即時干涉在格點上檢查時，幾何（各實體的 MD 值與工件持有者）和上次相同就不重算；事件輸出不變，靜止的 idle tick 不再每次整場重算。
+- 測試：`core/twin/test/` 70 項（新增 `feedback.test.mjs`、被拒連線 RST、lock 的只鎖協定規則）；換到 AutoSequence/schema 後 0 項略過。範例 transcript 重播 24 行全部合 schema。MGPC 的範例 MD 與 AutoSequence 的同名範例內容相同（只差換行），mdHash 不變。
+- 文件：`core/twin/README.md`（定位、schema 來源、MD 欄位擁有權、P1～P4）、`REQUIREMENTS.md`、`README.md`、MGPC 的 `twin/SOURCE.md`。`core/REQUESTS.md` 撤回「由站產生 MD（S4）」：MD 的場景與物理欄位已歸 AutoSequence。
+
 ## 2026-11-08：core 1.20.4 REQUESTS 的四個小需求
 
 - `ui/stage.js`：`createStage({ envIntensity })`（預設 1，外觀不變）＋`stage.setEnvIntensity(k)`，用 r187 的 `scene.environmentIntensity` 調整整體環境光（室外大場景陰影不被洗掉、日夜變化），不必逐材質改 `envMapIntensity`。
@@ -377,6 +389,7 @@ Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs
 
 | 版本 | 日期 | 內容 |
 |---|---|---|
+| 1.21.0 | 2026-11-11 | 孿生改為選配外接、孿生用 schema 改讀 AutoSequence/schema（只鎖協定）、聯調回饋 P1～P4（被拒連線 RST、DO OFF 初始狀態、cmd／fault 一律驗證、干涉免重算） |
 | 1.20.4 | 2026-11-08 | `createStage({ envIntensity })`、`drumJaws` 的 `arc`、`MAT.expandedMesh`／`meshPanel`、檢視器依元件朝向聚焦 |
 | 1.20.3 | 2026-11-08 | `scene` 線材端點接入只放行端點附近 |
 | 1.20.2 | 2026-11-07 | 影片 `simulationStart`；`verify.solar.energy` 全年發電列；光伏共用模型 `models/pv.js`（`pvModule`、`pvArray`、`stringInverter`）＋支架登記到目錄；結構範例改用 DSM 地形；截圖回歸的視角清單改讀頁面；`scene` 曲面件沿邊取樣；`hasDom()`；`codeReader` 機身名稱；`conveyor` 側樑 `skip`；追日的積雪收藏；3D Tiles（`geo/tiles.js`，含 DRACO／KTX2／meshopt 解碼器）；VM-60B1 前臂端蓋縮小；流體 `sleep`；圓桶的連續碰撞；GeoTIFF 的 JPEG 圖塊；`verify.solar.structure` |

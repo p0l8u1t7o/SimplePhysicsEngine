@@ -1,6 +1,6 @@
 // 本站孿生檢查（SPE-AC-15、16、18；core 的 Twin Protocol 引擎見 core/twin）：
 //   1. 綁定解析：站內 MD 解析出 7 軸、16 感測器、1 機器人、8 致動器與 1 個設備（dev-CAM02），unbound 恰為 act-S3-PCLAMP，bindings = 33；
-//      站內 MD 的 mdHash 等於 twin/SOURCE.md 的紀錄（需要相鄰的 Automation-Schema；找不到時明確印「略過」，Q-22）
+//      站內 MD 的 mdHash 等於 twin/SOURCE.md 的紀錄（需要相鄰的 AutoSequence/schema；找不到時明確印「略過」，Q-22）
 //   2. applyState 等價：40 個時間點，apply(t) 與「先跳到別的時間、再 applyState(sample(t).state)＋手臂設到同一關節」的可見實體網格世界矩陣差 ≤ 1e-3
 //   3. photoEye：ax-CONV 在 -1450／-1000／1450 時 io-S0／S1／S4-PALLET 各自 ON、離開 OFF；產品（不在 detects）顯示與否不影響
 // 結果寫到 review/twin-checks.json（沒有時間戳）。
@@ -29,7 +29,7 @@ const as = await loadSchemaIfPresent().catch(() => null);
 if (as) {
   const hash = as.schema.mdHashOfText(mdText), v = as.schema.validateMachineDescription(md);
   check('mdHash', hash === recorded && v.valid, { mdHash: hash, recorded, mdValid: v.valid });
-} else { report.mdHash = { skipped: '找不到 Automation-Schema（相鄰 checkout）' }; console.log('略過 mdHash：找不到 Automation-Schema'); }
+} else { report.mdHash = { skipped: '找不到孿生用 schema（相鄰的 AutoSequence/schema）' }; console.log('略過 mdHash：找不到孿生用 schema'); }
 
 // ---------------------------------------------------------------- 2. applyState 等價
 const meshes = [];

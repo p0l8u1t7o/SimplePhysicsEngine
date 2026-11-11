@@ -25,7 +25,7 @@ vs3d 網頁介面（`studio/ui/`，React＋Vite）是唯一用到 npm 套件的�
 |---|---|---|
 | Python 3.14（一般版，不要 free-threaded 的 `3.14t`）＋`requirements.txt` | 錄影稽核與驗證（`tools/movie-export`）、電路圖（`tools/circuit-drawings`）、回收物分揀的視覺品項表（`project-site/RecycleSorter/tools/build_vision_items.py`）、`core/tools/compare-review.py`、`core/solar` 與 pvlib 交叉驗證（`tools/solar-pvlib`） | `setup.ps1 -Python`（建立 `.venv` 並安裝） |
 | ffmpeg／ffprobe（支援 NVENC 的 Windows 版） | MP4 錄影輸出（`core/tools/export-mp4.mjs`、影片驗證） | `setup.ps1 -Ffmpeg` 下載到共用的 `tools/bin/`（不進版控）；也可用 `-FfmpegZip <本機 zip>` |
-| Automation-Schema（相鄰 checkout，指定 tag） | 數位孿生 server（`core/tools/twin.mjs`）與它的檢查：協定驗證、mdHash；SPE 不複製它的任何檔案 | 在 SPE 旁邊 `git clone <Automation-Schema> ..\Automation-Schema`，再 `git -C ..\Automation-Schema checkout <tag>`（tag 見 `core/twin/automation-schema.lock.json`）；`setup.ps1` 會檢查並提示。驗證工具 `validate.py` 另需 uv |
+| 孿生用 schema（相鄰的 AutoSequence repo 的 `schema/`；2026-11-11 前是 Automation-Schema） | 數位孿生 server（`core/tools/twin.mjs`，選配）與它的檢查：協定驗證、mdHash；SPE 不複製它的任何檔案 | 在 SPE 旁邊 `git clone <AutoSequence> ..\AutoSequence`；要求的 release 與協定 schema 雜湊見 `core/twin/automation-schema.lock.json`，`setup.ps1` 會檢查並提示。驗證工具 `validate.py` 另需 uv |
 | 中文 TrueType 字型 | 電路圖 PDF（reportlab） | 預設 `C:/Windows/Fonts/msjh.ttc`（微軟正黑體）；其他字型設 `CIRCUIT_FONT` |
 | poppler `pdftoppm` | 電路圖驗證時把 PDF 轉成 PNG（`tools/circuit-drawings/verify.py --render`） | 安裝 poppler 後設 `PDFTOPPM` 指向 `pdftoppm.exe` |
 | OpenFOAM v2412（Docker 映像 `opencfd/openfoam-default:2412`，或 WSL／Linux） | 外部 CFD（`tools/cfd/`：產生案例 → 在容器或 WSL 裡跑 → 匯入結果）；GPL，只當外部程式執行，平台只交換檔案 | 裝 Docker Desktop 或 WSL 發行版，`tools\cfd\run-case.ps1` 會偵測並印出指令；CPU 上限要用 Docker 的 `--cpus` 或 `.wslconfig`（`cpu-cap.ps1` 管不到虛擬機） |
@@ -38,7 +38,7 @@ vs3d 網頁介面（`studio/ui/`，React＋Vite）是唯一用到 npm 套件的�
 | `FFMPEG_PATH` | 指定 ffmpeg 執行檔（MP4 錄影輸出、studio、影片驗證） | 共用的 `tools/bin/ffmpeg.exe`，再找 PATH |
 | `CLIENT_NAMES` | 補充用戶名稱名單（逗號分隔，`check-names.mjs` 與 `names` 檢查會合併） | （無；名單本體在 `.private/client-names.txt`） |
 | `UI_PORT` | `check.mjs` 內建 `ui` 檢查用的 port（平行跑檢查時錯開） | 8771 |
-| `SPE_AUTOMATION_SCHEMA` | Automation-Schema 的位置（孿生 server、`twin` 檢查） | SPE 根目錄的上一層 `..\Automation-Schema` |
+| `SPE_AUTOMATION_SCHEMA` | 孿生用 schema 的位置（孿生 server、`twin` 檢查） | SPE 根目錄的上一層 `..\AutoSequence\schema` |
 | `CIRCUIT_FONT` | 電路圖字型 | `C:/Windows/Fonts/msjh.ttc` |
 | `PDFTOPPM` | poppler 的 pdftoppm | （無，需要時指定） |
 

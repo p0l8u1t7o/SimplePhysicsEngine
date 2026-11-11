@@ -22,7 +22,7 @@ export function scenario() {
 export const transcript = () => { const s = newSession(); return scenario().flatMap(m => s.receive(JSON.stringify(m))).map(m => JSON.stringify(m)).join('\n'); };
 
 const FORBIDDEN = [/\bDate\.now\s*\(/, /\bperformance\.now\s*\(/, /\bnew\s+Date\s*\(/, /\bMath\.random\s*\(/, /\bsetTimeout\s*\(/, /\bsetInterval\s*\(/, /\bprocess\.hrtime/];
-const IMPORT_SCHEMA = /from\s+['"][^'"]*(Automation-Schema|generated\/js)[^'"]*['"]|import\(\s*['"][^'"]*(Automation-Schema|generated\/js)/;
+const IMPORT_SCHEMA = /from\s+['"][^'"]*(Automation-Schema|AutoSequence|generated\/js)[^'"]*['"]|import\(\s*['"][^'"]*(Automation-Schema|AutoSequence|generated\/js)/;
 
 export function staticCheck(dir = fileURLToPath(new URL('..', import.meta.url))) {
   const problems = [];
@@ -31,7 +31,7 @@ export function staticCheck(dir = fileURLToPath(new URL('..', import.meta.url)))
     readFileSync(p, 'utf8').split('\n').forEach((line, i) => {
       const code = line.replace(/\/\/.*$/, '');
       for (const re of FORBIDDEN) if (re.test(code)) problems.push(`${p}:${i + 1} 禁止的呼叫 ${re.source}`);
-      if (IMPORT_SCHEMA.test(code)) problems.push(`${p}:${i + 1} core/twin 不得 import Automation-Schema`);
+      if (IMPORT_SCHEMA.test(code)) problems.push(`${p}:${i + 1} core/twin 不得 import 孿生用 schema`);
       if (/from\s+['"]node:/.test(code)) problems.push(`${p}:${i + 1} core/twin 是瀏覽器也能載入的純模組，不得 import node:*`);
     });
   };

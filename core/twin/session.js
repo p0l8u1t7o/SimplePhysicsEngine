@@ -60,7 +60,7 @@ export function createTwinSession({ prepared, mdHash, schema = null, software = 
 
   let helloDone = false, closed = false, realtime = false, tolerant = false;
   let peerMaxLine = DEFAULT_MAX_LINE, stateRate = 50, lastTick = 0, lastUs = 0;
-  let axes, actuators, robots, reported, reportedDi, pending, scheduled, faults, frozen, stuckIo, lights, workpieces, order, lastGeometry, activePairs, lastCollideUs, exposures;
+  let axes, actuators, robots, reported, reportedDi, pending, scheduled, faults, frozen, stuckIo, lights, workpieces, order, lastGeometry, activePairs, lastCollideUs, lastCollideSig, exposures;
 
   // ---------------------------------------------------------------- 初始狀態（每條連線都從站的初始狀態開始）
   function reset() {
@@ -69,7 +69,7 @@ export function createTwinSession({ prepared, mdHash, schema = null, software = 
     robots = new Map(bound.robots.map(b => [b.md.id, createRobot(b.md, b.initial)]));
     reported = { axes: new Map(), actuators: new Map(), robots: new Map() };
     reportedDi = new Map(); pending = []; scheduled = []; faults = []; frozen = new Set(); stuckIo = new Map();
-    lights = new Map(); workpieces = []; order = 0; lastGeometry = null; activePairs = new Set(); lastCollideUs = -1; exposures = new Map();
+    lights = new Map(); workpieces = []; order = 0; lastGeometry = null; activePairs = new Set(); lastCollideUs = -1; lastCollideSig = null; exposures = new Map();
     lastTick = 0; lastUs = 0;
     twin.resetWorkpieces?.();
   }
@@ -202,7 +202,8 @@ export function createTwinSession({ prepared, mdHash, schema = null, software = 
       move: () => !['ptp', 'line'].includes(args.motion) || !isObj(args.target),
       task: () => !['start', 'stop', 'reset'].includes(args.action),
       light: () => typeof args.on !== 'boolean',
-      barcode: () => args.action !== 'trigger', vision: () => args.action !== 'trigger',
+      // shot 會原樣回送到 exposure 事件：型別不對就拒收，SPE 的輸出才會永遠合 schema（聯調回饋 P3）
+      barcode: () => args.action !== 'trigger', vision: () => args.action !== 'trigger' || args.shot !== undefined && typeof args.shot !== 'string',
       stop: () => args.mode !== undefined && !['controlled', 'immediate'].includes(args.mode),
     }[cmd.op];
     if (bad?.()) return ['BAD_ARGS', `${cmd.op} 的 args 不合規定`];
@@ -397,8 +398,9 @@ export function createTwinSession({ prepared, mdHash, schema = null, software = 
       events.push(event('workpiece', n, time, { action: 'transferred', wp: m.wp, holder: m.holder }));
     }
     // 即時干涉（站的 collide；S5）：以虛擬時間格點降頻（collisionEvery 秒），一對開始干涉時送一次，分開後再干涉才再送
-    if (twin.collide && Math.floor(t1 / collideUs) !== Math.floor(lastCollideUs / collideUs)) {
-      lastCollideUs = t1;
+    // 幾何（MD 值＋工件持有者）與上次檢查相同時不重算：干涉只取決於場景，結果必然相同（聯調回饋 P4：idle tick 每次跨格點都整場重算）
+    if (twin.collide && Math.floor(t1 / collideUs) !== Math.floor(lastCollideUs / collideUs) &&
+      (lastCollideUs = t1, lastCollideSig !== (lastCollideSig = JSON.stringify([values(), workpieces])))) {
       if (twin.apply) { twin.apply(buildView(bound, values())); lastGeometry = null; }
       const now = new Set();
       for (const c of twin.collide()) {
@@ -477,13 +479,14 @@ export function createTwinSession({ prepared, mdHash, schema = null, software = 
     }
   }
 
-  // 一行文字（已分框）→ 解析、驗證（握手前一律驗證；之後只在 options.validate 時驗證）→ handle
+  // 一行文字（已分框）→ 解析、驗證（握手前與 cmd／fault 一律驗證，其他訊息只在 options.validate 時驗證）→ handle
+  // cmd／fault 的欄位會回送到 error／event，一律驗證才能保證 SPE 的輸出合 schema（聯調回饋 P3）；tick 量大，維持選用
   function receive(line) {
     if (closed) return [];
     const r = parseMessage(line);
     if (r.error) return [error(r.error.code, r.error.msg, true)];
     const msg = r.msg;
-    if (schema?.validateTwinMessage && (!helloDone || options.validate)) {
+    if (schema?.validateTwinMessage && (!helloDone || options.validate || msg.t === 'cmd' || msg.t === 'fault')) {
       const v = schema.validateTwinMessage(msg, { tolerant });
       if (v.ignored) return [];
       if (!v.valid) {

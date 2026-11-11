@@ -10,7 +10,7 @@
 // core 本身（不指定專案時才跑）：names（core、tools、scripts、studio 與根目錄文件）、models（core/models 每個模型走完狀態範圍的干涉與重合面，快速）、examples（core/examples/segment2 第二段範例的電控與配線檢查，快速）、
 //   physics（core/examples/physics 七個情境：Node 與瀏覽器烘焙逐位元相同、分析數字合理，快速）、dynamics（MuJoCo 手臂動力學）、
 //   solar（core/solar 的 SPA、追日、遮陰、全年發電在 Node 與無頭 Chrome 逐位元相同，快速）、engineering（structure、geo、solar、physics、weather、tools/cfd 的 node:test）、
-//   twin（core/twin 的 Twin Protocol 引擎測試：分框、握手、鎖步、cmd、故障、決定性、Automation-Schema 版本檢查，快速）。
+//   twin（core/twin 的 Twin Protocol 引擎測試：分框、握手、鎖步、cmd、故障、決定性、孿生用 schema（AutoSequence/schema）版本檢查，快速）。
 // core 內建檢查（每個專案都跑；後三項需要 web/js/project.js）：
 //   imports      靜態 import 路徑（快速）
 //   determinism  倒序／跳播一致（快速）
@@ -118,13 +118,13 @@ if (CORE_LEVEL && (!only || only.includes('examples'))) {
   if (r.code) for (const l of lines.slice(1)) console.log('     ' + l);
 }
 // core 本身：Twin Protocol 引擎（core/twin 的 node:test，含決定性與禁止呼叫的靜態檢查）；
-// 需要 Automation-Schema 的項目在找不到相鄰 checkout 時略過，並在說明裡寫出略過幾項（不算通過，Q-22）
+// 需要孿生用 schema（AutoSequence/schema）的項目在找不到相鄰 checkout 時略過，並在說明裡寫出略過幾項（不算通過，Q-22）
 if (!WORKSPACE && CORE_LEVEL && (!only || only.includes('twin'))) {
   const t0 = Date.now();
   const r = spawnSync(process.execPath, ['--test', '--test-timeout=60000', 'core/twin/test/*.test.mjs'], { cwd: REPO, encoding: 'utf8' });
   const out = (r.stdout || '') + (r.stderr || ''), num = k => +(new RegExp(`ℹ ${k} (\\d+)`).exec(out)?.[1] ?? 0), sec = (Date.now() - t0) / 1000;
   const pass = num('pass'), fail = num('fail'), skip = num('skipped');
-  results.push({ project: 'core', check: 'twin', ok: r.status === 0 && fail === 0, note: `${pass}/${pass + fail + skip} 項${skip ? `（略過 ${skip} 項：找不到 Automation-Schema）` : ''}`, seconds: +sec.toFixed(1) });
+  results.push({ project: 'core', check: 'twin', ok: r.status === 0 && fail === 0, note: `${pass}/${pass + fail + skip} 項${skip ? `（略過 ${skip} 項：找不到孿生用 schema（AutoSequence/schema））` : ''}`, seconds: +sec.toFixed(1) });
   console.log(`${results.at(-1).ok ? '✓' : '✗'} core · twin  ${results.at(-1).note}  (${sec.toFixed(1)} s)`);
   if (!results.at(-1).ok) for (const l of out.split('\n').filter(l => /^✖|Error/.test(l)).slice(0, 20)) console.log('     ' + l);
 }

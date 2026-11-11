@@ -59,19 +59,19 @@ if ($node -and -not ($problems -contains 'Git')) {
   if ($LASTEXITCODE -ne 0) { $problems += 'git hook'; Warn '安裝 git hook 失敗，請看上方訊息。' } else { Ok '.githooks' }
 }
 
-# ---------------------------------------------------------------- Automation-Schema（選用，數位孿生 core/twin）
-# 只檢查並提示，不自動 clone（私有 repo 要認證）；要求的 tag 在 core/twin/automation-schema.lock.json
-Step 'Automation-Schema（數位孿生用，相鄰 checkout）'
+# ---------------------------------------------------------------- 孿生用 schema（選用，數位孿生 core/twin；2026-11-11 起取自 AutoSequence repo 的 schema/）
+# 只檢查並提示，不自動 clone（私有 repo 要認證）；要求的 release 與協定 schema 雜湊在 core/twin/automation-schema.lock.json
+Step '孿生用 schema（數位孿生用，相鄰的 AutoSequence\schema）'
 $lock = Get-Content (Join-Path $Root 'core\twin\automation-schema.lock.json') -Raw -Encoding UTF8 | ConvertFrom-Json
-$asDir = if ($env:SPE_AUTOMATION_SCHEMA) { $env:SPE_AUTOMATION_SCHEMA } else { Join-Path (Split-Path $Root -Parent) 'Automation-Schema' }
+$asDir = if ($env:SPE_AUTOMATION_SCHEMA) { $env:SPE_AUTOMATION_SCHEMA } else { Join-Path (Split-Path $Root -Parent) 'AutoSequence\schema' }
 if (-not (Test-Path (Join-Path $asDir 'generated\js\index.mjs'))) {
-  Warn "找不到 $asDir（只有孿生 server 需要）。準備方式：git clone <Automation-Schema> `"$asDir`"; git -C `"$asDir`" checkout $($lock.tag)"
+  Warn "找不到 $asDir（只有孿生 server 需要）。準備方式：在 SPE 旁邊 git clone <AutoSequence>"
 } else {
   # twin-schema 版本不符時寫 stderr；Stop 模式下 PS 5.1 會把它變成終止錯誤，後面的 Python、ffmpeg、快速檢查都不會跑
   $ErrorActionPreference = 'Continue'
   & node (Join-Path $Root 'core\tools\twin-schema.mjs') 2>&1 | ForEach-Object { Write-Host "  $_" }
   $ErrorActionPreference = 'Stop'
-  if ($LASTEXITCODE -eq 0) { Ok "Automation-Schema $($lock.tag)" } else { Warn "版本與 lock 檔不符：git -C `"$asDir`" fetch --tags; git -C `"$asDir`" checkout $($lock.tag)" }
+  if ($LASTEXITCODE -eq 0) { Ok "孿生用 schema $($lock.release)" } else { Warn "協定 schema 與 lock 檔不符：確認相容後執行 node core\tools\twin-schema.mjs --write-lock（說明在 core\twin\README.md）" }
 }
 
 # ---------------------------------------------------------------- Python（選用）

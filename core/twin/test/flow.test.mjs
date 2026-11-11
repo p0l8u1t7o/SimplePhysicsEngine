@@ -24,7 +24,7 @@ const twin = (extra = {}) => fakeTwin({
   ...extra,
 });
 
-test('合成 MD 仍通過 Automation-Schema 的 MD 驗證', { skip: schema ? false : '找不到 Automation-Schema' }, () => {
+test('合成 MD 仍通過孿生用 schema 的 MD 驗證', { skip: schema ? false : '找不到孿生用 schema（AutoSequence/schema）' }, () => {
   const r = schema.validateMachineDescription(md());
   assert.ok(r.valid, JSON.stringify(r.errors));
 });
@@ -60,7 +60,8 @@ test('即時干涉：開始干涉時送一次 event collision，分開後再干�
   const hit = ofType(d.run(3, 10000), 'event').filter(e => e.k === 'collision');
   assert.equal(hit.length, 1);
   assert.equal(hit[0].a, 'robot/arm'); assert.ok(hit[0].depth > 0); assert.equal(hit[0].n > 0, true);
-  assert.ok(calls <= 61 && calls >= 59, String(calls));                // 3 s ÷ 0.05 s
+  // 3 s ÷ 0.05 s = 60 個格點；幾何不變的格點不重算（聯調回饋 P4），所以軸停下後的格點不算
+  assert.ok(calls <= 61 && calls >= 20, String(calls));
   d.cmd('ax-X', 'move_abs', { pos: 700 }); d.run(2);
   d.cmd('ax-X', 'move_abs', { pos: 950 });
   assert.equal(ofType(d.run(2), 'event').filter(e => e.k === 'collision').length, 1);

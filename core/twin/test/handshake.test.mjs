@@ -6,7 +6,7 @@ import { prepareTwin, createTwinSession } from '../session.js';
 
 for (const withSchema of [false, true]) {
   const opts = withSchema ? needSchema : {};
-  const tag = withSchema ? '（Automation-Schema）' : '（內建檢查）';
+  const tag = withSchema ? '（孿生用 schema）' : '（內建檢查）';
 
   test('主版號不同 → PROTO_MAJOR_MISMATCH fatal、不送 hello' + tag, opts, () => {
     const s = newSession({ withSchema });
@@ -50,7 +50,7 @@ test('role 不是 hub、hello 不合 schema → BAD_MESSAGE fatal', needSchema, 
   assert.equal(out[0].code, 'BAD_MESSAGE'); assert.equal(out[0].fatal, true);
 });
 
-test('mdHash 與 Automation-Schema 的 mdHashOfText 相同', needSchema, () => {
+test('mdHash 與孿生用 schema 的 mdHashOfText 相同', needSchema, () => {
   assert.equal(schema.mdHashOfText(FIXTURE_TEXT), FIXTURE_HASH);
 });
 

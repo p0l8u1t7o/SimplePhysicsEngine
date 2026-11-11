@@ -18,6 +18,7 @@
 git -C ..\Automation-Schema show v2.0.0-preview.3:examples/MilitaryGradePC.md.json > project-site\MilitaryGradePC\twin\MilitaryGradePC.md.json
 ```
 
+- 2026-11-11 起 SPE 的孿生用 schema 改讀相鄰的 AutoSequence repo 的 `schema/`（AutoSequence 自上述 tag 收入、自行維護）。其中的 `examples/MilitaryGradePC.md.json` 與本檔內容相同（只差換行符號），mdHash 同為上表的值；之後若 AutoSequence 改了範例，從 `..\AutoSequence\schema\examples\` 整檔重取，並更新本檔與 `tools/verify-twin.mjs` 的期望值。
 - 授權：Automation-Schema 為專有授權；使用者 2026-10-22 同意本範例 MD 進 SPE 版控。`twin/` 不在 `web/` 底下，不會發布到 Pages。
 - 場景綁定用 MD 的邏輯路徑（例如 `cell/stackerIn/forks`），由 `web/js/twin-binding.js` 對照到本站的物件（開發計畫 Q-04 = A）。
 - `act-S3-PCLAMP` 沒有場景綁定，孿生時列在 `unbound`（Q-07）。
