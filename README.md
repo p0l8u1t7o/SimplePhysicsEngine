@@ -40,4 +40,4 @@ node core/tools/new-project.mjs <名稱> "<標題>"  # 由範本建立新專案
 - [AGENTS.md](AGENTS.md)：給 Claude Code 與 Codex 的共通規則（合作方式、範圍、框架慣例、檢查流程、踩坑紀錄）；[CLAUDE.md](CLAUDE.md) 以 `@AGENTS.md` 引用。各站規則與拍板紀錄在各站的 `AGENTS.md`，待辦事項在 [PENDING.md](PENDING.md)。
 - 範圍檢查：從子專案資料夾啟動的代理只能改該站（pre-commit、PR 的 `scope.yml`、各站 `.claude/settings.json` 寫檔關卡）；clone 後執行 `scripts\setup.ps1` 或 `node core/tools/install-hooks.mjs` 安裝 hook。
 - [studio](studio/README.md)：3D工作室（`vs3d` 命令列＋網頁介面）：由代理產生 3D 設備動畫，兼自動化專案評估平台（元件庫、可行性、BOM 與成本表、光學與 AOI）。網頁介面的 npm 套件只放在 `studio/ui/`。
-- [scripts](scripts/)：環境設定（`setup.ps1`）、網頁啟動與停止（`start`／`stop`，`.cmd` 可以點兩下）、[搬庫腳本](scripts/migrate/README.md)。
+- [scripts](scripts/)：環境設定（`setup.ps1`）、網頁啟動與停止（`start`／`stop`，`.cmd` 可以點兩下）。
