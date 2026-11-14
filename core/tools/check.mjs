@@ -16,7 +16,7 @@
 //   determinism  倒序／跳播一致（快速）
 //   layout       project.layoutChecks() 空間檢核（快速）
 //   scene        全場動態／靜態干涉＋重合面閃爍（快速）
-//   bom          場景的共用模型對照平台的 BOM（只警告；本機沒有平台資料庫或站沒有成本表就略過）
+//   bom          場景的共用模型對照平台的 BOM（舊站只警告；新站 project.json 的 strict 會擋；本機沒有平台資料庫就略過）
 //   physics      core/physics 的烘焙：再烘焙一次雜湊相同、靜止接觸穿透、烘焙時間（快速；沒用物理就略過）
 //   electrical   電控元件在櫃內、不重疊、櫃內連線、穿板孔；project.verify.cables 宣告時另做配線動態取樣（快速；沒有電控就略過）
 //   structure    開發架構：project.json、AGENTS.md／CLAUDE.md、寫檔關卡、docs/ 不進版控、favicon、importmap（check-structure.mjs，快速；不管專案是哪個工具做的）
@@ -56,7 +56,7 @@ const BUILTIN = {
   scene: { quick: true, needsProject: true, run: viaRunner('scene') },     // 干涉與閃爍也擋部署
   electrical: { quick: true, needsProject: true, run: viaRunner('electrical') },
   physics: { quick: true, needsProject: true, run: viaRunner('physics') },     // core/physics 的烘焙（沒用就略過）
-  bom: { quick: true, needsProject: true, run: viaRunner('bom') },     // 場景 ↔ 平台 BOM（只警告；沒有 BOM 資料就略過）
+  bom: { quick: true, needsProject: true, run: viaRunner('bom') },     // 場景 ↔ 平台 BOM（舊站只警告、strict 新站會擋；沒有 BOM 資料就略過）
   solar: { quick: true, needsProject: true, run: viaRunner('solar') },     // verify.solar：冬至列間遮陰與對照組（沒宣告就略過）
   dynamics: { quick: true, needsProject: true, run: viaRunner('dynamics') },   // verify.dynamics：手臂峰值扭矩、負載力矩（只警告；沒宣告就略過）
   ui: { quick: false, run: async p => {

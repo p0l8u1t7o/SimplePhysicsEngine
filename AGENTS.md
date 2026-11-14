@@ -1,6 +1,6 @@
 # 自動化設備 3D 展示 — 共通規則
 
-這個庫原本是 `Python` 庫底下的 `TestCode/`，2026-10 搬成獨立庫（從頭開始，舊歷史留在原庫）。本檔是 Claude Code 與 Codex 共用的規則（`CLAUDE.md` 以 `@AGENTS.md` 引用），各站自己的規則在 `<專案>/AGENTS.md`。框架細節以 `core/README.md` 為準，改版紀錄在 `core/MIGRATION.md`，待辦事項在 `PENDING.md`。
+這個庫原本是 `Python` 庫底下的 `TestCode/`，2026-10 搬成獨立庫（從頭開始，舊歷史留在原庫）。本檔是 Claude Code 與 Codex 共用的規則（`CLAUDE.md` 以 `@AGENTS.md` 引用），各站自己的規則在 `<專案>/AGENTS.md`。**實作站一律照 `core/SITE-RULES.md`**，框架細節以 `core/README.md` 為準，改版紀錄在 `core/MIGRATION.md`，待辦事項在 `PENDING.md`。
 
 ## 與使用者合作的方式
 
@@ -73,30 +73,13 @@ node tools/verify-interference.mjs [專案…]         # 四站干涉回歸；�
   - **其他代理工具**：Gemini CLI 讀 `GEMINI.md`、GitHub Copilot 讀 `.github/copilot-instructions.md`，兩者都只指向本檔。不管用哪個工具，最後都要過 pre-commit（用戶名稱、結構、範圍）與 PR CI。
   - **結構檢查**（`check.mjs` 內建 `structure`，pre-commit 也查這次提交到的站）：站要有 `project.json`（`title`、`summary`、`coreVersion`）、`AGENTS.md`、`CLAUDE.md`、寫檔關卡，`docs/` 不進版控，網頁連 favicon、importmap 用 `@core/`。手動建的資料夾通常過不了，**新站一律用 `new-project.mjs` 建立**。
 - **各站規則**：規格摘要與已拍板事項放在 `project-site/<專案>/AGENTS.md`（同資料夾的 `CLAUDE.md` 只有 `@AGENTS.md`）。新專案由 `new-project.mjs` 從範本帶出這些檔案。
-- **開發流程**：規格 → new-project → 盤點 core → project.js → 排程 → main.js 與 verify（可平行）→ check → 截圖 → commit → PR → Pages。
+- **開發流程**：規格 → new-project → 盤點 core 與元件庫 → project.js → 排程 → main.js 與 verify（可平行）→ check → 截圖 → 評估簡報（新站）→ commit → PR → Pages。每一步的做法與完成定義見 `core/SITE-RULES.md`。
 - **core 版本**：`core/VERSION` 用語意化版本；各專案 `project.json` 的 `coreVersion` 記錄最後一次驗證通過的 core 版本。core 有 API 或外觀改變時升版、記進 `core/MIGRATION.md`，各站驗證通過後再更新 `coreVersion`。
 
-## 框架慣例（詳見 core/README.md「統一寫法」）
+## 實作站的規範
 
-- **專案介面**：`project.js` 匯出 `createProject({ scene, ...params })`，回傳 `{ total, apply(t), layoutChecks?, verify }`。`verify` 包含 `skip`、`moduleOf`、`stationOf`、`allow`（必須寫原因）、`thresholds`、`envelope`、`compareFixed`（選用：同模組的固定件也要比的組合）。
-- **形狀與材質**：`core/geom/shapes.js`、`materials.js` 的 `MAT`（含 `frame`、`chrome`）、`finished(MAT.alu, 'metal')`；地面用 `environment.js` 的 `floor()`。
-- **排程**：
-  - 單一手臂用 `createStepSequence`：`discrete`、`latch`、`nested`、`ease`／`easeKeys`、`peek`、`mark`／`rollback`、`retime`。
-  - 多台並行用 `createTimeline`：`Track.at`、`stationStart`。
-  - 兩者都提供 `events`、`stationStart`、`total`。
-- **播放列**：`createPlayer({ apply(T,{seek,dt}), advance, maxStep, onChange(T,s,{seek}), loop })`。手臂要等到位的站用 `createArrivalGate`（`core/anim/arrival.js`），規則 `ARRIVAL` 放在該站的 `sequence.js`，網頁和 `tools/verify.mjs` 共用。
-- **舞台**：
-  - `createStage({ look: 'cell'|'plant'|'studio', extent? })`。
-  - `addLabel(html, pos, cls, { anchor, priority })`。
-  - `goTo(p, t, instant, dur, { fit })`、`cancelTween`、`shiftView`。
-  - 窄畫布會自動拉遠（`narrowFit`），霧與 maxDistance 一起放大；精簡版面時標籤自動避讓（`declutter`）。
-  - 視角可以回傳 `[位置, 注視點, { fit }]`。
-- **版面**：骨架固定為 `#topbar`（`.brand`、`#stations`、`.views`）、`#side`／`#left`、`#bottombar`，並呼叫 `createViewerWorkspace`。
-  - 精簡版面的觸發條件：≤900 px、觸控平板 ≤1100 px、橫向手機。
-  - 精簡版面的操作：☰ 開製程與視角、⚙ 開播放設定、工具列開側欄。抽屜開啟時，`uncover` 會讓出畫面。
-  - 專案 CSS 不要再寫隱藏或縮小這些區塊的窄螢幕規則。
-- `window.sim` 用 `exposeSim(...)`；錄影在 `?movie` 時呼叫 `installMovie`。每頁都要連 `../core/favicon.svg`。
-- **場景與成本表一致**（2026-10-06 拍板，評估平台 Q9）：市購品在成本表一律引用元件編號；3D 一律優先用 core 模型，元件庫有的用 `fromPart('P-xxxxx')`（`core/models/parts.js`）建立並帶 `partRef`，自己畫的用 `tagPart` 標編號，現場既有、不採購的設備標 `userData.noBom`；`bom` 檢查列出落差（只警告）。core 沒有的模型照現行流程先在站裡暫代並登記 `core/REQUESTS.md`。
+- **實作或修改任何站，一律照 [`core/SITE-RULES.md`](core/SITE-RULES.md)**：閱讀順序、開工步驟、實作規則、完成定義、新站的評估簡報，以及各工具（Claude Code、Codex、平行代理、3D工作室）的差異。VS Code 的 Claude Code 可以用 `/site` skill 照著走。API 的寫法在 [`core/README.md`](core/README.md)「統一寫法」。規則只維護這兩份，其他文件（本檔、站的 `AGENTS.md`、studio 的工作區規則、`GEMINI.md`、copilot 說明）都只放連結，不另外抄一份。
+- **場景與成本表一致**（2026-10-06 拍板，評估平台 Q9）：寫法見 `core/SITE-RULES.md`「模型、材質與成本一致」；新站（`project.json` 的 `"strict": true`）的 `bom` 落差會擋，舊站只警告。
 - **共用功能優先放 core**：專案內發現可共用的寫法，先在專案暫代，再搬進 core，然後各站改用。
 - **共用的東西不放在某一站的資料夾**（2026-10-05 拍板）：多站會用到的執行檔（ffmpeg／ffprobe 在 `tools/bin/`）、跨站的檢查與工具放根目錄 `tools/`；站的 `tools/` 只放該站自己的檢查與產生器。
 
@@ -107,10 +90,7 @@ node tools/verify-interference.mjs [專案…]         # 四站干涉回歸；�
   1. 先拍基準：`git worktree add <暫存資料夾> HEAD`，在 worktree 裡跑 `shots.mjs --out TEMP/shots-<名>-base`，用完 `git worktree remove`。
   2. 改完比對：全部站的桌面截圖要 0 張超過門檻（`shots.mjs` 不指定專案就是全部）。刻意的外觀改變要逐張看過，並記進 `core/MIGRATION.md`。
 - **review JSON**：只有時間戳、`seconds`、`generated` 改變的，提交前先還原。有實質內容變化的才提交。根目錄 `tools/review/*.json` 的 sourceHash 會隨程式改變，連同程式一起提交。
-- **allow 規則**：必須窄，而且要寫原因；不能用 allow 蓋掉真問題。看到「0 筆干涉」時要先確認規則本身沒有放水。過去 `bodyOf` 為 null 時 `null===null` 讓固定件之間全部放行，修正後抓到大量真問題。
-- **換用 core 模型時三樣都要比**：快速檢查的數字、桌面截圖、`scene-dump.mjs --diff`（逐網格與走線五金）。夾具改釘到別處不會報錯、截圖也可能低於門檻（1.9.0 那一批 SSD 的兩支夾腳就是這樣漏掉的）。
-- **core 模型的 `userData` 標記**：模型 root 標 `coreModel`，走線（`cable()`）與干涉檢查（`mountedOn`）會把它當成透明的包裝；可動子群組標 `coreModelPart`；不能當線夾固定面的標 `cableHost = false`。站裡設 `userData` 用 `Object.assign`，不要整個換掉。
-- 閃爍的根因通常是重合面，對數深度緩衝解決不了，要改幾何。
+- 站層級的檢查規則（allow 要窄、換用 core 模型三樣都要比、`userData` 標記、閃爍改幾何）在 `core/SITE-RULES.md`「檢查規則不放水」。
 - 完整檢查（全部專案）要數十分鐘，MGPC 的 scene 約 90 秒，可以放到背景執行。
 
 ## 平行代理的慣例（主 session 派出的代理）
@@ -125,7 +105,6 @@ node tools/verify-interference.mjs [專案…]         # 四站干涉回歸；�
 
 - **Git Bash heredoc 會吃掉 `\n`、`\t`、`\\`**：含反斜線的內容用 Write／Edit 工具寫。經 heredoc 交給 Python 的替換字串也可能出錯，寫完要檢查結果。
 - **PowerShell 5.1 讀沒有 BOM 的 UTF-8 腳本會變亂碼**：`.ps1` 一律存成 UTF-8 BOM。
-- **`export { X } from '…'` 不會建立本地綁定**：本檔要用的話，先 import 再 export。
 - **化學桶用按需重繪（onDemand）**：狀態改變要 `invalidate`。標籤等每格的量測不能依賴下一格補正。
 - **GitHub API 未登入每小時只能呼叫 60 次**：監看 Actions 時輪詢間隔至少 30 秒。
 - **review JSON 不要寫入耗時**：`run.mjs` 已經拿掉 `seconds`，否則每次跑檢查都會產生差異。
@@ -178,4 +157,9 @@ node tools/verify-interference.mjs [專案…]         # 四站干涉回歸；�
 - 手臂動力學的負載（2026-11-07 第二輪）：從站的 3D 工具模型估（`core/robot/payload.js` 的 `estimatePayload`：體積 × 密度，金屬當鋁、其他當塑膠），不再手填；有實際重量時在模型上標 `userData.mass`／`density`。
 - 依建議持續開發（2026-11-08，使用者授權「遇到問題採用你的建議」）：core 模型不加 `cableHost` 選項（站裡一行 `root.userData.cableHost = false`）；天候資料先用 PVGIS（見 `tools/weather/README.md`）；截圖回歸的視角清單改讀頁面的 `window.sim.views`。
 - 3D工作室生成品質（2026-11-07）：開發後多一輪看截圖自我檢查（`studio.json` 的 `selfReview`，預設 1）、本庫的站當唯讀參考（`references`，自動挑 2 個；站的 `docs/`、`.studio/`、`TEMP/` 不給讀）、Claude 角色預設 `--effort high`；補強角色維持 Codex。
+- 站實作規範與 3D工作室的存放位置（2026-11-14）：
+  - 「實作一個站」的規則只維護 `core/SITE-RULES.md`（閱讀順序、開工、實作規則、完成定義、評估簡報、各工具差異）＋`core/README.md`（API）；其他代理會讀的文件只放連結。VS Code 端另有 `/site` skill（`.claude/skills/site/`）照規範帶流程。
+  - **開發機上 3D工作室直接在本庫 `project-site/` 建站**（本庫模式的 `new`：保留範本的規則檔與寫檔關卡、不另建 git 庫、在本機分支 `<站>/vs3d-…` 只提交該站）；`Documents\3D-Studio` 工作區**只有部署版**建立與使用，啟動時發現工作區的 core 比 app 舊就自動更新。原本開發機上的空工作區已刪除。
+  - 機械檢查：`structure` 要求站 `AGENTS.md` 的「規格摘要」不是空的；新站在 `project.json` 標 `"strict": true`，`bom` 落差改成擋下（舊站維持只警告）。
+  - 新站的完成定義加上可行性評估與成本分析：開發機自動產生公司樣板的評估簡報 pptx＋成本表 xlsx 到站的 `docs/assessment/`（不進版控）；部署版維持 2026-10-06 的「下載時才產生、不留在主機」。公司樣板只留本機（自動找 `zq-work-deck` skill，或 `VS3D_DECK_KIT`），不進版控。只有新站必做，既有站不補。
 - 各站的拍板紀錄在各站的 `AGENTS.md`。

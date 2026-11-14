@@ -2,6 +2,8 @@
 
 本庫 `project-site/` 底下每個有 `web/index.html` 的資料夾都是一個展示專案（studio 工作區則是 `projects/`）。共用的程式、three.js、檢查工具與建置都放在這裡，各專案直接引用，不複製。
 
+**實作或修改一個站，先讀 [`SITE-RULES.md`](SITE-RULES.md)**（站實作規範：閱讀順序、開工步驟、實作規則、完成定義、新站的評估簡報）。本檔是 API 與工具的說明。
+
 ## 目錄
 
 | 路徑 | 內容 |
@@ -40,7 +42,7 @@ node core/tools/new-project.mjs MyStation "我的工作站" "首頁卡片上的�
 
 範本已經接好標準版面（含手機／平板精簡版面與相機視窗）、舞台（`look`＋`extent`、`floor()`）、播放列、時間軸、`project.js` 與一支自有檢查，建好就能開啟、檢查，推送後自動出現在 Pages 首頁。之後在 `project.js` 建模型與時間軸，在 `main.js` 加視角與面板。
 
-範本也帶出子專案規則：`AGENTS.md`（範圍、規格摘要、已拍板事項；建好後填入規格摘要）、`CLAUDE.md`（`@AGENTS.md`）、`.claude/settings.json`（寫檔關卡：從這個資料夾啟動的 Claude Code 只能改本站）。範圍規則見根目錄 `AGENTS.md`「範圍」。
+範本也帶出子專案規則：`AGENTS.md`（範圍、規格摘要、已拍板事項；建好後填入規格摘要，空的過不了 `structure` 檢查）、`CLAUDE.md`（`@AGENTS.md`）、`.claude/settings.json`（寫檔關卡：從這個資料夾啟動的 Claude Code 只能改本站）。範圍規則見根目錄 `AGENTS.md`「範圍」。新站的 `project.json` 帶 `"strict": true`（`bom` 落差會擋），完成定義見 [`SITE-RULES.md`](SITE-RULES.md)。
 
 ## 引用方式
 
@@ -86,6 +88,7 @@ node core/tools/serve.mjs Chemical        # 直接開某專案（名稱可只打
   "summary": "首頁卡片上的一句說明",
   "order": 2,
   "coreVersion": "1.0.0",
+  "strict": true,
   "checks": { "quick": ["tools/verify.mjs"], "full": ["tools/verify-gripper.mjs"] },
   "core": { "skip": [], "quick": [] },
   "variants": [{ "name": "NG", "params": { "ng": "A1" } }],
@@ -95,6 +98,7 @@ node core/tools/serve.mjs Chemical        # 直接開某專案（名稱可只打
 ```
 
 - 必填：`title`、`summary`、`coreVersion`（最後一次驗證通過的 core 版本，不能超過 `core/VERSION`；`structure` 檢查會看）。`order` 是首頁排序。
+- `strict`：新站（2026-11-14 起由範本帶出）。`bom` 檢查有落差、或本機有平台資料庫卻沒有成本表就不通過；舊站沒有這一欄，維持只警告。
 - `checks.quick`／`checks.full`：專案自有檢查（快速檢查只跑 `quick`）。
 - `core.skip`：不跑的內建檢查；`core.quick`：本來只在完整檢查跑、但這站要放進快速檢查的內建項目。
 - `variants`：預設情境之外另外跑一次的情境（`params` 傳給 `createProject`），檢查與場景傾印都會跑。
@@ -223,7 +227,7 @@ node core/tools/check.mjs --only scene     # 只跑某項
 | `dynamics`（core） | ✓ | 手臂動力學（`examples/dynamics`）：MuJoCo 靜態重力扭矩對照獨立手算（差 ≤ 1e-9 N·m）、同一段軌跡算兩次相同、檢查列齊全 |
 | `solar`（core） | ✓ | `solar/test/browser-check.mjs`：SPA、追日＋Perez、BVH 遮陰、全年發電的工作量在 Node 跑兩次、無頭 Chrome 跑一次，雜湊逐位元相同 |
 | `engineering`（core） | ✓ | `structure/`（含 piping）、`geo/`、`solar/`、`physics/`（布料、流體、天候、scene 略過規則）、`electrical/`、`anim/`、`tools/`、`robot/`、`models/` 的 `test/*.test.mjs` 與根目錄 `tools/cfd/test/` 的 node:test 單元測試（手算值、PROJ 參考座標、合成 GeoTIFF／LAS／LAZ、決定性） |
-| `structure` | ✓ | 開發架構（不管專案是哪個工具做的）：`project.json` 合法且有 `title`、`summary`、`coreVersion`（語意化版本、不超過 `core/VERSION`）；`AGENTS.md`、`CLAUDE.md`（引用 `@AGENTS.md`）；本庫的站有 `.claude/settings.json` 寫檔關卡；`docs/` 被 git 忽略；`web/` 每個 HTML 連 `../core/favicon.svg`、importmap 的 `@core/` 指到 `../core/`。跑全部專案時另查 `project-site/` 底下沒有 `web/index.html` 的資料夾（`core · structure`）。pre-commit 也會檢查這次提交到的站 |
+| `structure` | ✓ | 開發架構（不管專案是哪個工具做的）：`project.json` 合法且有 `title`、`summary`、`coreVersion`（語意化版本、不超過 `core/VERSION`）；`AGENTS.md`（「規格摘要」不得為空，也不能只寫「見 README」）、`CLAUDE.md`（引用 `@AGENTS.md`）；本庫的站有 `.claude/settings.json` 寫檔關卡；`docs/` 被 git 忽略；`web/` 每個 HTML 連 `../core/favicon.svg`、importmap 的 `@core/` 指到 `../core/`。跑全部專案時另查 `project-site/` 底下沒有 `web/index.html` 的資料夾（`core · structure`）。pre-commit 也會檢查這次提交到的站 |
 | `names` | ✓ | 專案資料夾（不含 `docs/`、`TEMP/`）不得出現用戶名稱；名單只放本機 `.private/client-names.txt`（studio 工作區是 `.studio/client-names.txt`），沒有名單就略過。pre-commit 也會掃要提交的內容 |
 | `imports` | ✓ | 從 index.html 走遍 import 圖，找不到的檔案（部署後才會壞的路徑） |
 | `determinism` | ✓ | 40 個時間點順序與倒序取樣，所有可見物件的世界矩陣必須相同 |
@@ -231,7 +235,7 @@ node core/tools/check.mjs --only scene     # 只跑某項
 | `scene` | ✓ | 動態干涉、靜態架設相撞、重合面閃爍；結果寫入 `review/scene-verification.json/.txt`；曲面件以頂點加邊上每 20 mm 的點複核；會改 scale 的關節只對直接父群組放行；同模組的固定件預設不比，`verify.compareFixed(a, b, ctx)` 可以指定要比的組合 |
 | `physics` | ✓ | 用 `core/physics` 的站（`project.physics`）：再烘焙一次雜湊相同、靜止接觸穿透 ≤ 8 mm、烘焙時間 ≤ 10 s（`verify.physics` 可改）；結果寫入 `review/physics-checks.json`；沒有用物理就略過 |
 | `electrical` | ✓ | 場景有電控元件或電盤時：元件在櫃內、編號不重複、機身不重疊、櫃內連線不穿元件、穿板孔與接頭；`verify.cables` 有宣告時另做配線動態取樣（線路與拖鏈對障礙物）。結果寫入 `review/electrical-checks.json`；沒有電控就略過 |
-| `bom` | ✓ | 場景的共用模型（`userData.coreModel`，優先用 `partRef` 編號）對照平台的 BOM：場景有但沒列進成本、成本表有模型但場景沒畫（標 `noScene` 的除外）；標 `noBom` 的現場既有設備不算。只警告；本機沒有平台資料庫（例如 CI）或站沒有成本表就略過。結果寫入 `review/bom-checks.json` |
+| `bom` | ✓ | 場景的共用模型（`userData.coreModel`，優先用 `partRef` 編號）對照平台的 BOM：場景有但沒列進成本、成本表有模型但場景沒畫（標 `noScene` 的除外）；標 `noBom` 的現場既有設備不算。舊站只警告；新站（`project.json` 的 `strict`）有落差、或沒有成本表就不通過，並提醒還沒產生評估簡報。本機沒有平台資料庫（例如 CI）就略過。結果寫入 `review/bom-checks.json` |
 | `solar` | ✓ | `project.verify.solar` 宣告的光伏陣列（固定式或單軸追日）：冬至 9～15 時列間遮陰 ≤ `tol`（預設 0.5%）；對照組把排距縮成 90%（追日的回溯仍用設計排距）一定要抓得到遮陰，抓不到代表檢查放水；追日另列真追日的遮陰（資訊）；有 `obstacles`（`box`、`quads`、`terrain`）時另列含外部遮擋的最大遮陰（給 `obstacleTol` 才判定）。可以用 `structure`（core/structure 的鋼構參數＋方位）取代 `layout`：板片照鋼構實際算、排距對照組重算鋼構、鋼構的檢查列一起列。有 `energy`（天候檔、pdc0、預期值）時另列全年發電，和預期值（例如 pvlib）或上次結果相差 ≤ 2%（`SITE_PRECISION.energyRel`）。沒宣告就略過。結果寫入 `review/solar-checks.json`（`core/verify/solar.mjs`） |
 | `dynamics` | ✓ | `project.verify.dynamics.arms` 宣告的手臂（型號 `denso-vs068` 或 spec 物件、負載（數值，或回傳 `estimatePayload` 結果的函式）、`sample(t)` 關節角、倒裝或斜裝時的 `gravity`（基座座標））：MuJoCo 逆動力學的每軸峰值扭矩對型錄上限、負載質量、手腕力矩與慣量、軌跡連續。**只警告**（超過的列標 `warn`，不擋）；型號不存在才失敗。沒宣告就略過。結果寫入 `review/dynamics-checks.json`（`core/verify/dynamics.mjs`） |
 | `ui` |  | 標準互動測試（`core/tools/ui-check.mjs`）：桌面、手機直向、手機橫向、觸控平板四種尺寸，檢查載入與主控台錯誤、版面不溢出、畫布面積、播放／暫停、上一步／下一步／步驟選單、視角按鈕與選單收合、側欄、標籤在畫布內且（精簡版面）不重疊、點按目標 ≥ 30 px、`?movie`；結果寫入 `review/ui-check.json`，`--shots 資料夾` 另存截圖；`project.json` 的 `ui.skip`／`ui.params` 可設定 |
@@ -260,7 +264,7 @@ node core/tools/scene-dump.mjs --diff TEMP/<名>-before.json TEMP/<名>-after.js
 | 節拍與瓶頸 | `anim/cycle.js` | `cycleReport(project)`：從排程事件算各站佔用時間、稼動率、瓶頸；`project.cycleTime`（秒／件）沒給就用動畫總長。`node core/tools/run.mjs <站> ../core/verify/run.mjs cycle` 印一行 JSON；studio 在評估案的 3D 完成後把它回填到可行性分析 |
 | 物料怎麼流、會不會掉 | `physics/` | 剛體動力學（Rapier 決定性版）：輸送物料流、掉落與滑槽、料箱堆積與可抓取件、夾取穩定；預先烘焙、`apply(t)` 只取樣（說明在 `physics/README.md`，範例 `/core/examples/physics/`） |
 
-場景和成本表要一致：用元件庫的設備時以 `models/parts.js` 的 `fromPart('P-xxxxx')` 建立（模型根帶 `partRef`），自己畫的用 `tagPart` 標編號，現場既有、不採購的設備在根群組標 `userData.noBom = '原因'`。`bom` 檢查會列出場景有但成本表沒有、成本表有但場景沒畫的項目（只警告）。
+場景和成本表要一致：用元件庫的設備時以 `models/parts.js` 的 `fromPart('P-xxxxx')` 建立（模型根帶 `partRef`），自己畫的用 `tagPart` 標編號，現場既有、不採購的設備在根群組標 `userData.noBom = '原因'`。`bom` 檢查會列出場景有但成本表沒有、成本表有但場景沒畫的項目（舊站只警告，新站會擋）。
 
 ## 回歸比對（改共用模組或渲染時）
 

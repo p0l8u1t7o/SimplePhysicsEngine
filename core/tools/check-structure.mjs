@@ -4,7 +4,7 @@
 // check.mjs 的內建項目 structure 用同一個函式（快速）。
 // 檢查項目（new-project.mjs 由 core/template 帶出的檔案與慣例）：
 //   project.json  合法 JSON，有 title、summary，coreVersion 是語意化版本、不超過 core/VERSION
-//   規則檔        AGENTS.md（各站規則）、CLAUDE.md 引用 @AGENTS.md
+//   規則檔        AGENTS.md（各站規則，「規格摘要」不得為空）、CLAUDE.md 引用 @AGENTS.md
 //   寫檔關卡      .claude/settings.json 掛 scope-guard.mjs（只有本庫；studio 工作區另外掛關卡）
 //   docs/         不進版控（git check-ignore）
 //   網頁          web/ 底下每個 HTML 都連 ../core/favicon.svg；有 importmap 的頁面用 @core/ 指到 ../core/
@@ -17,6 +17,18 @@ import { CORE, REPO, ROOT, WORKSPACE, PROJECTS_DIR, pickProjects } from './proje
 const SEMVER = /^\d+\.\d+\.\d+$/;
 const cmpVer = (a, b) => { const x = a.split('.').map(Number), y = b.split('.').map(Number); for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] - y[i]; return 0; };
 const htmlFiles = d => !existsSync(d) ? [] : readdirSync(d).flatMap(n => { const f = join(d, n); return statSync(f).isDirectory() ? htmlFiles(f) : n.endsWith('.html') ? [f] : []; });
+
+// 站 AGENTS.md 的「規格摘要」（core/SITE-RULES.md 完成定義第 4 項）：要有這一節，而且不能只有範本的說明或「見 README」。
+//   不算內容的行：空行、範本的括號說明、只指向 README 或 docs 的行；剩下的字（不含空白與標點）至少 40 個字元。
+const SPEC_HEAD = /^##\s*規格摘要\s*$/m;
+const SPEC_FILLER = l => !l.trim() || /^（[^）]*）$/.test(l.trim()) || /^(完整說明)?見\s*\[?README/.test(l.trim()) || /^完整說明見/.test(l.trim());
+export function specSummaryProblem(md) {
+  const m = SPEC_HEAD.exec(md);
+  if (!m) return 'AGENTS.md 缺「## 規格摘要」一節（設備、節拍、主要選型、資料來源；見 core/SITE-RULES.md）';
+  const rest = md.slice(m.index + m[0].length), end = rest.search(/^##\s/m), body = end < 0 ? rest : rest.slice(0, end);
+  const content = body.split(/\r?\n/).filter(l => !SPEC_FILLER(l)).join('').replace(/[\s\p{P}\p{S}]/gu, '');
+  return content.length < 40 ? 'AGENTS.md 的「規格摘要」是空的（或只有範本說明、只指向 README）：寫明設備、節拍、主要選型（元件編號）與資料來源（core/SITE-RULES.md 完成定義第 4 項）' : null;
+}
 
 // 回傳問題清單（空陣列＝通過），每項附修正方式
 export function checkStructure(p) {
@@ -37,6 +49,7 @@ export function checkStructure(p) {
   }
 
   if (!has('AGENTS.md')) out.push(`缺 AGENTS.md（本站規格摘要與已拍板事項，Codex 與 Claude Code 都會讀）：${fix}`);
+  else { const spec = specSummaryProblem(read('AGENTS.md')); if (spec) out.push(spec); }
   if (!has('CLAUDE.md')) out.push('缺 CLAUDE.md（內容只有一行 @AGENTS.md，讓 Claude Code 讀到同一份規則）');
   else if (!/^@AGENTS\.md\s*$/m.test(read('CLAUDE.md'))) out.push('CLAUDE.md 要引用 @AGENTS.md（規則只寫在 AGENTS.md 一份）');
 

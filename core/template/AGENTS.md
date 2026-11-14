@@ -2,7 +2,7 @@
 
 __SUMMARY__
 
-本檔是這個子專案的規則；全庫共通的規則在根目錄 `AGENTS.md`，從這個資料夾啟動 Claude Code 或 Codex 時會一併載入。
+本檔是這個子專案的規則；全庫共通的規則在根目錄 `AGENTS.md`，從這個資料夾啟動 Claude Code 或 Codex 時會一併載入。**實作本站一律照 [`core/SITE-RULES.md`](../../core/SITE-RULES.md)**（開工步驟、實作規則、完成定義、評估簡報）。
 
 ## 範圍
 

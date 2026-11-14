@@ -2,7 +2,7 @@
 //   node core/tools/run.mjs <專案> ../core/verify/run.mjs <檢查> [--dt=0.5] [--variant=名稱]
 // 檢查：scene（全場干涉＋重合面）、determinism（倒序一致）、layout（空間檢核）、
 //       electrical（電控元件在櫃內、不重疊、櫃內連線、穿板孔；project.verify.cables 宣告時另做配線動態取樣；場景沒有電控時略過）、
-//       bom（場景的共用模型對照平台的 BOM：場景有但沒列進成本、BOM 有但沒畫出來；只警告，沒有 BOM 資料就略過）
+//       bom（場景的共用模型對照平台的 BOM：場景有但沒列進成本、BOM 有但沒畫出來；舊站只警告，新站（project.json 的 strict）會擋；沒有平台資料庫就略過）
 //       physics（core/physics 的烘焙：決定性、靜止接觸穿透、烘焙時間；沒用物理就略過）
 //       solar（verify.solar 宣告的光伏陣列：冬至列間遮陰、對照組、追日回溯；沒宣告就略過）
 //       dynamics（verify.dynamics 宣告的手臂軌跡：MuJoCo 峰值扭矩、負載力矩、軌跡連續；只警告；沒宣告就略過）
@@ -48,7 +48,7 @@ for (const v of variants) {
     r = verifySolar(project, { dir, previous: prev?.variants ? prev.variants.find(x => x.variant === v.name) : prev });
   }
   else if (check === 'dynamics') r = await verifyDynamics(project);
-  else if (check === 'bom') { project.apply(0); scene.updateMatrixWorld(true); r = verifyBom(scene, dir); }
+  else if (check === 'bom') { project.apply(0); scene.updateMatrixWorld(true); r = verifyBom(scene, dir, { strict: meta.strict === true }); }
   else if (check === 'cycle') { console.log('CYCLE ' + JSON.stringify(cycleReport(project))); process.exit(0); }
   else if (check === 'fingerprint') r = { ok: true, ...fingerprint(project, scene), layout: (project.layoutChecks?.() || []).map(x => [x.group || '', x.name, !!x.ok, x.value ?? null]) };
   else { console.log('未知檢查：' + check); process.exit(2); }

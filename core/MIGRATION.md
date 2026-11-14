@@ -215,6 +215,16 @@ Node 端由 `core/tools/loader.mjs`（用 `node --import core/tools/register.mjs
     - `--ignore-names` 也不比燈光與虛擬相機的名稱（`visionCamera` 的虛擬相機預設叫 `camera view`）。修正前換用的站在 `view` 傳了 `name: ''` 維持不命名，留著無妨。
     - 正規化在比對時做，傾印檔格式不變，舊的傾印可以直接再比。
 
+## 2026-11-14：core 1.22.0 站實作規範、規格摘要檢查、新站的 strict BOM
+
+使用者拍板（見根目錄 `AGENTS.md`「站實作規範與 3D工作室的存放位置」）：實作一個站的規則只維護一份，不論 VS Code 的 Claude Code、Codex 或 3D工作室的代理都照它。不影響畫面與場景（沒有截圖回歸）。
+
+- **`core/SITE-RULES.md`**（新）：閱讀順序、開工步驟（範圍、不清楚就問、盤點 core 模型、查元件庫）、實作規則、完成定義（10 項）、新站的評估簡報與成本表、各工具的差異。根目錄 `AGENTS.md`、`core/README.md`、範本、studio 的工作區規則、copilot 說明都只連到它。
+- **`structure` 檢查**（`core/tools/check-structure.mjs` 的 `specSummaryProblem`）：站 `AGENTS.md` 要有「## 規格摘要」，扣掉範本說明、只指向 README 的行之後至少 40 個字。7 個舊站（酸鹼、化學桶、軍規、PCB、SSD、杯體量測、快門）這次補上規格摘要與已拍板事項。
+- **`bom` 檢查的 strict**（`core/verify/bom.mjs`）：`project.json` 有 `"strict": true` 的站，場景與成本表有落差、或本機有平台資料庫卻沒有成本表就不通過；另外提醒還沒產生評估簡報（`docs/assessment/*.pptx`，只提醒）。沒有 `strict` 的舊站照舊只警告，review JSON 也不多欄位。
+- **範本**（`core/template/`）：`project.json` 帶 `"strict": true`；`AGENTS.md` 開頭連到 `SITE-RULES.md`。剛建好的站在填好規格摘要前過不了 `structure`（這是刻意的，完成定義第 4 項）。
+- 各站不必改程式；`coreVersion` 等之後各站驗證時再更新。
+
 ## 2026-11-11：core 1.21.0 孿生改為選配外接、schema 改讀 AutoSequence、聯調回饋 P1～P4
 
 AutoSequence 改以內建物理後端自建數位孿生，SPE 的 `core/twin` 降為選配外接後端、保留並持續維護（使用者拍板，見根目錄 `AGENTS.md`）。只影響孿生路徑；各站的網頁、時間軸與檢查不受影響（MilitaryGradePC 以 `verify-twin` 驗過）。
@@ -389,6 +399,7 @@ AutoSequence 改以內建物理後端自建數位孿生，SPE 的 `core/twin` �
 
 | 版本 | 日期 | 內容 |
 |---|---|---|
+| 1.22.0 | 2026-11-14 | 站實作規範 `SITE-RULES.md`、`structure` 檢查站 `AGENTS.md` 的規格摘要、`project.json` 的 `strict`（新站的 `bom` 落差會擋）、範本帶 `strict` |
 | 1.21.0 | 2026-11-11 | 孿生改為選配外接、孿生用 schema 改讀 AutoSequence/schema（只鎖協定）、聯調回饋 P1～P4（被拒連線 RST、DO OFF 初始狀態、cmd／fault 一律驗證、干涉免重算） |
 | 1.20.4 | 2026-11-08 | `createStage({ envIntensity })`、`drumJaws` 的 `arc`、`MAT.expandedMesh`／`meshPanel`、檢視器依元件朝向聚焦 |
 | 1.20.3 | 2026-11-08 | `scene` 線材端點接入只放行端點附近 |
