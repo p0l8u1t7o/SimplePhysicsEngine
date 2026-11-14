@@ -43,7 +43,7 @@
 - [ ] Q8 的後續：烘焙在載入時做（RecycleSorter 約 240 ms），沒有另外做軌跡快取檔；之後有烘焙超過 3 秒的站再加。
 - [ ] Q9 的後續（要人判斷，app 沒有自動改成本表）：有平台 BOM 的 7 站（酸鹼、軍規、PCB、SSD、快門、杯體量測、回收物分揀）的 bom 落差清單在各站 `review/bom-checks.json`。多數是元件沒連到 3D 模型（到元件庫補 3D 模型，或 `vs3d parts link`）、現場既有設備（在場景標 `userData.noBom`）、場景用的模型 id 和元件不同；逐站修正或在 BOM 標 noScene。化學桶清洗線與之後的 6 站（Solar、Plumbing、Wheel、ParkingEMS、Stator、Teflon）還沒有平台的 BOM。
 - [ ] Q10 驗收：快門、杯體量測、回收物分揀＋1 個新案，元件補全正確率，兩位同事同時使用中央主機（目前做了回收物分揀的物理料流分析；快門、杯體量測的光學 L1 與 BOM 升版流程用資料庫副本跑過腳本，結果在本機 `TEMP/q10/stations.md`，10 個元件的補全紀錄在 `TEMP/q10/enrich.log`）。
-- [ ] 評估簡報產生器（`studio/tools/assessment_deck.py`）的兩個缺口（2026-11-14 WaferInspection 發現）：成本表有沒有單價的行時，封面與 KPI 仍寫「總計」（應標「已知項小計」並註明待詢價行數）；沒有「技術評估」頁（光學、掃描、節拍分項、演算方式、模擬與實機的界線），站目前用自己的 `tools/assessment-extra.mjs` 補頁。
+- [ ] 評估簡報產生器（`studio/tools/assessment_deck.py`）的兩個缺口（2026-11-14 WaferInspection 發現）：成本表有沒有單價的行時，封面與 KPI 仍寫「總計」（應標「已知項小計」並註明待詢價行數）；沒有「技術評估」頁（光學、掃描、節拍分項、演算方式、模擬與實機的界線），WaferInspection 改用站內的提案簡報產生器 `tools/proposal-deck.mjs`（不經 vs3d 的簡報）。
 - [ ] 元件 3D 顯示只能連 core 共用模型：沒有模型的元件已可用封面圖當縮圖（目前 0 個元件設了封面）；專案裡自己畫的設備、匯入的 CAD 檔（STEP 轉 3D）仍不能顯示。
 - [ ] 元件資料庫的資料整理（使用者在介面上做）：類別與廠牌是匯入時從文字猜的，要校正；供應商主檔還是空的；不同專案寫法不同的同一種元件要合併（`vs3d parts merge`）；239 個元件裡 53 個連到 3D 模型（2026-11-08 核對，和 10-21 相同）。
 

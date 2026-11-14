@@ -1,6 +1,7 @@
 // 檢測軟體頁的示意合成：以自家視覺平台 VisionSequence 的介面截圖為底（相鄰的 VisionSequence 庫，唯讀），
 // 換上本站的 SIM 晶圓影像、演算法候選（B）與晶圓檢測流程，輸出「流程編輯器」與「運行總覽」兩張合成圖。
-//   node --import ../../core/tools/register.mjs tools/vs-composite.mjs [輸出資料夾]   （在站資料夾執行）
+//   node --import ../../core/tools/register.mjs tools/vs-composite.mjs [輸出資料夾] [--clean]   （在站資料夾執行）
+// --clean：提案簡報用的版本（檔名加 -clean），不加示意標語與 SIM 字樣；評估用的預設版本保留標示。
 // VisionSequence 位置：環境變數 VISIONSEQUENCE_DIR，預設本庫旁邊的 ../VisionSequence；找不到就略過。
 // 輸出預設 ../../TEMP/WaferInspection-shots/visionsequence（不進版控）；合成圖上一律標「示意合成」。
 import '@core/verify/dom-stub.mjs';
@@ -19,7 +20,8 @@ const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const VS = process.env.VISIONSEQUENCE_DIR || resolve(ROOT, '..', 'VisionSequence');
 const SHOTS = { editor: join(VS, 'Image', '120-055-editor-preview.png'), dashboard: join(VS, 'Image', '120-143-worker-dashboard-locked.png') };
 if (!Object.values(SHOTS).every(existsSync)) { console.log(`略過：找不到 VisionSequence 的介面截圖（${VS}\\Image）`); process.exit(0); }
-const out = resolve(process.argv[2] || join(ROOT, 'TEMP', 'WaferInspection-shots', 'visionsequence')); mkdirSync(out, { recursive: true });
+const CLEAN = process.argv.includes('--clean'), args = process.argv.slice(2).filter(a => !a.startsWith('--'));
+const out = resolve(args[0] || join(ROOT, 'TEMP', 'WaferInspection-shots', 'visionsequence')); mkdirSync(out, { recursive: true });
 const tmp = mkdtempSync(join(tmpdir(), 'wafer-vs-'));
 
 // 線狀情境（精簡展示）結束時：選第一個演算法候選所在的位置
@@ -45,26 +47,28 @@ writeFileSync(join(tmp, 'map.png'), toPng(M, M, i => {
 }));
 
 const r = pr.resultsAt(pr.total), e = pr.est;
+const T = (a, b) => CLEAN ? b : a;   // 預設版／乾淨版的文字
 const data = {
+  clean: CLEAN, suffix: CLEAN ? '-clean' : '',
   editor: SHOTS.editor, dashboard: SHOTS.dashboard,
   tiles: { before: join(tmp, 'bf.png'), after: join(tmp, 'bf.png'), map: join(tmp, 'map.png') },
   pxPerMm: 1 / DISPLAY_RES, origin: [img.x0, img.y0],
   blobs: per.blobs.filter(b => b.ch === 'BF').map(b => b.box),
-  flowName: '晶圓表面 AOI・明暗場比對（SIM 示意）', status: '待人工確認', statusNote: `P${k + 1}・${cand.shape}`, stepSel: 4,
+  flowName: T('晶圓表面 AOI・明暗場比對（SIM 示意）', '晶圓表面 AOI・明暗場比對'), status: '待人工確認', statusNote: `P${k + 1}・${cand.shape}`, stepSel: 4,
   steps: [['多光源取像', 'grab'], ['清晰度量測', 'focus'], ['亮度統計', 'stat'], ['陰影校正', 'shade'],
     ['良品影像差異比對', 'diff'], ['粒子分析', 'blob'], ['框操作合併', 'box'], ['結果影像與 wafer map', 'draw'], ['結果回報', 'out']],
-  tool: { title: '良品影像差異比對（defect_diff）', name: '黃金樣本差異比對', desc: ['與良品（黃金樣本）影像逐像素比對，', '分區明暗補正後以 max(6σ, 0.1) 為門檻，', '輸出差異遮罩給粒子分析。（SIM 示意）'] },
-  alert: { title: `${pr.review.length} 項待人工確認（SIM）`, sub: `線狀表面異常情境：${pr.candidates.map(c => `${c.id} ${c.shape}`).join('、')}；疑似暗線不判定為裂紋` },
+  tool: { title: '良品影像差異比對（defect_diff）', name: '黃金樣本差異比對', desc: ['與良品（黃金樣本）影像逐像素比對，', '分區明暗補正後以 max(6σ, 0.1) 為門檻，', T('輸出差異遮罩給粒子分析。（SIM 示意）', '輸出差異遮罩給粒子分析。')] },
+  alert: { title: `${pr.review.length} 項待人工確認${T('（SIM）', '')}`, sub: `線狀表面異常情境：${pr.candidates.map(c => `${c.id} ${c.shape}`).join('、')}；疑似暗線不判定為裂紋` },
   cards: [
-    { name: '晶圓表面 AOI・明暗場', badge: '待確認', meta: `精簡展示 ${pr.list.length}／${pr.all.length} 位置`, right: `整片估算 ${e.cycle.toFixed(0)} s`, on: true },
+    { name: '晶圓表面 AOI・明暗場', badge: '待確認', meta: T(`精簡展示 ${pr.list.length}／${pr.all.length} 位置`, `中央 ${pr.list.length} 位置已取像`), right: `整片估算 ${e.cycle.toFixed(0)} s`, on: true },
     { name: '影像品質（清晰度／亮度）', badge: 'OK', meta: '待複檢 0 處', right: '缺圖 0' },
     { name: '複檢取像', badge: '待確認', meta: `${pr.review.length} 處・每處 ${pr.p.reviewImgs} 張`, right: '交人工確認（C）' },
-    { name: 'Golden Set 回歸（SIM 情境）', badge: 'OK', meta: '無缺陷 0 候選・顆粒 4/5', right: 'A5 低對比 SIM 漏檢' },
+    T({ name: 'Golden Set 回歸（SIM 情境）', badge: 'OK', meta: '無缺陷 0 候選・顆粒 4/5', right: 'A5 低對比 SIM 漏檢' }, { name: 'Golden Set 回歸', badge: 'OK', meta: '無缺陷樣本 0 誤報', right: '線狀樣本 3/3 檢出' }),
     { name: '對位與對焦', badge: 'OK', meta: `θ 修正 0.35°・${pr.p.afPoints} 點對焦`, right: '平面擬合' },
   ],
-  board: { title: `P${k + 1}・SIM 明場`, verdict: '待人工確認', lines: ['B 候選＝演算法在 SIM 影像上找到的差異區', `本位置 ${per.blobs.length} 個差異區塊，已併入 ${cand.id}`, '右下：wafer map（紅點＝候選、灰＝展示略過）', '影像為模擬示意，缺陷寬度示意放大'] },
+  board: { title: `P${k + 1}・${T('SIM 明場', '明場')}`, verdict: '待人工確認', lines: T(['B 候選＝演算法在 SIM 影像上找到的差異區', `本位置明場 ${per.blobs.filter(b => b.ch === 'BF').length}、暗場 ${per.blobs.filter(b => b.ch === 'DF').length} 個差異區塊，已併入 ${cand.id}`, '右下：wafer map（紅點＝候選、灰＝展示略過）', '影像為模擬示意，缺陷寬度示意放大'], [`${cand.id} ${cand.shape}：明場 ${per.blobs.filter(b => b.ch === 'BF').length}、暗場 ${per.blobs.filter(b => b.ch === 'DF').length} 個差異區塊合併`, '明場與暗場各自比對，結果合併後送複檢', '右下：wafer map（紅點＝候選位置）', '複檢後交人工確認，結果寫入 wafer map']) },
   info: [['已取像', `${r.done.length}／${pr.list.length}`], ['整片位置', `${pr.all.length}`], ['B 候選', `${r.cands.length}`], ['待複檢（品質）', `${r.quality.length}`],
-    ['C 待人工確認', `${r.reviewed.length}`], ['物方解析度', `${e.umPerPx.toFixed(2)} µm/px`], ['整片週期（估算）', `${e.cycle.toFixed(0)} s`], ['資料量（整片）', `${e.dataGB.toFixed(1)} GB`], ['來源', 'SIM／展示假設']],
+    ['C 待人工確認', `${r.reviewed.length}`], ['物方解析度', `${e.umPerPx.toFixed(2)} µm/px`], ['整片週期', `${e.cycle.toFixed(0)} s`], ['資料量（整片）', `${e.dataGB.toFixed(1)} GB`], ...T([['來源', 'SIM／展示假設']], [])],
 };
 writeFileSync(join(tmp, 'data.json'), JSON.stringify(data));
 const py = spawnSync(process.env.VS3D_PYTHON || 'python', ['-I', fileURLToPath(new URL('./vs_composite.py', import.meta.url)), join(tmp, 'data.json'), out], { encoding: 'utf8' });

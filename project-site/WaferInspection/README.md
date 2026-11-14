@@ -47,10 +47,11 @@ node ../../core/tools/serve.mjs "WaferInspection"
 | `web/js/wafer.js`、`machine.js` | 晶圓與疊圖、設備（core 模型＋站內示意包絡） |
 | `web/js/project.js` | 組合以上，提供 `total`、`apply(t)`、`layoutChecks`、`verify`、`resultsAt(t)` |
 | `web/js/main.js`、`views2d.js` | 網頁介面與 2D 畫面（wafer map、時序、影像） |
-| `tools/assessment-extra.mjs`、`assessment_extra.py` | 評估簡報（另含晶圓外觀特寫、VisionSequence 平台對應表與合成圖）：先執行 `vs3d assess "WaferInspection" --repo deck`，再用公司樣板在附錄前補上光學與掃描估算、週期分項、參數與線掃描比較、演算方式、模擬／估算／實機界線、SIM 情境截圖（輸出在 `docs/assessment/`，只留本機） |
 | `tools/scenario-shots.mjs` | 情境截圖（四種情境、完整掃描、非法參數、外罩、參考照片、候選定位）與渲染時間量測，輸出 `TEMP/WaferInspection-shots/scenarios`；簡報的 SIM 情境頁用它 |
-| `tools/vs-composite.mjs`、`vs_composite.py` | 檢測軟體頁：以 VisionSequence 的介面截圖（相鄰庫的 `Image/`，唯讀；`VISIONSEQUENCE_DIR` 可指定）為底，換上本站 SIM 晶圓影像、B 候選與晶圓流程，輸出「流程編輯器」「運行總覽」兩張示意合成圖到 `TEMP/WaferInspection-shots/visionsequence` |
-| `tools/verify-appearance.mjs` | 外觀補強回歸與 SIM 影像特寫（`TEMP/appearance/`，簡報的特寫頁用它；列在完整檢查） |
+| `tools/vs-composite.mjs`、`vs_composite.py` | 檢測軟體頁：以 VisionSequence 的介面截圖（相鄰庫的 `Image/`，唯讀；`VISIONSEQUENCE_DIR` 可指定）為底，換上本站 SIM 晶圓影像、B 候選與晶圓流程，輸出「流程編輯器」「運行總覽」兩張示意合成圖到 `TEMP/WaferInspection-shots/visionsequence`；`--clean` 產生提案簡報用的版本（不加示意標語） |
+| `tools/verify-appearance.mjs` | 外觀補強回歸與 SIM 影像預覽（`TEMP/appearance/`；列在完整檢查） |
+| `tools/proposal-deck.mjs`、`proposal_deck.py` | 提案簡報（公司樣板）：前段以提案目標呈現配置、檢測能力、檢測影像、VisionSequence 平台與節拍；未知事項、假設、風險、POC、模擬與實機界線、參數敏感度、模擬驗證放最後的隱藏頁；不放成本數字。輸出 `docs/assessment/WaferInspection-評估簡報-<日期>.pptx`（成本表 xlsx 另由 `vs3d assess deck` 產生；它也會寫同名簡報，之後要再跑本工具覆蓋） |
+| `tools/presentation-shots.mjs` | 提案簡報用的 3D 畫面（只留 3D 畫布，1920×1080）到 `TEMP/WaferInspection-shots/presentation` |
 | `tools/verify.mjs` | 自有檢查（倒序與跳播、未取像不顯示完成、倒退清除、覆蓋、張數、參數重算、停拍互鎖、資料分離、非法參數／缺圖／失焦） |
 
 ## 檢查

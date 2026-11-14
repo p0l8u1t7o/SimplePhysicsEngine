@@ -36,7 +36,11 @@ def boxes(dr, place, items, scale_mm, origin, color, label_fn):
             dr.rectangle([cx - hw - 2, cy - hh - 22, cx - hw + tw + 4, cy - hh - 3], fill=(20, 24, 32)); dr.text((cx - hw + 1, cy - hh - 21), t, font=f(13, True), fill=color)
 
 
+CLEAN, SUF = d.get("clean", False), d.get("suffix", "")
+
+
 def stamp(img, text):
+    if CLEAN: return
     dr = ImageDraw.Draw(img); w, h = img.size
     dr.rectangle([0, h - 30, w, h], fill=(255, 211, 77)); dr.text((14, h - 26), text, font=f(15, True), fill=(40, 30, 0))
 
@@ -51,8 +55,8 @@ dr.text((232, 62), d["flowName"], font=f(17, True), fill=TEXT)
 tw = dr.textlength(d["flowName"], font=f(17, True))
 dr.rounded_rectangle([240 + tw, 63, 240 + tw + 92, 85], 4, fill=(255, 241, 214)); dr.text((248 + tw, 64), d["status"], font=f(13, True), fill=(176, 106, 0))
 dr.text((346 + tw, 65), d["statusNote"], font=f(14), fill=MUTE)
-dr.rectangle([222, 144, 1308, 180], fill=(227, 241, 251))                     # 草稿提示列 → 示意說明
-dr.text((232, 152), "示意合成：VisionSequence 介面截圖＋本站 SIM 晶圓影像，不是實際執行晶圓流程的畫面", font=f(14, True), fill=(20, 80, 140))
+dr.rectangle([222, 144, 1308, 180], fill=(227, 241, 251))                     # 草稿提示列 → 示意說明（乾淨版：流程說明）
+dr.text((232, 152), "流程：多光源取像 → 品質檢查 → 陰影校正 → 良品差異比對 → 粒子分析 → 結果回報" if CLEAN else "示意合成：VisionSequence 介面截圖＋本站 SIM 晶圓影像，不是實際執行晶圓流程的畫面", font=f(14, True), fill=(20, 80, 140))
 dr.rectangle([224, 330, 408, 586], fill=(255, 255, 255))                      # 步驟清單
 dr.text((232, 334), f"步驟清單 ({len(d['steps'])})", font=f(14, True), fill=TEXT)
 for i, (name, sid) in enumerate(d["steps"][:9]):
@@ -62,9 +66,9 @@ for i, (name, sid) in enumerate(d["steps"][:9]):
     dr.text((250, y), name, font=f(13), fill=TEXT)
 for box, key, cap in [((442, 251, 833, 544), "before", "執行前"), ((878, 232, 1291, 543), "after", "執行後")]:
     t, place = fit(tile[key], box); ed.paste(t, box[:2])
-    if key == "after": boxes(dr, place, d["blobs"], d["pxPerMm"], d["origin"], ORANGE, lambda n, b: f"B1 候選（{n} 個差異區塊）")
-dr.rectangle([476, 219, 600, 238], fill=(46, 52, 64)); dr.text((480, 220), "SIM・明場", font=f(12, True), fill=(230, 235, 240))
-dr.rectangle([1186, 194, 1300, 212], fill=(46, 52, 64)); dr.text((1190, 195), "SIM・明場＋標記", font=f(12, True), fill=(230, 235, 240))
+    if key == "after": boxes(dr, place, d["blobs"], d["pxPerMm"], d["origin"], ORANGE, lambda n, b: f"B1 候選（明場 {n} 個差異區塊）")
+dr.rectangle([476, 219, 600, 238], fill=(46, 52, 64)); dr.text((480, 220), "明場" if CLEAN else "SIM・明場", font=f(12, True), fill=(230, 235, 240))
+dr.rectangle([1186, 194, 1300, 212], fill=(46, 52, 64)); dr.text((1190, 195), "明場＋標記" if CLEAN else "SIM・明場＋標記", font=f(12, True), fill=(230, 235, 240))
 dr.rectangle([1312, 226, 1598, 300], fill=(255, 255, 255))                    # 右側工具說明
 dr.text((1323, 228), d["tool"]["title"], font=f(15, True), fill=TEXT)
 y = 252
@@ -90,14 +94,14 @@ for i, (name, sid) in enumerate(nodes):
     if i: dr.line([x - gap, y0 + 32, x, y0 + 32], fill=(90, 140, 210), width=2)
 dr.rounded_rectangle([246, 800, 700, 868], 6, fill=(255, 244, 222), outline=(235, 210, 160))
 dr.text((256, 808), "註解：明場與暗場各跑一次差異比對；品質不足或缺圖", font=f(12), fill=TEXT)
-dr.text((256, 828), "直接判待複檢，不找缺陷也不判良品。（SIM 示意流程）", font=f(12), fill=TEXT)
+dr.text((256, 828), "直接判待複檢，不找缺陷也不判良品。" + ("" if CLEAN else "（SIM 示意流程）"), font=f(12), fill=TEXT)
 stamp(ed, "示意合成（VisionSequence 介面＋本站 SIM 影像）；影像為模擬，不代表實機檢出能力")
-ed.save(out / "vs-editor.png")
+ed.save(out / f"vs-editor{SUF}.png")
 
 # ---------------------------------------------------------------- 2. 運行總覽
 db = Image.open(d["dashboard"]).convert("RGB"); dr = ImageDraw.Draw(db)
 dr.rectangle([222, 48, 1600, 84], fill=(225, 245, 239))
-dr.text((240, 56), "示意合成：運行總覽套用本站 SIM 結果（精簡展示 75／777 個位置），不是實際運行畫面", font=f(14, True), fill=GREEN)
+dr.text((240, 56), "晶圓表面 AOI 運行中：明場＋暗場停拍掃描，結果即時寫入 wafer map" if CLEAN else "示意合成：運行總覽套用本站 SIM 結果（精簡展示 75／777 個位置），不是實際運行畫面", font=f(14, True), fill=GREEN)
 dr.rectangle([240, 256, 1579, 320], fill=(243, 234, 225))
 dr.text((258, 268), d["alert"]["title"], font=f(15, True), fill=TEXT); dr.text((258, 292), d["alert"]["sub"], font=f(13), fill=MUTE)
 dr.rectangle([238, 334, 560, 1000], fill=(247, 247, 247))                    # 流程卡
@@ -115,16 +119,16 @@ dr.rectangle(panel, fill=(28, 34, 48))
 dr.text((596, 352), d["board"]["title"], font=f(18, True), fill=(235, 240, 245))
 dr.rounded_rectangle([1090, 346, 1250, 382], 6, fill=(60, 48, 18)); dr.text((1102, 352), d["board"]["verdict"], font=f(18, True), fill=(255, 196, 70))
 t, place = fit(tile["after"], (596, 396, 1243, 830), (12, 16, 24)); db.paste(t, (596, 396))
-boxes(dr, place, d["blobs"], d["pxPerMm"], d["origin"], ORANGE, lambda n, b: f"B1（{n} 區塊）")
+boxes(dr, place, d["blobs"], d["pxPerMm"], d["origin"], ORANGE, lambda n, b: f"B1（明場 {n} 區塊）")
 wm = Image.open(d["tiles"]["map"]).convert("RGB").resize((150, 150), Image.LANCZOS); db.paste(wm, (1093, 842))
 y = 846
 for line in d["board"]["lines"]:
     dr.text((600, y), line, font=f(14), fill=(200, 210, 222)); y += 24
 dr.rectangle([1281, 338, 1579, 640], fill=(255, 255, 255), outline=(225, 228, 232))
-dr.text((1294, 350), "即時檢測資訊（SIM）", font=f(14, True), fill=TEXT)
+dr.text((1294, 350), "即時檢測資訊" if CLEAN else "即時檢測資訊（SIM）", font=f(14, True), fill=TEXT)
 y = 380
 for k, v in d["info"]:
     dr.text((1294, y), k, font=f(13), fill=MUTE); dr.text((1566 - dr.textlength(v, font=f(13, True)), y), v, font=f(13, True), fill=TEXT); y += 26
 stamp(db, "示意合成（VisionSequence 介面＋本站 SIM 結果）；數字來自展示參數與模擬，不是客戶規格或實機資料")
-db.save(out / "vs-dashboard.png")
-print(f"✓ {out / 'vs-editor.png'}\n✓ {out / 'vs-dashboard.png'}")
+db.save(out / f"vs-dashboard{SUF}.png")
+print(f"✓ {out / ('vs-editor' + SUF + '.png')}\n✓ {out / ('vs-dashboard' + SUF + '.png')}")
