@@ -6,6 +6,10 @@ import { formatAnswers } from './questions.mjs';
 const ROLE_TITLE = { change: '依要求修改', optics: '光學方案（AOI）', plan: '規劃（配置提案）', build: '開發（第一段）', fix: '修正', review: '審查', render: '渲染與細節補強' };
 const ROLE_TITLE2 = { plan: '第二段規劃（電控、電盤、配線、相機）', build: '開發（第二段）', fix: '修正（第二段）', review: '審查（第二段）', render: '渲染與細節補強 B（第二段）' };
 
+// 看畫面（2026-11-14，core/tools/snap.mjs）：寫程式與審查的角色可以自己拍指定視角與時間的截圖，「改 → 看 → 改」
+const SNAP_ROLES = new Set(['build', 'fix', 'render', 'change', 'review']);
+const snapLine = (J, role) => SNAP_ROLES.has(role) ? [`- 看畫面：\`node ../../core/tools/snap.mjs "${J.id}" --view <視角> --t <秒>\`（\`--list\` 列出視角與總長；一次最多 8 張，輸出在 \`TEMP/snap/\`，用讀檔工具打開圖片看）。改了外觀、配置或動作就拍來看，不要只靠想像；它會印出主控台錯誤。不要跑 \`ui-check\`、\`shots\` 或自己開伺服器；snap 執行失敗（例如沙箱開不了瀏覽器）就略過，app 結束後會拍完整截圖`] : [];
+
 export function header({ ws, J, role, adapter, scope, segment = 1 }) {
   const title = `# vs3d 任務：${(segment === 2 ? ROLE_TITLE2 : ROLE_TITLE)[role] || role}`;
   // 本庫模式：本庫既有的站，規則是根目錄 AGENTS.md＋本站 AGENTS.md（Claude Code 與 Codex 都會從 git 根目錄讀到）
@@ -16,6 +20,7 @@ export function header({ ws, J, role, adapter, scope, segment = 1 }) {
     `- 這一輪可以寫的範圍：${scope}`,
     `- **不要執行 git commit、checkout、restore、stash、reset、clean、switch**：使用者也在這個工作目錄工作，版本控制由 app 負責，每輪結束只提交本站的路徑`,
     `- 快速檢查：\`node ../../core/tools/check.mjs "${J.id}" --quick\``,
+    ...snapLine(J, role),
   ].join('\n');
   const lines = [
     title,
@@ -25,6 +30,7 @@ export function header({ ws, J, role, adapter, scope, segment = 1 }) {
     `- 規則：專案的 \`AGENTS.md\`、\`${join(ws, 'core', 'SITE-RULES.md')}\`（站實作規範，必讀），以及工作區的 \`${join(ws, 'AGENTS.md')}\`（app 管理下的特別規定，必讀）`,
     `- 這一輪可以寫的範圍：${scope}`,
     `- 快速檢查：\`node ../../core/tools/check.mjs "${J.id}" --quick\``,
+    ...snapLine(J, role),
   ];
   // Codex 只從 git 根目錄往下找 AGENTS.md，工作區規則直接附上
   if (!adapter.loadsParentRules) lines.push('', '## 工作區共通規則（全文）', '', readText(join(ws, 'AGENTS.md')).replace(/^# .*\n/, ''));

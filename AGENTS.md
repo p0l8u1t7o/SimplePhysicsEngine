@@ -156,10 +156,11 @@ node tools/verify-interference.mjs [專案…]         # 四站干涉回歸；�
   - 高精度門檻（2026-11-07 第二輪）：平面 ±50 mm、高程 ±30 mm、太陽位置 ±0.01°（以太陽方向夾角量）、全年發電和 pvlib 相差 < 2%；常數在 `core/solar/precision.js`，檢查與測試一律引用它。
 - 手臂動力學的負載（2026-11-07 第二輪）：從站的 3D 工具模型估（`core/robot/payload.js` 的 `estimatePayload`：體積 × 密度，金屬當鋁、其他當塑膠），不再手填；有實際重量時在模型上標 `userData.mass`／`density`。
 - 依建議持續開發（2026-11-08，使用者授權「遇到問題採用你的建議」）：core 模型不加 `cableHost` 選項（站裡一行 `root.userData.cableHost = false`）；天候資料先用 PVGIS（見 `tools/weather/README.md`）；截圖回歸的視角清單改讀頁面的 `window.sim.views`。
-- 3D工作室生成品質（2026-11-07）：開發後多一輪看截圖自我檢查（`studio.json` 的 `selfReview`，預設 1）、本庫的站當唯讀參考（`references`，自動挑 2 個；站的 `docs/`、`.studio/`、`TEMP/` 不給讀）、Claude 角色預設 `--effort high`；補強角色維持 Codex。
+- 3D工作室生成品質（2026-11-07）：開發後多一輪看截圖自我檢查（`studio.json` 的 `selfReview`，2026-11-14 起預設 2，代理也能用 `snap.mjs` 隨時看畫面）、本庫的站當唯讀參考（`references`，自動挑 2 個；站的 `docs/`、`.studio/`、`TEMP/` 不給讀）、Claude 角色預設 `--effort high`；補強角色維持 Codex。
 - 站實作規範與 3D工作室的存放位置（2026-11-14）：
   - 「實作一個站」的規則只維護 `core/SITE-RULES.md`（閱讀順序、開工、實作規則、完成定義、評估簡報、各工具差異）＋`core/README.md`（API）；其他代理會讀的文件只放連結。VS Code 端另有 `/site` skill（`.claude/skills/site/`）照規範帶流程。
   - **開發機上 3D工作室直接在本庫 `project-site/` 建站**（本庫模式的 `new`：保留範本的規則檔與寫檔關卡、不另建 git 庫、在本機分支 `<站>/vs3d-…` 只提交該站）；`Documents\3D-Studio` 工作區**只有部署版**建立與使用，啟動時發現工作區的 core 比 app 舊就自動更新。原本開發機上的空工作區已刪除。
   - 機械檢查：`structure` 要求站 `AGENTS.md` 的「規格摘要」不是空的；新站在 `project.json` 標 `"strict": true`，`bom` 落差改成擋下（舊站維持只警告）。
   - 新站的完成定義加上可行性評估與成本分析：開發機自動產生公司樣板的評估簡報 pptx＋成本表 xlsx 到站的 `docs/assessment/`（不進版控）；部署版維持 2026-10-06 的「下載時才產生、不留在主機」。公司樣板只留本機（自動找 `zq-work-deck` skill，或 `VS3D_DECK_KIT`），不進版控。只有新站必做，既有站不補。
+- 3D工作室對齊 VS Code 的 Claude 能力（2026-11-14 第二輪，選項對話）：這輪做 A 看畫面再修（`core/tools/snap.mjs`，自我檢查預設 2 次）、B 對話式修改、C CAD／圖面輸入預處理（STEP、DXF）、D 規劃角色可上網查規格（限制見 `studio/README.md`）、E 同步白名單 skills 到代理設定目錄、F core 缺功能自動登記、G 評估簡報逐頁目視檢查、I 審查必修項累積成「常見錯誤」清單；H（worktree 平行執行、自動開 PR）這輪不做。
 - 各站的拍板紀錄在各站的 `AGENTS.md`。

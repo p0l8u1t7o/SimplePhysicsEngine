@@ -279,6 +279,8 @@ test('開發後自我檢查（假代理）：截圖交給同一個開發工作�
   process.env.FAKE_PROMPT_LOG = promptLog;
   await createProject(ws, { id: 'Zeta', title: '測試 Z', prompt: '輸送帶＋龍門取放' });
   const J = projectPaths(ws, 'Zeta'), logs = [];
+  // 這個測試看中斷與續跑：自我檢查明確設 1 次（2026-11-14 起預設是 2 次）
+  writeFileSync(J.studioJson, JSON.stringify({ ...JSON.parse(readFileSync(J.studioJson, 'utf8')), selfReview: 1 }));
   const opts = { override: { cli: 'spy', roles: {}, autoApprove: true }, full: false, shots: true, shotsFn: fakeShots, perf: false, review: false, render: false, refRoot: root, log: s => logs.push(s) };
   try {
     let r = await runProject(ws, 'Zeta', opts);

@@ -70,7 +70,7 @@ node studio/vs3d.mjs parts search 相機 GigE                    # 查元件資�
 | `--auto-approve` | 配置提案不必確認，直接開始開發 |
 | `--no-review`、`--no-render`、`--no-perf`、`--no-fix` | 第一段完成後不自動審查／不補強／補強時不量效能；`--no-fix` 審查的必修項不送修正（只審查） |
 | `--no-stage2` | 第一段完成後不出「開始第二段？」卡片（之後可以用 `vs3d stage2`） |
-| `--self-review <0～3>`、`--no-self-review` | 開發後自我檢查的次數（預設看專案 `studio.json` 的 `selfReview`，沒寫是 1）；`new` 時指定會寫進 `studio.json` |
+| `--self-review <0～3>`、`--no-self-review` | 開發後自我檢查的次數（預設看專案 `studio.json` 的 `selfReview`，沒寫是 2，2026-11-14 起）；`new` 時指定會寫進 `studio.json` |
 | `--no-references` | 這次不給參考站（固定關掉用 `studio.json` 的 `"references": []`） |
 | `--repo`、`--no-repo` | 對本庫 `project-site/` 的站下指令（見「本庫模式」）；`ui --no-repo` 只看工作區 |
 | `--db <檔案>` | 元件資料庫位置（預設 `studio/data/studio.db`，或環境變數 `VS3D_DB`） |
@@ -109,7 +109,7 @@ new → 規劃（配置提案＋問題）⇄ 使用者回答 → 確認提案 �
 
 studio 產生的專案原本比在 VS Code 裡和 Claude 互動做的粗糙，原因是開發角色看不到自己的成品（工作區規則不准開瀏覽器，只有審查角色看截圖），也沒有品質範例。所以加了兩件事：
 
-- **自我檢查**：每段開發之後，第一次檢查通過並截圖時，app 續接**同一個開發工作階段**（Claude 的 `--resume`、Codex 的 `exec resume`），把這次的截圖交給它（Claude 在提示裡列路徑、用讀檔工具開圖片；Codex 用 `--image`），對照配置提案（第二段是 `segment2.md`／`json`）、`AGENTS.md` 拍板事項與參考站，修掉明顯不對或粗糙的地方（漏做的設備、位置錯、懸空、空蕩、沒有標籤），不改使用者決定的事，改完跑快速檢查；之後照常檢查 → 審查。第二段的自我檢查之後一樣比對第一段的排程指紋，改到節拍會被退回修正。次數在專案 `studio.json` 的 `selfReview`（0～3，預設 1；0 關掉），命令列 `--self-review <n>`、`--no-self-review` 蓋過。進度記在 `state.json`（`selfReviewDue`、`selfReviews`），中斷後 `resume` 會重做沒完成的那一次、不會重做已經完成的；這次沒拍到截圖就略過。每輪紀錄的這一輪是 `role: build`、`step: self-review`。修改指令（`change`）、重新審查、補強不做自我檢查。
+- **自我檢查**：每段開發之後，第一次檢查通過並截圖時，app 續接**同一個開發工作階段**（Claude 的 `--resume`、Codex 的 `exec resume`），把這次的截圖交給它（Claude 在提示裡列路徑、用讀檔工具開圖片；Codex 用 `--image`），對照配置提案（第二段是 `segment2.md`／`json`）、`AGENTS.md` 拍板事項與參考站，修掉明顯不對或粗糙的地方（漏做的設備、位置錯、懸空、空蕩、沒有標籤），不改使用者決定的事，改完跑快速檢查；之後照常檢查 → 審查。第二段的自我檢查之後一樣比對第一段的排程指紋，改到節拍會被退回修正。次數在專案 `studio.json` 的 `selfReview`（0～3，預設 2；0 關掉）。2026-11-14 起，寫程式與審查的角色另外可以隨時用 `core/tools/snap.mjs` 拍指定視角與時間的截圖自己看（提示開頭有用法），命令列 `--self-review <n>`、`--no-self-review` 蓋過。進度記在 `state.json`（`selfReviewDue`、`selfReviews`），中斷後 `resume` 會重做沒完成的那一次、不會重做已經完成的；這次沒拍到截圖就略過。每輪紀錄的這一輪是 `role: build`、`step: self-review`。修改指令（`change`）、重新審查、補強不做自我檢查。
 - **參考站**（`lib/references.mjs`）：規劃、開發（含自我檢查、修改指令）、審查、補強這幾輪，把本庫 `project-site/` 的 1～2 個已完成的站唯讀交給代理，提示的交接摘要會列出站名、程式路徑，並要求「看細節水準與寫法，不要複製場景、不要套用它們的規格、不要改它們」。來源：本庫模式就是本庫（不挑自己這站）；工作區模式要 app 在本庫裡執行（`studio/` 的上一層有 `core/` 與 `project-site/`），部署版沒有就不給。挑法：專案 `studio.json` 的 `references: ["MilitaryGradePC", …]` 指定；沒寫就自動挑——專案 `AGENTS.md`＋配置提案，和各站 `project.json` 標題、說明＋`AGENTS.md`＋`README.md` 比關鍵字（中文兩字詞、英數單字；依出現在幾個站加權、每站都有的字不算、依站的字數正規化），取前 2 名（同分依名稱，決定性；分數 0 的不挑）。`"references": []` 關掉，命令列 `--no-references` 只關這次。只做評估的專案不給。
   - **給法**：`--add-dir` 只能給整個資料夾，而站的根目錄底下有 `docs/`（使用者的圖面、規劃與成本資料）、`.studio/`、`TEMP/` 這些只留本機的資料，所以**不給站的根目錄**：Claude 只加 `<站>/web`（`--add-dir`），站的 `AGENTS.md`、`README.md` 由 app 複製到專案的 `.studio/references/<站>/`（用工作區與本庫的名單遮掉用戶名稱，每輪重寫，不進版控）；Codex 的沙箱本來就能讀，提示列出絕對路徑。Claude 另外在寫檔關卡掛上讀取限制（`guard.mjs` 的 `VS3D_NOREAD`）：參考站的 `docs/`、`.studio/`、`TEMP/` 不能用 Read／Glob／Grep 讀，搜尋範圍包含它們（例如對整個 `project-site/` 搜尋）也擋。shell 指令（`cat` 等）和 Codex 攔不到，靠提示與規則約束。
   - **寫入**：參考站整站加進寫檔關卡的禁止清單，Codex 的沙箱只能寫專案資料夾；本庫模式由每輪的專案外比對偵測，工作區模式另外比對參考站 `web/`、`AGENTS.md`、`README.md`、`project.json` 的雜湊，有變動就警告並列為越界（那是本庫的工作目錄，app 不還原）。

@@ -93,6 +93,8 @@ API 的寫法以 [`core/README.md`](README.md) 為準，本檔只寫做事的步
 | Claude Code（根目錄啟動） | `AskUserQuestion` 選項對話 | 跨範圍；改 core 照根目錄 `AGENTS.md`「檢查與回歸的做法」 | 自己跑（經 `cpu-cap`） | 階段完成、檢查通過就提交，推送要使用者要求 |
 | Claude Code／Codex（站資料夾啟動） | 選項對話（Codex 寫在回報裡） | 本站＋`TEMP/`，寫檔關卡與 pre-commit 會擋 | 自己跑 | 只提交本站的路徑 |
 | 主 session 派出的平行代理 | 寫在回報裡，由主 session 問 | 本站＋`TEMP/<簡稱>*` | 自己跑（`UI_PORT`、`--port` 錯開） | 不 commit，由主 session 審過後提交 |
-| 3D工作室的代理 | 寫問題檔 `.studio/questions/<id>.json`，然後結束這一輪 | 依角色（app 每輪比對） | 只跑快速檢查；不開瀏覽器、不跑 `ui-check`／`shots`，由 app 跑 | 不 commit；app 在本機分支 `<站>/vs3d-…` 只提交本站 |
+| 3D工作室的代理 | 寫問題檔 `.studio/questions/<id>.json`，然後結束這一輪 | 依角色（app 每輪比對） | 只跑快速檢查與 `snap.mjs`；不跑 `ui-check`／`shots`、不自己開伺服器，完整檢查與截圖由 app 跑 | 不 commit；app 在本機分支 `<站>/vs3d-…` 只提交本站 |
+
+**開發中看畫面**：不論哪種工具，改了外觀、配置或動作就用 `node core/tools/snap.mjs "<站>" --view <視角> --t <秒>` 拍幾張來看（`--list` 列出視角與總長、`--size phone` 看手機版面；一次最多 8 張，輸出在站的 `TEMP/snap/`）。完成前再照完成定義第 3 項拍完整截圖。
 
 3D工作室在開發機上直接操作本庫的 `project-site/`；部署版（給同事用的中央主機）才使用 `Documents\3D-Studio` 工作區，代理在 `projects/<專案>/` 裡工作，規則一樣是本檔（工作區的 `core/SITE-RULES.md`）。

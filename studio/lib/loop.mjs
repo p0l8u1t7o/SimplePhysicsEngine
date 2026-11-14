@@ -47,7 +47,7 @@ export const loadState = J => readJson(J.state, { stage: J.repo ? 'done' : 'plan
 // full：快速檢查通過後是否再跑完整檢查（含 ui）；shots：通過後是否截圖；perf：補強前後是否量效能（測試時可關掉以節省時間）
 // stage2：第一段完成後是否出卡片問要不要開始第二段
 // review／render：每段完成後是否自動審查、補強；reviewFix：必修項是否自動送修正（override.pick 時先讓使用者挑補強項目，override.focus 限定範圍）
-// selfReview：開發後自我檢查幾次（不給就看 studio.json 的 selfReview，預設 1；0 關掉）
+// selfReview：開發後自我檢查幾次（不給就看 studio.json 的 selfReview，預設 2；0 關掉）
 // references：是否給參考站（false 關掉）；refRoot：參考站來源的本庫根目錄（不給就自動判斷，null 不用；測試用）
 // shotsFn：截圖函式（測試用，預設 checks.mjs 的 takeShots）
 export async function runProject(ws, id, { interactive = false, override = {}, maxRounds = 40, timeoutMin = 90, full = true, shots: wantShots = true,
@@ -104,8 +104,8 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
   }
   // 段落：工作階段與角色指派分段（第二段的開發不續接第一段的工作階段）
   const seg = () => state.segment || 1, sk = role => seg() === 2 ? role + '@2' : role, resolve = role => resolveRole(role, roleCtx(), seg());
-  // 自我檢查次數：命令列 ＞ 專案 studio.json 的 selfReview ＞ 1；限制在 0～3
-  const selfReviewMax = () => { const v = Number(selfReview ?? readJson(J.studioJson, {}).selfReview ?? 1); return Math.max(0, Math.min(3, Math.floor(v) || 0)); };
+  // 自我檢查次數：命令列 ＞ 專案 studio.json 的 selfReview ＞ 2（2026-11-14 起；開發代理也能用 snap.mjs 自己看畫面）；限制在 0～3
+  const selfReviewMax = () => { const v = Number(selfReview ?? readJson(J.studioJson, {}).selfReview ?? 2); return Math.max(0, Math.min(3, Math.floor(v) || 0)); };
   // 參考站：挑選結果改變時才重新複製規格摘要並記一行
   const refRoot = refRootOpt !== undefined ? refRootOpt : refRootFor(ws, J);
   let refCache = null;
