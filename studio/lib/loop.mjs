@@ -23,6 +23,7 @@ import { writeComparePage } from './compare.mjs';
 import { componentsOf, checkPlanFiles, importAssessment, writePlanFiles, writeBomSummary } from './assess.mjs';
 import * as repoGit from './repo.mjs';
 import { buildProjectDeck } from './deck.mjs';
+import { registerCoreRequests } from './core-requests.mjs';
 import { isDeploy } from './edition.mjs';
 import { readJson, writeJson, appendJsonl, git, now, readText, rel } from './util.mjs';
 import { readdirSync } from 'node:fs';
@@ -172,6 +173,12 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
     for (const v of violations) log(`  ⚠ 越界：${v.area} ${v.path}（${v.change}）${v.restored ? '→ 已還原' : '→ 未能自動還原，請檢查'}`);
     const message = `${J.repo ? 'vs3d ' : ''}Round ${n} (${role}): ${short(res.text.split('\n').find(l => l.trim()) || 'no summary', 60)}`;
     if (edits?.others.length) log(`  ! 代理執行中，本站還有 ${edits.others.length} 個檔案被別人改過（代理沒有改它們）：${short(edits.others.join('、'), 200)}；沒有和代理重疊，會一起提交`);
+    // core 缺功能：代理寫的 .studio/core-requests.json 由 app 登記（代理改不到 core/REQUESTS.md）
+    try {
+      const cr = registerCoreRequests(ws, J, { names: readClientNames(ws) });
+      if (cr.added.length) log(`  ⊕ core 需求登記 ${cr.added.length} 筆到 ${rel(ws, cr.file)}：${cr.added.join('、')}${J.repo ? '（本庫的檔案，app 不提交，請主 session 審過後處理）' : ''}`);
+      for (const w of cr.invalid) log(`  ! core 需求：${w}`);
+    } catch (e) { log(`  ! core 需求沒有登記：${e.message}`); }
     let commit = null;
     if (edits?.conflicts.length) askConcurrent(n, role, edits.conflicts, message);
     else commit = commitAll(message);
@@ -703,7 +710,7 @@ export function roleScope(role, J) {
     return { allow, deny: [], text: role === 'plan' ? '只有 `.studio/plan/` 與 `.studio/questions/`' : '只有 `.studio/reviews/` 與 `.studio/questions/`' };
   }
   const deny = [J.agents, J.studioJson, join(J.dir, 'CLAUDE.md'), join(J.dir, '.gitignore'), join(J.dir, '.git'), join(J.dir, '.claude'), J.answers, J.state, J.rounds, J.logs, J.handoff];
-  return { allow: [J.dir], deny, text: '整個專案資料夾，但不含 `AGENTS.md`、`CLAUDE.md`、`studio.json`、`.gitignore`、`.claude/` 與 `.studio/`（`.studio/questions/` 除外）' };
+  return { allow: [J.dir], deny, text: '整個專案資料夾，但不含 `AGENTS.md`、`CLAUDE.md`、`studio.json`、`.gitignore`、`.claude/` 與 `.studio/`（`.studio/questions/`、`.studio/core-requests.json` 除外）' };
 }
 
 // 用 git 檢查這一輪追蹤中的變更；不在角色範圍內的檔案退回開工前的版本（工作區的專案由 app 管理，可以直接還原）

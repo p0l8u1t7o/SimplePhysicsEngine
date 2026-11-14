@@ -8,14 +8,17 @@ const ROLE_TITLE2 = { plan: '第二段規劃（電控、電盤、配線、相機
 
 // 看畫面（2026-11-14，core/tools/snap.mjs）：寫程式與審查的角色可以自己拍指定視角與時間的截圖，「改 → 看 → 改」
 const SNAP_ROLES = new Set(['build', 'fix', 'render', 'change', 'review']);
-const snapLine = (J, role) => SNAP_ROLES.has(role) ? [`- 看畫面：\`node ../../core/tools/snap.mjs "${J.id}" --view <視角> --t <秒>\`（\`--list\` 列出視角與總長；一次最多 8 張，輸出在 \`TEMP/snap/\`，用讀檔工具打開圖片看）。改了外觀、配置或動作就拍來看，不要只靠想像；它會印出主控台錯誤。不要跑 \`ui-check\`、\`shots\` 或自己開伺服器；snap 執行失敗（例如沙箱開不了瀏覽器）就略過，app 結束後會拍完整截圖`] : [];
+// core 缺功能（2026-11-14，F 項）：寫程式的角色在站裡暫代時登記需求，app 每輪結束後併進 core 的需求清單
+const CORE_REQ_ROLES = new Set(['build', 'fix', 'render', 'change']);
+const coreReqLine = role => CORE_REQ_ROLES.has(role) ? ['- core 缺功能：先在專案裡暫代，再把需求寫到 `.studio/core-requests.json`（陣列，每筆 `{ "title": "一句話需求", "why": "現象", "workaround": "暫代的檔案與函式", "interface": "期望的 core API", "impact": "還有哪些站會用到" }`；已經寫過的不用刪），app 會登記給 core 維護者；不要改 core'] : [];
+const snapLine = (J, role) => [...coreReqLine(role), ...(SNAP_ROLES.has(role) ? [`- 看畫面：\`node ../../core/tools/snap.mjs "${J.id}" --view <視角> --t <秒>\`（\`--list\` 列出視角與總長；一次最多 8 張，輸出在 \`TEMP/snap/\`，用讀檔工具打開圖片看）。改了外觀、配置或動作就拍來看，不要只靠想像；它會印出主控台錯誤。不要跑 \`ui-check\`、\`shots\` 或自己開伺服器；snap 執行失敗（例如沙箱開不了瀏覽器）就略過，app 結束後會拍完整截圖`] : [])];
 
 export function header({ ws, J, role, adapter, scope, segment = 1 }) {
   const title = `# vs3d 任務：${(segment === 2 ? ROLE_TITLE2 : ROLE_TITLE)[role] || role}`;
   // 本庫模式：本庫既有的站，規則是根目錄 AGENTS.md＋本站 AGENTS.md（Claude Code 與 Codex 都會從 git 根目錄讀到）
   if (J.repo) return [title, '',
     `- 專案資料夾（你的工作目錄）：\`${J.dir}\`，本庫的站 \`${J.id}\``,
-    `- 本庫：\`${ws}\`；core 在 \`${join(ws, 'core')}\`（不要修改：core 由主 session 負責，缺功能就在本站暫代並登記到 \`core/REQUESTS.md\`）`,
+    `- 本庫：\`${ws}\`；core 在 \`${join(ws, 'core')}\`（不要修改：core 由主 session 負責，缺功能就在本站暫代，並把需求寫到 \`.studio/core-requests.json\`，app 會登記到 \`core/REQUESTS.md\`）`,
     `- 規則：本站的 \`AGENTS.md\`（規格與已拍板事項）、\`core/SITE-RULES.md\`（站實作規範：開工、實作規則、完成定義，必讀），以及本庫根目錄的 \`AGENTS.md\`（必讀；你是從本站資料夾啟動的子專案代理，只能改本站）`,
     `- 這一輪可以寫的範圍：${scope}`,
     `- **不要執行 git commit、checkout、restore、stash、reset、clean、switch**：使用者也在這個工作目錄工作，版本控制由 app 負責，每輪結束只提交本站的路徑`,

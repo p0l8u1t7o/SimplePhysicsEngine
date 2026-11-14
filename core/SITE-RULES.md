@@ -17,7 +17,7 @@ API 的寫法以 [`core/README.md`](README.md) 為準，本檔只寫做事的步
 
 ## 開工（每次動手前）
 
-1. **確認範圍**：只改自己這一站，加上根目錄 `TEMP/` 的暫存檔。`core/` 由主 session 負責；core 缺功能時，先在站裡暫代，並登記到 `core/REQUESTS.md`。
+1. **確認範圍**：只改自己這一站，加上根目錄 `TEMP/` 的暫存檔。`core/` 由主 session 負責；core 缺功能時，先在站裡暫代，並登記到 `core/REQUESTS.md`（3D工作室的代理改寫站的 `.studio/core-requests.json`，由 app 每輪結束後代為登記）。
 2. **不清楚就問，不要猜**：站位、設備選型、節拍、規格不明，或會影響之後很多工作的取捨，整理成 1～4 題、每題 2～4 個選項，建議的選項放第一個。有合理預設值的小事自己決定，事後說明。
 3. **盤點 core 模型**：市購品（手臂、輸送、相機與光源、氣動、夾爪、感測器、三色燈、HMI、實驗室設備、光伏…）先在 `core/models/index.js` 或目錄頁 `/core/catalog/` 找。有現成模型就用，**不要在站裡重畫**；沒有的話在站裡暫代，並登記到 `core/REQUESTS.md`。
 4. **查元件庫**：選型前先查 `node studio/vs3d.mjs parts search <關鍵字…>`（3D工作室的代理讀 `.studio/parts-catalog.md`）。合用的就沿用並寫出元件編號 `P-xxxxx`；沒有合用的才另外選型，並標「新元件」。

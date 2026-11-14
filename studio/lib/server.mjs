@@ -41,6 +41,7 @@ import { ROLES, resolveRole, loadRoleContext } from './roles.mjs';
 import { createRunner } from './runner.mjs';
 import { OFFICE, OLD_OFFICE } from './office.mjs';
 import { CAD } from './cad.mjs';
+import { coreRequestCount } from './core-requests.mjs';
 import { importHandoff } from './handoff.mjs';
 import { stationChanges } from './repo.mjs';
 import { readRounds, agentStats, checkStats } from './dashboard.mjs';
@@ -128,7 +129,7 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
   const summary = (id, dirtyMap) => {
     const J = Jof(id), s = loadState(J), pj = readJson(join(J.dir, 'project.json'), {}), pending = loadQuestions(J).list.filter(q => !q.answered);
     let updated = 0; try { updated = statSync(J.state).mtimeMs; } catch { updated = statSync(J.dir).mtimeMs; }
-    return { id, name: loc(id).name, repo: loc(id).repo, vs3d: loc(id).repo && existsSync(J.studioJson), branch: s.branch || null, flowActive: !!s.flowActive, title: pj.title || id, summary: pj.summary || '', stage: s.stage, segment: s.segment || 1, round: s.round, pending: pending.length, lastCheck: s.lastCheck && { ok: s.lastCheck.ok, quick: s.lastCheck.quick },
+    return { id, name: loc(id).name, repo: loc(id).repo, vs3d: loc(id).repo && existsSync(J.studioJson), coreRequests: coreRequestCount(J), branch: s.branch || null, flowActive: !!s.flowActive, title: pj.title || id, summary: pj.summary || '', stage: s.stage, segment: s.segment || 1, round: s.round, pending: pending.length, lastCheck: s.lastCheck && { ok: s.lastCheck.ok, quick: s.lastCheck.quick },
       render: s.render?.result || null, reviews: s.reviews || 0, updated, components: componentsOf(readJson(J.studioJson, {})), running: runner.current?.id === id,
       queued: (i => i < 0 ? 0 : i + 1)(runner.queue.findIndex(q => q.id === id)),      // 排隊中的第幾位（0 是沒在排隊）
       dirty: loc(id).repo && runner.current?.id !== id ? ((dirtyMap || repoDirty())[loc(id).name] || []) : [] };
