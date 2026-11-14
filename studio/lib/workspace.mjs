@@ -11,6 +11,7 @@ import { basename, join, dirname } from 'node:path';
 import { SOURCE_CORE, STUDIO, git, readJson, writeJson, writeText, walk, now, run } from './util.mjs';
 import { DEFAULT_STUDIO_JSON } from './roles.mjs';
 import { extractUploads } from './office.mjs';
+import { extractCadUploads } from './cad.mjs';
 import { beginNewSiteBranch, commitProject } from './repo.mjs';
 
 export const isRepo = ws => !existsSync(join(ws, 'studio-workspace.json')) && existsSync(join(ws, 'core', 'VERSION')) && existsSync(join(ws, 'project-site'));
@@ -161,7 +162,9 @@ export async function createProject(ws, { id, title, summary = '', prompt = '', 
   const copied = [];
   for (const f of files) { const dest = join(J.docs, basename(f)); copyFileSync(f, dest); copied.push(basename(f)); }
   const office = extractUploads(J.docs, copied);      // 代理讀不了 Office 檔：抽到 docs/<檔名>.extract/
-  J.notes = office.notes;
+  const cad = await extractCadUploads(J.docs, copied);    // DXF、STEP 一樣抽成文字與預覽圖（lib/cad.mjs）
+  Object.assign(office.info, cad.info);
+  J.notes = [...office.notes, ...cad.notes];
   const quote = prompt.trim() ? prompt.trim().split('\n').map(l => '> ' + l).join('\n') : '（未提供）';
   const request = ['## 需求', '', '使用者的原始需求：', '', quote, '', '使用者提供的資料（在 `docs/`，只留本機）：', '',
     copied.length ? copied.map(f => `- \`docs/${f}\`${office.info[f] ? `（${office.info[f]}）` : ''}`).join('\n') : '- （沒有）', '',

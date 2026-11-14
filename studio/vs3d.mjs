@@ -183,6 +183,16 @@ switch (cmd) {
     process.exitCode = await new Promise(r => child.on('close', r));
     break;
   }
+  // 重新抽取 docs/ 的 Office、DXF、STEP（上傳檔補進 docs/ 之後、或裝了 occt-import-js 之後）：vs3d extract <名稱> [檔名…]
+  case 'extract': {
+    const J = needProject(), { extractUploads } = await import('./lib/office.mjs'), { extractCadUploads } = await import('./lib/cad.mjs');
+    const all = existsSync(J.docs) ? readdirSync(J.docs).filter(f => !f.endsWith('.extract')) : [], files = rest.length ? rest : all;
+    for (const f of files) if (!all.includes(f)) fail(`docs/ 裡沒有 ${f}`);
+    const r1 = extractUploads(J.docs, files), r2 = await extractCadUploads(J.docs, files);
+    const notes = [...r1.notes, ...r2.notes];
+    console.log(notes.length ? notes.join('\n') : '沒有可以抽取的檔案（Office：pptx／docx／xlsx；CAD：dxf／step／stp）');
+    break;
+  }
   case 'handoff': {
     const J = needProject(), day = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     try { await exportHandoff(ws, name, resolve(o.out || join(J.temp, 'exports', `${name.replace(/\s+/g, '-')}-handoff-${day}.zip`))); } catch (e) { fail(e.message); }

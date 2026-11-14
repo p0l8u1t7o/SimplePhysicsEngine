@@ -13,7 +13,7 @@ API 的寫法以 [`core/README.md`](README.md) 為準，本檔只寫做事的步
 2. 本檔。
 3. [`core/README.md`](README.md)：目錄、`project.json`、`project.js` 介面、共用模型、舞台、「統一寫法」、檢查。
 4. 依需要再讀：第二段（電控、電盤、配線、相機）讀 [`examples/segment2/README.md`](examples/segment2/README.md)；物理讀 [`physics/README.md`](physics/README.md)；光學讀 [`optics/README.md`](optics/README.md)；換用 core 模型讀 [`migrations/`](migrations/)。
-5. 站的 `docs/`：使用者給的圖面、照片、規格（只留本機）。Office 檔看同資料夾的 `<檔名>.extract/text.md`。
+5. 站的 `docs/`：使用者給的圖面、照片、規格（只留本機）。Office、DXF、STEP 檔看同資料夾的 `<檔名>.extract/`（`text.md`＋圖片；DXF 有預覽圖與尺寸、文字清單，STEP 有外形與零件尺寸）。還沒抽取的用 `node studio/vs3d.mjs extract "<站>" --repo` 產生。
 
 ## 開工（每次動手前）
 

@@ -40,6 +40,7 @@ import { ADAPTERS } from './adapters/index.mjs';
 import { ROLES, resolveRole, loadRoleContext } from './roles.mjs';
 import { createRunner } from './runner.mjs';
 import { OFFICE, OLD_OFFICE } from './office.mjs';
+import { CAD } from './cad.mjs';
 import { importHandoff } from './handoff.mjs';
 import { stationChanges } from './repo.mjs';
 import { readRounds, agentStats, checkStats } from './dashboard.mjs';
@@ -349,7 +350,7 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
           }
           // Office 檔在建立專案時才抽取（createProject）；舊格式先提示
           const notice = OLD_OFFICE.test(name) ? '舊版格式：代理讀不了，請另存成新格式（.pptx／.docx／.xlsx）後重新上傳'
-            : OFFICE.test(name) ? '建立專案時會自動抽出文字與圖片' : '';
+            : OFFICE.test(name) ? '建立專案時會自動抽出文字與圖片' : CAD.test(name) ? '建立專案時會自動抽出尺寸與預覽圖' : '';
           return json(200, { token, files, notice });
         }
         // 匯入交接包：先用 /api/uploads 上傳 zip，再帶 token 呼叫
