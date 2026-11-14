@@ -4,6 +4,7 @@ import { FILE_TYPES } from './partsdb.mjs';
 import { isDeploy, subscriptionAllowed } from './edition.mjs';
 import { COST_DEFAULTS } from './bom.mjs';
 import { DEFAULT_DOMAINS, DOMAIN_RE } from './web-policy.mjs';
+import { DEFAULT_SKILLS, SKILL_NAME_RE } from './skills.mjs';
 
 // 代理 CLI 的認證方式：開發機可以選訂閱帳號或 API 金鑰；部署版只有 API 金鑰（lib/edition.mjs）
 const authCheck = (v, label) => {
@@ -45,6 +46,11 @@ export const SYSTEM_SETTINGS = {
       if (bad.length) throw new Error(`${label}格式不對：${bad.slice(0, 5).join('、')}`);
       return [...new Set(list)];
     },
+  },
+  // API 金鑰模式的代理要帶哪些 skills（lib/skills.mjs）
+  'skills.list': {
+    label: '代理可以用的 skills', value: DEFAULT_SKILLS[isDeploy() ? 'deploy' : 'dev'],
+    check: (v, label) => { const l = (Array.isArray(v) ? v : String(v || '').split(/[\s,，、]+/)).map(x => String(x).trim()).filter(Boolean); const bad = l.filter(x => !SKILL_NAME_RE.test(x)); if (bad.length) throw new Error(`${label}名稱不對：${bad.join('、')}`); return [...new Set(l)]; },
   },
   'agents.auth.claude': { label: 'Claude Code 的認證', value: 'subscription', check: authCheck },
   'agents.auth.codex': { label: 'Codex 的認證', value: 'subscription', check: authCheck },

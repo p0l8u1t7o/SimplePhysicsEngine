@@ -267,6 +267,8 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
             return { name: x.name, label: x.label, models: x.listModels(), ...d, ...s, modeLabel: AUTH_MODES[s.mode] };
           })));
         }
+        // 代理可以用的 skills（lib/skills.mjs）：GET 列出這台主機上找得到的 skill；選哪些存在系統設定 skills.list
+        if (a === 'skills' && req.method === 'GET') { const { availableSkills } = await import('./skills.mjs'); return json(200, { available: Object.keys(availableSkills()).sort() }); }
         // 常見錯誤清單（lib/lessons.mjs）：GET 列出；PUT /api/lessons/<id> { text, disabled }；DELETE /api/lessons/<id>（唯讀帳號由 denied() 擋）
         if (a === 'lessons') {
           const L = await import('./lessons.mjs');

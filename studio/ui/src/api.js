@@ -95,6 +95,7 @@ export const api = {
   saveSecret: (provider, key) => call('PUT', `/api/secrets/${provider}`, { key }),
   deleteSecret: provider => call('DELETE', `/api/secrets/${provider}`),
   // 回收桶（管理者）：刪除的專案
+  skills: () => call('GET', '/api/skills'),
   lessons: () => call('GET', '/api/lessons'),
   updateLesson: (id, v) => call('PUT', `/api/lessons/${encodeURIComponent(id)}`, v),
   deleteLesson: id => call('DELETE', `/api/lessons/${encodeURIComponent(id)}`),

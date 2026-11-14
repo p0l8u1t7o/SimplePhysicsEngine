@@ -10,6 +10,7 @@ import { pathToFileURL } from 'node:url';
 import { STUDIO, posix } from './util.mjs';
 import { isDeploy, subscriptionAllowed, SUBSCRIPTION_MODULE } from './edition.mjs';
 import { getKey, keyInfo, PROVIDERS } from './secrets.mjs';
+import { syncSkills, DEFAULT_SKILLS } from './skills.mjs';
 
 export const AUTH_MODES = { subscription: '訂閱帳號登入', apiKey: 'API 金鑰' };
 export const PROVIDER_OF = { claude: 'anthropic', codex: 'openai' };
@@ -41,6 +42,8 @@ export async function agentEnv(cli, system) {
   const provider = PROVIDER_OF[cli], key = getKey(provider);
   if (!key) throw new Error(`${cli} 設定為用 API 金鑰，但還沒有設定 ${PROVIDERS[provider]} 的金鑰（介面「設定」的 API 金鑰，管理者）`);
   const home = agentHome(cli); mkdirSync(home, { recursive: true });
+  // 白名單的 skills 複製到代理的設定目錄（lib/skills.mjs；E 項）；失敗不擋執行
+  try { const sys = system ?? await loadSystem(); syncSkills(home, sys['skills.list'] ?? DEFAULT_SKILLS[isDeploy() ? 'deploy' : 'dev']); } catch { /* 沒有 skills 也能跑 */ }
   return cli === 'claude'
     ? { mode, env: { VS3D_AGENT_KEY: key, CLAUDE_CONFIG_DIR: home }, unset: ['ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'CLAUDE_CODE_OAUTH_TOKEN'],
         settings: { apiKeyHelper: `node "${posix(KEY_HELPER)}"` } }

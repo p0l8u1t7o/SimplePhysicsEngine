@@ -22,7 +22,7 @@ function SystemSettings({ canEdit }) {
   if (!sys || !form) return <section className="card"><h3>系統設定</h3><p className="mute">{msg || '載入中…'}</p></section>;
   const set = (k, v) => { setMsg(''); setForm(f => ({ ...f, [k]: v })); };
   // 這張卡片只管附件與成本；代理的認證方式在「代理 CLI」卡片另外存
-  const mineOnly = v => Object.fromEntries(Object.entries(v).filter(([k]) => !k.startsWith('agents.') && !k.startsWith('trash.') && !k.startsWith('web.')));
+  const mineOnly = v => Object.fromEntries(Object.entries(v).filter(([k]) => !k.startsWith('agents.') && !k.startsWith('trash.') && !k.startsWith('web.') && !k.startsWith('skills.')));
   const dirty = JSON.stringify(mineOnly(form)) !== JSON.stringify(mineOnly(sys.values));
   const field = k => <label key={k}><span>{sys.defs[k].label}</span>
     <input type="number" step="any" min="0" disabled={!canEdit} value={PCT.has(k) ? pct(form[k]) : form[k]} onChange={e => set(k, PCT.has(k) ? unpct(e.target.value) : e.target.value)} />
@@ -132,6 +132,21 @@ function Trash() {
   </section>;
 }
 
+// 代理可以用的 skills（lib/skills.mjs）：API 金鑰模式的代理設定目錄裡沒有使用者的 skills，勾選的每次執行前複製過去；只有管理者能改
+function AgentSkills({ canEdit }) {
+  const [avail, setAvail] = useState(null), [list, setList] = useState([]), [msg, setMsg] = useState('');
+  const load = () => Promise.all([api.skills(), api.system()]).then(([a, d]) => { setAvail(a.available); setList(d.values['skills.list'] || []); }).catch(e => setMsg('✗ ' + e.message));
+  useEffect(() => { load(); }, []);
+  if (!avail) return msg ? <LoadFailed title="代理的 skills" msg={msg} retry={() => { setMsg(''); load(); }} /> : null;
+  const names = [...new Set([...avail, ...list])].sort();
+  const save = () => api.saveSystem({ 'skills.list': list }).then(d => { setList(d.values['skills.list']); setMsg('✓ 已儲存'); }).catch(e => setMsg('✗ ' + e.message));
+  return <section className="card form"><h3>代理的 skills<span className="chip">{list.length}</span></h3>
+    <p className="mute hint">用 API 金鑰的代理有自己的設定目錄，讀不到這台主機使用者的 skills；勾選的每次執行前複製過去（用訂閱帳號的 Claude 本來就讀得到全部）。標「找不到」的是這台主機上沒有的。</p>
+    <div className="types">{names.map(n => <label key={n} className="check"><input type="checkbox" disabled={!canEdit} checked={list.includes(n)} onChange={e => { setMsg(''); setList(e.target.checked ? [...list, n] : list.filter(x => x !== n)); }} />{n}{!avail.includes(n) && <span className="mute">（找不到）</span>}</label>)}</div>
+    {canEdit && <div className="bar"><button className="primary" onClick={save}>儲存</button><span className={msg.startsWith('✗') ? 'bad' : 'ok'}>{msg}</span></div>}
+  </section>;
+}
+
 // 規劃角色上網查規格（lib/web-policy.mjs）：開關與 WebFetch 可以開的廠商網域；只有管理者能改
 function WebSettings({ canEdit }) {
   const [sys, setSys] = useState(null), [on, setOn] = useState(false), [domains, setDomains] = useState(''), [msg, setMsg] = useState('');
@@ -211,6 +226,7 @@ export function Settings({ info, user }) {
       <SystemSettings canEdit={isAdmin} />
       {isAdmin && <FxRates />}
       <WebSettings canEdit={isAdmin} />
+      <AgentSkills canEdit={isAdmin} />
       <Lessons canEdit={!user || user.role !== 'viewer'} />
       {isAdmin && <Trash />}
     </div>
