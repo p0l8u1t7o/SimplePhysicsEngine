@@ -12,7 +12,7 @@ export function header({ ws, J, role, adapter, scope, segment = 1 }) {
   if (J.repo) return [title, '',
     `- 專案資料夾（你的工作目錄）：\`${J.dir}\`，本庫的站 \`${J.id}\``,
     `- 本庫：\`${ws}\`；core 在 \`${join(ws, 'core')}\`（不要修改：core 由主 session 負責，缺功能就在本站暫代並登記到 \`core/REQUESTS.md\`）`,
-    `- 規則：本站的 \`AGENTS.md\`（規格與已拍板事項），以及本庫根目錄的 \`AGENTS.md\`（必讀；你是從本站資料夾啟動的子專案代理，只能改本站）`,
+    `- 規則：本站的 \`AGENTS.md\`（規格與已拍板事項）、\`core/SITE-RULES.md\`（站實作規範：開工、實作規則、完成定義，必讀），以及本庫根目錄的 \`AGENTS.md\`（必讀；你是從本站資料夾啟動的子專案代理，只能改本站）`,
     `- 這一輪可以寫的範圍：${scope}`,
     `- **不要執行 git commit、checkout、restore、stash、reset、clean、switch**：使用者也在這個工作目錄工作，版本控制由 app 負責，每輪結束只提交本站的路徑`,
     `- 快速檢查：\`node ../../core/tools/check.mjs "${J.id}" --quick\``,
@@ -22,7 +22,7 @@ export function header({ ws, J, role, adapter, scope, segment = 1 }) {
     '',
     `- 專案資料夾（你的工作目錄）：\`${J.dir}\`，專案名稱 \`${J.id}\``,
     `- 工作區：\`${ws}\`；core 在 \`${join(ws, 'core')}\`（唯讀，框架說明在 \`core/README.md\`）`,
-    `- 規則：專案的 \`AGENTS.md\`，以及工作區的 \`${join(ws, 'AGENTS.md')}\`（共通規則，必讀）`,
+    `- 規則：專案的 \`AGENTS.md\`、\`${join(ws, 'core', 'SITE-RULES.md')}\`（站實作規範，必讀），以及工作區的 \`${join(ws, 'AGENTS.md')}\`（app 管理下的特別規定，必讀）`,
     `- 這一輪可以寫的範圍：${scope}`,
     `- 快速檢查：\`node ../../core/tools/check.mjs "${J.id}" --quick\``,
   ];
@@ -120,6 +120,8 @@ export const TASK = {
 4. 節拍估算：各步驟秒數與總節拍
 ${components.includes('3d') ? '5. 第一段範圍：場景、排程、視角、播放列、手機與平板版面；列出這一段不做的事（電控、配線、相機子畫面屬於第二段）' : `5. 範圍：這個專案只做評估${components.includes('aoi') ? '與 AOI' : ''}，不做 3D 動畫（之後要做時會再加）`}${components.includes('aoi') ? '\n   視覺：設備選型列出相機、鏡頭、光源的初步選型與檢測項目（AOI 方案之後在光學工作台細化）' : ''}
 6. 假設與待確認事項
+
+另外寫 \`.studio/plan/spec-summary.md\`：規格摘要，8～20 行條列（資料來源、製程流程、主要設備與選型含元件編號、節拍、關鍵尺寸、假設值標「示意」）。提案確認後 app 會把它填進 \`AGENTS.md\` 的「規格摘要」（\`core/SITE-RULES.md\` 完成定義第 4 項）；提案改了就一起更新。
 
 ${components.includes('assess') ? ASSESS_TASK : PARTS_JSON}
 資料裡如果出現用戶（客戶、委託方）的公司或品牌名稱，一行一個寫進 \`.studio/plan/client-names.txt\`（app 會加進名單，之後所有角色都不得顯示）；提案本身也改用中性描述。

@@ -13,7 +13,7 @@ import { join } from 'node:path';
 import { adapterFor, runAgent } from './adapters/index.mjs';
 import { agentEnv, AUTH_MODES } from './agent-auth.mjs';
 import { resolveRole, loadRoleContext } from './roles.mjs';
-import { paths, projectPaths, acquireLock, addClientNames, readClientNames, redactNames, addProjectNames } from './workspace.mjs';
+import { paths, projectPaths, acquireLock, addClientNames, readClientNames, redactNames, addProjectNames, writeSpecSummary } from './workspace.mjs';
 import { snapshot, verifyAndRestore } from './isolation.mjs';
 import { loadQuestions, pendingQuestions, askInteractive, writeAppQuestion, readAnswer, printQuestion } from './questions.mjs';
 import { runChecks, takeShots, failureSummary, runFingerprint, runCycle, compareRenderFingerprint, runPerf, comparePerf } from './checks.mjs';
@@ -305,8 +305,16 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
           if (proposal && planSession) {
             const assess = seg() === 1 && has('assess'), only = assess && !has('3d');
             if (assess && !state.proposalApproved && await assessFormat('可行性分析或 BOM')) break;
+            // 規格摘要（core/SITE-RULES.md 完成定義第 4 項）：第一段的提案要附 spec-summary.md，確認後由 app 填進 AGENTS.md
+            if (seg() === 1 && !existsSync(join(J.plan, 'spec-summary.md'))) {
+              state.specTries = (state.specTries || 0) + 1;
+              if (state.specTries > 3) throw new Stop('規劃角色沒有寫出 .studio/plan/spec-summary.md（規格摘要）');
+              await round('plan', '請補寫 `.studio/plan/spec-summary.md`：規格摘要，8～20 行條列（資料來源、製程流程、主要設備與選型含元件編號、節拍、關鍵尺寸、假設值標「示意」）；寫完就結束這一輪。', { resume: true });
+              break;
+            }
             if (state.proposalApproved || override.autoApprove) {
               await importParts();
+              if (seg() === 1 && writeSpecSummary(J, readClientNames(ws))) log('  規格摘要已填進 AGENTS.md');
               if (assess) await importAssess('提案確認');
               state.stage = seg() === 2 || has('3d') ? 'build' : 'done';
               break;
@@ -563,7 +571,7 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
           return { status: 'paused' };
         case 'done':
           if (J.repo && state.flowActive) { state.flowActive = false; log(`\n本庫：成果在本機分支 ${state.branch}（只提交了 ${id} 的路徑）；要推送與開 PR 用 vs3d push "${id}" 或介面的按鈕`); }
-          if (seg() === 1 && wantStage2 && !state.stage2Asked && !J.repo && has('3d')) {
+          if (seg() === 1 && wantStage2 && !state.stage2Asked && (!J.repo || state.newSite) && has('3d')) {
             state.stage2Asked = true;
             const qid = `vs3d-stage2-r${state.round}`, b = resolve('build');
             writeAppQuestion(J, { id: qid, header: '第二段', question: '第一段完成了，要開始第二段（電控、電盤、配線、相機子畫面、視覺疊圖）嗎？',
@@ -682,8 +690,8 @@ export function roleScope(role, J) {
     const allow = role === 'plan' ? [J.plan, J.questions] : [join(J.studio, 'reviews'), J.questions];
     return { allow, deny: [], text: role === 'plan' ? '只有 `.studio/plan/` 與 `.studio/questions/`' : '只有 `.studio/reviews/` 與 `.studio/questions/`' };
   }
-  const deny = [J.agents, J.studioJson, join(J.dir, 'CLAUDE.md'), join(J.dir, '.gitignore'), join(J.dir, '.git'), J.answers, J.state, J.rounds, J.logs, J.handoff];
-  return { allow: [J.dir], deny, text: '整個專案資料夾，但不含 `AGENTS.md`、`CLAUDE.md`、`studio.json`、`.gitignore` 與 `.studio/`（`.studio/questions/` 除外）' };
+  const deny = [J.agents, J.studioJson, join(J.dir, 'CLAUDE.md'), join(J.dir, '.gitignore'), join(J.dir, '.git'), join(J.dir, '.claude'), J.answers, J.state, J.rounds, J.logs, J.handoff];
+  return { allow: [J.dir], deny, text: '整個專案資料夾，但不含 `AGENTS.md`、`CLAUDE.md`、`studio.json`、`.gitignore`、`.claude/` 與 `.studio/`（`.studio/questions/` 除外）' };
 }
 
 // 用 git 檢查這一輪追蹤中的變更；不在角色範圍內的檔案退回開工前的版本（工作區的專案由 app 管理，可以直接還原）
@@ -691,7 +699,7 @@ function enforceRoleScope(role, J, startHead) {
   // 已 stage 的改名拆成兩筆：新路徑當成新增（要移除）、原路徑當成刪除（要寫回），保護的檔案被改名走也抓得到
   const changed = (J.repo ? repoGit.changes(J) : repoGit.parseStatusZ(git(J.dir, ['status', '--porcelain=v1', '-z', '--untracked-files=all'])))
     .flatMap(c => c.from != null && c.code[0] === 'R' ? [{ code: 'A ', path: c.path }, { code: 'D ', path: c.from }] : [c]);
-  const bad = changed.filter(c => role === 'plan' || role === 'review' || role === 'optics' || ['AGENTS.md', 'CLAUDE.md', 'studio.json', '.gitignore'].includes(c.path));
+  const bad = changed.filter(c => role === 'plan' || role === 'review' || role === 'optics' || ['AGENTS.md', 'CLAUDE.md', 'studio.json', '.gitignore'].includes(c.path) || c.path.startsWith('.claude/'));
   const out = [];
   for (const c of bad) {
     let restored = false;

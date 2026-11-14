@@ -53,7 +53,7 @@ function Shell({ me, onAuthChange }) {
   });
 
   const q = query.trim().toLowerCase(), match = p => !q || `${p.title} ${p.name}`.toLowerCase().includes(q);
-  const mine = projects.filter(p => !p.repo), stations = projects.filter(p => p.repo), shown = mine.filter(match);
+  const mine = projects.filter(p => !p.repo || p.vs3d), stations = projects.filter(p => p.repo), shown = mine.filter(match);
   const hits = [...shown, ...stations.filter(match)];            // 搜尋按 Enter：先開工作區的專案，再來是本庫的站
   const waiting = projects.filter(p => p.pending > 0), questions = waiting.reduce((n, p) => n + p.pending, 0);
   const inStations = route.view === 'stations' || (route.view === 'project' && route.id?.startsWith('@'));

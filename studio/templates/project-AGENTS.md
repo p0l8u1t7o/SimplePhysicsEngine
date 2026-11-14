@@ -1,20 +1,12 @@
 # {{title}}（`{{id}}`）
 
-本檔是這個專案的規則；共通規則在工作區根目錄的 `AGENTS.md`。
+本檔是這個專案的規則；共通規則在工作區根目錄的 `AGENTS.md`，實作規範（開工、實作規則、完成定義）在 `core/SITE-RULES.md`。
 
-## 需求
+{{request}}
 
-使用者的原始需求：
+## 規格摘要
 
-{{prompt}}
-
-使用者提供的資料（在 `docs/`）：
-
-{{files}}
-
-## 配置提案
-
-見 `.studio/plan/proposal.md`（規劃角色產出，使用者確認後才開始開發）。
+（提案確認後由 app 從 `.studio/plan/spec-summary.md` 填入：設備、節拍、主要選型、資料來源。）
 
 ## 已拍板事項
 

@@ -62,6 +62,7 @@ import { runChecks, failureSummary, runFingerprint } from './lib/checks.mjs';
 import { ROLES, resolveRole, loadRoleContext, parseRoleOverrides } from './lib/roles.mjs';
 import { isolationProbe } from './lib/probe.mjs';
 import { defaultWorkspace, readText, readJson, writeJson } from './lib/util.mjs';
+import { isDeploy } from './lib/edition.mjs';
 import { exportHandoff, importHandoff } from './lib/handoff.mjs';
 import * as repoGit from './lib/repo.mjs';
 import { REPO, git, findFfmpeg } from './lib/util.mjs';
@@ -83,7 +84,10 @@ function parseArgs(argv) {
 }
 
 const o = parseArgs(process.argv.slice(2)), [cmd, name, ...rest] = o._;
-const ws = resolve(o.repo ? REPO : o.workspace || defaultWorkspace());
+// 工作區（2026-11-14 拍板）：開發機（dev）從本庫執行時就是本庫，專案直接建在 project-site/（本庫模式）；
+//   部署版才用 Documents/3D-Studio（使用者文件資料夾，或 VS3D_WORKSPACE）。--workspace 一律優先。
+const devRepo = !isDeploy() && isRepo(REPO);
+const ws = resolve(o.repo ? REPO : o.workspace || (process.env.VS3D_WORKSPACE || !devRepo ? defaultWorkspace() : REPO));
 const override = { cli: o.cli, model: o.model, roles: parseRoleOverrides(o.role || ''), autoApprove: !!o['auto-approve'], pick: !!o.pick, focus: o.focus || '' };
 if (o.effort) for (const r of Object.keys(ROLES)) override.roles[r] = { ...override.roles[r], effort: o.effort };
 if (o.cli && !ADAPTERS[o.cli]) fail(`--cli 只能是 ${Object.keys(ADAPTERS).join('、')}`);
@@ -131,7 +135,7 @@ switch (cmd) {
   case 'new': {
     if (!name) fail('用法：vs3d new <名稱> --prompt "<需求>" [--files …]');
     if (!/^[\w][\w .-]*$/.test(name)) fail('專案名稱請用英數、空白、- 或 _');
-    if (!existsSync(paths(ws).marker)) initWorkspace(ws);
+    if (!paths(ws).repo) initWorkspace(ws, { refreshCore: true });      // 部署版：工作區的 core 比 app 舊就自動換新
     const prompt = o['prompt-file'] ? readText(resolve(o['prompt-file'])) : (o.prompt || '');
     if (!prompt.trim() && !o.files.length) fail('請用 --prompt 或 --files 提供需求');
     for (const f of o.files) if (!existsSync(f)) fail(`找不到檔案：${f}`);
@@ -145,7 +149,9 @@ switch (cmd) {
     if (selfReviewOpt() != null) sj.selfReview = selfReviewOpt();
     // 專案組成（評估平台 Q6）：評估＋成本／3D 動畫／AOI，至少一項；沒指定是只有 3D（原本的流程）
     if (o.components) { const { cleanComponents } = await import('./lib/assess.mjs'); try { sj.components = cleanComponents(o.components); } catch (e) { fail(e.message); } }
+    else if (J.repo) sj.components = ['assess', '3d'];      // 本庫的新站：完成定義要有可行性評估與成本（core/SITE-RULES.md）
     writeJson(J.studioJson, sj);
+    if (J.repo) repoGit.commitProject(J, `${name}: vs3d settings`);
     console.log(`已建立專案：${J.dir}`);
     for (const n of J.notes || []) console.log(n);
     if (!o['create-only']) report(await runProject(ws, name, runOpts()));
@@ -491,12 +497,13 @@ switch (cmd) {
   case 'ui': {
     const { startUi } = await import('./lib/server.mjs');
     // 從本庫執行時同時列出 project-site/ 的各站（本庫模式）；--no-repo 只看工作區
-    const repoRoot = o['no-repo'] ? null : isRepo(REPO) ? REPO : null;
+    // 開發機的工作區就是本庫：介面只列本庫的站
+    const repoRoot = isRepo(ws) ? ws : o['no-repo'] ? null : isRepo(REPO) ? REPO : null;
     // HTTPS：PFX（Windows 匯出的憑證，密碼放環境變數 VS3D_PFX_PASS）或 PEM 的憑證＋私鑰
     const tls = o.pfx ? { pfx: readFileSync(resolve(o.pfx)), passphrase: process.env.VS3D_PFX_PASS || '' }
       : o.cert || o.key ? (o.cert && o.key ? { cert: readFileSync(resolve(o.cert)), key: readFileSync(resolve(o.key)) } : fail('--cert 與 --key 要一起給')) : null;
     let ui;
-    try { ui = await startUi(o.repo ? defaultWorkspace() : ws, { port: +(o.port || 8780), repo: repoRoot, partsDb: o.db ? resolve(o.db) : undefined, host: o.host || '127.0.0.1', tls, insecureHttp: !!o['insecure-http'] }); }
+    try { ui = await startUi(ws, { port: +(o.port || 8780), repo: repoRoot, partsDb: o.db ? resolve(o.db) : undefined, host: o.host || '127.0.0.1', tls, insecureHttp: !!o['insecure-http'] }); }
     catch (e) { fail(e.message); }
     if (!o['no-open'] && process.platform === 'win32') spawn('cmd', ['/c', 'start', '', `${tls ? 'https' : 'http'}://127.0.0.1:${ui.port}/`], { windowsHide: true, detached: true, stdio: 'ignore' }).unref();
     process.on('SIGINT', () => { ui.close(); process.exit(0); });

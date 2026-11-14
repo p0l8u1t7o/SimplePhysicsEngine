@@ -23,6 +23,9 @@ before(() => {
   git(root, ['init', '-q', '-b', 'main']); git(root, ['config', 'core.autocrlf', 'false']);
   const r = spawnSync(process.execPath, [join(root, 'core', 'tools', 'new-project.mjs'), 'Demo', '示範站'], { cwd: root, encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
+  // 規格摘要不能是空的（structure 檢查，core/SITE-RULES.md 完成定義第 4 項）
+  const ag = join(root, 'project-site', 'Demo', 'AGENTS.md');
+  writeFileSync(ag, readFileSync(ag, 'utf8').replace(/（設備、節拍、主要選型、資料來源。[^）]*）/, '- 示範站：輸送帶一條、工作台一座（示意尺寸），節拍示意 10 秒一件，資料來源是測試用假資料；尺寸與型號待現場確認'));
   git(root, ['add', '-A']); git(root, ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'init']);
 });
 after(() => rmSync(root, { recursive: true, force: true }));
@@ -135,4 +138,24 @@ test('本庫模式：代理執行中你改的是代理沒碰的檔 → 不是併
   assert.match(r.stdout, /被別人改過（代理沒有改它們）：web\/user-note\.txt/);
   assert.equal(loadState(J).concurrent ?? null, null);
   assert.equal(git(root, ['status', '--porcelain', '--', 'project-site/Demo/web/user-note.txt']).trim(), '', '沒有重疊：照舊一起提交');
+});
+
+// 開發機的新建（2026-11-14）：直接建在 project-site/，保留範本的規則檔與寫檔關卡、不另建 git 庫、在本機分支只提交這一站
+test('本庫模式：new 建在 project-site/、保留規則檔與寫檔關卡、開分支只提交這一站', () => {
+  const r = vs3d('new', 'NewSite', '--prompt', '輸送帶＋龍門取放', '--title', '新站', '--create-only');
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const J = projectPaths(root, 'NewSite');
+  assert.ok(J.repo && existsSync(join(root, 'project-site', 'NewSite', 'web', 'index.html')));
+  assert.ok(existsSync(join(J.dir, '.claude', 'settings.json')), '寫檔關卡要保留');
+  assert.ok(!existsSync(join(J.dir, '.git')), '不能在本庫裡另建 git 庫');
+  const agents = readFileSync(J.agents, 'utf8');
+  assert.match(agents, /## 範圍/); assert.match(agents, /## 需求[\s\S]*> 輸送帶＋龍門取放[\s\S]*## 規格摘要/);
+  assert.match(repoGit.branch(J), /^newsite\/vs3d-new-\d{4}-\d{4}$/);
+  const files = git(root, ['diff', '--name-only', 'HEAD~2', 'HEAD']).trim().split('\n');
+  assert.ok(files.every(f => f.startsWith('project-site/NewSite/')), files.join(','));
+  assert.ok(files.includes('project-site/NewSite/.claude/settings.json') && files.includes('project-site/NewSite/studio.json'));
+  const s = loadState(J);
+  assert.equal(s.stage, 'plan'); assert.ok(s.newSite && s.flowActive);
+  assert.deepEqual(JSON.parse(readFileSync(J.studioJson, 'utf8')).components, ['assess', '3d']);
+  assert.equal(JSON.parse(readFileSync(join(J.dir, 'project.json'), 'utf8')).strict, true);
 });

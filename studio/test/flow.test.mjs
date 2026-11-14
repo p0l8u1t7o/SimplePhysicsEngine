@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { spawn } from 'node:child_process';
 import { ADAPTERS } from '../lib/adapters/index.mjs';
 import { adapters as fakeAdapters } from './fake-adapters.mjs';
-import { initWorkspace, createProject, projectPaths, paths, setReadOnly } from '../lib/workspace.mjs';
+import { initWorkspace, createProject, projectPaths, paths, setReadOnly, writeSpecSummary } from '../lib/workspace.mjs';
 import { snapshot, verifyAndRestore } from '../lib/isolation.mjs';
 import { runProject, loadState, pickItems } from '../lib/loop.mjs';
 import { recordAnswer, loadQuestions } from '../lib/questions.mjs';
@@ -28,7 +28,16 @@ before(async () => {
   await createProject(ws, { id: 'Beta', title: '測試 B' });
 });
 
-test('工作區模式：core 從 projects/ 找專案，範本專案通過快速檢查', async () => {
+test('工作區模式：core 從 projects/ 找專案，範本專案填好規格摘要後通過快速檢查', async () => {
+  // 規格摘要還是空的：structure 擋下（core/SITE-RULES.md 完成定義第 4 項）
+  const c0 = await runChecks(ws, 'Alpha', { quick: true });
+  assert.ok(!c0.ok && /規格摘要/.test(c0.out), c0.out);
+  // 提案確認後 app 從 .studio/plan/spec-summary.md 填入
+  const JA = projectPaths(ws, 'Alpha');
+  mkdirSync(JA.plan, { recursive: true });
+  writeFileSync(join(JA.plan, 'spec-summary.md'), '# 規格摘要\n\n- 資料來源：測試需求\n- 製程：入料輸送 → 龍門取放 → 出料\n- 設備：輸送帶一條、龍門一座（示意）\n- 節拍：示意 10 秒一件，尺寸待現場確認\n');
+  assert.ok(writeSpecSummary(JA));
+  assert.match(readFileSync(JA.agents, 'utf8'), /## 規格摘要\n\n- 資料來源：測試需求/);
   const c = await runChecks(ws, 'Alpha', { quick: true });
   assert.ok(c.ok, c.out);
   assert.ok(c.rows.length >= 5);

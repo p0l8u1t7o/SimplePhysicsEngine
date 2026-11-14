@@ -11,6 +11,7 @@ import { basename, join, dirname } from 'node:path';
 import { SOURCE_CORE, STUDIO, git, readJson, writeJson, writeText, walk, now, run } from './util.mjs';
 import { DEFAULT_STUDIO_JSON } from './roles.mjs';
 import { extractUploads } from './office.mjs';
+import { beginNewSiteBranch, commitProject } from './repo.mjs';
 
 export const isRepo = ws => !existsSync(join(ws, 'studio-workspace.json')) && existsSync(join(ws, 'core', 'VERSION')) && existsSync(join(ws, 'project-site'));
 export const paths = ws => {
@@ -124,7 +125,22 @@ export function addProjectNames(J, names = []) {
 // 長的名稱先換，避免「A 公司」被「A」拆開
 export const redactNames = (text, names) => [...names].sort((a, b) => b.length - a.length).reduce((s, n) => s.split(n).join('（用戶）'), String(text));
 
+// 提案確認後：規劃角色寫的 .studio/plan/spec-summary.md 填進專案 AGENTS.md 的「規格摘要」（開發角色不能改 AGENTS.md，由 app 寫）。
+//   回傳 true 表示有寫入；沒有 spec-summary.md 或內容是空的回傳 false
+export function writeSpecSummary(J, names = []) {
+  const src = join(J.plan, 'spec-summary.md');
+  if (!existsSync(src)) return false;
+  const body = redactNames(readFileSync(src, 'utf8'), names).replace(/^#\s.*\r?\n/, '').trim();
+  if (!body) return false;
+  const cur = readFileSync(J.agents, 'utf8'), m = /^## 規格摘要[^\n]*\n/m.exec(cur);
+  if (!m) { writeText(J.agents, cur.replace(/\n*$/, '\n\n') + `## 規格摘要\n\n${body}\n`); return true; }
+  const after = cur.slice(m.index + m[0].length), next = after.search(/^## /m);
+  writeText(J.agents, cur.slice(0, m.index) + `## 規格摘要\n\n${body}\n\n` + (next < 0 ? '' : after.slice(next)));
+  return true;
+}
+
 // 由 core 範本建立專案，換成 studio 用的規則檔，複製上傳檔（Office 檔抽出文字與圖片），git init
+//   本庫模式（開發機）：建在 project-site/，保留範本的規則檔與寫檔關卡、不另建 git 庫，在本機分支上只提交這一站
 //   J.notes：給使用者看的訊息（抽取結果、舊格式提示、失敗警告）
 //   clientNames：不得顯示的用戶名稱；加進工作區名單，標題、說明與需求原文裡的名稱換成「（用戶）」
 export async function createProject(ws, { id, title, summary = '', prompt = '', files = [], cli, clientNames = [] }) {
@@ -133,9 +149,12 @@ export async function createProject(ws, { id, title, summary = '', prompt = '', 
   const names = readClientNames(ws);
   [title, summary, prompt] = [title, summary, prompt].map(s => redactNames(s, names));
   if (existsSync(J.dir)) throw new Error(`專案已存在：${J.dir}`);
+  // 本庫模式（開發機，2026-11-14）：先開本機分支 <站>/vs3d-new-…，建好的站只提交在這個分支上
+  const branch = P.repo ? beginNewSiteBranch(ws, id) : null;
   const r = await run(process.execPath, [join(P.core, 'tools', 'new-project.mjs'), id, title, summary || title], { cwd: ws });
   if (r.code) throw new Error('new-project 失敗：\n' + r.out);
-  rmSync(join(J.dir, '.claude'), { recursive: true, force: true });   // 本庫的範圍關卡不適用於工作區；studio 另外掛關卡
+  // 工作區：本庫的範圍關卡不適用，studio 另外掛關卡。本庫：保留範本帶出的寫檔關卡（structure 檢查要它）
+  if (!P.repo) rmSync(join(J.dir, '.claude'), { recursive: true, force: true });
   addProjectNames(J, clientNames);
 
   mkdirSync(J.docs, { recursive: true });
@@ -144,9 +163,20 @@ export async function createProject(ws, { id, title, summary = '', prompt = '', 
   const office = extractUploads(J.docs, copied);      // 代理讀不了 Office 檔：抽到 docs/<檔名>.extract/
   J.notes = office.notes;
   const quote = prompt.trim() ? prompt.trim().split('\n').map(l => '> ' + l).join('\n') : '（未提供）';
+  const request = ['## 需求', '', '使用者的原始需求：', '', quote, '', '使用者提供的資料（在 `docs/`，只留本機）：', '',
+    copied.length ? copied.map(f => `- \`docs/${f}\`${office.info[f] ? `（${office.info[f]}）` : ''}`).join('\n') : '- （沒有）', '',
+    '配置提案見 `.studio/plan/proposal.md`（規劃角色產出，使用者確認後才開始開發）。', ''].join('\n');
+  if (P.repo) {
+    // 本庫：沿用 core 範本的 AGENTS.md（範圍、規格摘要、已拍板事項），在「規格摘要」前插入需求
+    const cur = readFileSync(J.agents, 'utf8'), at = cur.search(/^## 規格摘要/m);
+    writeText(J.agents, at < 0 ? cur + '\n' + request : cur.slice(0, at) + request + '\n' + cur.slice(at));
+    writeJson(J.studioJson, { ...(cli ? { defaultCli: cli } : {}), ...DEFAULT_STUDIO_JSON });
+    writeJson(J.state, { stage: 'plan', round: 0, sessions: {}, streak: {}, waiting: null, lastCheck: null, violations: [], newSite: true, branch, flowActive: true });
+    commitProject(J, `${id}: create site from core template (vs3d)`);
+    return J;
+  }
   const tpl = readFileSync(join(STUDIO, 'templates', 'project-AGENTS.md'), 'utf8');
-  writeText(J.agents, tpl.replace('{{title}}', title).replace('{{id}}', id).replace('{{prompt}}', quote)
-    .replace('{{files}}', copied.length ? copied.map(f => `- \`docs/${f}\`${office.info[f] ? `（${office.info[f]}）` : ''}`).join('\n') : '- （沒有）'));
+  writeText(J.agents, tpl.replace('{{title}}', title).replace('{{id}}', id).replace('{{request}}', request.trimEnd()));
   writeText(join(J.dir, 'CLAUDE.md'), '@AGENTS.md\n');
   writeText(join(J.dir, '.gitignore'), '# 使用者上傳檔只留本機；TEMP 與 app 狀態不進版控\ndocs/\nTEMP/\n.studio/\n');
   writeJson(J.studioJson, { ...(cli ? { defaultCli: cli } : {}), ...DEFAULT_STUDIO_JSON });

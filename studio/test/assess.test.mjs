@@ -161,6 +161,8 @@ test('評估＋3D（假代理）：第一段完成後把排程節拍回填到可
   try {
     const J = await createProject(ws, { id: 'Both', title: '評估加動畫', prompt: '輸送帶＋龍門取放' });
     writeJson(J.studioJson, { ...readJson(J.studioJson, {}), components: ['assess', '3d'] });
+    // 這個測試看節拍回填：假代理的 BOM 和範本場景本來就對不上，關掉新站的 strict（不然 bom 會擋，那是 strict 的正常行為）
+    const pjf = join(J.dir, 'project.json'); writeJson(pjf, { ...readJson(pjf, {}), strict: false });
     const logs = [], opts = { override: { cli: 'fake', roles: {}, autoApprove: true }, full: false, shots: false, review: false, render: false, stage2: false, log: s => logs.push(s) };
     let r = await runProject(ws, 'Both', opts);
     recordAnswer(J, loadQuestions(J).list[0], { choices: [0] });

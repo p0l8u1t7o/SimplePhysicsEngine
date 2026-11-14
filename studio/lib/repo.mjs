@@ -46,14 +46,20 @@ export function stationChanges(repoRoot, dir = 'project-site') {
   return out;
 }
 
+const stamp = (d = new Date()) => `${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}-${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}`;
+// 本庫模式的 new（開發機，2026-11-14）：站還不存在，從本庫根目錄開分支 <站>/vs3d-new-<月日-時分>（不改任何檔案）
+export function beginNewSiteBranch(root, id) {
+  const name = `${slugOf(id)}/vs3d-new-${stamp()}`;
+  git(root, ['switch', '-q', '-c', name]);
+  return name;
+}
 // 開工檢查＋開分支：目前已經在本專案的 vs3d 分支上就沿用
 export function beginFlow(J, label) {
   const dirty = changes(J);
   if (dirty.length) throw new Error(`本庫的 ${J.id} 有未提交的改動（${dirty.slice(0, 5).map(c => c.path).join('、')}${dirty.length > 5 ? '…' : ''}），請先自行提交或處理後再開始`);
   const cur = branch(J), slug = slugOf(J.id);
   if (cur.startsWith(`${slug}/vs3d-`)) return cur;
-  const d = new Date(), stamp = `${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}-${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}`;
-  const name = `${slug}/vs3d-${label}-${stamp}`;
+  const name = `${slug}/vs3d-${label}-${stamp()}`;
   git(J.dir, ['switch', '-q', '-c', name]);        // 從目前的 HEAD 開新分支：不改任何檔案，未提交的其他改動照樣留著
   return name;
 }

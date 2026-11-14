@@ -58,7 +58,7 @@ export function NewProject({ info, running, onCreated }) {
     if (!form.prompt.trim() && !files.length) return setError('請輸入需求，或上傳至少一個檔案');
     if (!form.components.length) return setError('專案組成至少要選一項');
     setBusy(true);
-    try { await api.create({ ...form, id: form.id.trim(), token }); onCreated(form.id.trim()); }
+    try { const r = await api.create({ ...form, id: form.id.trim(), token }); onCreated(r.id || form.id.trim()); }
     catch (err) { setError(err.message); setBusy(false); }
   }
   const mb = n => n > 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Math.ceil(n / 1e3)} KB`;
@@ -111,11 +111,12 @@ export function NewProject({ info, running, onCreated }) {
         </section>
 
         {error && <div className="notice bad">{error}</div>}
+        {info?.devRepo && <div className="notice">開發機：專案直接建在本庫 <code>project-site/{form.id.trim() || '<名稱>'}/</code>，每次指令在本機分支提交，只動這一站；推送要自己按「推送分支」。</div>}
         {running && <div className="notice warn">目前在執行 {running.id}：新專案會進代理佇列排隊，輪到時自動開始。</div>}
         <div className="bar"><button className="primary big" disabled={busy || uploading}>{busy ? '建立中…' : uploading ? '等上傳完成…' : '建立並開始'}</button></div>
       </form>
       {/* 匯入會直接在工作區建資料夾，代理執行中做會被當成越界寫入，所以要等執行結束 */}
-      <ImportHandoff onCreated={onCreated} disabled={!!running} />
+      {!info?.devRepo && <ImportHandoff onCreated={onCreated} disabled={!!running} />}
     </div>
   );
 }

@@ -110,6 +110,7 @@ if (/任務：自我檢查/.test(prompt)) {
   writeAssess(cwd, true); text = '已修正格式';
 } else if (/^使用者回答了你的問題/.test(prompt) || /要求修改/.test(prompt)) {
   w(join(cwd, '.studio/plan/proposal.md'), '# 配置提案\n\n輸送帶在' + (/左邊/.test(prompt) ? '左邊' : '右邊') + '\n');
+  w(join(cwd, '.studio/plan/spec-summary.md'), '- 資料來源：使用者的需求原文（測試用假資料）\n- 製程流程：入料輸送 → 工作站加工 → 出料\n- 主要設備：輸送帶一條、工作台一座（示意尺寸）\n- 節拍：示意 10 秒一件\n');
   // 有「評估＋成本」的專案另外寫可行性分析與 BOM；第一次故意把市購的相機標成客製件（測試退回）
   if (JSON.parse(readFileSync(join(cwd, 'studio.json'), 'utf8')).components?.includes('assess')) writeAssess(cwd, !!process.env.FAKE_ASSESS_OK);
   text = '提案完成';

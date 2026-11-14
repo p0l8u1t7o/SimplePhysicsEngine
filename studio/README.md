@@ -62,7 +62,7 @@ node studio/vs3d.mjs parts search 相機 GigE                    # 查元件資�
 
 | 選項 | 說明 |
 |---|---|
-| `--workspace <資料夾>` | 工作區位置；預設 `%USERPROFILE%\Documents\3D-Studio`，也可設環境變數 `VS3D_WORKSPACE` |
+| `--workspace <資料夾>` | 工作區位置。開發機從本庫執行時預設就是本庫（站建在 `project-site/`）；部署版預設 `%USERPROFILE%\Documents\3D-Studio`。也可設環境變數 `VS3D_WORKSPACE` |
 | `--cli claude｜codex` | 這次所有角色改用指定的 CLI |
 | `--model <名稱>`、`--role plan=opus,fix=haiku` | 這次所有角色／個別角色的模型；`--role render=codex:<模型>` 可以同時換 CLI |
 | `--effort <等級>` | 推理強度（Claude `--effort`、Codex `model_reasoning_effort`）；沒指定時 Claude 的主要角色是 `high`（見「工作區」的角色指派） |
@@ -129,7 +129,9 @@ studio 產生的專案原本比在 VS Code 裡和 Claude 互動做的粗糙，�
 
 判定一律看 app 自己跑的檢查結果，不採信代理自己回報的「已通過」。
 
-## 工作區
+## 工作區（只有部署版）
+
+2026-11-14 起，開發機上的 3D工作室不建立工作區，直接在本庫 `project-site/` 建站（見「本庫模式」）；下面的工作區只給部署版（給同事用的中央主機）。介面啟動與 `new` 時，工作區的 core 比 app 舊就自動換新（`initWorkspace` 的 `refreshCore`），規則檔也一起重寫。代理的實作規則是工作區 core 的 `SITE-RULES.md`，工作區的 `AGENTS.md` 只寫 app 管理下的特別規定。
 
 ```
 <工作區>/
@@ -151,7 +153,15 @@ studio 產生的專案原本比在 VS Code 裡和 Claude 互動做的粗糙，�
 
 推理強度（2026-11-07）：Claude 的規劃、開發、修正、審查、補強、光學預設 `--effort high`（`lib/roles.mjs` 的 `EFFORT_PRESETS`；元件補全 `enrich` 不設）。原因是 API 金鑰模式用獨立的 `CLAUDE_CONFIG_DIR`（`lib/agent-auth.mjs`），讀不到使用者自己的 effort 設定，不指定就是 CLI 的預設值。和模型一樣只在該 CLI 生效，工作區設定、專案 `studio.json` 的 `roles.<角色>.effort`、命令列 `--effort`／`--role` 都可以蓋過；寫空字串（`"effort": ""`）＝不帶 `--effort`，用 CLI 預設。
 
-## 本庫模式（2026-10-04）
+## 本庫模式（2026-10-04；2026-11-14 起是開發機的預設）
+
+**新建（2026-11-14）**：開發機從本庫啟動介面（或命令列沒給 `--workspace`）時，「新建專案」直接建在 `project-site/<名稱>/`：
+- 先從目前的 HEAD 開本機分支 `<站>/vs3d-new-<月日-時分>`，再用 `core/tools/new-project.mjs` 建站。
+- 保留範本帶出的 `AGENTS.md`、`CLAUDE.md`、`.claude/settings.json`（寫檔關卡）；`project.json` 帶 `"strict": true`。
+- 在 `AGENTS.md` 的「規格摘要」前插入需求。不另建 git 庫，只提交這一站。專案組成預設「評估＋成本」＋「3D 動畫」。
+- 規劃角色另外寫 `.studio/plan/spec-summary.md`，提案確認後 app 把它填進 `AGENTS.md` 的「規格摘要」。
+- 介面左側的專案清單列出 3D工作室建的站（有 `studio.json` 的），所有站仍在「本庫的站」那一頁。交接包匯入只在部署版；上傳暫存放在 `TEMP/studio/uploads/`。
+- 第一段完成後自動產生評估簡報與成本表到 `docs/assessment/`（見「評估簡報」）。
 
 從本庫啟動介面（`scripts\start.cmd` 或 `node studio/vs3d.mjs ui`）時，工作區的專案在左邊的清單，本庫 `project-site/` 的站在「本庫的站」那一頁，可以直接對本庫的站下指令；`--no-repo` 只看工作區。命令列用 `--repo`（或 `--workspace` 指到本庫根目錄）：
 

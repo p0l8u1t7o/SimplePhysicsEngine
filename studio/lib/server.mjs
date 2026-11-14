@@ -85,7 +85,7 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
   const auth = createAuth({ ...(authFile ? { file: authFile } : {}), secure: !!tls });
   if (!LOCAL.has(host) && !auth.enabled()) throw new Error('要開放給其他電腦連線，先建立管理者帳號：node studio/vs3d.mjs users add <帳號> --level admin --password <密碼>');
   if (!LOCAL.has(host) && !tls && !insecureHttp) throw new Error('開放給其他電腦連線時要用 HTTPS：加 --pfx <憑證.pfx>（密碼放環境變數 VS3D_PFX_PASS）或 --cert <憑證.pem> --key <私鑰.pem>；只在測試時用 --insecure-http 跳過');
-  if (!existsSync(paths(ws).marker)) initWorkspace(ws, { log });
+  if (!paths(ws).repo) initWorkspace(ws, { log, refreshCore: true });      // 部署版的工作區：core 比 app 舊就自動換新、規則檔重寫（開發機的工作區就是本庫，不動）
   const P = paths(ws), ffmpeg = findFfmpeg(), dist = join(STUDIO, 'ui', 'dist');
   const clients = new Set();
   const broadcast = (event, data) => { const msg = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`; for (const c of clients) c.write(msg); };
@@ -120,13 +120,14 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
   const Jof = raw => { const l = loc(raw); return projectPaths(l.root, l.name); };
   const start = (cmd, raw, args = [], by = '') => { const l = loc(raw); return runner.start(cmd, raw, args, { name: l.name, root: l.root, by }); };
   const repoIds = () => repo && existsSync(join(repo, 'project-site')) ? readdirSync(join(repo, 'project-site')).filter(n => existsSync(join(repo, 'project-site', n, 'project.json'))).map(n => '@' + n) : [];
-  const projectIds = () => [...(existsSync(P.projects) ? readdirSync(P.projects).filter(n => existsSync(join(P.projects, n, 'studio.json'))) : []), ...repoIds()];
+  // 開發機（工作區就是本庫，P.repo）：專案只有本庫的站，名稱一律帶 @；部署版：工作區的專案＋本庫的站（有的話）
+  const projectIds = () => P.repo ? repoIds() : [...(existsSync(P.projects) ? readdirSync(P.projects).filter(n => existsSync(join(P.projects, n, 'studio.json'))) : []), ...repoIds()];
   // 本庫的站：別的工具改過、還沒提交的檔案（清單一次算完；vs3d 執行中的站不算，那是代理正在改）
   const repoDirty = () => { try { return repo ? stationChanges(repo) : {}; } catch { return {}; } };
   const summary = (id, dirtyMap) => {
     const J = Jof(id), s = loadState(J), pj = readJson(join(J.dir, 'project.json'), {}), pending = loadQuestions(J).list.filter(q => !q.answered);
     let updated = 0; try { updated = statSync(J.state).mtimeMs; } catch { updated = statSync(J.dir).mtimeMs; }
-    return { id, name: loc(id).name, repo: loc(id).repo, branch: s.branch || null, flowActive: !!s.flowActive, title: pj.title || id, summary: pj.summary || '', stage: s.stage, segment: s.segment || 1, round: s.round, pending: pending.length, lastCheck: s.lastCheck && { ok: s.lastCheck.ok, quick: s.lastCheck.quick },
+    return { id, name: loc(id).name, repo: loc(id).repo, vs3d: loc(id).repo && existsSync(J.studioJson), branch: s.branch || null, flowActive: !!s.flowActive, title: pj.title || id, summary: pj.summary || '', stage: s.stage, segment: s.segment || 1, round: s.round, pending: pending.length, lastCheck: s.lastCheck && { ok: s.lastCheck.ok, quick: s.lastCheck.quick },
       render: s.render?.result || null, reviews: s.reviews || 0, updated, components: componentsOf(readJson(J.studioJson, {})), running: runner.current?.id === id,
       queued: (i => i < 0 ? 0 : i + 1)(runner.queue.findIndex(q => q.id === id)),      // 排隊中的第幾位（0 是沒在排隊）
       dirty: loc(id).repo && runner.current?.id !== id ? ((dirtyMap || repoDirty())[loc(id).name] || []) : [] };
@@ -255,7 +256,7 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
           clients.add(res); req.on('close', () => clients.delete(res)); return;
         }
         // options：介面的下拉選單（各 CLI 可選的模型與推理強度），不必呼叫 CLI
-        if (a === 'info') return json(200, { options: Object.fromEntries(Object.values(ADAPTERS).filter(x => x.name !== 'fake').map(x => [x.name, { label: x.label, models: x.listModels(), efforts: x.efforts || [] }])), ws, repo, running: runner.current, queue: runner.queue, ffmpeg: !!ffmpeg, previewPort, roles: ROLES });
+        if (a === 'info') return json(200, { options: Object.fromEntries(Object.values(ADAPTERS).filter(x => x.name !== 'fake').map(x => [x.name, { label: x.label, models: x.listModels(), efforts: x.efforts || [] }])), ws, repo, devRepo: P.repo, running: runner.current, queue: runner.queue, ffmpeg: !!ffmpeg, previewPort, roles: ROLES });
         // 兩種 CLI：有沒有安裝＋目前的認證方式能不能用（訂閱帳號的登入，或 API 金鑰有沒有設定）
         if (a === 'doctor') {
           let system = {}; try { system = (await parts()).system(); } catch { /* 資料庫開不了就用預設 */ }
@@ -338,7 +339,7 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
         }
         if (a === 'uploads' && req.method === 'POST') {
           const token = (url.searchParams.get('token') || '').replace(/[^\w-]/g, '') || randomUUID(), name = basename(url.searchParams.get('name') || 'file');
-          const dir = join(P.ws, '.studio', 'uploads', token); mkdirSync(dir, { recursive: true });
+          const dir = join(P.app, 'uploads', token); mkdirSync(dir, { recursive: true });
           const file = join(dir, name); writeFileSync(file, await body());
           const files = [name];
           if (VIDEO.test(name) && ffmpeg) {     // 代理看不了影片：每 5 秒擷取一張影格，最多 30 張
@@ -353,10 +354,11 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
         }
         // 匯入交接包：先用 /api/uploads 上傳 zip，再帶 token 呼叫
         if (a === 'import' && req.method === 'POST') {
-          const v = await jbody(), dir = join(P.ws, '.studio', 'uploads', String(v.token || '').replace(/[^\w-]/g, ''));
+          const v = await jbody(), dir = join(P.app, 'uploads', String(v.token || '').replace(/[^\w-]/g, ''));
           const zip = existsSync(dir) ? readdirSync(dir).find(f => /\.zip$/i.test(f)) : null;
           if (!zip) return json(400, { error: '請先上傳交接包（.zip）' });
           // 匯入直接在工作區建資料夾：代理執行中做會被每輪的雜湊比對當成越界寫入
+          if (P.repo) return json(400, { error: '開發機直接在本庫 project-site/ 建站，沒有工作區可以匯入交接包（交接包只用於部署版）' });
           if (runner.current) return json(400, { error: `目前在執行 ${runner.current.id}，等它結束再匯入` });
           try {
             const r = await importHandoff(ws, join(dir, zip), { id: (v.name || '').trim() || undefined, log: () => {} });
@@ -370,9 +372,10 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
             const v = await jbody();
             if (!/^[\w][\w .-]*$/.test(v.id || '')) return json(400, { error: '專案名稱請用英數、空白、- 或 _' });
             if (existsSync(projectPaths(ws, v.id).dir)) return json(400, { error: `專案已存在：${v.id}` });
-            const dir = v.token ? join(P.ws, '.studio', 'uploads', v.token.replace(/[^\w-]/g, '')) : null;
+            const newId = P.repo ? '@' + v.id : v.id;      // 開發機：建在本庫 project-site/（本庫模式的 new）
+            const dir = v.token ? join(P.app, 'uploads', v.token.replace(/[^\w-]/g, '')) : null;
             const files = dir && existsSync(dir) ? readdirSync(dir).filter(f => !VIDEO.test(f)).map(f => join(dir, f)) : [];
-            const promptFile = join(P.ws, '.studio', 'uploads', `${randomUUID()}.txt`); mkdirSync(join(P.ws, '.studio', 'uploads'), { recursive: true });
+            const promptFile = join(P.app, 'uploads', `${randomUUID()}.txt`); mkdirSync(join(P.app, 'uploads'), { recursive: true });
             writeFileSync(promptFile, v.prompt || '');
             const args = ['--title', v.title || v.id, '--prompt-file', promptFile, ...(files.length ? ['--files', ...files] : [])];
             if (v.clientNames) args.push('--private', v.clientNames);
@@ -382,9 +385,9 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
             if (v.autoApprove) args.push('--auto-approve');
             if (v.pick) args.push('--pick');
             if (v.components?.length) args.push('--components', v.components.join(','));
-            let q; try { q = runner.start('new', v.id, args, { by: user?.name || '' }); } catch (e) { return json(400, { error: e.message }); }
-            (await store())?.claimProject(v.id, user?.name);         // 建立的人成為擁有者
-            return json(200, { started: true, ...q });
+            let q; try { q = start('new', newId, args, user?.name || ''); } catch (e) { return json(400, { error: e.message }); }
+            (await store())?.claimProject(newId, user?.name);         // 建立的人成為擁有者
+            return json(200, { started: true, id: newId, ...q });
           }
           const members = (await store())?.allMembers() || {};
           const newer = (await store())?.bom.newerByProject() || {};      // BOM 裡有新版元件的行數
