@@ -415,3 +415,10 @@ textarea.mono { font-family: ui-monospace, Consolas, monospace; font-size: 13px;
 .agent-ask textarea { width: 100%; }
 .optics-res td.lab { min-width: 6.5em; } .optics-res td.txt { min-width: 10em; }
 .optics-side .card { overflow-x: auto; }
+
+/* 對話式修改 */
+.chat { display: flex; flex-direction: column; gap: 10px; max-height: 60vh; overflow: auto; margin: 8px 0 12px; }
+.chat .msg { border: 1px solid var(--line, #d8e6dd); border-radius: 10px; padding: 8px 12px; max-width: 92%; }
+.chat .msg.user { align-self: flex-end; background: #eef7f1; }
+.chat .msg.app { align-self: center; font-size: 12.5px; padding: 4px 10px; }
+.chat .msg .grid { margin-top: 8px; }

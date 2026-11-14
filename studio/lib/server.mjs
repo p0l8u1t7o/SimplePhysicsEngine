@@ -487,6 +487,12 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
             return json(200, { components: next, resume: next.includes('3d') && !before.includes('3d') && !s.buildStarted });
           }
           // 評估報告：GET /report?format=html|pdf|md（直接下載，不留在主機；不得顯示的名稱換掉；記一筆操作紀錄）
+          // 對話式修改的紀錄（B 項）：GET /chat → { items: [{ at, role: user|agent|app, text, images（專案相對路徑，TEMP/snap/…）, ok }] }
+          if (b === 'chat' && req.method === 'GET') {
+            const f = join(Jof(id).studio, 'chat.jsonl');
+            const items = existsSync(f) ? readFileSync(f, 'utf8').split(/\r?\n/).filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean) : [];
+            return json(200, { items: items.slice(-200) });
+          }
           if (b === 'report' && req.method === 'GET') {
             const st = await store(); if (!st) return json(500, { error: '元件資料庫開不了（需要 Node.js 22.13 以上）' });
             const R = await import('./report.mjs'), A = await import('./assess.mjs'), fmt = ['html', 'pdf', 'md'].includes(url.searchParams.get('format')) ? url.searchParams.get('format') : 'html';
@@ -541,10 +547,10 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
             return json(200, { ok: true, running: runner.current, queue: runner.queue });
           }
           if (b === 'run' && req.method === 'POST') {
-            const v = await jbody(), cmd = ['resume', 'review', 'render', 'stage2', 'export', 'handoff', 'change', 'check', 'push', 'assess', 'optics'].includes(v.cmd) ? v.cmd : 'resume';
-            if ((cmd === 'change' || cmd === 'assess' || cmd === 'optics') && !String(v.text || '').trim()) return json(400, { error: '請輸入要修改的內容' });
+            const v = await jbody(), cmd = ['resume', 'review', 'render', 'stage2', 'export', 'handoff', 'change', 'chat', 'check', 'push', 'assess', 'optics'].includes(v.cmd) ? v.cmd : 'resume';
+            if ((cmd === 'change' || cmd === 'chat' || cmd === 'assess' || cmd === 'optics') && !String(v.text || '').trim()) return json(400, { error: '請輸入要修改的內容' });
             const args = cmd === 'export' ? (v.formats || ['zip', 'html']).filter(f => ['zip', 'html', 'mp4'].includes(f)).map(f => '--' + f)
-              : cmd === 'change' ? ['--text', String(v.text).trim(), ...(v.keepTiming ? ['--keep-timing'] : [])]
+              : cmd === 'change' || cmd === 'chat' ? ['--text', String(v.text).trim(), ...(v.keepTiming ? ['--keep-timing'] : [])]
               : cmd === 'assess' || cmd === 'optics' ? ['--text', String(v.text).trim()]
               : cmd === 'check' ? (v.full ? ['--full'] : [])
               : [...(v.pick ? ['--pick'] : []), ...(v.focus ? ['--focus', v.focus] : [])];

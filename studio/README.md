@@ -169,6 +169,8 @@ CAD 與圖面（2026-11-14，`lib/cad.mjs`，純 Node，預覽圖用軟體光柵
 
 **代理的 skills**（2026-11-14，`lib/skills.mjs`）：用 API 金鑰的代理以 `studio/data/agent-home/<cli>` 當設定目錄，讀不到主機使用者的 skills。系統設定 `skills.list`（介面「設定」的「代理的 skills」，只有管理者能改；開發機預設 `zq-work-deck`、`coding-action`、`pptx`、`xlsx`、`docx`、`pdf`，部署版預設只有公司自己的 `zq-work-deck`、`coding-action`）列的 skill，每次執行前從 `~/.claude/skills`（含 `synced/` 底下同步來的，取最新的一份）複製到 `<設定目錄>/skills/`，Claude 與 Codex 都同步；白名單拿掉的會刪除，設定目錄裡不是 app 放的不動。用訂閱帳號的 Claude 本來就讀使用者自己的 `~/.claude`，不必同步；使用者自己的 `~/.codex` 不動（所以用訂閱帳號的 Codex 沒有這些 skills）。
 
+**對話式修改**（2026-11-14，B 項）：專案頁的「對話」分頁（命令列 `vs3d chat <名稱> --text "…" [--keep-timing]`）。像在 VS Code 裡和 Claude 對話一樣一句一句改：第一句用修改指令的完整提示開新的開發工作階段，之後每句都續接同一個（記得前面說過的）；每句改完只跑快速檢查，不審查、不補強、不自我檢查，聊完再按「重新審查」做完整檢查與審查。紀錄在 `.studio/chat.jsonl`（使用者、代理的回覆、app 的檢查結果），代理這一輪用 `snap.mjs` 拍的截圖附在回覆裡。本庫的站沿用同一個本機分支，每句提交一次。
+
 角色指派的優先順序：app 預設（`lib/roles.mjs`）＜ 工作區 `.studio/settings.json` ＜ 專案 `studio.json` ＜ 命令列。正式預設（2026-10-04 拍板）：規劃、開發、修正、審查用 Claude `opus`（推理強度 `high`，見下）；渲染與細節補強用 Codex `gpt-6-astra` 高推理（`lib/roles.mjs` 的 `ROLE_DEFAULTS`）；第二段的開發與修正也預設 Codex `gpt-6-astra` 高推理（`SEGMENT_DEFAULTS`）。這是使用者的實務分工：opus 做規劃與主體實作，gpt-6 補強渲染、電盤、電線與細節。評估平台另有兩個角色：光學 `optics`（Claude 預設 opus）與元件補全 `enrich`（Claude 預設 sonnet）。角色改用 Codex 而沒指定模型時，用 Codex 帳號的預設模型（`~/.codex/config.toml`）。命令列 `--cli` 會讓所有角色改用同一種 CLI。`new` 時指定的 `--cli`、`--model`、`--effort`、`--role` 會寫進專案 `studio.json`，之後 `resume` 沿用。
 
 推理強度（2026-11-07）：Claude 的規劃、開發、修正、審查、補強、光學預設 `--effort high`（`lib/roles.mjs` 的 `EFFORT_PRESETS`；元件補全 `enrich` 不設）。原因是 API 金鑰模式用獨立的 `CLAUDE_CONFIG_DIR`（`lib/agent-auth.mjs`），讀不到使用者自己的 effort 設定，不指定就是 CLI 的預設值。和模型一樣只在該 CLI 生效，工作區設定、專案 `studio.json` 的 `roles.<角色>.effort`、命令列 `--effort`／`--role` 都可以蓋過；寫空字串（`"effort": ""`）＝不帶 `--effort`，用 CLI 預設。

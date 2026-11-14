@@ -8,7 +8,7 @@
 //   審查（計畫書 4.7）：看截圖、比對拍板事項與規則；必修項自動送修正 → 重新檢查 → 再審查（最多 3 次）
 //   補強：記下基準（commit、排程指紋、效能、截圖）→ 補強角色 → 守門檢查（檢查全過、指紋與空間檢核不變、效能在預算內，
 //         沒過就退回補強角色，最多 3 次）→ 前後對照頁 → 使用者接受／要求調整／整批還原
-import { existsSync, writeFileSync, mkdirSync, renameSync } from 'node:fs';
+import { existsSync, writeFileSync, mkdirSync, renameSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { adapterFor, runAgent } from './adapters/index.mjs';
 import { agentEnv, AUTH_MODES, loadSystem } from './agent-auth.mjs';
@@ -17,7 +17,7 @@ import { paths, projectPaths, acquireLock, addClientNames, readClientNames, reda
 import { snapshot, verifyAndRestore } from './isolation.mjs';
 import { loadQuestions, pendingQuestions, askInteractive, writeAppQuestion, readAnswer, printQuestion } from './questions.mjs';
 import { runChecks, takeShots, failureSummary, runFingerprint, runCycle, compareRenderFingerprint, runPerf, comparePerf } from './checks.mjs';
-import { header, rolePrompt, taskPrompt, answersPrompt, fixAgainPrompt, invalidQuestionsPrompt, mustFixPrompt, renderGuardPrompt, renderRevisePrompt, selfReviewPrompt } from './prompts.mjs';
+import { header, rolePrompt, taskPrompt, chatTurnPrompt, chatFirstNote, answersPrompt, fixAgainPrompt, invalidQuestionsPrompt, mustFixPrompt, renderGuardPrompt, renderRevisePrompt, selfReviewPrompt } from './prompts.mjs';
 import { REF_ROLES, refRootFor, pickReferences, prepareReferences, snapshotRefs, diffRefs } from './references.mjs';
 import { writeComparePage } from './compare.mjs';
 import { componentsOf, checkPlanFiles, importAssessment, writePlanFiles, writeBomSummary } from './assess.mjs';
@@ -433,7 +433,15 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
             if (!fp.ok) throw new Stop(`無法產生排程指紋：${fp.error}`);
             writeJson(join(J.studio, 'segment2', 'base-fingerprint.json'), fp); state.segBase = { commit: git(J.dir, ['rev-parse', 'HEAD']).trim() };
           }
-          await round('build', rolePrompt('change', ctxFor({ role: 'build', request: state.changeRequest, lockSchedule: !!state.lockSchedule })));
+          if (state.flow === 'chat') {
+            // 對話式修改（B 項）：有開發工作階段就續接（上下文延續），沒有就用修改指令的完整提示開新的；代理這一輪拍的 snap 截圖附在回覆裡
+            const t0 = Date.now(), resume = !!state.sessions[sk('build')];
+            const res = await round('build', resume ? chatTurnPrompt(state.changeRequest, { lockSchedule: !!state.lockSchedule })
+              : `${rolePrompt('change', ctxFor({ role: 'build', request: state.changeRequest, lockSchedule: !!state.lockSchedule }))}\n\n${chatFirstNote}`, { resume });
+            const snapDir = join(J.dir, 'TEMP', 'snap');
+            const images = existsSync(snapDir) ? readdirSync(snapDir).filter(f => f.endsWith('.png')).map(f => join(snapDir, f)).filter(f => statSync(f).mtimeMs >= t0 - 1000).slice(-6).map(f => rel(J.dir, f)) : [];
+            appendJsonl(join(J.studio, 'chat.jsonl'), { at: now(), role: 'agent', text: res.text || '', images, round: state.round });
+          } else await round('build', rolePrompt('change', ctxFor({ role: 'build', request: state.changeRequest, lockSchedule: !!state.lockSchedule })));
           state.selfReviewDue = false;     // 修改指令不做自我檢查（之後直接審查）
           state.stage = 'check';
           break;
@@ -622,6 +630,12 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
           state.stage = 'check'; save();
           return { status: 'paused' };
         case 'done':
+          // 對話式修改的一句做完：檢查結果記進對話，回到「完成」等下一句
+          if (state.flow === 'chat') {
+            const lc = state.lastCheck;
+            appendJsonl(join(J.studio, 'chat.jsonl'), { at: now(), role: 'app', ok: !!lc?.ok, text: lc ? (lc.ok ? `快速檢查通過（${lc.rows} 項）` : `快速檢查有 ${lc.failures.length} 項沒過：${lc.failures.slice(0, 3).map(f => f.check).join('、')}`) : '沒有檢查結果' });
+            state.flow = null;
+          }
           // 評估＋3D：第一段完成後，把排程的節拍與瓶頸回填到可行性分析（存成新的一版；評估平台 Q9）；要在產生評估簡報之前
           if (seg() === 1 && has('assess') && has('3d') && state.buildStarted && !state.cycleBackfilled) {
             state.cycleBackfilled = true;

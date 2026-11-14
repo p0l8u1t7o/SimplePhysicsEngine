@@ -278,6 +278,14 @@ ${focus ? `\n這次的處理範圍：${focus}\n` : ''}
 
 const failureText = c => c.failures.map(f => [`- **${f.check}**：${f.note}`, ...f.detail.slice(0, 25).map(d => `    ${d}`)].join('\n')).join('\n');
 
+// 對話式修改（2026-11-14，B 項）：續接同一個開發工作階段，使用者一句一句說，每句改完只跑快速檢查（不審查、不補強）
+export const chatTurnPrompt = (message, { lockSchedule = false } = {}) => [
+  '使用者接著說：', '', message.split('\n').map(l => '> ' + l).join('\n'), '',
+  '照上面的意思修改（規則和修改指令相同：只改提到的部分，和已拍板事項衝突就寫問題檔問；改了外觀、配置或動作就用 snap.mjs 拍來看）。' +
+  (lockSchedule ? '**不能改節拍與動作**（app 會比對排程指紋）。' : ''),
+  '完成後跑快速檢查並修到通過。結束訊息直接回覆使用者：一兩句說做了什麼、要他確認什麼；不用列檔案清單。'].join('\n');
+export const chatFirstNote = '這是**對話式修改**的第一句：之後使用者會在同一個工作階段接著說，每句改完 app 只跑快速檢查。結束訊息直接回覆使用者（一兩句說做了什麼、要他確認什麼）。';
+
 // 評估簡報的逐頁目視檢查（2026-11-14，G 項）：審查角色看每頁的圖片，寫 .studio/reviews/deck-<n>.json
 TASK.deckReview = ({ pngs = [], n = 1 }) => `## 任務：評估簡報逐頁目視檢查
 

@@ -23,6 +23,7 @@ export const api = {
   create: v => call('POST', '/api/projects', v),
   answer: (id, v) => call('POST', `/api/projects/${encodeURIComponent(id)}/answer`, v),
   run: (id, v) => call('POST', `/api/projects/${encodeURIComponent(id)}/run`, v),
+  chat: id => call('GET', `/api/projects/${encodeURIComponent(id)}/chat`),
   stop: () => call('POST', '/api/stop'),
   cancelQueued: qid => call('DELETE', `/api/queue/${encodeURIComponent(qid)}`),     // 取消代理佇列裡排隊中的一筆
   cancel: id => call('POST', `/api/projects/${encodeURIComponent(id)}/cancel`),

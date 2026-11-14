@@ -37,6 +37,11 @@ if (/任務：自我檢查/.test(prompt)) {
     files: process.env.FAKE_ENRICH_FILE ? [{ url: process.env.FAKE_ENRICH_FILE, kind: 'datasheet', title: '規格書' }] : [],
   }));
   text = '查到 4 個欄位';
+} else if (/^使用者接著說/.test(prompt)) {
+  // 對話式修改的後續句：改一個檔，並「拍」一張 snap 截圖（app 會附在回覆裡）
+  w(join(cwd, 'web/chat.txt'), prompt.split('\n')[2] || '');
+  w(join(cwd, 'TEMP/snap/iso@1.png'), 'png');
+  text = '已照你說的改：' + (prompt.split('\n')[2] || '').replace(/^> /, '');
 } else if (/任務：依使用者的要求修改/.test(prompt)) {
   // 修改指令：在專案裡加一個檔，並改一個既有檔
   w(join(cwd, 'web/change.txt'), 'changed');

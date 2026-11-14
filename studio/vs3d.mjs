@@ -19,6 +19,8 @@
 //   node studio/vs3d.mjs render <名稱> [--pick] [--focus "範圍"]  重新做渲染與細節補強（--pick 先挑項目）
 //   node studio/vs3d.mjs stage2 <名稱>                            開始第二段（電控、電盤、配線、相機）；第一段完成時也會出卡片詢問
 //   node studio/vs3d.mjs export <名稱> [--zip] [--html] [--mp4]   匯出成品到專案 TEMP/exports/（不指定時輸出網站壓縮檔＋單一 HTML）
+//   node studio/vs3d.mjs chat <名稱> --text "要改的內容" [--keep-timing]   對話式修改：續接同一個開發工作階段，每句只跑快速檢查（紀錄在 .studio/chat.jsonl）
+//   node studio/vs3d.mjs extract <名稱> [檔名…]                    重新抽取 docs/ 的 Office、DXF、STEP 到 docs/<檔名>.extract/
 //   node studio/vs3d.mjs handoff <名稱> [--out 檔案]              匯出交接包（git 歷史、上傳檔、提問與紀錄、不得顯示的名稱）
 //   node studio/vs3d.mjs import <交接包.zip> [--name 新名稱]       匯入交接包，之後用 resume 續跑
 //   node studio/vs3d.mjs change <名稱> --text "要改的內容" [--keep-timing]   修改指令：開發角色照做 → 檢查 → 審查（--keep-timing 不能改節拍與動作）
@@ -212,6 +214,19 @@ switch (cmd) {
     beginRepoFlow(J, s, 'change');
     writeJson(J.state, s);
     report(await runProject(ws, name, { ...runOpts(), render: false, stage2: false }));
+    break;
+  }
+  // 對話式修改（B 項）：續接同一個開發工作階段，一句一句改；每句只跑快速檢查，不審查、不補強（聊完可以按「重新審查」）
+  case 'chat': {
+    const J = needProject(), s = loadState(J), text = (o['text-file'] ? readText(resolve(o['text-file'])) : o.text || '').trim();
+    if (!text) fail('用法：vs3d chat <名稱> --text "要改的內容" [--keep-timing]');
+    if (s.stage !== 'done') fail(`專案目前在「${s.stage}」階段，完成後才能對話修改（續跑用 vs3d resume）`);
+    const { appendJsonl, now } = await import('./lib/util.mjs');
+    appendJsonl(join(J.studio, 'chat.jsonl'), { at: now(), role: 'user', text, ...(process.env.VS3D_BY ? { by: process.env.VS3D_BY } : {}) });
+    Object.assign(s, { stage: 'change', flow: 'chat', changeRequest: text, lockSchedule: !!o['keep-timing'], segBase: null, waiting: null, streak: {} });
+    beginRepoFlow(J, s, 'chat');
+    writeJson(J.state, s);
+    report(await runProject(ws, name, { ...runOpts(), full: false, shots: false, review: false, render: false, stage2: false, selfReview: 0 }));
     break;
   }
   case 'assess': {

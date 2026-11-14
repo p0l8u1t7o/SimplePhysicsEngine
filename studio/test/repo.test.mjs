@@ -159,3 +159,22 @@ test('本庫模式：new 建在 project-site/、保留規則檔與寫檔關卡�
   assert.deepEqual(JSON.parse(readFileSync(J.studioJson, 'utf8')).components, ['assess', '3d']);
   assert.equal(JSON.parse(readFileSync(join(J.dir, 'project.json'), 'utf8')).strict, true);
 });
+
+// 對話式修改（B 項）：第一句開新的工作階段（修改指令的完整提示），之後續接同一個；每句只跑快速檢查，紀錄寫在 .studio/chat.jsonl
+test('本庫模式：chat 一句一句改、續接同一個開發工作階段、紀錄含代理截圖與檢查結果', () => {
+  const J = projectPaths(root, 'Demo');
+  const r1 = vs3d('chat', 'Demo', '--text', '出料台往右移');
+  assert.equal(r1.status, 0, r1.stdout + r1.stderr);
+  const s1 = loadState(J), sid = s1.sessions[Object.keys(s1.sessions).find(k => k.startsWith('build'))]?.sessionId;
+  assert.equal(s1.stage, 'done'); assert.equal(s1.flow, null); assert.ok(sid);
+  const r2 = vs3d('chat', 'Demo', '--text', '標籤字大一點');
+  assert.equal(r2.status, 0, r2.stdout + r2.stderr);
+  assert.match(readFileSync(join(J.dir, 'web', 'chat.txt'), 'utf8'), /標籤字大一點/);
+  const items = readFileSync(join(J.studio, 'chat.jsonl'), 'utf8').trim().split('\n').map(l => JSON.parse(l));
+  assert.deepEqual(items.map(m => m.role), ['user', 'agent', 'app', 'user', 'agent', 'app']);
+  assert.match(items[4].text, /已照你說的改：標籤字大一點/); assert.deepEqual(items[4].images, ['TEMP/snap/iso@1.png']);
+  assert.equal(items[5].ok, true);
+  const rounds = readFileSync(J.rounds, 'utf8').trim().split('\n').map(l => JSON.parse(l)).filter(x => x.role === 'build');
+  assert.equal(rounds.at(-1).sessionId, sid, '第二句續接同一個開發工作階段');
+  assert.ok(!rounds.some(x => x.role === 'review'), '對話不審查');
+});

@@ -6,9 +6,9 @@ import { Select, ConfirmButton, RENDER_FOCUS } from './fields.jsx';
 import { CostSheet } from './CostSheet.jsx';
 import { Assessment, Components } from './Assessment.jsx';
 
-const TABS = [['progress', '進度'], ['questions', '問題'], ['proposal', '提案'], ['assess', '可行性'], ['review', '審查'], ['preview', '預覽'], ['shots', '截圖'], ['compare', '補強對照'], ['cost', '成本表'], ['rules', '規則'], ['members', '成員']];
+const TABS = [['progress', '進度'], ['chat', '對話'], ['questions', '問題'], ['proposal', '提案'], ['assess', '可行性'], ['review', '審查'], ['preview', '預覽'], ['shots', '截圖'], ['compare', '補強對照'], ['cost', '成本表'], ['rules', '規則'], ['members', '成員']];
 // 依專案組成顯示的分頁（評估平台 Q6）：可行性只在有「評估＋成本」時、3D 的分頁只在有「3D 動畫」時
-const TAB_NEEDS = { assess: 'assess', review: '3d', preview: '3d', shots: '3d', compare: '3d' };
+const TAB_NEEDS = { chat: '3d', assess: 'assess', review: '3d', preview: '3d', shots: '3d', compare: '3d' };
 const min = s => `${(s / 60).toFixed(1)} 分`;
 const RENDER_RESULT = { accepted: '已接受', reverted: '已整批還原', 'accepted-with-failures': '已接受（守門未全過）', skipped: '使用者選擇不補強' };
 
@@ -212,6 +212,7 @@ export function ProjectView({ id, tick, running, queue = [], onChange, onDeleted
 
       {tab === 'compare' && (p.compare ? <iframe className="frame" title="補強對照" src={fileUrl(id, p.compare)} /> : <p className="mute">還沒有補強。</p>)}
 
+      {tab === 'chat' && <ChatPanel id={id} p={p} done={done} busy={busy} blocked={flowBlocked || !canEdit} act={act} />}
       {tab === 'rules' && <><div className="card pre">{p.agents}</div><div className="card"><h3>上傳的資料（docs/）</h3><ul>{p.docs.map(f => <li key={f}><a href={fileUrl(id, `docs/${f}`)} target="_blank" rel="noreferrer">{f}</a></li>)}</ul></div></>}
 
       {tab === 'members' && <Members id={id} onChange={load} />}
@@ -221,4 +222,28 @@ export function ProjectView({ id, tick, running, queue = [], onChange, onDeleted
       {zoom && <div className="zoom" onClick={() => setZoom(null)}><img src={zoom} /></div>}
     </div>
   );
+}
+
+// 對話式修改（B 項）：續接同一個開發工作階段，一句一句改；每句只跑快速檢查（不審查、不補強），代理這一輪拍的截圖附在回覆裡
+function ChatPanel({ id, p, done, busy, blocked, act }) {
+  const [items, setItems] = useState([]), [text, setText] = useState(''), [keepTiming, setKeepTiming] = useState(false);
+  useEffect(() => { api.chat(id).then(r => setItems(r.items)).catch(() => {}); }, [id, p.stage, p.round, busy]);
+  const send = () => act(async () => { await api.run(id, { cmd: 'chat', text, keepTiming }); setText(''); });
+  const who = { user: '你', agent: '代理', app: 'app' };
+  return <section className="card">
+    <h3>對話式修改</h3>
+    <div className="mute hint">像在 VS Code 裡和 Claude 對話一樣一句一句改：代理續接同一個開發工作階段（記得前面說過的），每句改完只跑快速檢查。聊完再到「進度」按「重新審查」做完整檢查與審查。{p.repo && <>本庫的站在同一個本機分支上累積提交。</>}</div>
+    <div className="chat">{items.length ? items.map((m, i) => <div key={i} className={`msg ${m.role}`}>
+      <div className="mute">{who[m.role] || m.role}{m.by ? `（${m.by}）` : ''} · {new Date(m.at).toLocaleString()}</div>
+      <div className={m.role === 'app' ? (m.ok ? 'ok' : 'bad') : ''} style={{ whiteSpace: 'pre-wrap' }}>{m.text}</div>
+      {m.images?.length > 0 && <div className="grid">{m.images.map(f => <a key={f} href={fileUrl(id, f)} target="_blank" rel="noreferrer"><img src={fileUrl(id, f)} loading="lazy" alt={f.split('/').pop()} /></a>)}</div>}
+    </div>) : <p className="mute">還沒有對話。第一句會開新的工作階段並讀過專案現況，之後的每句都接著做。</p>}</div>
+    <textarea rows={3} value={text} onChange={e => setText(e.target.value)} placeholder="例如「出料台往右移 200 mm」，接著「標籤字大一點」…" disabled={blocked} />
+    <div className="bar">
+      <label className="check"><input type="checkbox" checked={keepTiming} onChange={e => setKeepTiming(e.target.checked)} /> 不能改節拍與動作</label>
+      <span className="grow" />
+      {busy && <span className="mute">代理正在處理…</span>}
+      <button className="primary" disabled={blocked || busy || !done || !text.trim()} onClick={send}>送出</button>
+    </div>
+  </section>;
 }
