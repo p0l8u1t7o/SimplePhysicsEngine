@@ -132,6 +132,30 @@ function Trash() {
   </section>;
 }
 
+// 常見錯誤清單：審查必修項的通則（lib/lessons.mjs），規劃與開發前附給代理；可以改寫、停用、刪除
+function Lessons({ canEdit }) {
+  const [items, setItems] = useState(null), [msg, setMsg] = useState(''), [edit, setEdit] = useState(null);
+  const load = () => api.lessons().then(r => setItems(r.items)).catch(e => setMsg('✗ ' + e.message));
+  useEffect(() => { load(); }, []);
+  if (!items) return msg ? <LoadFailed title="常見錯誤清單" msg={msg} retry={() => { setMsg(''); load(); }} /> : null;
+  const act = fn => { setMsg(''); fn().then(() => { setEdit(null); load(); }).catch(e => setMsg('✗ ' + e.message)); };
+  const list = [...items].sort((a, b) => b.count - a.count || b.lastAt.localeCompare(a.lastAt));
+  return <section className="card form"><h3>常見錯誤清單<span className="chip">{items.filter(x => !x.disabled).length}</span></h3>
+    <p className="mute hint">審查角色抓到的必修問題整理成的通則（不含站名與用戶名稱），每次執行前寫到專案的 <code>.studio/lessons.md</code> 給規劃、開發、修正、補強先看。次數高的排前面，最多附 40 條；不適用的停用或刪除。</p>
+    {list.length ? <div className="scroll"><table className="data"><thead><tr><th>通則</th><th className="num">次數</th><th>專案</th><th /></tr></thead><tbody>
+      {list.map(x => <tr key={x.id} className={x.disabled ? 'mute' : ''}>
+        <td>{edit?.id === x.id ? <input value={edit.text} onChange={e => setEdit({ ...edit, text: e.target.value })} aria-label="通則內容" style={{ width: '100%' }} /> : x.text}</td>
+        <td className="num">{x.count}</td><td className="mute">{x.projects.join('、')}</td>
+        <td className="ops nowrap">{canEdit && (edit?.id === x.id
+          ? <><button type="button" onClick={() => act(() => api.updateLesson(x.id, { text: edit.text }))}>儲存</button><button type="button" onClick={() => setEdit(null)}>取消</button></>
+          : <><button type="button" onClick={() => setEdit({ id: x.id, text: x.text })}>改寫</button>
+            <button type="button" onClick={() => act(() => api.updateLesson(x.id, { disabled: !x.disabled }))}>{x.disabled ? '啟用' : '停用'}</button>
+            <ConfirmButton label="刪除" confirmLabel="確定刪除？" onConfirm={() => act(() => api.deleteLesson(x.id))} /></>)}</td></tr>)}
+    </tbody></table></div> : <p className="mute">還沒有。審查角色在必修項寫了通則（lesson）後會出現在這裡。</p>}
+    {msg && <div className="bad">{msg}</div>}
+  </section>;
+}
+
 export function Settings({ info, user }) {
   const isAdmin = !user || user.role === 'admin';       // 還沒有帳號的單機模式等同管理者
   const [data, setData] = useState(null);
@@ -171,6 +195,7 @@ export function Settings({ info, user }) {
       </section>
       <SystemSettings canEdit={isAdmin} />
       {isAdmin && <FxRates />}
+      <Lessons canEdit={!user || user.role !== 'viewer'} />
       {isAdmin && <Trash />}
     </div>
   );

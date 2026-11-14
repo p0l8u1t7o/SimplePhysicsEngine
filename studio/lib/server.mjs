@@ -267,6 +267,15 @@ export async function startUi(ws, { port = 8780, log = console.log, repo = null,
             return { name: x.name, label: x.label, models: x.listModels(), ...d, ...s, modeLabel: AUTH_MODES[s.mode] };
           })));
         }
+        // 常見錯誤清單（lib/lessons.mjs）：GET 列出；PUT /api/lessons/<id> { text, disabled }；DELETE /api/lessons/<id>（唯讀帳號由 denied() 擋）
+        if (a === 'lessons') {
+          const L = await import('./lessons.mjs');
+          try {
+            if (id && req.method === 'PUT') return json(200, { item: L.updateLesson(id, await jbody()) });
+            if (id && req.method === 'DELETE') { L.deleteLesson(id); return json(200, { deleted: id }); }
+          } catch (e) { return json(400, { error: e.message }); }
+          return json(200, { items: L.listLessons() });
+        }
         // 回收桶（刪除的專案；只有管理者）：GET 列出；DELETE /api/trash/<項目> 永久刪除一個；POST /api/trash/purge { days } 刪掉超過幾天的
         if (a === 'trash') {
           try {

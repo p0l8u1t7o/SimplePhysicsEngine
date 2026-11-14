@@ -44,6 +44,7 @@ export function handoff({ J, check, shotsDir, notes = [], violations = [], refer
   const out = ['## 交接摘要', ''];
   out.push(`- 需求與已拍板事項：\`AGENTS.md\``);
   if (readText(join(J.plan, 'proposal.md'))) out.push(`- 配置提案：\`.studio/plan/proposal.md\``);
+  if (readText(join(J.studio, 'lessons.md')).trim()) out.push(`- 常見錯誤清單：\`.studio/lessons.md\`（過去專案審查抓到的必修問題整理成的通則；動手前先看過，同樣的錯不要再犯。不要修改這個檔）`);
   if (readText(join(J.studio, 'parts-catalog.md'))) out.push(`- 元件資料庫清單：\`.studio/parts-catalog.md\`（過去專案用過的元件、規格與參考單價；選型、列元件表、估成本時先查，沿用的寫出元件編號，例如 P-00132；清單沒有的標「新元件」。不要修改這個檔）`);
   if (readText(join(J.plan, 'segment2.md'))) out.push(`- 第二段提案：\`.studio/plan/segment2.md\`、\`.studio/plan/segment2.json\`；寫法見 \`core/examples/segment2/README.md\``);
   if (check) out.push(`- 最近一次檢查（${check.quick ? '快速' : '完整'}）：${check.ok ? '全部通過' : `${check.failures.length} 項失敗`}`);
@@ -244,7 +245,7 @@ ${refs.length ? `\n使用者提供的參考資料（照片、圖面）：\n\n${r
 \`\`\`json
 {
   "must": [
-    { "id": "M1", "issue": "違反了什麼（引用拍板事項或規則原文）", "evidence": "在哪裡看到（截圖檔名、檔案與函式）", "fix": "要怎麼改" }
+    { "id": "M1", "issue": "違反了什麼（引用拍板事項或規則原文）", "evidence": "在哪裡看到（截圖檔名、檔案與函式）", "fix": "要怎麼改", "lesson": "給之後所有專案的一句通則（選填）" }
   ],
   "suggest": [
     { "id": "S1", "area": "材質｜細部幾何｜燈光｜鏡頭｜標籤｜其他", "item": "建議補強的具體內容", "priority": 1 }
@@ -254,6 +255,7 @@ ${refs.length ? `\n使用者提供的參考資料（照片、圖面）：\n\n${r
 \`\`\`
 
 - **must（必修）只放違反已拍板事項、需求或工作區規則的問題**，例如順序做反、做了明講不做的東西、拍板的設備沒出現、畫面或檔案出現用戶名稱。外觀好不好看不算必修。
+- 必修項的 **lesson**：這個錯如果別的專案也可能犯，寫成一句通則（例如「夾爪閉合時不能和工件重疊，要留 1 mm 以上間隙」）；不要寫站名、用戶名稱、這個專案特有的尺寸或設備。只跟這個專案的拍板有關的就不寫。app 會把它累積到常見錯誤清單（\`.studio/lessons.md\`），之後的專案先看過。
 - **suggest（建議補強）**只放外觀：材質、細部幾何（倒角、螺絲、溝槽、管線、標示）、燈光、鏡頭構圖、標籤樣式；不可以要求改節拍、動作或站位。priority 1 最重要、3 最次要，最多 15 項。有參考站的話，拿它們的細節水準當比較基準。
 ${components.includes('assess') && segment === 1 && !request ? ASSESS_REVIEW : ''}${segment === 2 ? '- 第二段的必修另外看：提案列的電控元件、相機與光源有沒有做出來，位置與視野是否照提案；電盤是否擋到動線或門打不開；線路或相機懸空沒有固定；相機子畫面與疊圖有沒有呈現；第一段的內容有沒有被改壞。\n- 第二段的建議補強集中在電盤內部（線槽、標籤、端子）、線材（束帶、固定座、彎曲）、相機與光源外觀。\n' : ''}- 沒有問題就給空陣列。寫完檔案就結束。`;
 

@@ -24,6 +24,7 @@ import { componentsOf, checkPlanFiles, importAssessment, writePlanFiles, writeBo
 import * as repoGit from './repo.mjs';
 import { buildProjectDeck } from './deck.mjs';
 import { registerCoreRequests } from './core-requests.mjs';
+import { addLessons, writeLessons } from './lessons.mjs';
 import { isDeploy } from './edition.mjs';
 import { readJson, writeJson, appendJsonl, git, now, readText, rel } from './util.mjs';
 import { readdirSync } from 'node:fs';
@@ -67,6 +68,8 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
   }
   // 元件資料庫的清單寫一份到專案裡給代理查（資料庫不存在、是空的、或 Node 版本太舊沒有 node:sqlite 就略過）
   try { const { writeCatalog, writePartsModels } = await import('./parts-catalog.mjs'); const names = readClientNames(ws), redact = s => redactNames(s, names); writeCatalog(J, { redact }); writePartsModels(J, { redact }); } catch { /* 沒有清單不影響流程 */ }
+  // 常見錯誤清單（過去審查的必修項通則）寫一份到專案裡給代理看
+  try { writeLessons(J, { names: readClientNames(ws) }); } catch { /* 沒有清單不影響流程 */ }
   // 提案確認後：把規劃角色寫的元件表匯入元件資料庫（沿用的加使用紀錄，新的標「待確認」）；沒有元件表或讀不了資料庫都不影響流程
   async function importParts() {
     try {
@@ -463,6 +466,8 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
           state.reviewData = { n, must: rv.must || [], suggest: (rv.suggest || []).sort((a, b) => (a.priority ?? 2) - (b.priority ?? 2)), summary: rv.summary || '' };
           log(`  審查：必修 ${state.reviewData.must.length} 項、建議補強 ${state.reviewData.suggest.length} 項${rv.summary ? `；${short(rv.summary, 120)}` : ''}`);
           for (const m of state.reviewData.must) log(`    ✗ ${m.id} ${short(m.issue, 140)}`);
+          // 必修項的通則（lesson）累積成常見錯誤清單，之後的專案先看過
+          try { const L = addLessons(state.reviewData.must, { project: J.repo ? '@' + id : id, names: readClientNames(ws) }); if (L.added || L.counted) log(`  常見錯誤清單：新增 ${L.added} 條、累計 ${L.counted} 條`); } catch (e) { log(`  ! 常見錯誤清單沒有更新：${e.message}`); }
           appendJsonl(J.rounds, { review: n, at: now(), must: state.reviewData.must.map(m => `${m.id}：${m.issue}`), suggest: state.reviewData.suggest.length });
           if (state.reviewData.must.length && n < REVIEW_LIMIT && wantReviewFix) state.stage = 'review-fix';
           else {
