@@ -276,6 +276,46 @@ ${focus ? `\n這次的處理範圍：${focus}\n` : ''}
 
 const failureText = c => c.failures.map(f => [`- **${f.check}**：${f.note}`, ...f.detail.slice(0, 25).map(d => `    ${d}`)].join('\n')).join('\n');
 
+// 評估簡報的逐頁目視檢查（2026-11-14，G 項）：審查角色看每頁的圖片，寫 .studio/reviews/deck-<n>.json
+TASK.deckReview = ({ pngs = [], n = 1 }) => `## 任務：評估簡報逐頁目視檢查
+
+app 用資料庫的配置提案、可行性分析與成本表產生了評估簡報（公司樣板），每頁轉成一張圖片（用讀檔工具逐頁打開看）：
+
+${pngs.map(p => `- \`${p}\``).join('\n')}
+
+逐頁檢查下列問題，寫到 \`.studio/reviews/deck-${n}.json\`：
+
+- **overflow**：文字超出框、被截斷、壓到頁尾色條或右上角標誌
+- **overlap**：文字、表格、圖片互相重疊
+- **empty**：一頁只有一兩行、或表格與清單是空的「（無）」「（提案未列）」
+- **placeholder**：殘留假資料、TODO、XXX、英文欄位名稱
+- **inconsistent**：同一個數字在不同頁不一致（總價、節拍、風險數），或和 \`AGENTS.md\`、配置提案矛盾
+- **name**：出現用戶（客戶）名稱
+
+\`\`\`json
+{
+  "issues": [
+    { "slide": 3, "kind": "overflow", "where": "右欄第 2 點", "text": "頁面上的原文（前 30 字）", "fix": "content", "suggestion": "把站位配置的第 2 點縮到 30 字以內" }
+  ],
+  "summary": "一兩句總評"
+}
+\`\`\`
+
+- \`fix\` 寫 \`content\`（改評估資料的文字或數字就能修，例如描述太長、數字矛盾）或 \`layout\`（版面產生器的問題，資料再短也修不好）。
+- 只報看得到的問題，外觀好不好看不算；沒有問題就給空陣列。這一輪只寫 \`.studio/reviews/\`，寫完就結束。`;
+
+// 評估簡報有內容問題：規劃角色修改評估資料（app 已把資料庫的最新版寫回 .studio/plan/）
+TASK.deckRevise = ({ issues = [] }) => `## 任務：依簡報檢查修改評估資料
+
+app 用 \`.studio/plan/\` 的評估資料（\`proposal.md\`、\`feasibility.md\`、\`feasibility.json\`、\`bom.json\`，已寫回資料庫的最新版）產生評估簡報，目視檢查發現下列內容問題：
+
+${issues.map(i => `- 第 ${i.slide} 頁（${i.kind}）${i.where || ''}：${i.text || ''} → ${i.suggestion || '請修正'}`).join('\n')}
+
+只改造成這些問題的文字：描述太長就精簡（意思不變，條列每點 40 字以內），數字矛盾就以 \`AGENTS.md\` 與配置提案為準改一致；結論（verdict）、成本金額與元件不要改，除非問題就是它們。格式照原本的規劃任務。改完就結束，app 會重新匯入並產生簡報。`;
+
+// 指定任務（不照角色名稱挑）：簡報檢查用審查角色、簡報修改用規劃角色
+export const taskPrompt = (role, task, ctx) => [header({ ...ctx, role }), handoff(ctx), TASK[task](ctx)].join('\n\n');
+
 export function rolePrompt(role, ctx) {
   const key = ctx.segment === 2 && TASK[role + '2'] ? role + '2' : role;   // 第二段有自己的規劃與開發任務
   if (!TASK[key]) throw new Error(`角色 ${role} 尚未提供提示`);

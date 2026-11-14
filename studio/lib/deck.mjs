@@ -91,6 +91,20 @@ export function deckData(d, { names = [] } = {}) {
   return out;
 }
 
+// 簡報轉成每頁一張 PNG（G 項目視檢查用）：Windows 上用 PowerPoint 的 COM（Slide.Export，1280×720，檔名 slide-NN.png 不受 Office 語系影響）。
+//   沒有 PowerPoint（或不是 Windows）回傳 { error }，呼叫端略過目視檢查並說明
+export function renderDeck(pptx, outDir) {
+  if (process.platform !== 'win32') return { error: '不是 Windows，沒有 PowerPoint 可以轉圖片' };
+  rmSync(outDir, { recursive: true, force: true }); mkdirSync(outDir, { recursive: true });
+  const q = s => `'${String(s).replace(/'/g, "''")}'`;
+  const ps = [`$ErrorActionPreference = 'Stop'`, `$ppt = New-Object -ComObject PowerPoint.Application`,
+    `try { $p = $ppt.Presentations.Open(${q(pptx)}, $true, $false, $false); foreach ($s in $p.Slides) { $s.Export((Join-Path ${q(outDir)} ('slide-{0:D2}.png' -f $s.SlideIndex)), 'PNG', 1280, 720) }; $p.Close() } finally { $ppt.Quit() }`].join('; ');
+  const r = spawnSync('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps], { encoding: 'utf8', windowsHide: true, timeout: 180000 });
+  const pngs = existsSync(outDir) ? readdirSync(outDir).filter(f => /^slide-\d+\.png$/.test(f)).sort().map(f => join(outDir, f)) : [];
+  if (!pngs.length) return { error: `PowerPoint 轉圖片失敗${r.stderr ? `（${r.stderr.trim().split('\n').pop().slice(0, 160)}）` : '（這台電腦可能沒有安裝 PowerPoint）'}` };
+  return { pngs };
+}
+
 // 專案的截圖：指定的資料夾，或 3D工作室最近一次截圖（state.shots/<站>），或 VS Code 端照 SITE-RULES 拍的 TEMP/<站>-shots/
 export function projectShots(J, { shotsDir = null, state = null } = {}) {
   const cands = [shotsDir, state?.shots && join(state.shots, J.id), join(dirname(dirname(J.dir)), 'TEMP', `${J.id}-shots`, J.id), join(dirname(dirname(J.dir)), 'TEMP', `${J.id}-shots`)].filter(Boolean);

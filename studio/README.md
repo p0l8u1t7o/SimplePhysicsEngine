@@ -309,6 +309,7 @@ node studio/vs3d.mjs users remove amy
 - **評估簡報**（2026-11-14，`lib/deck.mjs`＋`tools/assessment_deck.py`）：新站（`project.json` 的 `strict`）在開發機上完成第一段後，自動把公司樣板的評估簡報 pptx 與成本表 xlsx 寫到站的 `docs/assessment/`（不進版控）；部署版維持上面的「下載時才產生」。
   - 簡報內容：封面、結論與關鍵數字（結論、總計、節拍、風險數）、量化指標、製程與站位、設備選型、3D 截圖（iso 優先，最多 4 張）、風險與對策、待拍板與 POC、成本圖表與摘要、選用的 AOI 方案；附錄放成本明細與假設值。數字都標資料來源。
   - 命令列：`vs3d assess <站> --repo import`（VS Code 等其他工具做的站：檢查 `.studio/plan/` 的提案、可行性分析、`bom.json` 後匯入資料庫）、`vs3d assess <站> --repo deck [--shots 截圖資料夾]`（截圖預設找 3D工作室最近一次截圖或 `TEMP/<站>-shots/`）。
+  - **逐頁目視檢查**（G 項）：產生後用 PowerPoint 的 COM 把每頁轉成 1280×720 的圖片（`.studio/deck-render/`），交給審查角色逐頁看文字溢出、重疊、空白頁、殘留假資料、數字不一致與用戶名稱，結果寫在 `.studio/reviews/deck-<n>.json` 和簡報旁的 `<簡報>-目視檢查.md`。內容問題（文字太長、數字矛盾）由規劃角色修改評估資料、重新匯入後再產一次（每個專案最多一次）；版面問題只記在報告裡。沒有 PowerPoint 的電腦略過檢查並說明；`VS3D_DECK_REVIEW=0` 可以關掉。
   - 公司樣板只留本機、不進版控：`VS3D_DECK_KIT` 指定的資料夾，或 `~/.claude/skills` 底下的 `zq-work-deck`（要有 `assets/template.pptx` 與 `scripts/zqdeck.py`）；找不到就只產生 xlsx 並提示。需要 Python 與 `python-pptx`、`pillow`（`requirements.txt`）；`VS3D_PYTHON` 可指定 Python。
 - **儀表板**：「評估案」數字卡（可行／有條件可行／不可行）。
 - 驗證：`studio/test/assess.test.mjs`（格式檢查、BOM 匯入、只做評估的完整流程與修改評估，用假代理）；介面測試 `node studio/test/assess-e2e.mjs`（佇列、格式退回、可行性分頁、介面修改、三種報告、請代理修改、加上 3D）。

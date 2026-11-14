@@ -37,3 +37,12 @@ test('deckData：用戶名稱遮掉、站位不撞文件標題、成本依子系
 test('findDeckKit：VS3D_DECK_KIT 指到不完整的資料夾就回傳 null（只產生 xlsx）', () => {
   assert.equal(findDeckKit({ VS3D_DECK_KIT: 'Z:/no/such/kit' }), null);
 });
+
+test('簡報目視檢查與修改的提示：列出每頁圖片、輸出檔名、內容問題與修改範圍', async () => {
+  const { taskPrompt } = await import('../lib/prompts.mjs');
+  const J = { dir: 'D', id: 'X', repo: true, plan: 'D/.studio/plan', studio: 'D/.studio' }, base = { ws: 'W', J, adapter: {}, scope: 'S' };
+  const p = taskPrompt('review', 'deckReview', { ...base, pngs: ['.studio/deck-render/slide-01.png', '.studio/deck-render/slide-02.png'], n: 2 });
+  assert.match(p, /slide-02\.png/); assert.match(p, /\.studio\/reviews\/deck-2\.json/); assert.match(p, /"fix": "content"/);
+  const q = taskPrompt('plan', 'deckRevise', { ...base, issues: [{ slide: 5, kind: 'overflow', where: '右欄', text: '很長的說明', suggestion: '縮短' }] });
+  assert.match(q, /第 5 頁（overflow）右欄：很長的說明 → 縮短/); assert.match(q, /verdict）、成本金額與元件不要改/);
+});

@@ -17,16 +17,16 @@ import { paths, projectPaths, acquireLock, addClientNames, readClientNames, reda
 import { snapshot, verifyAndRestore } from './isolation.mjs';
 import { loadQuestions, pendingQuestions, askInteractive, writeAppQuestion, readAnswer, printQuestion } from './questions.mjs';
 import { runChecks, takeShots, failureSummary, runFingerprint, runCycle, compareRenderFingerprint, runPerf, comparePerf } from './checks.mjs';
-import { header, rolePrompt, answersPrompt, fixAgainPrompt, invalidQuestionsPrompt, mustFixPrompt, renderGuardPrompt, renderRevisePrompt, selfReviewPrompt } from './prompts.mjs';
+import { header, rolePrompt, taskPrompt, answersPrompt, fixAgainPrompt, invalidQuestionsPrompt, mustFixPrompt, renderGuardPrompt, renderRevisePrompt, selfReviewPrompt } from './prompts.mjs';
 import { REF_ROLES, refRootFor, pickReferences, prepareReferences, snapshotRefs, diffRefs } from './references.mjs';
 import { writeComparePage } from './compare.mjs';
 import { componentsOf, checkPlanFiles, importAssessment, writePlanFiles, writeBomSummary } from './assess.mjs';
 import * as repoGit from './repo.mjs';
-import { buildProjectDeck } from './deck.mjs';
+import { buildProjectDeck, renderDeck } from './deck.mjs';
 import { registerCoreRequests } from './core-requests.mjs';
 import { addLessons, writeLessons } from './lessons.mjs';
 import { isDeploy } from './edition.mjs';
-import { readJson, writeJson, appendJsonl, git, now, readText, rel } from './util.mjs';
+import { readJson, writeJson, writeText, appendJsonl, git, now, readText, rel } from './util.mjs';
 import { readdirSync } from 'node:fs';
 
 const REVIEW_LIMIT = 3, RENDER_TRIES = 3;
@@ -96,6 +96,35 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
     for (const w of b?.warnings || []) log(`    ! ${w}`);
   }
   // 評估＋成本：規劃角色寫的可行性分析與 BOM 先檢查格式；不對就退回（最多 3 次）。回傳 true 表示已經退回、這一步結束
+  // 評估簡報（core/SITE-RULES.md）＋逐頁目視檢查（G 項）：產生 → PowerPoint 轉成圖片 → 審查角色逐頁看 →
+  //   有「內容」問題（文字太長、數字矛盾）就請規劃角色修改評估資料、重新匯入再產一次（每個專案最多一次）；版面問題記在報告裡給使用者
+  async function assessmentDeck() {
+    const out = join(J.docs, 'assessment'), build = () => withDb(db => buildProjectDeck(db, ws, J, { outDir: out }));
+    let r;
+    try { r = await build(); } catch (e) { log(`  ! 評估簡報沒有產生：${String(e.message || e).split('\n')[0]}`); return; }
+    for (const f of [r.pptx, r.xlsx].filter(Boolean)) log(`  評估簡報與成本表：${rel(ws, f)}`);
+    for (const w of r.warnings) log(`  ! ${w}`);
+    if (!r.pptx || process.env.VS3D_DECK_REVIEW === '0') return;
+    const rd = renderDeck(r.pptx, join(J.studio, 'deck-render'));
+    if (rd.error) { log(`  ! 簡報目視檢查略過：${rd.error}`); return; }
+    const n = (state.deckReviews || 0) + 1; state.deckReviews = n; save();
+    await round('review', taskPrompt('review', 'deckReview', ctxFor({ role: 'review', pngs: rd.pngs.map(f => rel(J.dir, f)), n })), { images: rd.pngs, step: 'deck-review' });
+    const res = readJson(join(J.studio, 'reviews', `deck-${n}.json`), null);
+    if (!res) { log('  ! 簡報目視檢查沒有寫出結果'); return; }
+    const issues = Array.isArray(res.issues) ? res.issues : [], content = issues.filter(i => i.fix === 'content');
+    writeText(r.pptx.replace(/\.pptx$/, '-目視檢查.md'), [`# 評估簡報目視檢查（第 ${n} 次）`, '', res.summary || '', '',
+      ...(issues.length ? issues.map(i => `- 第 ${i.slide} 頁［${i.kind}／${i.fix === 'content' ? '內容' : '版面'}］${i.where || ''}：${i.text || ''} → ${i.suggestion || ''}`) : ['- 沒有問題']), ''].join('\n'));
+    log(`  簡報目視檢查：${issues.length ? `${issues.length} 個問題（內容 ${content.length}、版面 ${issues.length - content.length}）` : '沒有問題'}`);
+    if (!content.length || state.deckRevised) return;
+    state.deckRevised = true; save();
+    await withDb(db => writePlanFiles(db, pkey, J));
+    await round('plan', taskPrompt('plan', 'deckRevise', ctxFor({ role: 'plan', issues: content })));
+    const errs = await withDb(db => checkPlanFiles(J, db)).catch(e => [String(e.message || e)]);
+    if (errs.length) { log(`  ! 修改後的評估檔格式不對（${errs.length} 項），沒有重新匯入：${errs.slice(0, 3).join('；')}`); return; }
+    await importAssess('簡報目視檢查後修改');
+    try { r = await build(); if (r.pptx) { renderDeck(r.pptx, join(J.studio, 'deck-render')); log(`  評估簡報已依檢查重新產生：${rel(ws, r.pptx)}`); } }
+    catch (e) { log(`  ! 評估簡報沒有重新產生：${String(e.message || e).split('\n')[0]}`); }
+  }
   async function assessFormat(what) {
     const errs = await withDb(db => checkPlanFiles(J, db)).catch(e => [String(e.message || e)]);
     if (!errs.length) { state.assessTries = 0; return false; }
@@ -584,27 +613,7 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
           state.stage = 'check'; save();
           return { status: 'paused' };
         case 'done':
-          // 新站（project.json 的 strict）的評估簡報與成本表（core/SITE-RULES.md）：開發機在第一段完成後寫到 docs/assessment/（不進版控）；
-          //   部署版維持下載時才產生。每次第一段完成（含審查、補強之後）重產一次，失敗只記錄、不擋流程
-          if (seg() === 1 && has('assess') && !isDeploy() && readJson(join(J.dir, 'project.json'), {}).strict === true && state.deckRound !== state.round) {
-            state.deckRound = state.round;
-            try {
-              const r = await withDb(db => buildProjectDeck(db, ws, J, { outDir: join(J.docs, 'assessment') }));
-              for (const f of [r.pptx, r.xlsx].filter(Boolean)) log(`  評估簡報與成本表：${rel(ws, f)}`);
-              for (const w of r.warnings) log(`  ! ${w}`);
-            } catch (e) { log(`  ! 評估簡報沒有產生：${String(e.message || e).split('\n')[0]}`); }
-          }
-          if (J.repo && state.flowActive) { state.flowActive = false; log(`\n本庫：成果在本機分支 ${state.branch}（只提交了 ${id} 的路徑）；要推送與開 PR 用 vs3d push "${id}" 或介面的按鈕`); }
-          if (seg() === 1 && wantStage2 && !state.stage2Asked && (!J.repo || state.newSite) && has('3d')) {
-            state.stage2Asked = true;
-            const qid = `vs3d-stage2-r${state.round}`, b = resolve('build');
-            writeAppQuestion(J, { id: qid, header: '第二段', question: '第一段完成了，要開始第二段（電控、電盤、配線、相機子畫面、視覺疊圖）嗎？',
-              options: [{ label: '開始第二段', description: `先由規劃角色整理電控與相機提案給你確認，再由 ${b.cli}${b.model ? ' ' + b.model : ''} 開發；不會改第一段的節拍與動作` },
-                { label: '先不要', description: '停在第一段；之後可以用 vs3d stage2 或介面的「開始第二段」按鈕' }], recommended: 0 });
-            state.waiting = { askedBy: 'app', ids: [qid] };
-            break;
-          }
-          // 評估＋3D：第一段完成後，把排程的節拍與瓶頸回填到可行性分析（存成新的一版；評估平台 Q9）
+          // 評估＋3D：第一段完成後，把排程的節拍與瓶頸回填到可行性分析（存成新的一版；評估平台 Q9）；要在產生評估簡報之前
           if (seg() === 1 && has('assess') && has('3d') && state.buildStarted && !state.cycleBackfilled) {
             state.cycleBackfilled = true;
             const cy = await runCycle(ws, id).catch(e => ({ ok: false, error: e.message }));
@@ -616,6 +625,22 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
               log(`  可行性分析回填排程節拍：每件 ${cy.cycle} s、瓶頸 ${cy.bottleneck}${fe.data.cycle?.estimate != null ? `（原本估算 ${fe.data.cycle.estimate} s）` : ''}`);
             }).catch(e => log(`  ! 節拍沒有回填：${e.message}`));
             else log(`  ! 節拍分析失敗，沒有回填：${String(cy.error || '').split('\n')[0]}`);
+          }
+          // 新站（project.json 的 strict）的評估簡報與成本表（core/SITE-RULES.md）：開發機在第一段完成後寫到 docs/assessment/（不進版控）；
+          //   部署版維持下載時才產生。有新的截圖（第一段、審查或補強之後）才重產；失敗只記錄、不擋流程
+          if (seg() === 1 && has('assess') && !isDeploy() && readJson(join(J.dir, 'project.json'), {}).strict === true && state.deckShots !== (state.shots || '')) {
+            state.deckShots = state.shots || ''; save();
+            await assessmentDeck();
+          }
+          if (J.repo && state.flowActive) { state.flowActive = false; log(`\n本庫：成果在本機分支 ${state.branch}（只提交了 ${id} 的路徑）；要推送與開 PR 用 vs3d push "${id}" 或介面的按鈕`); }
+          if (seg() === 1 && wantStage2 && !state.stage2Asked && (!J.repo || state.newSite) && has('3d')) {
+            state.stage2Asked = true;
+            const qid = `vs3d-stage2-r${state.round}`, b = resolve('build');
+            writeAppQuestion(J, { id: qid, header: '第二段', question: '第一段完成了，要開始第二段（電控、電盤、配線、相機子畫面、視覺疊圖）嗎？',
+              options: [{ label: '開始第二段', description: `先由規劃角色整理電控與相機提案給你確認，再由 ${b.cli}${b.model ? ' ' + b.model : ''} 開發；不會改第一段的節拍與動作` },
+                { label: '先不要', description: '停在第一段；之後可以用 vs3d stage2 或介面的「開始第二段」按鈕' }], recommended: 0 });
+            state.waiting = { askedBy: 'app', ids: [qid] };
+            break;
           }
           if (!has('3d')) { log(`\n✔ 評估完成：提案、可行性分析與成本表在資料庫（介面的「可行性」「成本表」分頁可以修改與匯出），共 ${state.round} 輪。`); save(); return { status: 'done', rounds: state.round }; }
           log(`\n✔ ${seg() === 2 ? '第二段' : '第一段'}完成：${state.lastCheck?.ok ? '檢查全部通過' : '依你的選擇結束（檢查未全過）'}，共 ${state.round} 輪。`);
