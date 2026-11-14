@@ -22,6 +22,8 @@ import { REF_ROLES, refRootFor, pickReferences, prepareReferences, snapshotRefs,
 import { writeComparePage } from './compare.mjs';
 import { componentsOf, checkPlanFiles, importAssessment, writePlanFiles, writeBomSummary } from './assess.mjs';
 import * as repoGit from './repo.mjs';
+import { buildProjectDeck } from './deck.mjs';
+import { isDeploy } from './edition.mjs';
 import { readJson, writeJson, appendJsonl, git, now, readText, rel } from './util.mjs';
 import { readdirSync } from 'node:fs';
 
@@ -570,6 +572,16 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
           state.stage = 'check'; save();
           return { status: 'paused' };
         case 'done':
+          // 新站（project.json 的 strict）的評估簡報與成本表（core/SITE-RULES.md）：開發機在第一段完成後寫到 docs/assessment/（不進版控）；
+          //   部署版維持下載時才產生。每次第一段完成（含審查、補強之後）重產一次，失敗只記錄、不擋流程
+          if (seg() === 1 && has('assess') && !isDeploy() && readJson(join(J.dir, 'project.json'), {}).strict === true && state.deckRound !== state.round) {
+            state.deckRound = state.round;
+            try {
+              const r = await withDb(db => buildProjectDeck(db, ws, J, { outDir: join(J.docs, 'assessment') }));
+              for (const f of [r.pptx, r.xlsx].filter(Boolean)) log(`  評估簡報與成本表：${rel(ws, f)}`);
+              for (const w of r.warnings) log(`  ! ${w}`);
+            } catch (e) { log(`  ! 評估簡報沒有產生：${String(e.message || e).split('\n')[0]}`); }
+          }
           if (J.repo && state.flowActive) { state.flowActive = false; log(`\n本庫：成果在本機分支 ${state.branch}（只提交了 ${id} 的路徑）；要推送與開 PR 用 vs3d push "${id}" 或介面的按鈕`); }
           if (seg() === 1 && wantStage2 && !state.stage2Asked && (!J.repo || state.newSite) && has('3d')) {
             state.stage2Asked = true;

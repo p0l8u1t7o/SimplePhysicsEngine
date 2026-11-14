@@ -290,6 +290,10 @@ node studio/vs3d.mjs users remove amy
 - **平台檢查**（`vs3d assess <名稱> check`、「可行性」分頁）：`feasibility`（章節、結構、有條件可行要列條件、有 3D 時估算節拍和排程總長相差 5% 以上警告）、`bom`（沒引用元件的行要像加工件類，待確認的元件警告）、`cost`（估價行、過期、缺單價、缺匯率、有新版，只警告）。
 - **審查**：有「評估＋成本」的 3D 專案，審查前把可行性分析與成本表摘要（`.studio/plan/bom-summary.md`）寫給審查角色，必修另外看可行性與 3D 的節拍、配置是否一致、BOM 有沒有漏列場景的設備。
 - **評估報告**：「可行性」分頁匯出 HTML（單一檔，截圖內嵌）、PDF（無頭 Chrome 印出）、Markdown；內容是封面結論與總計、配置提案、可行性分析、成本摘要與明細、AOI 方案（選用的，沒有就全部）、3D 截圖。下載時才產生、不留在主機，不得顯示的名稱換掉，記一筆操作紀錄。成本表 xlsx 在「成本表」分頁。
+- **評估簡報**（2026-11-14，`lib/deck.mjs`＋`tools/assessment_deck.py`）：新站（`project.json` 的 `strict`）在開發機上完成第一段後，自動把公司樣板的評估簡報 pptx 與成本表 xlsx 寫到站的 `docs/assessment/`（不進版控）；部署版維持上面的「下載時才產生」。
+  - 簡報內容：封面、結論與關鍵數字（結論、總計、節拍、風險數）、量化指標、製程與站位、設備選型、3D 截圖（iso 優先，最多 4 張）、風險與對策、待拍板與 POC、成本圖表與摘要、選用的 AOI 方案；附錄放成本明細與假設值。數字都標資料來源。
+  - 命令列：`vs3d assess <站> --repo import`（VS Code 等其他工具做的站：檢查 `.studio/plan/` 的提案、可行性分析、`bom.json` 後匯入資料庫）、`vs3d assess <站> --repo deck [--shots 截圖資料夾]`（截圖預設找 3D工作室最近一次截圖或 `TEMP/<站>-shots/`）。
+  - 公司樣板只留本機、不進版控：`VS3D_DECK_KIT` 指定的資料夾，或 `~/.claude/skills` 底下的 `zq-work-deck`（要有 `assets/template.pptx` 與 `scripts/zqdeck.py`）；找不到就只產生 xlsx 並提示。需要 Python 與 `python-pptx`、`pillow`（`requirements.txt`）；`VS3D_PYTHON` 可指定 Python。
 - **儀表板**：「評估案」數字卡（可行／有條件可行／不可行）。
 - 驗證：`studio/test/assess.test.mjs`（格式檢查、BOM 匯入、只做評估的完整流程與修改評估，用假代理）；介面測試 `node studio/test/assess-e2e.mjs`（佇列、格式退回、可行性分頁、介面修改、三種報告、請代理修改、加上 3D）。
 

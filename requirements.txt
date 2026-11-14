@@ -11,6 +11,7 @@
 #   pvlib          tools/solar-pvlib（core/solar 與 pvlib 交叉驗證；會一起裝 pandas、scipy、h5py）
 #   ezdxf、matplotlib、python-pptx、xlsxwriter、lxml
 #                   本機 TEMP/ 的簡報、評估、詢價產生腳本（不進版控）用
+#   python-pptx、pillow  studio/tools/assessment_deck.py（新站的評估簡報，公司樣板只留本機；vs3d assess <站> deck）
 # core/tools/compare-review.py 只用標準函式庫。
 pillow==13.0.0
 numpy==2.5.4

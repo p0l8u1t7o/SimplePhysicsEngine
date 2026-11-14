@@ -8,6 +8,8 @@
 //   node studio/vs3d.mjs optics <專案> --text "AOI 需求"          光學角色提 2～3 個相機、鏡頭、光源方案，平台用 L1＋L2 檢查後存成 AOI 方案
 //   node studio/vs3d.mjs components <名稱> [--set assess,3d,aoi]   看或改專案組成（只做評估的專案加上 3D 後用 resume 開始第一段）
 //   node studio/vs3d.mjs assess <名稱> [show｜check] [--json]      評估資料：最新的可行性分析；平台檢查（feasibility、bom、cost）
+//   node studio/vs3d.mjs assess <名稱> import                      把 .studio/plan/ 的提案、可行性分析、bom.json 匯入資料庫（VS Code 等其他工具做的站）
+//   node studio/vs3d.mjs assess <名稱> deck [--shots 資料夾]       評估簡報（公司樣板 pptx）＋成本表 xlsx：開發機寫到站的 docs/assessment/
 //   node studio/vs3d.mjs assess <名稱> --text "要改的內容"          請規劃角色修改提案、可行性分析或 BOM（資料庫的最新版寫回後改，改完存成新的一版）
 //   node studio/vs3d.mjs resume <名稱>                            續跑（回答問題後、中斷後）
 //   node studio/vs3d.mjs answer <名稱> <問題 id> <編號或文字> [--note 補充]
@@ -55,7 +57,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
 import { ADAPTERS, adapterFor } from './lib/adapters/index.mjs';
-import { initWorkspace, createProject, deleteProject, paths, projectPaths, isRepo } from './lib/workspace.mjs';
+import { initWorkspace, createProject, deleteProject, paths, projectPaths, isRepo, readClientNames, redactNames } from './lib/workspace.mjs';
 import { runProject, loadState, beginSegment2, cancelFlow } from './lib/loop.mjs';
 import { loadQuestions, parseChoice, recordAnswer, printQuestion } from './lib/questions.mjs';
 import { runChecks, failureSummary, runFingerprint } from './lib/checks.mjs';
@@ -67,7 +69,7 @@ import { exportHandoff, importHandoff } from './lib/handoff.mjs';
 import * as repoGit from './lib/repo.mjs';
 import { REPO, git, findFfmpeg } from './lib/util.mjs';
 
-const VALUE = new Set(['--text', '--text-file', '--workspace', '--private', '--prompt', '--prompt-file', '--title', '--summary', '--cli', '--model', '--role', '--effort', '--note', '--max-rounds', '--timeout', '--other', '--focus', '--port', '--out', '--name', '--category', '--project', '--db', '--host', '--password', '--level', '--pfx', '--cert', '--key', '--purge', '--older-than', '--job', '--fields', '--keys', '--download', '--status', '--components', '--set', '--format', '--self-review']);
+const VALUE = new Set(['--text', '--shots', '--text-file', '--workspace', '--private', '--prompt', '--prompt-file', '--title', '--summary', '--cli', '--model', '--role', '--effort', '--note', '--max-rounds', '--timeout', '--other', '--focus', '--port', '--out', '--name', '--category', '--project', '--db', '--host', '--password', '--level', '--pfx', '--cert', '--key', '--purge', '--older-than', '--job', '--fields', '--keys', '--download', '--status', '--components', '--set', '--format', '--self-review']);
 
 // 測試用：VS3D_EXTRA_ADAPTERS 指向一個匯出 { adapters: { 名稱: adapter } } 的模組（例如假代理），讓介面的端對端測試走真正的命令列
 if (process.env.VS3D_EXTRA_ADAPTERS) Object.assign(ADAPTERS, (await import(pathToFileURL(resolve(process.env.VS3D_EXTRA_ADAPTERS)).href)).adapters);
@@ -231,7 +233,21 @@ switch (cmd) {
         const f = db.assess.latest(key, 'feasibility');
         if (!f) fail(`${name} 還沒有可行性分析`);
         if (o.json) console.log(JSON.stringify(f, null, 2)); else console.log(`可行性分析 v${f.version}（${f.created_at.slice(0, 16).replace('T', ' ')}${f.created_by ? `，${f.created_by}` : ''}）：${f.verdict}\n\n${f.content}`);
-      } else fail('用法：vs3d assess <名稱> [show｜check] [--json]，或 vs3d assess <名稱> --text "要改的內容"');
+      } else if (sub === 'import') {
+        // VS Code 等其他工具做的站：自己寫好 .studio/plan/ 的評估檔，再匯入資料庫（和提案確認後 app 做的一樣）
+        const errs = A.checkPlanFiles(J, db);
+        if (errs.length) fail(`.studio/plan/ 的評估檔有 ${errs.length} 項問題：\n${errs.map(e => '  ✗ ' + e).join('\n')}`);
+        const names = readClientNames(ws), r = A.importAssessment(db, key, J, { by: process.env.VS3D_BY || '', redact: s => redactNames(s, names), note: '命令列匯入' });
+        console.log(`已匯入：提案 v${r.proposal ?? '—'}、可行性分析 v${r.feasibility ?? '—'}${r.bom ? `；BOM ${r.bom.lines} 行（沿用元件 ${r.bom.reused}、新元件 ${r.bom.created}（待確認）、客製 ${r.bom.custom}、工程 ${r.bom.labor}）` : ''}`);
+        for (const w of r.bom?.warnings || []) console.log(`  ! ${w}`);
+      } else if (sub === 'deck') {
+        // 評估簡報（公司樣板 pptx）＋成本表 xlsx：開發機寫到站的 docs/assessment/；部署版維持不留在主機，寫到專案 TEMP/exports/
+        const { buildProjectDeck } = await import('./lib/deck.mjs');
+        const r = buildProjectDeck(db, ws, J, { shotsDir: o.shots ? resolve(o.shots) : null, outDir: isDeploy() ? join(J.temp, 'exports') : join(J.docs, 'assessment') });
+        for (const f of [r.pptx, r.xlsx].filter(Boolean)) console.log(`✓ ${f}`);
+        for (const w of r.warnings) console.log(`! ${w}`);
+        if (!r.pptx && !r.xlsx) process.exitCode = 1;
+      } else fail('用法：vs3d assess <名稱> [show｜check｜import｜deck [--shots 截圖資料夾]] [--json]，或 vs3d assess <名稱> --text "要改的內容"');
     } finally { db.close(); }
     break;
   }

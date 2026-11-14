@@ -83,7 +83,7 @@ API 的寫法以 [`core/README.md`](README.md) 為準，本檔只寫做事的步
    - `<站>-評估簡報-<日期>.pptx`：公司簡報樣板，內容依序是封面、結論與關鍵數字、需求與範圍、配置與 3D 截圖、節拍、可行性與風險、成本摘要（圖表）、AOI（有的話）、待拍板與 POC，附錄放 BOM 明細與假設值；
    - `<站>-成本表-<日期>.xlsx`。
    3D工作室在開發機上會於第一段完成後自動產生。部署版維持「下載時才產生、不留在主機」（2026-10-06 拍板）。
-4. 公司樣板只留本機、不進版控：預設自動找 `~/.claude/skills` 底下的 `zq-work-deck`，也可以用環境變數 `VS3D_DECK_KIT` 指定資料夾（裡面要有 `assets/template.pptx` 與 `scripts/zqdeck.py`）。找不到樣板時只產生 xlsx 並提示。需要 Python 與 `python-pptx`（`requirements.txt`）。
+4. 公司樣板只留本機、不進版控：預設自動找 `~/.claude/skills` 底下的 `zq-work-deck`，也可以用環境變數 `VS3D_DECK_KIT` 指定資料夾（裡面要有 `assets/template.pptx` 與 `scripts/zqdeck.py`）。找不到樣板時只產生 xlsx 並提示。需要 Python 與 `python-pptx`、`pillow`（`requirements.txt`）。
 5. 數字要有出處：資料不足就寫「待確認」，不要編。用戶名稱一樣要換掉。
 
 ## 各工具的差異
