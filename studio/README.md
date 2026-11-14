@@ -165,6 +165,8 @@ CAD 與圖面（2026-11-14，`lib/cad.mjs`，純 Node，預覽圖用軟體光柵
 
 **常見錯誤清單**（2026-11-14，`lib/lessons.mjs`）：審查角色的必修項多一個選填的 `lesson`（給之後所有專案的一句通則，不寫站名、用戶名稱、專案特有的尺寸）。app 把它累積到 `studio/data/lessons.json`（只留本機；同一句去掉空白與標點後相同就累計次數），每次執行前把啟用的前 40 條寫到專案的 `.studio/lessons.md`，交接摘要會列出它，規劃、開發、修正、補強先看過。介面「設定」頁可以改寫、停用、刪除（唯讀帳號只能看）。
 
+**規劃角色上網查規格**（2026-11-14，`lib/web-policy.mjs`）：系統設定「代理上網」（只有管理者能改）的開關 `web.planSearch`（開發機預設開、部署版預設關）與網域清單 `web.domains`（預設是常見的手臂、視覺、氣動、傳動、電控廠商官網）。開的時候規劃角色（只有它）的 Claude 加上 `WebSearch` 與白名單網域的 `WebFetch(domain:…)`，Codex 加 `--search`（沒有網域限制）。提示要求查詢不得含用戶名稱、專案名稱或需求原文，查到的數字在提案註明出處並標「待確認」；每輪結束後 app 檢查這一輪的搜尋字串與網址，出現用戶名稱就記為違規（已經送出，只能提醒）。
+
 角色指派的優先順序：app 預設（`lib/roles.mjs`）＜ 工作區 `.studio/settings.json` ＜ 專案 `studio.json` ＜ 命令列。正式預設（2026-10-04 拍板）：規劃、開發、修正、審查用 Claude `opus`（推理強度 `high`，見下）；渲染與細節補強用 Codex `gpt-6-astra` 高推理（`lib/roles.mjs` 的 `ROLE_DEFAULTS`）；第二段的開發與修正也預設 Codex `gpt-6-astra` 高推理（`SEGMENT_DEFAULTS`）。這是使用者的實務分工：opus 做規劃與主體實作，gpt-6 補強渲染、電盤、電線與細節。評估平台另有兩個角色：光學 `optics`（Claude 預設 opus）與元件補全 `enrich`（Claude 預設 sonnet）。角色改用 Codex 而沒指定模型時，用 Codex 帳號的預設模型（`~/.codex/config.toml`）。命令列 `--cli` 會讓所有角色改用同一種 CLI。`new` 時指定的 `--cli`、`--model`、`--effort`、`--role` 會寫進專案 `studio.json`，之後 `resume` 沿用。
 
 推理強度（2026-11-07）：Claude 的規劃、開發、修正、審查、補強、光學預設 `--effort high`（`lib/roles.mjs` 的 `EFFORT_PRESETS`；元件補全 `enrich` 不設）。原因是 API 金鑰模式用獨立的 `CLAUDE_CONFIG_DIR`（`lib/agent-auth.mjs`），讀不到使用者自己的 effort 設定，不指定就是 CLI 的預設值。和模型一樣只在該 CLI 生效，工作區設定、專案 `studio.json` 的 `roles.<角色>.effort`、命令列 `--effort`／`--role` 都可以蓋過；寫空字串（`"effort": ""`）＝不帶 `--effort`，用 CLI 預設。

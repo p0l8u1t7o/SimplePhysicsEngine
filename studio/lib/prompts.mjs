@@ -11,9 +11,11 @@ const SNAP_ROLES = new Set(['build', 'fix', 'render', 'change', 'review']);
 // core 缺功能（2026-11-14，F 項）：寫程式的角色在站裡暫代時登記需求，app 每輪結束後併進 core 的需求清單
 const CORE_REQ_ROLES = new Set(['build', 'fix', 'render', 'change']);
 const coreReqLine = role => CORE_REQ_ROLES.has(role) ? ['- core 缺功能：先在專案裡暫代，再把需求寫到 `.studio/core-requests.json`（陣列，每筆 `{ "title": "一句話需求", "why": "現象", "workaround": "暫代的檔案與函式", "interface": "期望的 core API", "impact": "還有哪些站會用到" }`；已經寫過的不用刪），app 會登記給 core 維護者；不要改 core'] : [];
-const snapLine = (J, role) => [...coreReqLine(role), ...(SNAP_ROLES.has(role) ? [`- 看畫面：\`node ../../core/tools/snap.mjs "${J.id}" --view <視角> --t <秒>\`（\`--list\` 列出視角與總長；一次最多 8 張，輸出在 \`TEMP/snap/\`，用讀檔工具打開圖片看）。改了外觀、配置或動作就拍來看，不要只靠想像；它會印出主控台錯誤。不要跑 \`ui-check\`、\`shots\` 或自己開伺服器；snap 執行失敗（例如沙箱開不了瀏覽器）就略過，app 結束後會拍完整截圖`] : [])];
+// 規劃角色上網查規格（D 項）：只查型錄與規格；查詢不能帶用戶名稱，數字要列出處並標「待確認」
+const webLine = (role, web) => role === 'plan' && web ? [`- 上網查規格：可以用 WebSearch 查設備與零件的型錄、規格書；WebFetch 只能開這些廠商網站：${web.domains.slice(0, 12).join('、')}${web.domains.length > 12 ? ` 等 ${web.domains.length} 個` : ''}。**查詢字串與網址不得含用戶（客戶）名稱、專案名稱或需求原文**（app 會檢查，出現就記為違規）。從網路查到的尺寸、重量、速度、價格要在提案裡註明出處網址，並標「待確認」；查不到就用合理假設值，不要編。`] : [];
+const snapLine = (J, role, web) => [...webLine(role, web), ...coreReqLine(role), ...(SNAP_ROLES.has(role) ? [`- 看畫面：\`node ../../core/tools/snap.mjs "${J.id}" --view <視角> --t <秒>\`（\`--list\` 列出視角與總長；一次最多 8 張，輸出在 \`TEMP/snap/\`，用讀檔工具打開圖片看）。改了外觀、配置或動作就拍來看，不要只靠想像；它會印出主控台錯誤。不要跑 \`ui-check\`、\`shots\` 或自己開伺服器；snap 執行失敗（例如沙箱開不了瀏覽器）就略過，app 結束後會拍完整截圖`] : [])];
 
-export function header({ ws, J, role, adapter, scope, segment = 1 }) {
+export function header({ ws, J, role, adapter, scope, segment = 1, web = null }) {
   const title = `# vs3d 任務：${(segment === 2 ? ROLE_TITLE2 : ROLE_TITLE)[role] || role}`;
   // 本庫模式：本庫既有的站，規則是根目錄 AGENTS.md＋本站 AGENTS.md（Claude Code 與 Codex 都會從 git 根目錄讀到）
   if (J.repo) return [title, '',
@@ -23,7 +25,7 @@ export function header({ ws, J, role, adapter, scope, segment = 1 }) {
     `- 這一輪可以寫的範圍：${scope}`,
     `- **不要執行 git commit、checkout、restore、stash、reset、clean、switch**：使用者也在這個工作目錄工作，版本控制由 app 負責，每輪結束只提交本站的路徑`,
     `- 快速檢查：\`node ../../core/tools/check.mjs "${J.id}" --quick\``,
-    ...snapLine(J, role),
+    ...snapLine(J, role, web),
   ].join('\n');
   const lines = [
     title,
@@ -33,7 +35,7 @@ export function header({ ws, J, role, adapter, scope, segment = 1 }) {
     `- 規則：專案的 \`AGENTS.md\`、\`${join(ws, 'core', 'SITE-RULES.md')}\`（站實作規範，必讀），以及工作區的 \`${join(ws, 'AGENTS.md')}\`（app 管理下的特別規定，必讀）`,
     `- 這一輪可以寫的範圍：${scope}`,
     `- 快速檢查：\`node ../../core/tools/check.mjs "${J.id}" --quick\``,
-    ...snapLine(J, role),
+    ...snapLine(J, role, web),
   ];
   // Codex 只從 git 根目錄往下找 AGENTS.md，工作區規則直接附上
   if (!adapter.loadsParentRules) lines.push('', '## 工作區共通規則（全文）', '', readText(join(ws, 'AGENTS.md')).replace(/^# .*\n/, ''));

@@ -11,7 +11,7 @@
 import { existsSync, writeFileSync, mkdirSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
 import { adapterFor, runAgent } from './adapters/index.mjs';
-import { agentEnv, AUTH_MODES } from './agent-auth.mjs';
+import { agentEnv, AUTH_MODES, loadSystem } from './agent-auth.mjs';
 import { resolveRole, loadRoleContext } from './roles.mjs';
 import { paths, projectPaths, acquireLock, addClientNames, readClientNames, redactNames, addProjectNames, writeSpecSummary } from './workspace.mjs';
 import { snapshot, verifyAndRestore } from './isolation.mjs';
@@ -25,6 +25,8 @@ import * as repoGit from './repo.mjs';
 import { buildProjectDeck, renderDeck } from './deck.mjs';
 import { registerCoreRequests } from './core-requests.mjs';
 import { addLessons, writeLessons } from './lessons.mjs';
+import { webTools, webLeaks, isWebEvent, planWebPolicy } from './web-policy.mjs';
+import { systemDefaults } from './settings.mjs';
 import { isDeploy } from './edition.mjs';
 import { readJson, writeJson, writeText, appendJsonl, git, now, readText, rel } from './util.mjs';
 import { readdirSync } from 'node:fs';
@@ -70,6 +72,8 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
   try { const { writeCatalog, writePartsModels } = await import('./parts-catalog.mjs'); const names = readClientNames(ws), redact = s => redactNames(s, names); writeCatalog(J, { redact }); writePartsModels(J, { redact }); } catch { /* 沒有清單不影響流程 */ }
   // 常見錯誤清單（過去審查的必修項通則）寫一份到專案裡給代理看
   try { writeLessons(J, { names: readClientNames(ws) }); } catch { /* 沒有清單不影響流程 */ }
+  // 規劃角色上網查規格的政策（系統設定；資料庫開不了就用預設值）
+  const planWeb = planWebPolicy(await loadSystem().then(s => Object.keys(s).length ? s : systemDefaults()));
   // 提案確認後：把規劃角色寫的元件表匯入元件資料庫（沿用的加使用紀錄，新的標「待確認」）；沒有元件表或讀不了資料庫都不影響流程
   async function importParts() {
     try {
@@ -183,8 +187,10 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
     // 本庫模式的併改偵測：使用者在同一個工作目錄改檔，代理改的檔案如果也被使用者改了，這一輪不提交、轉成提問
     let tracker = null;
     if (J.repo) try { tracker = repoGit.createEditTracker(J.dir); } catch (e) { log(`  ! 併改偵測沒辦法啟動（${e.message}），這一輪照舊提交`); }
+    const webEvents = [];
     const onEvent = e => {
       if (tracker) try { tracker.on(e); } catch (err) { tracker = null; log(`  ! 併改偵測中斷（${err.message}），這一輪照舊提交`); }
+      if (isWebEvent(e)) webEvents.push(e);
       printEvent(e, log);
     };
     const res = await runAgent(adapter, {
@@ -192,6 +198,7 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
       readDirs: [P.core, ...refs.map(r => r.web).filter(d => existsSync(d))], allowWrite: scope.allow, denyWrite: [...scope.deny, ...refs.map(r => r.dir)], denyRead: refs.flatMap(r => r.noRead), images,
       logFile: join(J.logs, `round-${String(n).padStart(2, '0')}-${role}${step ? '-' + step : ''}${seg() === 2 ? '-s2' : ''}.jsonl`), timeoutMs: timeoutMin * 60000, signal: abort.signal,
       env: auth.env, unsetEnv: auth.unset, settings: auth.settings,
+      ...(role === 'plan' ? webTools(planWeb, rc.cli) : {}),       // 規劃角色可以上網查規格（D 項；系統設定可關）
     }, onEvent);
     let edits = null;
     if (tracker) try { edits = tracker.finish(); } catch (e) { log(`  ! 併改偵測中斷（${e.message}），這一輪照舊提交`); }
@@ -200,7 +207,9 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
     for (const w of iso.warnings || []) log(`  ! 專案外有變動：${w.path}（${w.change}）；可能是你同時在改，app 沒有動它，請自行確認`);
     const refViol = refSnap ? diffRefs(refs, refSnap) : [];
     for (const w of refViol) log(`  ! 參考站有變動：${w.area} ${w.path}（${w.change}）；那是本庫的工作目錄，app 沒有還原，請自行確認`);
-    const violations = [...iso.violations, ...roleViol, ...refViol];
+    const webViol = webLeaks(webEvents, readClientNames(ws));     // 查詢字串或網址帶了用戶名稱：送出去收不回，記為違規提醒使用者
+    if (webEvents.length) log(`  上網 ${webEvents.length} 次${webViol.length ? `，其中 ${webViol.length} 次含用戶名稱` : ''}`);
+    const violations = [...iso.violations, ...roleViol, ...refViol, ...webViol];
     if (role === 'plan') syncClientNames();
     for (const v of violations) log(`  ⚠ 越界：${v.area} ${v.path}（${v.change}）${v.restored ? '→ 已還原' : '→ 未能自動還原，請檢查'}`);
     const message = `${J.repo ? 'vs3d ' : ''}Round ${n} (${role}): ${short(res.text.split('\n').find(l => l.trim()) || 'no summary', 60)}`;
@@ -244,7 +253,7 @@ export async function runProject(ws, id, { interactive = false, override = {}, m
     const names = readClientNames(ws), text = readText(J.agents);
     if (names.length && text && names.some(n => text.includes(n))) writeFileSync(J.agents, redactNames(text, names));
   }
-  const ctxFor = extra => ({ ws, J, adapter: adapterFor(resolve(extra.role).cli), scope: roleScope(extra.role, J).text, violations: state.violations, segment: seg(), components: comps(), references: referencesFor(extra.role), ...extra });
+  const ctxFor = extra => ({ ws, J, adapter: adapterFor(resolve(extra.role).cli), scope: roleScope(extra.role, J).text, violations: state.violations, segment: seg(), components: comps(), references: referencesFor(extra.role), web: extra.role === 'plan' ? planWeb : null, ...extra });
 
   // ---------------------------------------------------------------- 回答後續接
   async function handleAnswers(answers) {

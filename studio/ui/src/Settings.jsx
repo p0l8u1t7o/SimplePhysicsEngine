@@ -22,7 +22,7 @@ function SystemSettings({ canEdit }) {
   if (!sys || !form) return <section className="card"><h3>系統設定</h3><p className="mute">{msg || '載入中…'}</p></section>;
   const set = (k, v) => { setMsg(''); setForm(f => ({ ...f, [k]: v })); };
   // 這張卡片只管附件與成本；代理的認證方式在「代理 CLI」卡片另外存
-  const mineOnly = v => Object.fromEntries(Object.entries(v).filter(([k]) => !k.startsWith('agents.') && !k.startsWith('trash.')));
+  const mineOnly = v => Object.fromEntries(Object.entries(v).filter(([k]) => !k.startsWith('agents.') && !k.startsWith('trash.') && !k.startsWith('web.')));
   const dirty = JSON.stringify(mineOnly(form)) !== JSON.stringify(mineOnly(sys.values));
   const field = k => <label key={k}><span>{sys.defs[k].label}</span>
     <input type="number" step="any" min="0" disabled={!canEdit} value={PCT.has(k) ? pct(form[k]) : form[k]} onChange={e => set(k, PCT.has(k) ? unpct(e.target.value) : e.target.value)} />
@@ -132,6 +132,21 @@ function Trash() {
   </section>;
 }
 
+// 規劃角色上網查規格（lib/web-policy.mjs）：開關與 WebFetch 可以開的廠商網域；只有管理者能改
+function WebSettings({ canEdit }) {
+  const [sys, setSys] = useState(null), [on, setOn] = useState(false), [domains, setDomains] = useState(''), [msg, setMsg] = useState('');
+  const load = () => api.system().then(d => { setSys(d); setOn(!!d.values['web.planSearch']); setDomains((d.values['web.domains'] || []).join('\n')); }).catch(e => setMsg('✗ ' + e.message));
+  useEffect(() => { load(); }, []);
+  if (!sys) return msg ? <LoadFailed title="代理上網" msg={msg} retry={() => { setMsg(''); load(); }} /> : null;
+  const save = () => api.saveSystem({ 'web.planSearch': on, 'web.domains': domains }).then(d => { setSys(d); setDomains(d.values['web.domains'].join('\n')); setMsg('✓ 已儲存'); }).catch(e => setMsg('✗ ' + e.message));
+  return <section className="card form"><h3>代理上網</h3>
+    <p className="mute hint">只有規劃角色可以上網查設備型錄與規格（其他角色不上網；元件補全另有規則）。Claude 的 WebFetch 只能開下面的網域，搜尋字串與網址出現用戶名稱會記為違規。部署版預設關閉。</p>
+    <label className="check"><input type="checkbox" disabled={!canEdit} checked={on} onChange={e => { setMsg(''); setOn(e.target.checked); }} /> 規劃角色可以上網查規格</label>
+    <label><span>可以開啟的廠商網域（一行一個，不用加 www）</span><textarea rows={6} disabled={!canEdit} value={domains} onChange={e => { setMsg(''); setDomains(e.target.value); }} aria-label="廠商網域" /></label>
+    {canEdit && <div className="bar"><button className="primary" onClick={save}>儲存</button><span className={msg.startsWith('✗') ? 'bad' : 'ok'}>{msg}</span></div>}
+  </section>;
+}
+
 // 常見錯誤清單：審查必修項的通則（lib/lessons.mjs），規劃與開發前附給代理；可以改寫、停用、刪除
 function Lessons({ canEdit }) {
   const [items, setItems] = useState(null), [msg, setMsg] = useState(''), [edit, setEdit] = useState(null);
@@ -195,6 +210,7 @@ export function Settings({ info, user }) {
       </section>
       <SystemSettings canEdit={isAdmin} />
       {isAdmin && <FxRates />}
+      <WebSettings canEdit={isAdmin} />
       <Lessons canEdit={!user || user.role !== 'viewer'} />
       {isAdmin && <Trash />}
     </div>

@@ -3,6 +3,7 @@
 import { FILE_TYPES } from './partsdb.mjs';
 import { isDeploy, subscriptionAllowed } from './edition.mjs';
 import { COST_DEFAULTS } from './bom.mjs';
+import { DEFAULT_DOMAINS, DOMAIN_RE } from './web-policy.mjs';
 
 // 代理 CLI 的認證方式：開發機可以選訂閱帳號或 API 金鑰；部署版只有 API 金鑰（lib/edition.mjs）
 const authCheck = (v, label) => {
@@ -34,6 +35,17 @@ export const SYSTEM_SETTINGS = {
     check: (v, label) => { if (!v || typeof v !== 'object') throw new Error(`${label}格式不對`); return Object.fromEntries(['A', 'B', 'C'].map(g => [g, ratio(v[g], `${label} ${g}`)])); },
   },
   'trash.keepDays': { label: '回收桶自動清理（天）', value: 0, check: num(0, 3650), hint: '刪除的專案留幾天後自動永久刪除；0 是不自動清' },
+  // 規劃角色上網查規格（2026-11-14，lib/web-policy.mjs）：開發機預設開、部署版預設關
+  'web.planSearch': { label: '規劃角色可以上網查規格', value: !isDeploy(), check: (v, label) => { if (typeof v !== 'boolean') throw new Error(`${label}要是 true 或 false`); return v; } },
+  'web.domains': {
+    label: '可以開啟的廠商網域', value: DEFAULT_DOMAINS,
+    check: (v, label) => {
+      const list = (Array.isArray(v) ? v : String(v || '').split(/[\s,，、]+/)).map(s => String(s).trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '')).filter(Boolean);
+      const bad = list.filter(d => !DOMAIN_RE.test(d));
+      if (bad.length) throw new Error(`${label}格式不對：${bad.slice(0, 5).join('、')}`);
+      return [...new Set(list)];
+    },
+  },
   'agents.auth.claude': { label: 'Claude Code 的認證', value: 'subscription', check: authCheck },
   'agents.auth.codex': { label: 'Codex 的認證', value: 'subscription', check: authCheck },
 };
