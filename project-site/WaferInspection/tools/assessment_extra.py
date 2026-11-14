@@ -30,6 +30,18 @@ if any(s.has_notes_slide and MARK in s.notes_slide.notes_text_frame.text for s i
 
 new = []
 new.append(deck.section("光學、掃描與檢測方式", "幾何估算與 SIM 流程；不代表實機檢出能力", number="04"))
+if d.get("closeups"):                               # SIM 影像特寫拼圖（外觀參考客戶照片的程序圖樣）
+    from PIL import Image, ImageDraw, ImageFont
+    font = ImageFont.truetype("C:/Windows/Fonts/msjhbd.ttc", 22)
+    W, H = 900, 520
+    sheet = Image.new("RGB", (W * 2 + 30, (H + 44) * 2 + 10), (255, 255, 255)); dr = ImageDraw.Draw(sheet)
+    for k, (path, cap) in enumerate(d["closeups"][:4]):
+        im = Image.open(path).convert("RGB"); sc = min(W / im.width, H / im.height); im = im.resize((int(im.width * sc), int(im.height * sc)), Image.LANCZOS)
+        x, y = (k % 2) * (W + 30), (k // 2) * (H + 54)
+        sheet.paste(im, (x + (W - im.width) // 2, y)); dr.text((x, y + H + 8), cap, font=font, fill=(30, 50, 80))
+    tmp = Path(data_file).with_name("closeups.png"); sheet.save(tmp)
+    new.append(deck.picture("晶圓外觀與缺陷特寫（SIM，外觀參考客戶照片的示意）", str(tmp),
+                            caption="程序產生的示意圖樣與缺陷；缺陷寬度示意放大，不代表實機成像與檢出能力"))
 s = deck.table("光學與掃描估算（展示參數）", ["項目", "估算", "依據"], d["optics"], col_widths=[3, 4, 4], size=12); new.append(s)
 s = deck.table("整片週期分項（GigE、完整掃描、無複檢）", ["分項（關鍵路徑）", "秒"], d["breakdown"], col_widths=[6, 2], size=12); new.append(s)
 s = deck.table("參數比較（無注入缺陷情境）", ["方案", "位置數", "待複檢", "資料量", "整片週期", "景深", "瓶頸"], d["variants"], col_widths=[3, 1.5, 1.5, 1.8, 1.8, 1.5, 2.6], size=12,
@@ -47,6 +59,18 @@ s = deck.two_column("檢測演算方式（SIM 流程示意）",
                                   "允收規格、門檻調整、檢出率與誤判率驗證（MSA）",
                                   "疑似暗線不直接判裂紋；光學影像不判定晶體管、奈米線路或電性缺陷",
                                   "不顯示虛構的模型信心分數"]); new.append(s)
+s = deck.table("檢測軟體平台：VisionSequence（自家視覺平台）", ["步驟", "VisionSequence 工具", "本版 SIM 做法", "實機要做"], [
+    ["取像", "多光源取像（頻閃、曝光、通道）", "停穩後明場＋暗場各一張", "光源控制器與相機觸發整合"],
+    ["影像品質", "區域指標量測（清晰度）、灰階統計", "清晰度、亮度對黃金樣本", "門檻依實拍設定"],
+    ["明暗補正", "陰影校正", "8×6 分區亮度比", "白色參考影像校正"],
+    ["差異比對", "良品影像差異比對／統計良品比對", "黃金樣本差異 max(6σ, 0.1)", "die-to-die 或多張良品樣板"],
+    ["候選", "粒子分析、框操作", "≥ 3 px、外擴 1.2 mm 合併", "依缺陷規格設面積與分類"],
+    ["驗證", "批次測試、Golden Set 回歸、驗收書", "四種 SIM 情境", "標註影像集＋MSA"],
+    ["輸出", "結果回報、運行介面、HTTP／TCP／Modbus", "wafer map＋複檢清單", "MES 格式待確認"],
+    ["進階", "良品學習異常檢測", "—", "POC 後評估（只需良品）"],
+], col_widths=[1.6, 3.6, 3, 3], size=11, sub="流程在 VisionSequence 畫布上組成；工具名稱取自平台說明頁。晶圓流程尚未在平台實作，下兩頁是示意合成"); new.append(s)
+for path, cap in d.get("vs", []):
+    new.append(deck.picture("檢測軟體平台：VisionSequence（示意合成）", path, caption=cap))
 s = deck.table("模擬、估算與實機驗證的界線", ["內容", "本版怎麼得到", "類別", "要怎麼確認"], [
     ["晶圓規格、缺陷規格、節拍", "展示假設（300 mm、10 µm）", "展示假設", "客戶提供"],
     ["視野、µm/px、缺陷像素、景深", "core/optics 公式", "幾何估算", "鏡頭型錄＋尺度校正"],

@@ -87,9 +87,11 @@ export function drawTiming(ctx, W, H, pr, T) {
   ctx.fillStyle = '#8b98a8'; ctx.font = '15px sans-serif'; ctx.fillText(`${(span * 1000).toFixed(0)} ms`, W - 80, H - 6);
 }
 
-// ---------------------------------------------------------------- SIM 檢測影像（顯示用重新產生，0.04 mm／px；同一份相機模擬函式）
-const tileCache = new Map();
+// ---------------------------------------------------------------- SIM 檢測影像（顯示用重新產生，0.02 mm／px；同一份相機模擬函式）
+const projectCaches = new WeakMap();
 function tileImage(pr, k) {
+  if (!projectCaches.has(pr)) projectCaches.set(pr, new Map());
+  const tileCache = projectCaches.get(pr);
   const key = `${pr.scenarioId}|${k}`;
   if (tileCache.has(key)) return tileCache.get(key);
   const q = pr.plan.positions[k], per = pr.per[k];
@@ -100,10 +102,17 @@ function tileImage(pr, k) {
     const a = img[ch.toLowerCase()]; if (!a) { out[ch] = null; continue; }
     const c = document.createElement('canvas'); c.width = img.w; c.height = img.h;
     const g = c.getContext('2d'), d = g.createImageData(img.w, img.h);
-    for (let i = 0; i < a.length; i++) { const v = a[i] * 255; d.data[i * 4] = ch === 'BF' ? v : v * .75; d.data[i * 4 + 1] = ch === 'BF' ? v * .82 : v * .9; d.data[i * 4 + 2] = ch === 'BF' ? v * .7 : v; d.data[i * 4 + 3] = 255; }
+    for (let i = 0; i < a.length; i++) {
+      const v = a[i] * 255;
+      d.data[i * 4] = ch === 'BF' ? img.rgb[0][i] * 255 : v * .88;
+      d.data[i * 4 + 1] = ch === 'BF' ? img.rgb[1][i] * 255 : v * .94;
+      d.data[i * 4 + 2] = ch === 'BF' ? img.rgb[2][i] * 255 : v;
+      d.data[i * 4 + 3] = 255;
+    }
     g.putImageData(d, 0, 0); out[ch] = c;
   }
-  out.geo = img; if (tileCache.size > 40) tileCache.delete(tileCache.keys().next().value);
+  // 不保留像素的 Float32 副本；12 組畫布限制手機記憶體。
+  out.geo = { x0: img.x0, y0: img.y0 }; if (tileCache.size >= 12) tileCache.delete(tileCache.keys().next().value);
   tileCache.set(key, out); return out;
 }
 export function drawSimImage(ctx, W, H, pr, T, k, { channel = 'BF', overlay = 'mark', A = false } = {}) {

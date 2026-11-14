@@ -43,7 +43,7 @@
       "group": "compact/line",
       "name": "影格總數＝位置×2＋對位 2＋複檢×每處張數",
       "ok": true,
-      "value": "164"
+      "value": "161"
     },
     {
       "group": "compact/line",
@@ -139,7 +139,7 @@
       "group": "compact/defocus",
       "name": "影格總數＝位置×2＋對位 2＋複檢×每處張數",
       "ok": true,
-      "value": "191"
+      "value": "194"
     },
     {
       "group": "compact/defocus",
@@ -235,7 +235,7 @@
       "group": "估算",
       "name": "完整掃描的動畫總長＝整片週期估算",
       "ok": true,
-      "value": "303.09 s"
+      "value": "302.55 s"
     },
     {
       "group": "估算",
@@ -247,7 +247,7 @@
       "group": "情境",
       "name": "同一情境重建兩次，候選完全相同（固定資料、無亂數）",
       "ok": true,
-      "value": "4 個候選"
+      "value": "3 個候選"
     },
     {
       "group": "資料分離",
@@ -307,7 +307,7 @@
       "group": "異常",
       "name": "失焦／照明不足的位置判待複檢",
       "ok": true,
-      "value": "12 個"
+      "value": "13 個"
     },
     {
       "group": "異常",

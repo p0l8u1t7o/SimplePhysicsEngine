@@ -2,7 +2,7 @@
 // 候選區（B）、真值（A，預設隱藏）、待人工確認（C）、邊緣排除區。疊圖都是非實體（userData.fx），只在畫面上。
 // 晶圓群組的座標：x = 晶圓 x、z = −晶圓 y、y 往上（表面在 y = 厚度）。圖樣用 instancing／貼圖，不為每個小圖案建網格。
 import * as THREE from 'three';
-import { pattern } from './inspection-sim.js';
+import { pattern } from './wafer-pattern.js';
 
 const LIFT = { cells: 0.12, path: 0.2, marks: 0.28 };       // 疊圖離晶圓表面的高度（mm，避免和表面重合閃爍）
 export const CELL_COLORS = { pending: 0xb8c4d0, skipped: 0x4a525c, current: 0xffd34d, done: 0x3ccf7a, candidate: 0xff5a4a, recheck: 0xffa42b, missing: 0xff7ad9 };
@@ -11,15 +11,14 @@ export const CELL_LABEL = { pending: '未掃描', skipped: '展示略過（未�
 const fx = o => { o.userData.fx = true; o.castShadow = false; o.receiveShadow = false; return o; };
 
 // 示意圖樣貼圖（瀏覽器才畫；Node 檢查時沒有 canvas，用純色）
-function patternTexture(p, size = 2048) {
+function patternTexture(p, size) {
   if (typeof HTMLCanvasElement === 'undefined') return null;
   const c = document.createElement('canvas'); c.width = c.height = size;
-  const ctx = c.getContext('2d'), img = ctx.createImageData(size, size), R = p.waferD / 2, pv = [0, 0];
+  const ctx = c.getContext('2d'), img = ctx.createImageData(size, size), R = p.waferD / 2, pv = [0, 0, 0, 0, 0];
   for (let j = 0; j < size; j++) for (let i = 0; i < size; i++) {
     const x = (i + .5) / size * 2 * R - R, y = R - (j + .5) / size * 2 * R, k = (j * size + i) * 4;
     pattern(x, y, p.dieW, p.dieH, pv);
-    const b = pv[0], tint = (Math.floor(Math.abs(x) / 2.4) * 7 + Math.floor(Math.abs(y) / 2.4) * 13) % 5;
-    img.data[k] = 70 + 175 * b; img.data[k + 1] = 38 + 140 * b * (tint === 4 ? 1.05 : .86); img.data[k + 2] = 34 + 120 * b * (tint === 2 ? 1.1 : .78); img.data[k + 3] = 255;
+    img.data[k] = pv[2] * 255; img.data[k + 1] = pv[3] * 255; img.data[k + 2] = pv[4] * 255; img.data[k + 3] = 255;
   }
   ctx.putImageData(img, 0, 0);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
@@ -36,20 +35,30 @@ function clipToDisc(material, R) {
   return material;
 }
 
-export function createWafer(p, plan) {
+export function createWafer(p, plan, textureSize = 2048) {
   const R = p.waferD / 2, T = p.waferT, top = T;
   const group = new THREE.Group(); group.name = 'wafer';
-  const tex = patternTexture(p);
-  const disc = new THREE.Mesh(new THREE.CylinderGeometry(R, R, T, 128), [
+  const tex = patternTexture(p, textureSize);
+  // 同一網格的上下斜面與實際缺口；不再用浮在表面的三角貼片。
+  const geo = new THREE.CylinderGeometry(R, R, T, 512, 2), pos = geo.attributes.position, uv = geo.attributes.uv;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i), radius = Math.hypot(x, z);
+    if (radius < R * .5) continue;
+    const bevel = Math.abs(y) > T * .4 ? Math.min(.28, T * .3) : 0;
+    const notch = z > 0 ? Math.max(0, 1 - Math.abs(x) / 2.4) * 1.8 : 0;
+    const scale = (R - bevel - notch) / radius;
+    pos.setXYZ(i, x * scale, y, z * scale);
+    // 頂／底蓋 UV 對到晶圓 (x, y)，維持 SIM 與貼圖的座標方向。
+    if (i >= 513 * 3) uv.setXY(i, x * scale / (2 * R) + .5, -z * scale / (2 * R) + .5);
+  }
+  geo.computeVertexNormals();
+  const disc = new THREE.Mesh(geo, [
     new THREE.MeshStandardMaterial({ color: 0x8d9298, roughness: .3, metalness: .7 }),                       // 側面
-    new THREE.MeshStandardMaterial({ color: tex ? 0xffffff : 0x9a5a48, map: tex, roughness: .32, metalness: .45 }),   // 上表面
+    new THREE.MeshStandardMaterial({ color: tex ? 0xffffff : 0x9a5a48, map: tex, roughness: .38, metalness: .22 }),   // 上表面
     new THREE.MeshStandardMaterial({ color: 0x7c8086, roughness: .4, metalness: .6 }),                       // 下表面
   ]);
   // CylinderGeometry 的頂蓋 UV 以圓心為 (0.5, 0.5)，貼圖剛好對到晶圓座標
   disc.position.y = T / 2; disc.name = 'wafer disc'; disc.castShadow = true; disc.receiveShadow = true; group.add(disc);
-  // 缺口（notch）示意：晶圓下緣（−y）一個小三角暗標
-  const notch = fx(new THREE.Mesh(new THREE.CircleGeometry(2.2, 3), new THREE.MeshBasicMaterial({ color: 0x15181c })));
-  notch.rotation.x = -Math.PI / 2; notch.rotation.z = Math.PI / 2; notch.position.set(0, top + LIFT.marks, R - 1.6); notch.name = 'notch mark'; group.add(notch);
 
   const over = new THREE.Group(); over.name = 'wafer overlays'; fx(over); group.add(over);
   // 邊緣排除區
@@ -59,7 +68,7 @@ export function createWafer(p, plan) {
   }
   // 掃描格：每個位置一格（大小 = 步距，格與格不重疊）
   const n = plan.valid ? plan.positions.length : 0;
-  const cellMat = clipToDisc(new THREE.MeshBasicMaterial({ transparent: true, opacity: .42, depthWrite: false, side: THREE.DoubleSide }), R);
+  const cellMat = clipToDisc(new THREE.MeshBasicMaterial({ transparent: true, opacity: .17, depthWrite: false, side: THREE.DoubleSide }), R);
   const cells = fx(new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), cellMat, Math.max(1, n)));
   cells.count = n; cells.name = 'scan cells'; cells.frustumCulled = false;
   const m4 = new THREE.Matrix4(), q4 = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0)), col = new THREE.Color();

@@ -9,7 +9,7 @@ import { PARAMS, SCENARIOS, LAYOUT, Y, IMAGES_PER_POS, resolveParams, missingOf 
 import { opticsOf, estimate, lineScanCompare } from './budget.js';
 import { scanPlan, coverage, wastedArea, dieCount, compactList } from './scan-plan.js';
 import { inspectAll, mergeCandidates, reviewList, scoreAgainstTruth } from './inspection-sim.js';
-import { buildSchedule, createSequence, STATIONS, LOAD } from './sequence.js';
+import { buildSchedule, createSequence, exposureCue, STATIONS, LOAD } from './sequence.js';
 import { createWafer } from './wafer.js';
 import { createMachine } from './machine.js';
 
@@ -19,7 +19,7 @@ export const MODES = { compact: '精簡展示', full: '完整掃描' };
 const NEEDED = ['waferD', 'edgeExcl', 'dieW', 'dieH', 'camPx', 'camH', 'camV', 'camBits', 'camBuffer', 'mag', 'fNum', 'wd', 'dfRingD', 'dfHeight', 'defect', 'pxPerDefect',
   'overlap', 'vMax', 'aMax', 'settle', 'expBF', 'expDF', 'lightSwitch', 'procImg', 'procThreads', 'afPoints', 'afTime', 'reviewImgs', 'compactRows', 'flatness', 'waferT'];
 
-export function createProject({ scene, mode = 'compact', scenario = 'line', params = {} } = {}) {
+export function createProject({ scene, mode = 'compact', scenario = 'line', params = {}, textureSize = 2048 } = {}) {
   mode = MODES[mode] ? mode : 'compact';
   const scId = SCENARIOS[scenario] ? scenario : 'line', sc = SCENARIOS[scId];
   const R = resolveParams(params), missing = missingOf(R.p, NEEDED);
@@ -54,7 +54,7 @@ export function createProject({ scene, mode = 'compact', scenario = 'line', para
 
   // ---------------------------------------------------------------- 場景
   const { mesh: floorMesh, grid } = floor(scene, { size: [6000, 5000], cell: 250 });
-  const wafer = createWafer(p, plan);
+  const wafer = createWafer(p, plan, textureSize);
   const machine = createMachine(scene, p, { waferGroup: wafer.group });
   wafer.setup({ list, posTime: schedule.posTime, per: ins.per, candidates, review, revTime: schedule.revTime, inList: new Set(list), scenario: sc, reviewStart });
   // 目前視野（固定在光軸下，跟著相機，不跟著晶圓）
@@ -69,7 +69,7 @@ export function createProject({ scene, mode = 'compact', scenario = 'line', para
     const T = Number.isFinite(t) ? THREE.MathUtils.clamp(t, 0, total) : 0;
     const cur = sequence.sample(T), s = cur.state;
     machine.setStage(s.sx, s.sy, s.th, s.z);
-    machine.setLight(s.light, s.vac);
+    machine.setLight(s.light, s.vac, exposureCue(T, s, schedule.posTime.get(s.pos)));
     machine.setHood(opts.hood ?? 'glass');
     fovLine.material.color.set(FOV_COLOR[s.mode] ?? 0x8a96a3); fovGroup.visible = valid && opts.view?.fov !== false;
     wafer.update(T, s, opts.view || {});

@@ -10,8 +10,8 @@
 // 決定性：雜訊用座標雜湊，不用 Math.random。
 
 export const SIM_RES = 0.12;                 // 模擬影像每像素 mm（示意取樣）
-export const DISPLAY_RES = 0.04;             // 影像面板顯示用
-const NOISE = 0.02, THR_K = 6, THR_MIN = 0.1, MIN_AREA = 2;
+export const DISPLAY_RES = 0.02;             // 影像面板顯示用，仍非相機原始解析度
+const NOISE = 0.02, THR_K = 6, THR_MIN = 0.1, MIN_AREA = 3;
 const SHARP_MIN = 0.7, BRIGHT_MIN = 0.6;     // 影像品質門檻：清晰度、亮度相對參考影像
 
 // ---------------------------------------------------------------- 決定性雜湊與雜訊
@@ -22,30 +22,10 @@ function hash2(a, b, s = 0) {
 }
 const noise = (ix, iy, seed) => (hash2(ix, iy, seed) + hash2(iy + 7, ix + 3, seed + 11) - 1) * NOISE * 1.7;
 
-// ---------------------------------------------------------------- 示意圖樣（每個 die 相同；die 內 4×4 區塊的種類依區塊編號雜湊）
-// 回傳 [明場反射, 暗場散射]，0～1 的示意亮度。依據：照片可見重複的線陣、點陣、大面積區塊與切割道，不代表任何特定產品。
-export function pattern(x, y, W, H, out = [0, 0]) {
-  let u = x % W; if (u < 0) u += W;
-  let v = y % H; if (v < 0) v += H;
-  const s = 0.15;                                                     // 切割道寬
-  if (u < s / 2 || u > W - s / 2 || v < s / 2 || v > H - s / 2) { out[0] = 0.3; out[1] = 0.06; return out; }
-  const edgeS = Math.min(Math.abs(u - s / 2), Math.abs(W - s / 2 - u), Math.abs(v - s / 2), Math.abs(H - s / 2 - v));
-  const bw = (W - s) / 4, bh = (H - s) / 4, bi = Math.min(3, Math.floor((u - s / 2) / bw)), bj = Math.min(3, Math.floor((v - s / 2) / bh));
-  const lu = u - s / 2 - bi * bw, lv = v - s / 2 - bj * bh, edgeB = Math.min(lu, bw - lu, lv, bh - lv);
-  if (edgeB < 0.05) { out[0] = 0.36; out[1] = 0.32; return out; }       // 區塊邊框
-  const type = Math.floor(hash2(bi, bj, 17) * 5);
-  let bf, df;
-  if (type === 0) { bf = 0.86; df = 0.03; }                            // 大面積亮區塊
-  else if (type === 1) { const on = lv % 0.4 < 0.2; bf = on ? 0.9 : 0.46; df = Math.min(lv % 0.2, 0.2 - lv % 0.2) < 0.04 ? 0.3 : 0.06; }   // 線陣
-  else if (type === 2) { const du = lu % 0.5 - 0.25, dv = lv % 0.5 - 0.25, r = Math.hypot(du, dv); bf = r < 0.12 ? 0.9 : 0.52; df = Math.abs(r - 0.12) < 0.04 ? 0.36 : 0.04; }   // 點陣
-  else if (type === 3) { bf = 0.34; df = 0.02; }                       // 暗色區塊
-  else { const c = (Math.floor(lu / 0.3) + Math.floor(lv / 0.3)) % 2; bf = c ? 0.72 : 0.58; df = 0.12; }   // 細密網格
-  if (edgeS < 0.05) df = Math.max(df, 0.3);
-  out[0] = bf; out[1] = df; return out;
-}
+import { pattern } from './wafer-pattern.js';
+export { pattern };
 
-// ---------------------------------------------------------------- 晶圓表面高度（翹曲）與對焦平面
-// 全片碗形 flatness·(r/R)²，加上情境的局部翹曲（A 真值）；相機模擬與對焦（物理量測）用，演算法不用
+// 全片碗形翹曲＋局部翹曲；只供相機模擬與對焦平面量測，不傳入 detect。
 export function surfaceZ(x, y, p, defects = []) {
   const R = p.waferD / 2; let z = (p.flatness || 0) * (x * x + y * y) / (R * R);
   for (const d of defects) if (d.kind === 'warp') { const r = Math.hypot(x - d.at[0], y - d.at[1]); if (r < d.r) z += d.h * 0.5 * (1 + Math.cos(Math.PI * r / d.r)); }
@@ -71,12 +51,18 @@ export function fitPlane(pts, zs) {
 // ---------------------------------------------------------------- 相機模擬（讀 A 真值）：一個取像位置的明場＋暗場影像
 // opt：{ defects（A 真值）, seed, res, focusErr（mm）, dof（mm）, drop: ['BF'|'DF'] 遺失的影格, ref: true 另外產生參考影像 }
 // 參考影像（黃金樣本）：同一圖樣、不含任何注入缺陷、失焦與照明變化，雜訊種子不同；它只用到圖樣，不讀真值。
-export function renderTile(cx, cy, fov, p, { defects = [], seed = 1, res = SIM_RES, focusErr = 0, dof = Infinity, drop = [], ref = false } = {}) {
+// bf／df 是 Float32Array(H×W)；rgb 是三個平面 [R,G,B]（各 H×W），範圍 0～1。
+// color:false 只省略 RGB 儲存，bf 仍由同一 RGB 圖樣的亮度計算，演算法路徑不變。
+export function renderTile(cx, cy, fov, p, { defects = [], seed = 1, res = SIM_RES, focusErr = 0, dof = Infinity, drop = [], ref = false, color = true } = {}) {
   const [fw, fh] = fov, w = Math.max(8, Math.round(fw / res)), h = Math.max(8, Math.round(fh / res));
-  const rx = fw / w, ry = fh / h, bf = new Float32Array(w * h), df = new Float32Array(w * h), pv = [0, 0];
+  const rx = fw / w, ry = fh / h, bf = new Float32Array(w * h), df = new Float32Array(w * h), pv = [0, 0, 0, 0, 0];
+  const rgb = color ? Array.from({ length: 3 }, () => new Float32Array(w * h)) : null;
   const rbf = ref ? new Float32Array(w * h) : null, rdf = ref ? new Float32Array(w * h) : null;
   const x0 = cx - fw / 2, y0 = cy + fh / 2;
-  const lines = defects.filter(d => d.kind === 'line'), parts = defects.filter(d => d.kind === 'particle'), dims = defects.filter(d => d.kind === 'dim');
+  // 只裁掉完全不進視野的注入物；每個位置仍產生影像並完整執行 detect。
+  const lines = defects.filter(d => d.kind === 'line' && Math.max(d.a[0], d.b[0]) >= x0 - res * 3 && Math.min(d.a[0], d.b[0]) <= x0 + fw + res * 3 && Math.max(d.a[1], d.b[1]) >= y0 - fh - res * 3 && Math.min(d.a[1], d.b[1]) <= y0 + res * 3);
+  const parts = defects.filter(d => d.kind === 'particle' && Math.abs(d.at[0] - cx) < fw / 2 + Math.max(d.r, res * 3) && Math.abs(d.at[1] - cy) < fh / 2 + Math.max(d.r, res * 3));
+  const dims = defects.filter(d => d.kind === 'dim');
   const minW = 1.4 * Math.max(rx, ry);                                 // 示意放大：細線至少畫成 1.4 個模擬像素寬
   for (let iy = 0; iy < h; iy++) for (let ix = 0; ix < w; ix++) {
     const x = x0 + (ix + .5) * rx, y = y0 - (iy + .5) * ry;
@@ -86,28 +72,48 @@ export function renderTile(cx, cy, fov, p, { defects = [], seed = 1, res = SIM_R
     for (const L of lines) {
       const [ax, ay] = L.a, [bx, by] = L.b, vx = bx - ax, vy = by - ay, t = Math.max(0, Math.min(1, ((x - ax) * vx + (y - ay) * vy) / (vx * vx + vy * vy)));
       const dist = Math.hypot(x - ax - t * vx, y - ay - t * vy), half = Math.max(L.width, minW) / 2;
-      if (dist < half) { const s = 1 - dist / half * .3; b *= 1 - (1 - L.bf) * s; d += L.df * s; }
+      const bead = L.beads && Math.abs((t * L.beads) % 1 - .5) < .13;
+      const radius = half * (bead ? 1.65 : 1);
+      if (dist < radius) { const s = (1 - dist / radius * .45) * (bead ? 1 : .85); b *= 1 - (1 - L.bf) * s; d += L.df * s; }
     }
     for (const P of parts) {
       const dist = Math.hypot(x - P.at[0], y - P.at[1]), rr = Math.max(P.r, minW);
       if (dist < rr) { const s = 1 - dist / rr * .3; b *= 1 - (1 - P.bf) * s; d += P.df * s; }
     }
-    for (const D of dims) { const r = Math.hypot(x - D.at[0], y - D.at[1]); if (r < D.r) { const g = 1 - (1 - D.gain) * 0.5 * (1 + Math.cos(Math.PI * r / D.r)); b *= g; d *= g; } }
+    for (const D of dims) {
+      const r = Math.hypot(x - D.at[0], y - D.at[1]);
+      if (r < D.r) {
+        const weight = .5 * (1 + Math.cos(Math.PI * r / D.r));
+        const band = D.banded ? .10 + .9 * Math.min(1, Math.max(0, (iy / h - .21) / .10)) * Math.min(1, Math.max(0, (1 - iy / h) / .15)) : 1;
+        const gain = 1 - (1 - D.gain * band) * weight; b *= gain; d *= gain;
+      }
+    }
     bf[iy * w + ix] = b; df[iy * w + ix] = d;
+    if (rgb) { const gain = b / pv[0]; for (let c = 0; c < 3; c++) rgb[c][iy * w + ix] = pv[c + 2] * gain; }
   }
+  // 小幅點擴散：參考與拍攝影像同樣套用，不靠門檻掩蓋成像差異。
+  for (const a of [bf, df, rbf, rdf, ...(rgb || [])]) if (a) soften(a, w, h);
   // 失焦：超出半個景深就依超出量做盒式模糊（示意）
   const over = Math.abs(focusErr) - dof / 2;
-  if (over > 0) { const r = Math.min(5, 1 + Math.round(over / Math.max(dof / 2, 1e-3) * 2)); blur(bf, w, h, r); blur(df, w, h, r); }
+  if (over > 0) { const r = Math.min(12, Math.max(1, Math.round(SIM_RES / res * (1 + over / Math.max(dof / 2, 1e-3) * 2)))); for (const a of [bf, df, ...(rgb || [])]) blur(a, w, h, r); }
   const gx = Math.round(x0 / rx), gy = Math.round(y0 / ry);
   for (let iy = 0; iy < h; iy++) for (let ix = 0; ix < w; ix++) {
     const k = iy * w + ix;
-    bf[k] = Math.min(1, Math.max(0, bf[k] + noise(gx + ix, gy - iy, seed)));
+    const n = noise(gx + ix, gy - iy, seed);
+    bf[k] = Math.min(1, Math.max(0, bf[k] + n));
+    if (rgb) for (let c = 0; c < 3; c++) rgb[c][k] = Math.min(1, Math.max(0, rgb[c][k] + n));
     df[k] = Math.min(1, Math.max(0, df[k] + noise(gx + ix, gy - iy, seed + 101)));
     if (ref) { rbf[k] = Math.min(1, Math.max(0, rbf[k] + noise(gx + ix, gy - iy, seed + 5003))); rdf[k] = Math.min(1, Math.max(0, rdf[k] + noise(gx + ix, gy - iy, seed + 5104))); }
   }
-  const out = { w, h, rx, ry, x0, y0, bf: drop.includes('BF') ? null : bf, df: drop.includes('DF') ? null : df };
+  const out = { w, h, rx, ry, x0, y0, rgb: drop.includes('BF') ? null : rgb, bf: drop.includes('BF') ? null : bf, df: drop.includes('DF') ? null : df };
   if (ref) out.ref = { w, h, rx, ry, x0, y0, bf: rbf, df: rdf };
   return out;
+}
+function soften(a, w, h) {
+  const src = a.slice();
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+    const k = y * w + x; a[k] = src[k] * .84 + .04 * (src[k - 1] + src[k + 1] + src[k - w] + src[k + w]);
+  }
 }
 function blur(a, w, h, r) {
   const t = new Float32Array(a.length);
@@ -120,7 +126,7 @@ function blur(a, w, h, r) {
 //   1. 缺圖檢查：任一通道沒有影像 → 缺圖，待複檢
 //   2. 影像品質：清晰度（梯度能量）與亮度相對參考影像低於門檻 → 失焦／照明不足，待複檢（不判良品，也不找缺陷）
 //   3. 差異比對：|影像 − 參考|，用中位數絕對偏差估雜訊，門檻 max(6σ, 0.1)
-//   4. 連通區域（4 鄰），面積 ≥ 2 像素 → 候選區（晶圓座標的外框）
+//   4. 連通區域（4 鄰），面積 ≥ 3 像素 → 候選區（晶圓座標的外框）
 export function detect(img, ref) {
   if (!img.bf || !img.df) return { status: 'missing', reasons: [`缺圖（${!img.bf ? '明場' : ''}${!img.bf && !img.df ? '、' : ''}${!img.df ? '暗場' : ''}影像未收到）`], blobs: [] };
   const { w, h } = img, BX = 8, BY = 6, bw = w / BX, bh = h / BY, gain = new Float32Array(BX * BY);
@@ -179,16 +185,16 @@ export function inspectAll(plan, p, scenario, dof) {
   const per = plan.positions.map(q => {
     const focusErr = surfaceZ(q.x, q.y, p, defects) - (plane.a + plane.b * q.x + plane.c * q.y);
     const drop = drops.filter(d => Math.abs(d.at[0] - q.x) <= plan.fov[0] / 2 && Math.abs(d.at[1] - q.y) <= plan.fov[1] / 2).flatMap(d => d.ch);
-    const img = renderTile(q.x, q.y, plan.fov, p, { defects, seed: 1 + q.k * 3, focusErr, dof, drop, ref: true });
+    const img = renderTile(q.x, q.y, plan.fov, p, { defects, seed: 1 + q.k * 3, focusErr, dof, drop, ref: true, color: false });
     const { ref, ...shot } = img;
     return { ...detect(shot, ref), focusErr };
   });
   return { per, plane, afPts };
 }
 
-// 候選區合併（B）：依取像順序，外框（外擴 0.3 mm）相交的併成同一個候選；list 是這次實際取像的位置（精簡模式只有一部分）
+// 候選區合併（B）：依取像順序，外框（外擴 1.2 mm，接起斷續暗點）相交的併成同一個候選；list 是這次實際取像的位置（精簡模式只有一部分）
 export function mergeCandidates(per, list) {
-  const out = [], grow = 0.3, hit = (a, b) => a[0] - grow <= b[2] && b[0] - grow <= a[2] && a[1] - grow <= b[3] && b[1] - grow <= a[3];
+  const out = [], grow = 1.2, hit = (a, b) => a[0] - grow <= b[2] && b[0] - grow <= a[2] && a[1] - grow <= b[3] && b[1] - grow <= a[3];
   for (const k of list) for (const b of per[k]?.blobs || []) {
     let c = out.find(c => c.parts.some(x => hit(x.box, b.box)));
     if (!c) { c = { id: 'B' + (out.length + 1), parts: [], channels: new Set() }; out.push(c); }

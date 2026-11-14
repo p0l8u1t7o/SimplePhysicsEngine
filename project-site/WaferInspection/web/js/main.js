@@ -23,7 +23,8 @@ for (const [k, d] of Object.entries(PARAMS)) if (qp.has(k)) params[k] = d.option
 const canvas = $('c');
 const stage = createStage({ canvas, look: 'cell', extent: { center: [0, 1150, 0], radius: 1600 }, camera: { near: 2, far: 30000 }, controls: { minDistance: 60, maxDistance: 9000 } });
 const { renderer, scene, camera, controls } = stage;
-const project = createProject({ scene, mode: qp.get('mode') || 'compact', scenario: qp.get('sc') || 'line', params });
+const textureSize = Math.min(renderer.capabilities.maxTextureSize, matchMedia('(max-width: 800px)').matches ? 2048 : 4096);
+const project = createProject({ scene, mode: qp.get('mode') || 'compact', scenario: qp.get('sc') || 'line', params, textureSize });
 const { machine, wafer } = project;
 const view = { A: qp.get('truth') === '1', B: true, C: true, path: true, fov: true };
 let hoodMode = ['glass', 'solid', 'off'].includes(qp.get('hood')) ? qp.get('hood') : 'glass';
@@ -85,7 +86,7 @@ $('hood').value = hoodMode; $('hood').onchange = e => { hoodMode = e.target.valu
 if (['BF', 'DF'].includes(qp.get('channel'))) $('channel').value = qp.get('channel');
 $('channel').onchange = $('overlay').onchange = () => stage.invalidate(true);
 for (const [id, key] of [['showA', 'A'], ['showB', 'B'], ['showC', 'C'], ['showPath', 'path']]) { $(id).checked = view[key]; $(id).onchange = e => { view[key] = e.target.checked; refresh(); }; }
-$('scenarioNote').innerHTML = `${esc(project.scenario.note)}。所有結果都是 <b>SIM／模擬</b>，不是實拍影像辨識。`;
+$('scenarioNote').innerHTML = `${esc(project.scenario.note)}。所有結果都是 <b>SIM／模擬</b>，外觀參考客戶照片的示意。曝光後光暈為短暫示意餘暉，平台移動時關閉。`;
 // 本機參考照片：只在這個瀏覽器顯示，不上傳、不寫進專案
 const loadPhoto = (src, name) => new Promise((ok, bad) => { const img = new Image(); img.onload = () => { photo = { img, name }; manualMarks = []; workspace.source = 'photo'; stage.invalidate(true); ok({ w: img.width, h: img.height }); }; img.onerror = bad; img.src = src; });
 $('photo').onchange = e => { const file = e.target.files?.[0]; if (file) loadPhoto(URL.createObjectURL(file), file.name); };
@@ -154,10 +155,11 @@ $('method').innerHTML = `
     <li><b>影像品質</b>：和黃金樣本比較整張與 8×6 分區的清晰度（梯度能量）與亮度；失焦或照明不足 → <span class="tag recheck">待複檢</span>，此位置不找缺陷、也不判良品。</li>
     <li><b>明暗補正</b>：每區乘上和參考影像的亮度比（shading correction）。</li>
     <li><b>差異比對</b>：|影像 − 參考|，以中位數絕對偏差估雜訊，門檻 max(6σ, 0.1)；明場、暗場各做一次。</li>
-    <li><b>候選區</b>：連通區域（≥ 2 像素）→ 晶圓座標外框；相鄰位置重疊的併成同一個 <span class="tag cand">B 候選</span>。</li>
+    <li><b>候選區</b>：連通區域（≥ 3 像素）→ 晶圓座標外框；外擴 1.2 mm 內相交的（含相鄰位置、斷續暗點）併成同一個 <span class="tag cand">B 候選</span>。</li>
     <li><b>複檢</b>：候選與待複檢位置依最近鄰順序回去各拍 ${project.p.reviewImgs} 張，之後交人工確認（<span class="tag c">C</span>）。</li>
   </ol>
-  <p class="note">SIM：影像是 0.12 mm／像素的示意取樣（顯示時 0.04 mm），缺陷寬度依示意放大到看得見；參考影像用同一圖樣函式、不含注入缺陷，演算法不讀 A 真值。
+  <p class="note"><b>實機檢測平台：VisionSequence（自家視覺平台）</b>。上述步驟對應平台工具：多光源取像、區域指標量測（清晰度）、灰階統計、陰影校正、良品影像差異比對／統計良品比對、粒子分析、框操作、結果回報；驗證用批次測試與 Golden Set 回歸。晶圓流程尚未在平台實作。</p>
+  <p class="note">SIM：影像是 0.12 mm／像素的示意取樣（顯示時 0.02 mm），明場以 RGB 顯示、亮度比對；缺陷寬度依示意放大到看得見。參考影像用同一圖樣函式、不含注入缺陷，演算法不讀 A 真值。
   實機要改成 die-to-die 或設計圖比對、建立缺陷標註資料並定允收規格；光學影像不能判定晶體管、奈米線路或內部電性缺陷，疑似暗線也不直接判定為裂紋。</p>`;
 function renderLineScan() {
   const L = project.lineScan;

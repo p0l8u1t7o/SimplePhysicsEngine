@@ -6,7 +6,7 @@
   "strict": true,
   "checks": {
     "quick": ["tools/verify.mjs"],
-    "full": []
+    "full": ["tools/verify-appearance.mjs"]
   },
   "variants": [
     { "name": "完整掃描／顆粒", "params": { "mode": "full", "scenario": "particle" } },

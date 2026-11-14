@@ -1,6 +1,7 @@
 // 評估簡報（本站自有的補頁）：先執行 `vs3d assess "WaferInspection" --repo deck` 重新產生簡報與成本表，再在附錄之前補上
 // 光學與掃描估算、週期分項、線掃描比較、檢測演算方式、模擬／估算／實機驗證的界線、SIM 情境截圖。數字由站的程式（spec.js 的展示參數）即時計算。
-//   node --import ../../core/tools/register.mjs tools/assessment-extra.mjs <shots.mjs 截圖資料夾> [情境截圖資料夾]（在站資料夾執行）
+//   node --import ../../core/tools/register.mjs tools/assessment-extra.mjs <shots.mjs 截圖資料夾> [情境截圖資料夾] [VisionSequence 合成圖資料夾]（在站資料夾執行）
+// SIM 影像特寫由 tools/verify-appearance.mjs 產生在本站 TEMP/appearance；VisionSequence 合成圖先用 tools/vs-composite.mjs 產生（預設 TEMP/WaferInspection-shots/visionsequence）。
 // 需要公司樣板（studio 的 findDeckKit：VS3D_DECK_KIT 或 ~/.claude/skills 的 zq-work-deck）、Python 與 python-pptx。輸出覆寫原檔（docs/ 只留本機）。
 import '@core/verify/dom-stub.mjs';
 import * as THREE from 'three';
@@ -44,6 +45,14 @@ const data = {
   shots: shotsDir ? [['12-select-candidate.png', 'SIM：線狀表面異常——演算法候選（紅框）與 C 待人工確認；影像為示意'], ['06-defocus-review.png', 'SIM：局部翹曲超出景深、照明不足——判「待複檢」，不判良品'], ['05-particle-end-truth.png', 'SIM：顆粒情境——A 真值（紫）對照 B 候選；低對比的一顆 SIM 漏檢']]
     .map(([f, cap]) => [join(shotsDir, f), cap]).filter(([f]) => existsSync(f)) : [],
 };
+// SIM 影像特寫（tools/verify-appearance.mjs 產生在本站 TEMP/appearance）
+const ap = fileURLToPath(new URL('../TEMP/appearance/', import.meta.url));
+data.closeups = [['line-bf.png', '明場：細暗線斜穿區塊，線上斷續暗點'], ['line-df.png', '暗場：同一條線散射成亮線'], ['pad-bf.png', '明場：栗紅墊片內的細暗斜線與小顆粒'], ['banded-bf.png', '照明不足：上方暗帶（客戶拍攝條件示意）→ 待複檢']]
+  .map(([f, cap]) => [join(ap, f), cap]).filter(([f]) => existsSync(f));
+// VisionSequence 合成圖（tools/vs-composite.mjs 產生）
+const vsDir = process.argv[4] || join(root, 'TEMP', 'WaferInspection-shots', 'visionsequence');
+data.vs = [['vs-editor.png', '流程編輯器：VisionSequence 介面截圖＋本站 SIM 晶圓影像與 B 候選（示意合成，非實際執行畫面）'], ['vs-dashboard.png', '運行總覽：套用本站 SIM 結果（精簡展示 75／777 位置；示意合成，非實際運行畫面）']]
+  .map(([f, cap]) => [join(vsDir, f), cap]).filter(([f]) => existsSync(f));
 const dir = mkdtempSync(join(tmpdir(), 'wafer-deck-')), json = join(dir, 'extra.json');
 writeFileSync(json, JSON.stringify(data));
 const r = spawnSync(process.env.VS3D_PYTHON || 'python', ['-I', fileURLToPath(new URL('./assessment_extra.py', import.meta.url)), kit, json, pptx], { encoding: 'utf8', env: { ...process.env, PYTHONIOENCODING: 'utf-8' } });

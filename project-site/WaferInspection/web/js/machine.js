@@ -28,6 +28,20 @@ function annulus(ri, ro, h, material, seg = 64) {
 }
 const glowMat = color => new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: .05, roughness: .4 });
 
+// 多孔陶瓷與環形真空溝槽用程序材質表現，不為每個孔建立幾何。
+function chuckMaterial() {
+  const size = 256, data = new Uint8Array(size * size * 4);
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const r = Math.hypot(x - size / 2, y - size / 2) / (size / 2), k = (y * size + x) * 4;
+    const pore = ((x * 73 ^ y * 137) & 31) < 3, groove = r < .96 && Math.abs((r * 8) % 1 - .5) < .022;
+    const v = groove ? 108 : pore ? 177 : 215 + ((x * 13 ^ y * 7) & 7);
+    data[k] = v; data[k + 1] = v - 3; data[k + 2] = v - 9; data[k + 3] = 255;
+  }
+  const map = new THREE.DataTexture(data, size, size); map.colorSpace = THREE.SRGBColorSpace;
+  map.generateMipmaps = true; map.minFilter = THREE.LinearMipmapLinearFilter; map.magFilter = THREE.LinearFilter; map.needsUpdate = true;
+  return new THREE.MeshStandardMaterial({ map, roughness: .88, metalness: .02 });
+}
+
 export function createMachine(scene, p, { waferGroup }) {
   const L = LAYOUT, root = grp(scene, 'machine');
   const metal = finished(MAT.alu, 'metal'), dark = MAT.steelDark;
@@ -68,8 +82,9 @@ export function createMachine(scene, p, { waferGroup }) {
   const rotor = grp(theta, 'theta rotor'); rotor.userData.cableHost = false;
   named(cylinder(rotor, L.theta.r - 8, L.theta.h - 22, [0, xCarTop + 22 + (L.theta.h - 22) / 2, 0], metal, 'y', 64), 'theta table');
   const chuck = tagPart(grp(rotor, 'vacuum chuck'), PART.chuck), cy0 = xCarTop + L.theta.h;
-  const ring = named(annulus(151, L.chuck.r, L.chuck.h - 1.5, metal), 'chuck rim');   // 鋁環頂面比陶瓷低 1.5 mm（晶圓只壓在陶瓷上） ring.position.y = cy0; chuck.add(ring);
-  named(cylinder(chuck, 149, L.chuck.h - 2, [0, cy0 + 2 + (L.chuck.h - 2) / 2, 0], new THREE.MeshStandardMaterial({ color: 0xd9d6cf, roughness: .9 }), 'y', 96), 'porous ceramic');   // 底面比鋁環高 2 mm（避免底面重合）
+  const ring = named(annulus(151, L.chuck.r, L.chuck.h - 1.5, metal), 'chuck rim');   // 鋁環頂面比陶瓷低 1.5 mm（晶圓只壓在陶瓷上）
+  ring.position.y = cy0; chuck.add(ring);
+  named(cylinder(chuck, 149, L.chuck.h - 2, [0, cy0 + 2 + (L.chuck.h - 2) / 2, 0], chuckMaterial(), 'y', 96), 'porous ceramic');   // 底面比鋁環高 2 mm（避免底面重合）
   // 晶圓放在吸盤上（晶圓群組由 project.js 建立，這裡掛到 θ 轉子上，跟著 θ 修正一起轉）
   waferGroup.position.y = cy0 + L.chuck.h; rotor.add(waferGroup);
   // 真空接頭（在不轉的 θ 底座側面）
@@ -108,7 +123,7 @@ export function createMachine(scene, p, { waferGroup }) {
   named(block(head, [96, 110, -beamFront - 30 - carFront + 2], [0, lensFront + 120 - zMid, (carFront + (-beamFront - 30)) / 2 + 1], dark), 'lens bracket');
   const cam = visionCamera.create({ name: 'camera', lensR: 30, lensL, bodyW: 62, bodyD: 62, bodyL: 72, ringR: 0, spot: false, view: false, material: MAT.black,
     lens: { material: new THREE.MeshStandardMaterial({ color: 0x2a2e33, roughness: .35, metalness: .5 }) },
-    bands: { ats: [-40, -150], r: 31.5, length: 8, material: MAT.alu } });
+    bands: { ats: [-24, -32, -40, -142, -150, -158], r: 31.5, length: 3, material: finished(MAT.alu, 'metal') } });
   cam.root.position.set(...toCar(0, lensFront, 0)); head.add(cam.root); tagPart(cam, PART.camera);
   const lensTag = grp(head, 'telecentric lens tag'); tagPart(lensTag, PART.lens);
   // 同軸光（明場）：鏡頭側面的光源盒
@@ -128,6 +143,8 @@ export function createMachine(scene, p, { waferGroup }) {
     named(rod(rg, toCar(s * (rOut - 6), ringY + 10, 0), toCar(s * (rOut - 6), collarY, 0), 3, MAT.chrome), 'ring hanger rod');
   }
   cable(bridge, 'camera cable', [[-20, lensFront + lensL + 72 - 2, 0], [-20, B.top + 5, 0], [-20, B.top + 5, B.z]], { radius: 4, color: CABLE.signal, clips: 0 });
+  cable(head, 'coax light cable', [toCar(62, lensFront + 149, 0), toCar(62, lensFront + 168, 0), toCar(76, lensFront + 172, -65), toCar(76, lensFront + 200, -65)], { radius: 2, color: CABLE.signal, clips: 0 });
+  cable(head, 'darkfield light cable', [toCar(0, ringY + 10, rOut - 4), toCar(0, ringY + 24, rOut - 4), toCar(42, lensFront + 24, rOut + 16), toCar(76, lensFront + 120, rOut + 16)], { radius: 1.6, color: CABLE.signal, clips: 0 });
 
   // ---- 光束示意（非實體）：明場是鏡頭下的光柱，暗場是環形光的光暈
   const beamBF = new THREE.Mesh(new THREE.CylinderGeometry(22, 22, p.wd - 1, 32, 1, true), new THREE.MeshBasicMaterial({ color: 0xfff1b8, transparent: true, opacity: .16, depthWrite: false, side: THREE.DoubleSide }));
@@ -168,9 +185,11 @@ export function createMachine(scene, p, { waferGroup }) {
       xAxis.set({ pos: -sx }); yAxis.set({ pos: sy - yZ0 }); rotor.rotation.y = th * D2R; zMove.position.y = zMid + z;
       xChain.set(-sx); yChain.set(sy - yZ0);
     },
-    setLight(light, vac) {
-      coaxFace.material.emissiveIntensity = light === 'BF' ? 2.2 : .05; ringGlow.material.emissiveIntensity = light === 'DF' ? 2.4 : .05;
-      beamBF.visible = light === 'BF'; beamDF.visible = light === 'DF';
+    setLight(light, vac, cue = 'off') {
+      const shown = light === 'off' ? cue : light, after = light === 'off';
+      coaxFace.material.emissiveIntensity = shown === 'BF' ? (after ? .8 : 2.2) : .05; ringGlow.material.emissiveIntensity = shown === 'DF' ? (after ? .9 : 2.4) : .05;
+      beamBF.visible = shown === 'BF'; beamDF.visible = shown === 'DF';
+      beamBF.material.opacity = after ? .12 : .26; beamDF.material.opacity = after ? .16 : .32;
       gaugeLamp.material.emissive.set(vac === 2 ? 0x3dd68c : vac === 1 ? 0xffb020 : 0x445058); gaugeLamp.material.emissiveIntensity = vac ? 1.2 : .2;
     },
     setHood(mode) {

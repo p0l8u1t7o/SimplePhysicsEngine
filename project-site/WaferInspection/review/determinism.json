@@ -5,7 +5,7 @@
       "variant": "預設",
       "params": {},
       "ok": true,
-      "objects": 186,
+      "objects": 200,
       "samples": 40,
       "failures": []
     },
@@ -16,7 +16,7 @@
         "scenario": "particle"
       },
       "ok": true,
-      "objects": 189,
+      "objects": 205,
       "samples": 40,
       "failures": []
     },
@@ -26,7 +26,7 @@
         "scenario": "defocus"
       },
       "ok": true,
-      "objects": 188,
+      "objects": 205,
       "samples": 40,
       "failures": []
     },
@@ -36,7 +36,7 @@
         "scenario": "clean"
       },
       "ok": true,
-      "objects": 172,
+      "objects": 188,
       "samples": 40,
       "failures": []
     }

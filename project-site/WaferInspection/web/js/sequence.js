@@ -11,6 +11,16 @@ export const STATIONS = ['真空確認', '對位', '對焦', '掃描取像', '�
 export const PLACEMENT = { th: 0.35, note: '人工放片的角度誤差 0.35°（示意），由 θ 台修正；XY 偏移由對位結果補償座標' };
 export const LOAD = [0, 210];      // 取放片位：平台把晶圓座標 (0, 210) 送到光軸下＝晶圓中心在操作側
 
+// 曝光後最多 85 ms 的示意餘暉：只在同一位置等待／切換時保留，移動、停穩、曝光前均關閉。
+// 不改曝光時刻、排程或相機結果；由時間直接計算，倒序亦相同。
+export function exposureCue(T, state, timing) {
+  if (!timing || !['wait', 'switch', 'tail'].includes(state.mode)) return 'off';
+  const e = timing.exp;
+  if (T >= e[3] && T < e[3] + .085) return 'DF';
+  if (T >= e[1] && T < Math.min(e[1] + .085, e[2])) return 'BF';
+  return 'off';
+}
+
 // 梯形速度曲線：距離 d、最高速 v、加速度 a → { T, ease(u) }
 export function trapezoid(d, v, a) {
   d = Math.abs(d);

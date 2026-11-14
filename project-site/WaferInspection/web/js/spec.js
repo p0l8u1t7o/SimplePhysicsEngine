@@ -59,8 +59,9 @@ export const SCENARIOS = {
   line: {
     label: '線狀表面異常', note: '對應照片中的疑似暗線：只稱「疑似線狀表面異常」，不判定為裂紋',
     defects: [
-      { id: 'A1', kind: 'line', a: [-41.0, 2.5], b: [-12.5, 9.8], width: 0.006, bf: 0.5, df: 0.5, note: '跨數個 die 的細線' },
-      { id: 'A2', kind: 'line', a: [52.0, -3.0], b: [58.5, -9.5], width: 0.004, bf: 0.6, df: 0.4, note: '單一 die 內的斜線' },
+      { id: 'A1', kind: 'line', a: [-41.0, 2.5], b: [-12.5, 9.8], width: 0.006, bf: 0.5, df: 0.5, beads: 29, note: '斜穿區塊的細暗線，線上斷續暗點（示意）' },
+      { id: 'A2', kind: 'line', a: [55.25, -0.3], b: [56.35, -1.4], width: 0.004, bf: 0.6, df: 0.4, beads: 5, note: '栗紅墊片內的細暗斜線（示意）' },
+      { id: 'A3', kind: 'particle', at: [55.45, -1.1], r: 0.018, bf: 0.5, df: 0.55, note: '暗線旁的小暗點（示意）' },
     ],
   },
   particle: {
@@ -77,7 +78,7 @@ export const SCENARIOS = {
     label: '失焦／照明不足', note: '局部翹曲超出景深、局部反光偏暗：影像品質不足的位置判「待複檢」，不判良品',
     defects: [
       { id: 'A1', kind: 'warp', at: [-60.0, 6.0], r: 22, h: 0.32, note: '局部翹曲 0.32 mm（對焦平面沒取到）' },
-      { id: 'A2', kind: 'dim', at: [70.0, 2.0], r: 14, gain: 0.42, note: '局部反光偏暗（膜厚或照明衰減示意）' },
+      { id: 'A2', kind: 'dim', at: [70.0, 2.0], r: 14, gain: 0.65, banded: true, note: '客戶拍攝條件示意：上方暗帶、下緣漸暗；非預設同軸光結果' },
       { id: 'A3', kind: 'drop', at: [20.0, -4.0], ch: ['DF'], note: '一張暗場影格傳輸逾時（缺圖示意）' },
     ],
   },
