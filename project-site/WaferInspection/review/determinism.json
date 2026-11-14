@@ -1,0 +1,44 @@
+{
+  "ok": true,
+  "variants": [
+    {
+      "variant": "預設",
+      "params": {},
+      "ok": true,
+      "objects": 186,
+      "samples": 40,
+      "failures": []
+    },
+    {
+      "variant": "完整掃描／顆粒",
+      "params": {
+        "mode": "full",
+        "scenario": "particle"
+      },
+      "ok": true,
+      "objects": 189,
+      "samples": 40,
+      "failures": []
+    },
+    {
+      "variant": "失焦／照明不足",
+      "params": {
+        "scenario": "defocus"
+      },
+      "ok": true,
+      "objects": 188,
+      "samples": 40,
+      "failures": []
+    },
+    {
+      "variant": "無注入缺陷",
+      "params": {
+        "scenario": "clean"
+      },
+      "ok": true,
+      "objects": 172,
+      "samples": 40,
+      "failures": []
+    }
+  ]
+}

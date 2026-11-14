@@ -1,0 +1,68 @@
+{
+  "ok": true,
+  "variants": [
+    {
+      "variant": "預設",
+      "params": {},
+      "ok": true,
+      "applicable": true,
+      "strict": true,
+      "source": "studio（@WaferInspection）",
+      "sceneModels": 8,
+      "bomLines": 27,
+      "matched": 8,
+      "sceneOnly": [],
+      "bomOnly": [],
+      "warnings": []
+    },
+    {
+      "variant": "完整掃描／顆粒",
+      "params": {
+        "mode": "full",
+        "scenario": "particle"
+      },
+      "ok": true,
+      "applicable": true,
+      "strict": true,
+      "source": "studio（@WaferInspection）",
+      "sceneModels": 8,
+      "bomLines": 27,
+      "matched": 8,
+      "sceneOnly": [],
+      "bomOnly": [],
+      "warnings": []
+    },
+    {
+      "variant": "失焦／照明不足",
+      "params": {
+        "scenario": "defocus"
+      },
+      "ok": true,
+      "applicable": true,
+      "strict": true,
+      "source": "studio（@WaferInspection）",
+      "sceneModels": 8,
+      "bomLines": 27,
+      "matched": 8,
+      "sceneOnly": [],
+      "bomOnly": [],
+      "warnings": []
+    },
+    {
+      "variant": "無注入缺陷",
+      "params": {
+        "scenario": "clean"
+      },
+      "ok": true,
+      "applicable": true,
+      "strict": true,
+      "source": "studio（@WaferInspection）",
+      "sceneModels": 8,
+      "bomLines": 27,
+      "matched": 8,
+      "sceneOnly": [],
+      "bomOnly": [],
+      "warnings": []
+    }
+  ]
+}

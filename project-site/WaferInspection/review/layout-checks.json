@@ -1,0 +1,282 @@
+{
+  "ok": true,
+  "variants": [
+    {
+      "variant": "預設",
+      "params": {},
+      "ok": true,
+      "count": 10,
+      "failures": [],
+      "rows": [
+        {
+          "group": "機構",
+          "name": "平台行程涵蓋取像、對位、對焦、複檢與取放片位",
+          "ok": true,
+          "value": "X ±175、Z -175～+225 mm"
+        },
+        {
+          "group": "機構",
+          "name": "暗場環形光底面離晶圓表面 ≥ 5 mm",
+          "ok": true,
+          "value": "7.0 mm"
+        },
+        {
+          "group": "光學",
+          "name": "環形光內徑大於視野對角（不擋視野）",
+          "ok": true,
+          "value": "內徑半徑 38 mm／視野半對角 8.0 mm"
+        },
+        {
+          "group": "光學",
+          "name": "鏡頭前緣到晶圓表面＝WD",
+          "ok": true,
+          "value": "65 mm"
+        },
+        {
+          "group": "光學",
+          "name": "缺陷像素數（只代表幾何取樣，不等於可檢出）",
+          "ok": true,
+          "value": "4.17 px ≥ 3"
+        },
+        {
+          "group": "光學",
+          "name": "景深涵蓋晶圓平面度（展示假設）",
+          "ok": true,
+          "value": "154 µm vs 80 µm"
+        },
+        {
+          "group": "掃描",
+          "name": "有效區覆蓋率（完整掃描）＝100%",
+          "ok": true,
+          "value": "100.00%"
+        },
+        {
+          "group": "掃描",
+          "name": "明暗場張數＝位置數 × 2",
+          "ok": true,
+          "value": "75 位置 × 2"
+        },
+        {
+          "group": "掃描",
+          "name": "停拍互鎖：停穩後才曝光，暗場曝光結束才算完成",
+          "ok": true,
+          "value": "75 個位置"
+        },
+        {
+          "group": "掃描",
+          "name": "精簡模式：略過的位置不算已取像（非整片檢測）",
+          "ok": true,
+          "value": "75／777 個位置"
+        }
+      ]
+    },
+    {
+      "variant": "完整掃描／顆粒",
+      "params": {
+        "mode": "full",
+        "scenario": "particle"
+      },
+      "ok": true,
+      "count": 9,
+      "failures": [],
+      "rows": [
+        {
+          "group": "機構",
+          "name": "平台行程涵蓋取像、對位、對焦、複檢與取放片位",
+          "ok": true,
+          "value": "X ±175、Z -175～+225 mm"
+        },
+        {
+          "group": "機構",
+          "name": "暗場環形光底面離晶圓表面 ≥ 5 mm",
+          "ok": true,
+          "value": "7.0 mm"
+        },
+        {
+          "group": "光學",
+          "name": "環形光內徑大於視野對角（不擋視野）",
+          "ok": true,
+          "value": "內徑半徑 38 mm／視野半對角 8.0 mm"
+        },
+        {
+          "group": "光學",
+          "name": "鏡頭前緣到晶圓表面＝WD",
+          "ok": true,
+          "value": "65 mm"
+        },
+        {
+          "group": "光學",
+          "name": "缺陷像素數（只代表幾何取樣，不等於可檢出）",
+          "ok": true,
+          "value": "4.17 px ≥ 3"
+        },
+        {
+          "group": "光學",
+          "name": "景深涵蓋晶圓平面度（展示假設）",
+          "ok": true,
+          "value": "154 µm vs 80 µm"
+        },
+        {
+          "group": "掃描",
+          "name": "有效區覆蓋率（完整掃描）＝100%",
+          "ok": true,
+          "value": "100.00%"
+        },
+        {
+          "group": "掃描",
+          "name": "明暗場張數＝位置數 × 2",
+          "ok": true,
+          "value": "777 位置 × 2"
+        },
+        {
+          "group": "掃描",
+          "name": "停拍互鎖：停穩後才曝光，暗場曝光結束才算完成",
+          "ok": true,
+          "value": "777 個位置"
+        }
+      ]
+    },
+    {
+      "variant": "失焦／照明不足",
+      "params": {
+        "scenario": "defocus"
+      },
+      "ok": true,
+      "count": 10,
+      "failures": [],
+      "rows": [
+        {
+          "group": "機構",
+          "name": "平台行程涵蓋取像、對位、對焦、複檢與取放片位",
+          "ok": true,
+          "value": "X ±175、Z -175～+225 mm"
+        },
+        {
+          "group": "機構",
+          "name": "暗場環形光底面離晶圓表面 ≥ 5 mm",
+          "ok": true,
+          "value": "7.0 mm"
+        },
+        {
+          "group": "光學",
+          "name": "環形光內徑大於視野對角（不擋視野）",
+          "ok": true,
+          "value": "內徑半徑 38 mm／視野半對角 8.0 mm"
+        },
+        {
+          "group": "光學",
+          "name": "鏡頭前緣到晶圓表面＝WD",
+          "ok": true,
+          "value": "65 mm"
+        },
+        {
+          "group": "光學",
+          "name": "缺陷像素數（只代表幾何取樣，不等於可檢出）",
+          "ok": true,
+          "value": "4.17 px ≥ 3"
+        },
+        {
+          "group": "光學",
+          "name": "景深涵蓋晶圓平面度（展示假設）",
+          "ok": true,
+          "value": "154 µm vs 80 µm"
+        },
+        {
+          "group": "掃描",
+          "name": "有效區覆蓋率（完整掃描）＝100%",
+          "ok": true,
+          "value": "100.00%"
+        },
+        {
+          "group": "掃描",
+          "name": "明暗場張數＝位置數 × 2",
+          "ok": true,
+          "value": "75 位置 × 2"
+        },
+        {
+          "group": "掃描",
+          "name": "停拍互鎖：停穩後才曝光，暗場曝光結束才算完成",
+          "ok": true,
+          "value": "75 個位置"
+        },
+        {
+          "group": "掃描",
+          "name": "精簡模式：略過的位置不算已取像（非整片檢測）",
+          "ok": true,
+          "value": "75／777 個位置"
+        }
+      ]
+    },
+    {
+      "variant": "無注入缺陷",
+      "params": {
+        "scenario": "clean"
+      },
+      "ok": true,
+      "count": 10,
+      "failures": [],
+      "rows": [
+        {
+          "group": "機構",
+          "name": "平台行程涵蓋取像、對位、對焦、複檢與取放片位",
+          "ok": true,
+          "value": "X ±175、Z -175～+225 mm"
+        },
+        {
+          "group": "機構",
+          "name": "暗場環形光底面離晶圓表面 ≥ 5 mm",
+          "ok": true,
+          "value": "7.0 mm"
+        },
+        {
+          "group": "光學",
+          "name": "環形光內徑大於視野對角（不擋視野）",
+          "ok": true,
+          "value": "內徑半徑 38 mm／視野半對角 8.0 mm"
+        },
+        {
+          "group": "光學",
+          "name": "鏡頭前緣到晶圓表面＝WD",
+          "ok": true,
+          "value": "65 mm"
+        },
+        {
+          "group": "光學",
+          "name": "缺陷像素數（只代表幾何取樣，不等於可檢出）",
+          "ok": true,
+          "value": "4.17 px ≥ 3"
+        },
+        {
+          "group": "光學",
+          "name": "景深涵蓋晶圓平面度（展示假設）",
+          "ok": true,
+          "value": "154 µm vs 80 µm"
+        },
+        {
+          "group": "掃描",
+          "name": "有效區覆蓋率（完整掃描）＝100%",
+          "ok": true,
+          "value": "100.00%"
+        },
+        {
+          "group": "掃描",
+          "name": "明暗場張數＝位置數 × 2",
+          "ok": true,
+          "value": "75 位置 × 2"
+        },
+        {
+          "group": "掃描",
+          "name": "停拍互鎖：停穩後才曝光，暗場曝光結束才算完成",
+          "ok": true,
+          "value": "75 個位置"
+        },
+        {
+          "group": "掃描",
+          "name": "精簡模式：略過的位置不算已取像（非整片檢測）",
+          "ok": true,
+          "value": "75／777 個位置"
+        }
+      ]
+    }
+  ]
+}

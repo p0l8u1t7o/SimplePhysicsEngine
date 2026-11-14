@@ -1,0 +1,16 @@
+{
+  "title": "晶圓表面 AOI 檢測評估",
+  "summary": "單片晶圓＋XYθ 平台＋固定上視相機，同軸明場／低角度暗場停拍掃描的方案評估（參數為展示假設，結果為 SIM）。",
+  "order": 15,
+  "coreVersion": "1.22.0",
+  "strict": true,
+  "checks": {
+    "quick": ["tools/verify.mjs"],
+    "full": []
+  },
+  "variants": [
+    { "name": "完整掃描／顆粒", "params": { "mode": "full", "scenario": "particle" } },
+    { "name": "失焦／照明不足", "params": { "scenario": "defocus" } },
+    { "name": "無注入缺陷", "params": { "scenario": "clean" } }
+  ]
+}

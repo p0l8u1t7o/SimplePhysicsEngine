@@ -1,0 +1,325 @@
+{
+  "ok": true,
+  "checks": 53,
+  "failures": [],
+  "rows": [
+    {
+      "group": "compact/line",
+      "name": "倒序、跳播與順序播放的狀態和畫面相同",
+      "ok": true,
+      "value": "61 個時間點"
+    },
+    {
+      "group": "compact/line",
+      "name": "未取像的位置不顯示完成；結果在處理完成後才出現",
+      "ok": true,
+      "value": "違規 0"
+    },
+    {
+      "group": "compact/line",
+      "name": "倒退時間後清除尚未發生的候選（B）與待人工確認（C）",
+      "ok": true,
+      "value": "B 0、C 0"
+    },
+    {
+      "group": "compact/line",
+      "name": "精簡模式結束時不得宣稱整片完成",
+      "ok": true,
+      "value": "75／777"
+    },
+    {
+      "group": "compact/line",
+      "name": "略過的位置沒有候選、沒有複檢",
+      "ok": true,
+      "value": ""
+    },
+    {
+      "group": "compact/line",
+      "name": "明場張數＝暗場張數＝取像位置數",
+      "ok": true,
+      "value": "75／75／75"
+    },
+    {
+      "group": "compact/line",
+      "name": "影格總數＝位置×2＋對位 2＋複檢×每處張數",
+      "ok": true,
+      "value": "164"
+    },
+    {
+      "group": "compact/line",
+      "name": "停拍互鎖（停穩前不曝光、曝光時平台靜止）",
+      "ok": true,
+      "value": "違規 0"
+    },
+    {
+      "group": "full/particle",
+      "name": "倒序、跳播與順序播放的狀態和畫面相同",
+      "ok": true,
+      "value": "61 個時間點"
+    },
+    {
+      "group": "full/particle",
+      "name": "未取像的位置不顯示完成；結果在處理完成後才出現",
+      "ok": true,
+      "value": "違規 0"
+    },
+    {
+      "group": "full/particle",
+      "name": "倒退時間後清除尚未發生的候選（B）與待人工確認（C）",
+      "ok": true,
+      "value": "B 0、C 0"
+    },
+    {
+      "group": "full/particle",
+      "name": "完整掃描結束時整片已取像",
+      "ok": true,
+      "value": "777／777"
+    },
+    {
+      "group": "full/particle",
+      "name": "略過的位置沒有候選、沒有複檢",
+      "ok": true,
+      "value": ""
+    },
+    {
+      "group": "full/particle",
+      "name": "明場張數＝暗場張數＝取像位置數",
+      "ok": true,
+      "value": "777／777／777"
+    },
+    {
+      "group": "full/particle",
+      "name": "影格總數＝位置×2＋對位 2＋複檢×每處張數",
+      "ok": true,
+      "value": "1568"
+    },
+    {
+      "group": "full/particle",
+      "name": "停拍互鎖（停穩前不曝光、曝光時平台靜止）",
+      "ok": true,
+      "value": "違規 0"
+    },
+    {
+      "group": "compact/defocus",
+      "name": "倒序、跳播與順序播放的狀態和畫面相同",
+      "ok": true,
+      "value": "61 個時間點"
+    },
+    {
+      "group": "compact/defocus",
+      "name": "未取像的位置不顯示完成；結果在處理完成後才出現",
+      "ok": true,
+      "value": "違規 0"
+    },
+    {
+      "group": "compact/defocus",
+      "name": "倒退時間後清除尚未發生的候選（B）與待人工確認（C）",
+      "ok": true,
+      "value": "B 0、C 0"
+    },
+    {
+      "group": "compact/defocus",
+      "name": "精簡模式結束時不得宣稱整片完成",
+      "ok": true,
+      "value": "75／777"
+    },
+    {
+      "group": "compact/defocus",
+      "name": "略過的位置沒有候選、沒有複檢",
+      "ok": true,
+      "value": ""
+    },
+    {
+      "group": "compact/defocus",
+      "name": "明場張數＝暗場張數＝取像位置數",
+      "ok": true,
+      "value": "75／75／75"
+    },
+    {
+      "group": "compact/defocus",
+      "name": "影格總數＝位置×2＋對位 2＋複檢×每處張數",
+      "ok": true,
+      "value": "191"
+    },
+    {
+      "group": "compact/defocus",
+      "name": "停拍互鎖（停穩前不曝光、曝光時平台靜止）",
+      "ok": true,
+      "value": "違規 0"
+    },
+    {
+      "group": "compact/clean",
+      "name": "倒序、跳播與順序播放的狀態和畫面相同",
+      "ok": true,
+      "value": "61 個時間點"
+    },
+    {
+      "group": "compact/clean",
+      "name": "未取像的位置不顯示完成；結果在處理完成後才出現",
+      "ok": true,
+      "value": "違規 0"
+    },
+    {
+      "group": "compact/clean",
+      "name": "倒退時間後清除尚未發生的候選（B）與待人工確認（C）",
+      "ok": true,
+      "value": "B 0、C 0"
+    },
+    {
+      "group": "compact/clean",
+      "name": "精簡模式結束時不得宣稱整片完成",
+      "ok": true,
+      "value": "75／777"
+    },
+    {
+      "group": "compact/clean",
+      "name": "略過的位置沒有候選、沒有複檢",
+      "ok": true,
+      "value": ""
+    },
+    {
+      "group": "compact/clean",
+      "name": "明場張數＝暗場張數＝取像位置數",
+      "ok": true,
+      "value": "75／75／75"
+    },
+    {
+      "group": "compact/clean",
+      "name": "影格總數＝位置×2＋對位 2＋複檢×每處張數",
+      "ok": true,
+      "value": "152"
+    },
+    {
+      "group": "compact/clean",
+      "name": "停拍互鎖（停穩前不曝光、曝光時平台靜止）",
+      "ok": true,
+      "value": "違規 0"
+    },
+    {
+      "group": "覆蓋",
+      "name": "每個取像位置都和有效圓相交",
+      "ok": true,
+      "value": "777 個位置"
+    },
+    {
+      "group": "覆蓋",
+      "name": "有效圓（含邊界一圈）逐點 100% 覆蓋",
+      "ok": true,
+      "value": "100.000%、272240 點"
+    },
+    {
+      "group": "覆蓋",
+      "name": "位置數不是面積相除（包含邊緣補位）",
+      "ok": true,
+      "value": "777 > 面積相除 712"
+    },
+    {
+      "group": "覆蓋",
+      "name": "少一個位置時覆蓋率檢查抓得到缺口",
+      "ok": true,
+      "value": "對照組"
+    },
+    {
+      "group": "參數",
+      "name": "倍率 2× 時視野、位置數、週期重新計算",
+      "ok": true,
+      "value": "777 → 2984 位置；303 → 730 s"
+    },
+    {
+      "group": "參數",
+      "name": "建立新專案不影響前一個的結果",
+      "ok": true,
+      "value": ""
+    },
+    {
+      "group": "估算",
+      "name": "完整掃描的動畫總長＝整片週期估算",
+      "ok": true,
+      "value": "303.09 s"
+    },
+    {
+      "group": "估算",
+      "name": "估算分項加總＝整片週期",
+      "ok": true,
+      "value": ""
+    },
+    {
+      "group": "情境",
+      "name": "同一情境重建兩次，候選完全相同（固定資料、無亂數）",
+      "ok": true,
+      "value": "4 個候選"
+    },
+    {
+      "group": "資料分離",
+      "name": "detect() 只收影像，程式碼不讀缺陷清單或情境",
+      "ok": true,
+      "value": "參數 2 個"
+    },
+    {
+      "group": "資料分離",
+      "name": "無注入缺陷時演算法不產生候選",
+      "ok": true,
+      "value": "0 個非良品位置"
+    },
+    {
+      "group": "資料分離",
+      "name": "候選來自影像：低對比顆粒（A5）沒有被「讀真值」補上",
+      "ok": true,
+      "value": "A5"
+    },
+    {
+      "group": "資料分離",
+      "name": "候選外框不是真值的複本",
+      "ok": true,
+      "value": ""
+    },
+    {
+      "group": "資料分離",
+      "name": "改掉真值後同一張影像的演算結果不變",
+      "ok": true,
+      "value": "candidate"
+    },
+    {
+      "group": "異常",
+      "name": "非法參數：不排掃描，估算顯示待確認（不是 0）",
+      "ok": true,
+      "value": "參數檢核失敗：鏡頭倍率：-1 × 超出合理範圍 0.1～20"
+    },
+    {
+      "group": "異常",
+      "name": "非數字參數被擋下",
+      "ok": true,
+      "value": "視野重疊率：不是數字"
+    },
+    {
+      "group": "異常",
+      "name": "缺少必要參數：顯示待確認",
+      "ok": true,
+      "value": "缺少必要參數（待確認）：停穩時間"
+    },
+    {
+      "group": "異常",
+      "name": "缺圖的位置判待複檢（不判良品）",
+      "ok": true,
+      "value": "2 個"
+    },
+    {
+      "group": "異常",
+      "name": "失焦／照明不足的位置判待複檢",
+      "ok": true,
+      "value": "12 個"
+    },
+    {
+      "group": "異常",
+      "name": "翹曲中心的位置都沒有判良品",
+      "ok": true,
+      "value": "3 個"
+    },
+    {
+      "group": "異常",
+      "name": "影像為空時 detect 回報缺圖",
+      "ok": true,
+      "value": "缺圖（明場影像未收到）"
+    }
+  ]
+}

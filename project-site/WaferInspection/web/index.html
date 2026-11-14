@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="../core/favicon.svg" type="image/svg+xml">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>晶圓表面 AOI 檢測評估 — 3D 設備模擬</title>
+<link rel="stylesheet" href="css/style.css">
+<!-- 共用版面（精簡版面、相機視窗、工具列）的樣式 core/ui/viewer-workspace.css 由 createViewerWorkspace 自動載入 -->
+<script type="importmap">
+{ "imports": {
+    "three": "../core/vendor/three.module.js",
+    "three/addons/": "../core/vendor/addons/",
+    "@core/": "../core/"
+} }
+</script>
+</head>
+<body>
+<!-- 標準骨架（core/README.md「小螢幕與觸控」）：#topbar、#left、#side、#bottombar；窄螢幕與觸控裝置的精簡版面由 createViewerWorkspace 處理 -->
+<div id="app">
+  <canvas id="c"></canvas>
+
+  <header id="topbar">
+    <div class="brand">
+      <div class="title">晶圓表面 AOI 檢測評估 <span class="sim">SIM／模擬</span></div>
+      <div class="sub">評估用配置：XYθ 平台＋固定上視面掃相機＋同軸明場／低角度暗場；參數多為展示假設，不是客戶規格</div>
+    </div>
+    <nav id="stations" aria-label="流程階段"></nav>
+    <div class="views">
+      <button data-view="iso">全機</button>
+      <button data-view="top">晶圓俯視</button>
+      <button data-view="optics">相機／照明</button>
+      <button data-view="front">正面</button>
+    </div>
+  </header>
+
+  <aside id="left">
+    <section class="card">
+      <h3>Wafer map <span class="hint" id="mapHint"></span></h3>
+      <canvas id="waferMap" width="560" height="560" aria-label="wafer map：點選格子或候選定位"></canvas>
+      <div id="mapLegend" class="legend"></div>
+      <div id="compactNote" class="banner warn" hidden></div>
+      <div class="toggles">
+        <label><input type="checkbox" id="showB" checked> B 演算法候選</label>
+        <label><input type="checkbox" id="showC" checked> C 待人工確認</label>
+        <label><input type="checkbox" id="showA"> A 模擬真值</label>
+        <label><input type="checkbox" id="showPath" checked> 路徑</label>
+      </div>
+    </section>
+    <section class="card">
+      <h3>複檢列表 <span class="hint" id="reviewHint"></span></h3>
+      <div class="note">B＝演算法在 SIM 影像上找到的候選區；品質不足、缺圖的位置也列入。完成複檢後轉為 C（待人工確認）。不顯示模型信心分數。</div>
+      <ul id="reviewList" class="rows"></ul>
+    </section>
+    <section class="card">
+      <h3>SIM 對照真值 <span class="hint">評分用，不是檢測流程</span></h3>
+      <div class="note">A 是預先設定的模擬缺陷；這裡把 A 和 B 對照，檢查演算法流程（不代表實機檢出率）。</div>
+      <table id="scoreTable" class="tbl"></table>
+    </section>
+  </aside>
+
+  <aside id="side">
+    <section class="card">
+      <h3>目前流程 <span class="hint" id="stationName"></span></h3>
+      <div id="action" class="action">待命</div>
+      <div id="substep" class="substep"></div>
+      <div id="chips" class="chips"></div>
+      <canvas id="timing" width="560" height="96" aria-label="目前位置的取像時序"></canvas>
+    </section>
+    <section class="card">
+      <h3>情境與顯示</h3>
+      <div class="form">
+        <label>情境 <select id="scenario"></select></label>
+        <label>掃描模式 <select id="mode"></select></label>
+        <label>外罩 <select id="hood"><option value="glass">透明</option><option value="solid">實體</option><option value="off">隱藏</option></select></label>
+        <label>影像通道 <select id="channel"><option value="BF">明場（同軸光）</option><option value="DF">暗場（低角度環形光）</option></select></label>
+        <label>影像疊圖 <select id="overlay"><option value="mark">標記</option><option value="raw">原圖</option></select></label>
+        <label class="file">本機參考照片 <input type="file" id="photo" accept="image/*"></label>
+      </div>
+      <div class="note" id="scenarioNote"></div>
+    </section>
+    <section class="card">
+      <h3>光學與節拍估算 <span class="hint">完整掃描、與播放倍率無關</span></h3>
+      <div id="estimate"></div>
+    </section>
+    <section class="card">
+      <details>
+        <summary>參數與假設（修改後重新計算）</summary>
+        <div id="params"></div>
+        <div class="btnRow"><button id="applyParams" class="primary">套用並重新計算</button><button id="resetParams">恢復預設</button></div>
+        <div id="paramErrors" class="banner bad" hidden></div>
+      </details>
+    </section>
+    <section class="card">
+      <details>
+        <summary>檢測演算方式</summary>
+        <div id="method" class="method"></div>
+      </details>
+    </section>
+    <section class="card">
+      <details>
+        <summary>線掃描參數比較（不另建設備動畫）</summary>
+        <div id="lineScan"></div>
+      </details>
+    </section>
+    <section class="card">
+      <h3>空間與流程檢核 <span class="hint" id="checkCount"></span></h3>
+      <ul id="checks" class="checks"></ul>
+    </section>
+  </aside>
+
+  <footer id="bottombar">
+    <div class="ctl">
+      <button id="playBtn" class="primary">⏸ 暫停</button>
+      <button id="restartBtn">↺ 重播</button>
+      <label>速度 <select id="speed" aria-label="播放速度"><option value="0.1">0.1×</option><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="5">5×</option><option value="10">10×</option><option value="20">20×</option><option value="50">50×</option></select><span id="speedVal" hidden>1×</span></label>
+      <label class="chk"><input id="loop" type="checkbox" checked> 循環播放</label>
+      <span class="speedNote">播放倍率只影響觀看速度，不改變工程週期</span>
+    </div>
+    <div class="stepRow"><button id="previous" aria-label="上一步">‹</button><select id="stepSelect" aria-label="流程步驟"></select><button id="next" aria-label="下一步">›</button><span id="cycleTime"></span></div>
+    <input id="timeline" aria-label="流程時間" type="range">
+    <div id="clock" class="clock">00:00.0</div>
+  </footer>
+
+  <div id="loading">載入 3D 場景與模擬檢測中…</div>
+</div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

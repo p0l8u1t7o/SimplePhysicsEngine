@@ -16,6 +16,31 @@
 
 ## 待處理
 
+### 同軸光源、低角度環形光（暗場）的共用模型
+- 提出：WaferInspection（2026-11-14）
+- 暫代：`project-site/WaferInspection/web/js/machine.js` 的 `coaxial light`（鏡頭側光源盒＋發光面）與 `darkfield ring light`（環形外殼＋內緣發光環＋夾環與吊桿）
+- 期望介面：`coaxLight.create({ size, side })`、`ringLight.create({ diameter, height, angle })`，`set({ light })` 控制亮度；和 `vision-camera` 的鏡頭可以組合
+- 影響：AOI 類的站（WorkpieceMeasurement、PlumbingFixtureInspection、shutter assembly）
+
+### 晶圓載台：θ 微調台＋真空吸盤
+- 提出：WaferInspection（2026-11-14）
+- 暫代：`project-site/WaferInspection/web/js/machine.js` 的 `theta stage`、`vacuum chuck`（多孔陶瓷＋鋁環）
+- 期望介面：`waferChuck.create({ diameter, thetaRange })`，回傳可轉的 rotor 群組與晶圓安裝面高度
+- 影響：之後的半導體或面板類站
+
+### optics：固定倍率物鏡的 NA 景深，以及晶圓／圖案化表面的適用範圍標示
+- 提出：WaferInspection（2026-11-14）
+- 現象：`optics.js` 的鏡頭只有薄透鏡或固定倍率（遠心），景深用 F 值近似；晶圓這類顯微取像通常給 NA。L2 的材質沒有拋光矽或圖案化表面，站只能借用「鏡面金屬」判斷明暗場，並在畫面上自行說明不能預測薄膜干涉、圖案繞射與缺陷散射。
+- 暫代：`project-site/WaferInspection/web/js/budget.js` 用 `{ type: '遠心', magnification, fNumber }` 與 `鏡面金屬`，結果旁邊加警示
+- 期望介面：`lens.na`（DOF ≈ λ/NA² + 像素項）；`MATERIALS` 加「拋光矽」並在結果列加 `applicability` 說明（哪些現象不在模型內）
+- 影響：AOI 類的站、studio 的光學工作台
+
+### 停拍掃描取像時序（移動、停穩、曝光、相機緩衝、介面傳輸、並行處理）
+- 提出：WaferInspection（2026-11-14）
+- 暫代：`project-site/WaferInspection/web/js/sequence.js` 的 `buildSchedule`（梯形速度、緩衝滿時等待、處理執行緒池，同一份時序給動畫與週期估算）
+- 期望介面：`core/anim` 或 `core/optics` 提供 `stopAndGo({ positions, motion, camera, interface, processing })` → 每個位置的曝光、傳輸、處理時間與關鍵路徑分項
+- 影響：多視野拼接的 AOI 站
+
 ### `cable()` 的管子分段依長度
 - 提出：RecycleSorter（2026-11-08）
 - 現象：`electrical/cable-routing.js` 的 `cable()` 管子固定 64 段，幾公尺長的線每段 40～60 mm，轉角被弦切進內側 10～20 mm；並排 9 mm 的一束線在彎道互相穿過，加大間距也沒用。
