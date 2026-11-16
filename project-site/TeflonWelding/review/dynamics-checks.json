@@ -12,14 +12,14 @@
           "name": "負載來源",
           "ok": true,
           "warn": false,
-          "value": "5.989 kg",
-          "note": "由 3D 模型體積 × 密度估算（金屬當鋁 2700、其他當塑膠 1200 kg/m³；userData.mass／density 可覆寫）；最重時夾著 belt（t=175 s）；質心 [-51.4, 0.9, 108.5] mm（法蘭座標）；1 件算不出體積沒算進去"
+          "value": "6.094 kg",
+          "note": "由 3D 模型體積 × 密度估算（金屬當鋁 2700、其他當塑膠 1200 kg/m³；userData.mass／density 可覆寫）；最重時夾著 belt（t=175 s）；質心 [-49.2, -0.4, 106.7] mm（法蘭座標）；1 件算不出體積沒算進去"
         },
         {
           "group": "VS-068",
           "name": "J1 峰值扭矩",
           "ok": true,
-          "value": 3.91,
+          "value": 3.8,
           "note": "2% of 200 N·m（上限為估計值）@ t=65.65 s；靜止保持最大 3.1 N·m",
           "warn": false
         },
@@ -27,47 +27,47 @@
           "group": "VS-068",
           "name": "J2 峰值扭矩",
           "ok": true,
-          "value": 130.6,
-          "note": "47% of 280 N·m（上限為估計值）@ t=104.40 s；靜止保持最大 118.1 N·m",
+          "value": 131.64,
+          "note": "47% of 280 N·m（上限為估計值）@ t=117.50 s；靜止保持最大 118.9 N·m",
           "warn": false
         },
         {
           "group": "VS-068",
           "name": "J3 峰值扭矩",
           "ok": true,
-          "value": 47.54,
-          "note": "34% of 140 N·m（上限為估計值）@ t=200.70 s；靜止保持最大 46.9 N·m",
+          "value": 48.12,
+          "note": "34% of 140 N·m（上限為估計值）@ t=200.70 s；靜止保持最大 47.4 N·m",
           "warn": false
         },
         {
           "group": "VS-068",
           "name": "J4 峰值扭矩",
           "ok": true,
-          "value": 3.12,
-          "note": "8% of 40 N·m（上限為估計值）@ t=146.90 s；靜止保持最大 3.0 N·m",
+          "value": 3.07,
+          "note": "8% of 40 N·m（上限為估計值）@ t=200.65 s；靜止保持最大 2.9 N·m",
           "warn": false
         },
         {
           "group": "VS-068",
           "name": "J5 峰值扭矩",
           "ok": true,
-          "value": 11.39,
-          "note": "28% of 40 N·m（上限為估計值）@ t=0.15 s；靜止保持最大 11.4 N·m",
+          "value": 11.48,
+          "note": "29% of 40 N·m（上限為估計值）@ t=0.15 s；靜止保持最大 11.5 N·m",
           "warn": false
         },
         {
           "group": "VS-068",
           "name": "J6 峰值扭矩",
           "ok": true,
-          "value": 3.02,
-          "note": "13% of 24 N·m（上限為估計值）@ t=0.15 s；靜止保持最大 3.0 N·m",
+          "value": 2.94,
+          "note": "12% of 24 N·m（上限為估計值）@ t=0.15 s；靜止保持最大 2.9 N·m",
           "warn": false
         },
         {
           "group": "VS-068",
           "name": "負載質量",
           "ok": true,
-          "value": 5.989,
+          "value": 6.094,
           "note": "型錄最大可搬重量 7 kg",
           "warn": false
         },
@@ -75,7 +75,7 @@
           "group": "VS-068",
           "name": "J4 負載力矩",
           "ok": true,
-          "value": 11.48,
+          "value": 11.54,
           "note": "容許 16.6 N·m（型錄，需核對）",
           "warn": false
         },
@@ -83,7 +83,7 @@
           "group": "VS-068",
           "name": "J4 負載慣量",
           "ok": true,
-          "value": 0.2296,
+          "value": 0.2281,
           "note": "容許 0.47 kg·m²（型錄，需核對）",
           "warn": false
         },
@@ -91,7 +91,7 @@
           "group": "VS-068",
           "name": "J5 負載力矩",
           "ok": true,
-          "value": 11.48,
+          "value": 11.54,
           "note": "容許 16.6 N·m（型錄，需核對）",
           "warn": false
         },
@@ -99,7 +99,7 @@
           "group": "VS-068",
           "name": "J5 負載慣量",
           "ok": true,
-          "value": 0.2296,
+          "value": 0.2281,
           "note": "容許 0.47 kg·m²（型錄，需核對）",
           "warn": false
         },
@@ -107,7 +107,7 @@
           "group": "VS-068",
           "name": "J6 負載力矩",
           "ok": true,
-          "value": 3.02,
+          "value": 2.94,
           "note": "容許 9.4 N·m（型錄，需核對）",
           "warn": false
         },
@@ -115,7 +115,7 @@
           "group": "VS-068",
           "name": "J6 負載慣量",
           "ok": true,
-          "value": 0.0168,
+          "value": 0.0157,
           "note": "容許 0.15 kg·m²（型錄，需核對）",
           "warn": false
         },
@@ -137,37 +137,37 @@
             0,
             0
           ],
-          "hash": "650f677d",
+          "hash": "41e3bdc0",
           "peak": {
             "j1": {
-              "tau": 3.91,
+              "tau": 3.8,
               "t": 65.65,
-              "ratio": 0.02
+              "ratio": 0.019
             },
             "j2": {
-              "tau": 130.6,
-              "t": 104.4,
-              "ratio": 0.466
+              "tau": 131.64,
+              "t": 117.5,
+              "ratio": 0.47
             },
             "j3": {
-              "tau": 47.54,
+              "tau": 48.12,
               "t": 200.7,
-              "ratio": 0.34
+              "ratio": 0.344
             },
             "j4": {
-              "tau": 3.12,
-              "t": 146.9,
-              "ratio": 0.078
+              "tau": 3.07,
+              "t": 200.65,
+              "ratio": 0.077
             },
             "j5": {
-              "tau": 11.39,
+              "tau": 11.48,
               "t": 0.15,
-              "ratio": 0.285
+              "ratio": 0.287
             },
             "j6": {
-              "tau": 3.02,
+              "tau": 2.94,
               "t": 0.15,
-              "ratio": 0.126
+              "ratio": 0.123
             }
           }
         }
@@ -188,14 +188,14 @@
           "name": "負載來源",
           "ok": true,
           "warn": false,
-          "value": "5.989 kg",
-          "note": "由 3D 模型體積 × 密度估算（金屬當鋁 2700、其他當塑膠 1200 kg/m³；userData.mass／density 可覆寫）；最重時夾著 belt（t=229 s）；質心 [-51.4, 0.9, 108.5] mm（法蘭座標）；1 件算不出體積沒算進去"
+          "value": "6.094 kg",
+          "note": "由 3D 模型體積 × 密度估算（金屬當鋁 2700、其他當塑膠 1200 kg/m³；userData.mass／density 可覆寫）；最重時夾著 belt（t=229 s）；質心 [-49.2, -0.4, 106.7] mm（法蘭座標）；1 件算不出體積沒算進去"
         },
         {
           "group": "VS-068",
           "name": "J1 峰值扭矩",
           "ok": true,
-          "value": 3.91,
+          "value": 3.8,
           "note": "2% of 200 N·m（上限為估計值）@ t=165.95 s；靜止保持最大 3.1 N·m",
           "warn": false
         },
@@ -203,47 +203,47 @@
           "group": "VS-068",
           "name": "J2 峰值扭矩",
           "ok": true,
-          "value": 130.62,
-          "note": "47% of 280 N·m（上限為估計值）@ t=275.15 s；靜止保持最大 118.1 N·m",
+          "value": 131.65,
+          "note": "47% of 280 N·m（上限為估計值）@ t=275.15 s；靜止保持最大 118.9 N·m",
           "warn": false
         },
         {
           "group": "VS-068",
           "name": "J3 峰值扭矩",
           "ok": true,
-          "value": 47.54,
-          "note": "34% of 140 N·m（上限為估計值）@ t=254.30 s；靜止保持最大 46.9 N·m",
+          "value": 48.12,
+          "note": "34% of 140 N·m（上限為估計值）@ t=254.30 s；靜止保持最大 47.4 N·m",
           "warn": false
         },
         {
           "group": "VS-068",
           "name": "J4 峰值扭矩",
           "ok": true,
-          "value": 3.12,
-          "note": "8% of 40 N·m（上限為估計值）@ t=292.35 s；靜止保持最大 3.0 N·m",
+          "value": 3.07,
+          "note": "8% of 40 N·m（上限為估計值）@ t=254.25 s；靜止保持最大 2.9 N·m",
           "warn": false
         },
         {
           "group": "VS-068",
           "name": "J5 峰值扭矩",
           "ok": true,
-          "value": 11.39,
-          "note": "28% of 40 N·m（上限為估計值）@ t=0.15 s；靜止保持最大 11.4 N·m",
+          "value": 11.48,
+          "note": "29% of 40 N·m（上限為估計值）@ t=0.15 s；靜止保持最大 11.5 N·m",
           "warn": false
         },
         {
           "group": "VS-068",
           "name": "J6 峰值扭矩",
           "ok": true,
-          "value": 3.02,
-          "note": "13% of 24 N·m（上限為估計值）@ t=0.15 s；靜止保持最大 3.0 N·m",
+          "value": 2.94,
+          "note": "12% of 24 N·m（上限為估計值）@ t=0.15 s；靜止保持最大 2.9 N·m",
           "warn": false
         },
         {
           "group": "VS-068",
           "name": "負載質量",
           "ok": true,
-          "value": 5.989,
+          "value": 6.094,
           "note": "型錄最大可搬重量 7 kg",
           "warn": false
         },
@@ -251,7 +251,7 @@
           "group": "VS-068",
           "name": "J4 負載力矩",
           "ok": true,
-          "value": 11.48,
+          "value": 11.54,
           "note": "容許 16.6 N·m（型錄，需核對）",
           "warn": false
         },
@@ -259,7 +259,7 @@
           "group": "VS-068",
           "name": "J4 負載慣量",
           "ok": true,
-          "value": 0.2296,
+          "value": 0.2281,
           "note": "容許 0.47 kg·m²（型錄，需核對）",
           "warn": false
         },
@@ -267,7 +267,7 @@
           "group": "VS-068",
           "name": "J5 負載力矩",
           "ok": true,
-          "value": 11.48,
+          "value": 11.54,
           "note": "容許 16.6 N·m（型錄，需核對）",
           "warn": false
         },
@@ -275,7 +275,7 @@
           "group": "VS-068",
           "name": "J5 負載慣量",
           "ok": true,
-          "value": 0.2296,
+          "value": 0.2281,
           "note": "容許 0.47 kg·m²（型錄，需核對）",
           "warn": false
         },
@@ -283,7 +283,7 @@
           "group": "VS-068",
           "name": "J6 負載力矩",
           "ok": true,
-          "value": 3.02,
+          "value": 2.94,
           "note": "容許 9.4 N·m（型錄，需核對）",
           "warn": false
         },
@@ -291,7 +291,7 @@
           "group": "VS-068",
           "name": "J6 負載慣量",
           "ok": true,
-          "value": 0.0168,
+          "value": 0.0157,
           "note": "容許 0.15 kg·m²（型錄，需核對）",
           "warn": false
         },
@@ -313,37 +313,37 @@
             0,
             0
           ],
-          "hash": "94a56348",
+          "hash": "40cc3944",
           "peak": {
             "j1": {
-              "tau": 3.91,
+              "tau": 3.8,
               "t": 165.95,
-              "ratio": 0.02
+              "ratio": 0.019
             },
             "j2": {
-              "tau": 130.62,
+              "tau": 131.65,
               "t": 275.15,
-              "ratio": 0.466
+              "ratio": 0.47
             },
             "j3": {
-              "tau": 47.54,
+              "tau": 48.12,
               "t": 254.3,
-              "ratio": 0.34
+              "ratio": 0.344
             },
             "j4": {
-              "tau": 3.12,
-              "t": 292.35,
-              "ratio": 0.078
+              "tau": 3.07,
+              "t": 254.25,
+              "ratio": 0.077
             },
             "j5": {
-              "tau": 11.39,
+              "tau": 11.48,
               "t": 0.15,
-              "ratio": 0.285
+              "ratio": 0.287
             },
             "j6": {
-              "tau": 3.02,
+              "tau": 2.94,
               "t": 0.15,
-              "ratio": 0.126
+              "ratio": 0.123
             }
           }
         }
@@ -364,14 +364,14 @@
           "name": "負載來源",
           "ok": true,
           "warn": false,
-          "value": "5.989 kg",
-          "note": "由 3D 模型體積 × 密度估算（金屬當鋁 2700、其他當塑膠 1200 kg/m³；userData.mass／density 可覆寫）；最重時夾著 belt（t=204 s）；質心 [-51.4, 0.9, 108.5] mm（法蘭座標）；1 件算不出體積沒算進去"
+          "value": "6.094 kg",
+          "note": "由 3D 模型體積 × 密度估算（金屬當鋁 2700、其他當塑膠 1200 kg/m³；userData.mass／density 可覆寫）；最重時夾著 belt（t=204 s）；質心 [-49.2, -0.4, 106.7] mm（法蘭座標）；1 件算不出體積沒算進去"
         },
         {
           "group": "VS-068",
           "name": "J1 峰值扭矩",
           "ok": true,
-          "value": 2.15,
+          "value": 2.07,
           "note": "1% of 200 N·m（上限為估計值）@ t=174.80 s；靜止保持最大 0.0 N·m",
           "warn": false
         },
@@ -379,47 +379,47 @@
           "group": "VS-068",
           "name": "J2 峰值扭矩",
           "ok": true,
-          "value": 33.19,
-          "note": "12% of 280 N·m（上限為估計值）@ t=63.05 s；靜止保持最大 34.0 N·m",
+          "value": 33.15,
+          "note": "12% of 280 N·m（上限為估計值）@ t=63.05 s；靜止保持最大 34.1 N·m",
           "warn": false
         },
         {
           "group": "VS-068",
           "name": "J3 峰值扭矩",
           "ok": true,
-          "value": 54.18,
-          "note": "39% of 140 N·m（上限為估計值）@ t=60.10 s；靜止保持最大 46.8 N·m",
+          "value": 54.56,
+          "note": "39% of 140 N·m（上限為估計值）@ t=216.95 s；靜止保持最大 47.2 N·m",
           "warn": false
         },
         {
           "group": "VS-068",
           "name": "J4 峰值扭矩",
           "ok": true,
-          "value": 3.23,
-          "note": "8% of 40 N·m（上限為估計值）@ t=20.50 s；靜止保持最大 3.0 N·m",
+          "value": 3.12,
+          "note": "8% of 40 N·m（上限為估計值）@ t=20.50 s；靜止保持最大 2.9 N·m",
           "warn": false
         },
         {
           "group": "VS-068",
           "name": "J5 峰值扭矩",
           "ok": true,
-          "value": 14.14,
-          "note": "35% of 40 N·m（上限為估計值）@ t=216.95 s；靜止保持最大 11.4 N·m",
+          "value": 14.2,
+          "note": "35% of 40 N·m（上限為估計值）@ t=20.40 s；靜止保持最大 11.5 N·m",
           "warn": false
         },
         {
           "group": "VS-068",
           "name": "J6 峰值扭矩",
           "ok": true,
-          "value": 3.4,
-          "note": "14% of 24 N·m（上限為估計值）@ t=74.20 s；靜止保持最大 3.0 N·m",
+          "value": 3.31,
+          "note": "14% of 24 N·m（上限為估計值）@ t=74.20 s；靜止保持最大 2.9 N·m",
           "warn": false
         },
         {
           "group": "VS-068",
           "name": "負載質量",
           "ok": true,
-          "value": 5.989,
+          "value": 6.094,
           "note": "型錄最大可搬重量 7 kg",
           "warn": false
         },
@@ -427,7 +427,7 @@
           "group": "VS-068",
           "name": "J4 負載力矩",
           "ok": true,
-          "value": 11.48,
+          "value": 11.54,
           "note": "容許 16.6 N·m（型錄，需核對）",
           "warn": false
         },
@@ -435,7 +435,7 @@
           "group": "VS-068",
           "name": "J4 負載慣量",
           "ok": true,
-          "value": 0.2296,
+          "value": 0.2281,
           "note": "容許 0.47 kg·m²（型錄，需核對）",
           "warn": false
         },
@@ -443,7 +443,7 @@
           "group": "VS-068",
           "name": "J5 負載力矩",
           "ok": true,
-          "value": 11.48,
+          "value": 11.54,
           "note": "容許 16.6 N·m（型錄，需核對）",
           "warn": false
         },
@@ -451,7 +451,7 @@
           "group": "VS-068",
           "name": "J5 負載慣量",
           "ok": true,
-          "value": 0.2296,
+          "value": 0.2281,
           "note": "容許 0.47 kg·m²（型錄，需核對）",
           "warn": false
         },
@@ -459,7 +459,7 @@
           "group": "VS-068",
           "name": "J6 負載力矩",
           "ok": true,
-          "value": 3.02,
+          "value": 2.94,
           "note": "容許 9.4 N·m（型錄，需核對）",
           "warn": false
         },
@@ -467,7 +467,7 @@
           "group": "VS-068",
           "name": "J6 負載慣量",
           "ok": true,
-          "value": 0.0168,
+          "value": 0.0157,
           "note": "容許 0.15 kg·m²（型錄，需核對）",
           "warn": false
         },
@@ -489,37 +489,37 @@
             9.81,
             0
           ],
-          "hash": "f6d268d2",
+          "hash": "a93f6cc2",
           "peak": {
             "j1": {
-              "tau": 2.15,
+              "tau": 2.07,
               "t": 174.8,
-              "ratio": 0.011
+              "ratio": 0.01
             },
             "j2": {
-              "tau": 33.19,
+              "tau": 33.15,
               "t": 63.05,
-              "ratio": 0.119
+              "ratio": 0.118
             },
             "j3": {
-              "tau": 54.18,
-              "t": 60.1,
-              "ratio": 0.387
+              "tau": 54.56,
+              "t": 216.95,
+              "ratio": 0.39
             },
             "j4": {
-              "tau": 3.23,
+              "tau": 3.12,
               "t": 20.5,
-              "ratio": 0.081
+              "ratio": 0.078
             },
             "j5": {
-              "tau": 14.14,
-              "t": 216.95,
-              "ratio": 0.353
+              "tau": 14.2,
+              "t": 20.4,
+              "ratio": 0.355
             },
             "j6": {
-              "tau": 3.4,
+              "tau": 3.31,
               "t": 74.2,
-              "ratio": 0.142
+              "ratio": 0.138
             }
           }
         }

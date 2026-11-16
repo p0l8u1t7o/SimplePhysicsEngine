@@ -92,6 +92,7 @@ $('feedback').innerHTML = [
   '<b>雙工位＋第 2 台手臂</b>：同場地同時 2 桶，共用工具（方案 A2）',
   '<b>每道工序 NG 排除</b>：停機、三色燈與推播，通知人員接手',
   '<b>檢測方案</b>：兆赫波保留，比較 2D 視覺與雷射輪廓',
+  '<b>桶內即時影像</b>（11/16 補充）：手腕相機不隨工具更換，每道工序都看得到；兆赫波時影像＋波形並列',
 ].map(s => `<li>${s}</li>`).join('');
 $('cncInfo').innerHTML = `<p>${CNC.spindle}，${CNC.cutter}；${CNC.depth}。</p><ul class="pros">${CNC.chips.map(s => `<li class="pro">＋ ${s}</li>`).join('')}</ul>`;
 $('ngTable').innerHTML = `<table><tr><th>工序</th><th>偵測</th><th>自動處置</th><th>人員接手</th></tr>${NG_HANDLING.map(r => `<tr data-step="${r.step}"><td>${r.step}</td><td>${esc(r.detect)}<br><span class="hint">NG：${esc(r.ng)}</span></td><td>${esc(r.auto)}</td><td>${esc(r.human)}</td></tr>`).join('')}</table><div class="note">共同：停止該線 → 安全退出 → 三色燈紅燈＋蜂鳴、HMI 顯示工序／焊道／位置／影像 → 推播通知 → 人員處理後按復歸</div>`;
@@ -187,7 +188,7 @@ const player = createPlayer({
   qp: movie ? new URLSearchParams(qp + '&pause') : qp, speeds: [.25, 4, .25], speed: 1,
 });
 
-// 相機視窗：焊點特寫（跟著 TCP，從桶軸方向看焊點）
+// 觀察視角：焊點特寫（跟著 TCP，從桶軸方向看焊點；不是實際相機，選單裡標示意）
 const weldCam = new THREE.PerspectiveCamera(38, 1.5, 10, 6000);
 function aimWeldCam() {
   const tcp = project.focus(), f = project.tank.frame, axis = f.localToWorld(V(0, 0, 0)).sub(f.localToWorld(V(0, 1, 0))).normalize();
@@ -196,18 +197,51 @@ function aimWeldCam() {
   weldCam.position.copy(tcp).addScaledVector(radial, -390).addScaledVector(axis, -180).addScaledVector(tangent, 160);
   weldCam.up.copy(axis.clone().negate()); weldCam.lookAt(tcp);
 }
-// 相機視窗來源：焊點特寫（3D）／兆赫波波形（2D）；自動時，兆赫波檢測到卸料前顯示波形
+// 桶內即時影像（2026-11-16 客戶補充）：第 1 線手臂的手腕相機（不隨工具更換，每道工序都看得到）
+const liveCam = new THREE.PerspectiveCamera(62, 1.5, 8, 6000);
+const camView = project.cells[0].W.camView;
+// frac：畫面內容往左移的比例（相對整個視窗寬）；filmOffset 依 three 的投影公式換算（視窗寬 = aspect × 2 tan(fov/2)，底片寬 = filmGauge）
+function aimLiveCam(frac = 0, aspect = 1.5) {
+  camView.updateWorldMatrix(true, false); camView.matrixWorld.decompose(liveCam.position, liveCam.quaternion, liveCam.scale);
+  liveCam.filmOffset = frac * aspect * 2 * Math.tan(liveCam.fov * Math.PI / 360) * liveCam.filmGauge;
+}
+// 兆赫波檢測時：右側疊一張波形畫面（以相機視窗的覆蓋層畫，左側維持即時影像）
+const THZ_SPLIT = .45;                                     // 左 45% 即時影像、右 55% 波形
+const thzOverlay = (() => {
+  const host = document.createElement('div'); host.style.cssText = 'inset:0;pointer-events:none';
+  const cv = document.createElement('canvas'); cv.style.cssText = 'width:100%;height:100%;display:block'; host.append(cv);
+  const ctx = cv.getContext('2d'); let z = null;
+  return {
+    host, set(v) { z = v; }, hide() { host.style.display = 'none'; },
+    draw(sensor, rect) {
+      host.style.display = '';
+      const k = Math.min(devicePixelRatio, 2), w = Math.round(rect.width * k), h = Math.round(rect.height * k);
+      if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, w, h);
+      if (!z) return;
+      const x0 = Math.round(w * THZ_SPLIT);
+      ctx.translate(x0, 0); drawThz(ctx, w - x0, h, z, SEAMS); ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = '#e6edf3'; ctx.fillRect(x0 - 1, 0, 2, h);
+    },
+  };
+})();
+// 相機視窗來源：即時影像（預設）／即時影像＋兆赫波（自動模式在兆赫波檢測到卸料前）／焊點特寫（觀察視角，示意）
 let source = 'auto';
-workspace.setSources([{ id: 'weld', label: '焊點特寫（桶內）' }, { id: 'thz', label: '兆赫波波形與判定' }], { onChange: v => { source = v; } });
+workspace.setSources([{ id: 'live', label: '桶內即時影像（手腕相機）' }, { id: 'thz', label: '即時影像＋兆赫波波形' }, { id: 'close', label: '焊點特寫（觀察視角，示意）' }], { onChange: v => { source = v; } });
 const thzStart = stationStart[STATIONS.indexOf('兆赫波檢測')], thzEnd = stationStart[STATIONS.indexOf('卸料')];
 function render() {
-  const show = source === 'auto' ? (player.T >= thzStart && player.T < thzEnd ? 'thz' : 'weld') : source;
+  const show = source === 'auto' ? (player.T >= thzStart && player.T < thzEnd ? 'thz' : 'live') : source;
   if (show === 'thz') {
-    const z = project.thzAt(player.T);
-    workspace.renderImage({ draw: (ctx, w, h) => drawThz(ctx, w, h, z, SEAMS), title: '兆赫波檢測（反射式時域）', result: ui.action.textContent, aspect: 1.45, time: player.T });
+    // 波形區的比例沿用原畫面（1.45）：整個視窗寬高比 = 1.45／右側比例
+    const aspect = 1.45 / (1 - THZ_SPLIT);
+    thzOverlay.set(project.thzAt(player.T)); aimLiveCam(.5 - THZ_SPLIT / 2, aspect);
+    workspace.renderCamera({ renderer, scene, camera: liveCam, vision: thzOverlay, title: '桶內即時影像＋兆赫波（反射式時域）', result: ui.action.textContent, aspect, marks: { time: player.T } });
+  } else if (show === 'close') {
+    thzOverlay.set(null); aimWeldCam();
+    workspace.renderCamera({ renderer, scene, camera: weldCam, vision: thzOverlay, title: '焊點特寫（觀察視角，示意）', result: ui.action.textContent, marks: { time: player.T } });
   } else {
-    aimWeldCam();
-    workspace.renderCamera({ renderer, scene, camera: weldCam, title: '焊點特寫（桶內）', result: ui.action.textContent, marks: { time: player.T } });
+    thzOverlay.set(null); aimLiveCam();
+    workspace.renderCamera({ renderer, scene, camera: liveCam, vision: thzOverlay, title: '桶內即時影像（手腕相機）', result: ui.action.textContent, marks: { time: player.T } });
   }
   workspace.renderOverview(renderer, scene);
 }

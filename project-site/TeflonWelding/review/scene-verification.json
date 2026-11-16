@@ -5,8 +5,8 @@
       "variant": "預設",
       "params": {},
       "ok": true,
-      "meshes": 451,
-      "moving": 277,
+      "meshes": 455,
+      "moving": 281,
       "joints": 52,
       "samples": 398,
       "dt": 0.72,
@@ -17,11 +17,11 @@
       "envelope": {
         "robot": {
           "minX": -4613,
-          "maxX": 342,
-          "minY": 540,
+          "maxX": 355,
+          "minY": 525,
           "maxY": 1518,
-          "minZ": -117,
-          "maxZ": 117
+          "minZ": -144,
+          "maxZ": 143
         }
       },
       "allowances": [
@@ -48,8 +48,8 @@
         "plan": "dual"
       },
       "ok": true,
-      "meshes": 694,
-      "moving": 512,
+      "meshes": 702,
+      "moving": 520,
       "joints": 90,
       "samples": 399,
       "dt": 0.87,
@@ -60,11 +60,11 @@
       "envelope": {
         "robot": {
           "minX": -4613,
-          "maxX": 342,
-          "minY": 540,
+          "maxX": 355,
+          "minY": 525,
           "maxY": 1518,
-          "minZ": -1117,
-          "maxZ": 1117
+          "minZ": -1144,
+          "maxZ": 1143
         }
       },
       "allowances": [
@@ -91,8 +91,8 @@
         "plan": "turntable"
       },
       "ok": true,
-      "meshes": 394,
-      "moving": 253,
+      "meshes": 398,
+      "moving": 257,
       "joints": 45,
       "samples": 400,
       "dt": 0.82,
@@ -103,8 +103,8 @@
       "envelope": {
         "robot": {
           "minX": -2467,
-          "maxX": 117,
-          "minY": 1245,
+          "maxX": 144,
+          "minY": 1230,
           "maxY": 4105,
           "minZ": -325,
           "maxZ": 418
@@ -134,8 +134,8 @@
         "plan": "cobot"
       },
       "ok": true,
-      "meshes": 378,
-      "moving": 222,
+      "meshes": 382,
+      "moving": 226,
       "joints": 36,
       "samples": 402,
       "dt": 0.83,
@@ -147,7 +147,7 @@
         "robot": {
           "minX": -2425,
           "maxX": 3225,
-          "minY": 968,
+          "minY": 957,
           "maxY": 4000,
           "minZ": -442,
           "maxZ": 446

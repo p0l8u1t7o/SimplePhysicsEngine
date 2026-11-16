@@ -21,7 +21,7 @@ export function createWelderArm(kind, psi) {
   const arm = kind === 'vs068' ? createVS068({ q: STOW, name: 'robot' }) : createCobottaPro900({ q: STOW });
   const mountTool = arm.tool || arm.mount, L = arm.L;
   const set = deg => { for (const n of J) if (deg[n] != null) arm.q[n] = deg[n] / D; arm.apply(); };
-  const { cplg, tcp } = createAtc(mountTool);
+  const { cplg, tcp, view: camView } = createAtc(mountTool);
   // 安裝座：桶座標中 Ry(−psi)·Rx(π)（手臂 +Y → 桶 −Y，手臂 +X → 方位 psi）
   const mount = new THREE.Group(); mount.name = 'arm-mount'; mount.add(arm.root);
   arm.root.quaternion.setFromEuler(new THREE.Euler(Math.PI, 0, 0));
@@ -59,5 +59,5 @@ export function createWelderArm(kind, psi) {
   weldL.pose = near(weldL.pose, weldC.pose); tuck.pose = near(tuck.pose, weldC.pose);
   const poses = { weldC, weldL, tuck };
 
-  return { kind, spec, arm, root: arm.root, mount, yaw, tool: mountTool, tcp, cplg, set, solve, near, poses, stowLen, d, parts: arm.parts || arm.armParts || [] };
+  return { kind, spec, arm, root: arm.root, mount, yaw, tool: mountTool, tcp, cplg, camView, set, solve, near, poses, stowLen, d, parts: arm.parts || arm.armParts || [] };
 }

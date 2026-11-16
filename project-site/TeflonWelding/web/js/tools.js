@@ -237,7 +237,16 @@ export function createAtc(armTool) {
   mesh(g, new THREE.BoxGeometry(24, 18, 20), M.body, [0, 46, 14], [0, 0, 0], 'atc-body');   // 鎖定氣缸
   const cplg = new THREE.Object3D(); cplg.position.z = ATC_LEN; armTool.add(cplg);
   const tcp = new THREE.Object3D(); tcp.position.z = ATC_LEN + TOOL_LEN; armTool.add(tcp);
-  return { group: g, cplg, tcp };
+  // 手腕相機（2026-11-16 客戶補充：每道工序都要看桶內即時影像）：裝在手臂側快換盤旁、不隨工具更換，斜看工具作業點；
+  // 放在 −Y／+X 象限，避開焊槍（−X）、送料捲盤與光纖（+Y），伸直時半徑約 140 mm（人孔通過限 206 mm）
+  const cam = new THREE.Group(); cam.name = 'wrist-camera'; cam.position.set(78, -78, 8); armTool.add(cam);
+  cam.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(20, 0, ATC_LEN + TOOL_LEN).sub(cam.position).normalize());
+  mesh(cam, new THREE.BoxGeometry(36, 36, 52), M.body, [0, 0, -6]).name = 'wrist-camera-body';
+  cylZ(cam, 11, 20, 29, M.lens, 0, 0, 11, 20);
+  mesh(cam, new THREE.TorusGeometry(15, 2.5, 6, 24), std(0xf4f7ff, .3, 0, { emissive: 0xdfe8ff, emissiveIntensity: .6 }), [0, 0, 29.5]).name = 'wrist-camera-led';
+  mesh(armTool, new THREE.BoxGeometry(12, 58, 12), M.coupling, [52, -52, 10], [0, 0, Math.PI / 4]).name = 'wrist-camera-bracket';
+  const view = new THREE.Object3D(); view.name = 'wrist-camera-view'; view.position.z = 30; view.rotation.y = Math.PI; cam.add(view);   // three 相機朝 −Z
+  return { group: g, cplg, tcp, view };
 }
 
 // 工具架一格：U 形托叉（托住快換盤下緣）＋立柱；局部原點在結合面中心，+Z 朝下（與掛著的工具同向）
