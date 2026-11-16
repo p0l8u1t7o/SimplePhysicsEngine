@@ -49,10 +49,10 @@ export function seamVerdicts(z, seams) {
     if (i <= 0) return { s, text: '未檢測', color: '#7f8c99' };
     if (i < 1 && !(def && z.found)) return { s, text: `掃描中 ${Math.round(i * 100)}%`, color: '#8bd4ed' };
     if (def && z.found) {
-      if (z.checked >= 1) return { s, text: '補焊後複檢 OK', color: '#3dd68c' };
+      if (z.checked >= 1) return { s, text: '補修後複檢 OK', color: '#3dd68c' };
       if (z.checked > 0) return { s, text: '複檢中', color: '#ffb020' };
-      if (z.repair > 0) return { s, text: z.repair >= 1 ? '已補焊，待複檢' : '補焊中', color: '#ffb020' };
-      return { s, text: `NG：約 ${Math.round(z.defect.u * 360)}° 處氣孔`, color: '#ff5a5a' };
+      if (z.repair > 0) return { s, text: z.repair >= 1 ? '人員已補修，待複檢' : '人員補修中', color: '#ffb020' };
+      return { s, text: `NG：約 ${Math.round(z.defect.u * 360)}° 處氣孔，已通知人員`, color: '#ff5a5a' };
     }
     return { s, text: 'OK', color: '#3dd68c' };
   });
@@ -84,7 +84,7 @@ function paintThz(ctx, w, h, z, seams) {
   const seam = z.seam || z.defect.seam, u = z.seam ? z.u : z.found ? z.defect.u : Math.min(1, z.st['seam-' + seam.id].i);
   const isVoid = !(z.recheck || z.checked >= 1) && voidAt(z, seam.id, u);
   ctx.fillStyle = '#e6edf3'; ctx.font = `600 ${26 * s}px ${FONT}`;
-  ctx.fillText(z.recheck ? '兆赫波複檢（補焊段）' : z.scanning ? '兆赫波掃描中' : '兆赫波檢測結果', pad, 29 * s);
+  ctx.fillText(z.recheck ? '兆赫波複檢（補修段）' : z.scanning ? '兆赫波掃描中' : '兆赫波檢測結果', pad, 29 * s);
   ctx.font = `${21 * s}px ${FONT}`; ctx.fillStyle = '#bacbd8';
   ctx.fillText(`${seam.name}・位置 ${seam.kind === 'circ' ? Math.round(u * 360) + '°' : Math.round(u * (seam.y1 - seam.y0)) + ' mm'}　A-scan`, pad, 56 * s);
 
@@ -147,7 +147,7 @@ function paintThz(ctx, w, h, z, seams) {
   seamVerdicts(z, seams).forEach((v, k) => {
     const x = pad + k * ((w - 2 * pad) / seams.length);
     ctx.fillStyle = '#c9d4de'; ctx.fillText(v.s.name, x, vy);
-    const text = v.text.startsWith('NG') ? 'NG 氣孔' : v.text === '補焊後複檢 OK' ? '複檢 OK' : v.text === '已補焊，待複檢' ? '待複檢' : v.text;
+    const text = v.text.startsWith('NG') ? 'NG 氣孔' : v.text === '補修後複檢 OK' ? '複檢 OK' : v.text === '人員已補修，待複檢' ? '待複檢' : v.text === '人員補修中' ? '補修中' : v.text;
     ctx.fillStyle = v.color; ctx.fillText(text, x, vy + 28 * s);
   });
 }

@@ -3,7 +3,7 @@
   "plans": {
     "roll": {
       "ok": true,
-      "total": 268.4,
+      "total": 286.1,
       "follow": 0.05,
       "minGapInside": 16.8,
       "minNeckGap": 37.8,
@@ -13,7 +13,27 @@
         "nl": 1
       },
       "tightest": {
-        "t": 162.2,
+        "t": 194.6,
+        "mesh": "pfa-tape",
+        "y": 885
+      },
+      "failures": []
+    },
+    "dual": {
+      "ok": true,
+      "total": 346.5,
+      "follow": 0.05,
+      "minGapInside": 16.8,
+      "minNeckGap": 37.8,
+      "seamLayout": {
+        "c1": 420,
+        "c2": 870,
+        "nl": 1
+      },
+      "handoff": "rod",
+      "tightest": {
+        "t": 193.4,
+        "line": 2,
         "mesh": "pfa-tape",
         "y": 885
       },
@@ -21,7 +41,7 @@
     },
     "turntable": {
       "ok": true,
-      "total": 322.5,
+      "total": 327.8,
       "follow": 0.05,
       "minGapInside": 16.8,
       "minNeckGap": 37.3,
@@ -31,7 +51,7 @@
         "nl": 1
       },
       "tightest": {
-        "t": 186.6,
+        "t": 219,
         "mesh": "pfa-tape",
         "y": 435
       },
@@ -39,7 +59,7 @@
     },
     "cobot": {
       "ok": true,
-      "total": 324.9,
+      "total": 332.9,
       "follow": 0.16,
       "minGapInside": 16.8,
       "minNeckGap": 22,
@@ -49,7 +69,7 @@
         "nl": 1
       },
       "tightest": {
-        "t": 193.2,
+        "t": 227.2,
         "mesh": "pfa-tape",
         "y": 435
       },
@@ -58,6 +78,7 @@
   },
   "estimate": {
     "metres": 6.68,
-    "hours": 2.6
+    "hours": 2.64,
+    "dualHoursPerTank": 1.38
   }
 }

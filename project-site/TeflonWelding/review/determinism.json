@@ -5,7 +5,17 @@
       "variant": "預設",
       "params": {},
       "ok": true,
-      "objects": 771,
+      "objects": 802,
+      "samples": 40,
+      "failures": []
+    },
+    {
+      "variant": "A2 並排雙工位＋雙臂",
+      "params": {
+        "plan": "dual"
+      },
+      "ok": true,
+      "objects": 1259,
       "samples": 40,
       "failures": []
     },
@@ -15,7 +25,7 @@
         "plan": "turntable"
       },
       "ok": true,
-      "objects": 718,
+      "objects": 749,
       "samples": 40,
       "failures": []
     },
@@ -25,7 +35,7 @@
         "plan": "cobot"
       },
       "ok": true,
-      "objects": 675,
+      "objects": 706,
       "samples": 40,
       "failures": []
     }

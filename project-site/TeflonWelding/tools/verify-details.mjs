@@ -32,12 +32,12 @@ function checkThzCanvas(p, check) {
     check(paints === count, 'THz 相同狀態只複製快取畫布，不重畫波形');
     const step = p.timeline.tracks.repair.steps.find(s => s.dur > 0 && s.end.r === 1);
     drawThz(ctx, 320, 221, p.thzAt(step.start - .01), p.seams);
-    check(paints > count && texts.some(t => t.text === 'NG 氣孔'), '倒序回到補焊前會更新 NG 波形');
+    check(paints > count && texts.some(t => t.text === 'NG 氣孔'), '倒序回到補修前會更新 NG 波形');
   } finally { document.createElement = create; }
 }
 
 const results = [];
-for (const plan of ['roll', 'turntable', 'cobot']) {
+for (const plan of ['roll', 'dual', 'turntable', 'cobot']) {
   const scene = new THREE.Scene(), p = createProject({ scene, plan }), SEAMS = p.seams;
   let checks = 0;
   const check = (condition, label) => { assert.ok(condition, `${plan}: ${label}`); checks++; };
@@ -46,7 +46,33 @@ for (const plan of ['roll', 'turntable', 'cobot']) {
   check(shell.material.clippingPlanes === liner.material.clippingPlanes, '拉絲材質仍共用切面');
   check(p.tank.seams.C1.layers.path.material === p.tank.seams.C2.layers.path.material, '焊道共用材質');
   check(p.tank.seams.C1.layers.path.userData.fx, '規劃線為虛擬效果');
-  check(!!scene.getObjectByName('chip-collector'), '三方案都有獨立集屑機');
+  check(!!scene.getObjectByName('chip-collector'), '每個方案都有獨立集屑機');
+  // 2026-11-11 客戶反饋：CNC 刀頭（全罩毛刷吸屑）、工序 4 的 5 kgf 下壓、UV 線雷射、焊條切刀、NG 通知人員接手
+  const groove = p.tools.groove.root, rod = p.tools.rod.root;
+  check(!!groove.getObjectByName('cnc-spindle') && !!groove.getObjectByName('v-cutter'), 'CNC 主軸＋V 形銑刀');
+  check(!!groove.getObjectByName('chip-suction-shroud'), 'CNC 刀頭全罩吸屑');
+  check(!!rod.getObjectByName('press-5kgf') && !!rod.getObjectByName('uv-line-laser') && !!rod.getObjectByName('rod-cutter'), '焊條焊槍有下壓氣缸、UV 線雷射、焊條切刀');
+  {
+    const tr = p.timeline.tracks, cut = tr.tool.steps.find(s => s.end.cut === 1 && s.initial.cut === 0), ng = tr.tool.steps.find(s => s.end.ng === 1 && s.initial.ng === 0);
+    check(!!ng && !!cut && cut.start >= ng.start, '工序 4：UV 判 NG 後切斷焊條');
+    p.apply(cut.start + cut.dur); scene.updateMatrixWorld(true);
+    check(!rod.getObjectByName('pfa-rod').visible, '切斷後焊條不顯示');
+    const man = tr['seam-C1'].steps.find(s => s.dur > 0 && s.end.r < s.initial.r);
+    check(!!man, '人員刨除不良段（焊條進度倒退）');
+    p.apply(man.start + man.dur / 2); scene.updateMatrixWorld(true);
+    check(p.cells[0].worker.visible, '人員處理時顯示人員');
+    check(tr.alarm.sample(man.start + man.dur / 2).a === 1, '人員處理時維持 NG 停機（紅燈）');
+    p.apply(p.total);
+    check(!p.cells[0].worker.visible, '結束時人員離開');
+    check(tr['seam-L1'].steps.filter(s => s.dur > 0 && s.end.v === 1 && s.initial.v < 1).length === 1, '開 V 槽後回程吸屑一趟');
+  }
+  if (p.dual) {
+    check(p.cells.length === 2 && !!scene.getObjectByName('shuttle-rail'), '雙工位：兩線＋穿梭軌道');
+    check(p.timeline.tracks.shuttle.steps.some(s => s.dur > 0), '雙工位：工具架有穿梭');
+    check(p.timeline.events.some(e => e.action.includes('等待')), '雙工位：互鎖等待標在事件列');
+    const L2 = p.timeline.tracks['L2:seam-C1'];
+    if (p.handoff === 'rod') check(L2.steps[0].dur === 0 && L2.steps[0].end.g === 1 && !L2.steps.some(s => s.dur > 0 && s.end.g === 1 && s.initial.g < 1), '第 2 線：開 V 槽由人員完成，自動線不再開槽');
+  }
   for (const key of ['groove', 'flat']) {
     const shroud = p.tools[key].root.getObjectByName('chip-suction-shroud');
     check(!!shroud && !shroud.userData.fx, `${key} 吸屑罩為實體，接受間隙檢查`);
@@ -58,12 +84,13 @@ for (const plan of ['roll', 'turntable', 'cobot']) {
     check(!!slot.getObjectByName('standby-air'), `${key} 待機送風管`);
   }
   const patch = scene.getObjectByName('repair-patch');
-  check(patch.userData.fx && patch.material.isMeshPhysicalMaterial && patch.material.roughness < .4, '重熔焊帶保持光澤，效果不當成實體厚度');
+  check(patch.userData.fx && patch.material.isMeshPhysicalMaterial && patch.material.roughness < .4, '補修焊帶保持光澤，效果不當成實體厚度');
   const repairStep = p.timeline.tracks.repair.steps.find(s => s.dur > 0 && s.end.r === 1);
   const repairTime = repairStep.start + repairStep.dur / 2;
   p.apply(repairTime);
   const patchColor = patch.material.color.getHex(), range = patch.geometry.drawRange.count;
-  check(scene.getObjectByName('thz-defect').material.color.getHex() === 0xffb020, '補焊中保留橘圈');
+  check(scene.getObjectByName('thz-defect').material.color.getHex() === 0xffb020, '人員補修中保留橘圈');
+  check(p.cells[0].worker.visible, '人員補修時顯示人員');
   p.apply(p.total);
   check(scene.getObjectByName('thz-defect').material.color.getHex() === 0x3dd68c, '複檢後保留綠圈');
   check(patch.material.color.getHex() !== patchColor, '焊帶由暖色冷卻為乳白');
@@ -76,7 +103,7 @@ for (const plan of ['roll', 'turntable', 'cobot']) {
   checkThzCanvas(p, check);
   const clampStep = p.timeline.tracks.load.steps.find(s => s.dur > 0 && s.end.clamp === 1);
   p.apply(clampStep.start + clampStep.dur); scene.updateMatrixWorld(true);
-  if (plan === 'roll') {
+  if (plan === 'roll' || plan === 'dual') {
     scene.traverse(m => {
       if (m.name !== 'clamp-screw-extension') return;
       const pad = m.parent.children.find(o => o.name === 'clamp-pad');

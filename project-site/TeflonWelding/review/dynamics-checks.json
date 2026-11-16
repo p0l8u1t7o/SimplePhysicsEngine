@@ -13,22 +13,22 @@
           "ok": true,
           "warn": false,
           "value": "5.989 kg",
-          "note": "由 3D 模型體積 × 密度估算（金屬當鋁 2700、其他當塑膠 1200 kg/m³；userData.mass／density 可覆寫）；最重時夾著 belt（t=143 s）；質心 [-51.4, 0.9, 108.5] mm（法蘭座標）；1 件算不出體積沒算進去"
+          "note": "由 3D 模型體積 × 密度估算（金屬當鋁 2700、其他當塑膠 1200 kg/m³；userData.mass／density 可覆寫）；最重時夾著 belt（t=175 s）；質心 [-51.4, 0.9, 108.5] mm（法蘭座標）；1 件算不出體積沒算進去"
         },
         {
           "group": "VS-068",
           "name": "J1 峰值扭矩",
           "ok": true,
           "value": 3.91,
-          "note": "2% of 200 N·m（上限為估計值）@ t=91.65 s；靜止保持最大 3.1 N·m",
+          "note": "2% of 200 N·m（上限為估計值）@ t=65.65 s；靜止保持最大 3.1 N·m",
           "warn": false
         },
         {
           "group": "VS-068",
           "name": "J2 峰值扭矩",
           "ok": true,
-          "value": 130.62,
-          "note": "47% of 280 N·m（上限為估計值）@ t=226.45 s；靜止保持最大 118.1 N·m",
+          "value": 130.6,
+          "note": "47% of 280 N·m（上限為估計值）@ t=104.40 s；靜止保持最大 118.1 N·m",
           "warn": false
         },
         {
@@ -36,7 +36,7 @@
           "name": "J3 峰值扭矩",
           "ok": true,
           "value": 47.54,
-          "note": "34% of 140 N·m（上限為估計值）@ t=31.40 s；靜止保持最大 46.9 N·m",
+          "note": "34% of 140 N·m（上限為估計值）@ t=200.70 s；靜止保持最大 46.9 N·m",
           "warn": false
         },
         {
@@ -44,7 +44,7 @@
           "name": "J4 峰值扭矩",
           "ok": true,
           "value": 3.12,
-          "note": "8% of 40 N·m（上限為估計值）@ t=15.85 s；靜止保持最大 3.0 N·m",
+          "note": "8% of 40 N·m（上限為估計值）@ t=146.90 s；靜止保持最大 3.0 N·m",
           "warn": false
         },
         {
@@ -124,39 +124,39 @@
           "name": "關節軌跡連續",
           "ok": true,
           "value": 0,
-          "note": "取樣 5369 點",
+          "note": "取樣 5723 點",
           "warn": false
         }
       ],
       "arms": [
         {
           "name": "VS-068",
-          "samples": 5369,
+          "samples": 5723,
           "gravity": [
             9.81,
             0,
             0
           ],
-          "hash": "fc23db8b",
+          "hash": "650f677d",
           "peak": {
             "j1": {
               "tau": 3.91,
-              "t": 91.65,
+              "t": 65.65,
               "ratio": 0.02
             },
             "j2": {
-              "tau": 130.62,
-              "t": 226.45,
-              "ratio": 0.467
+              "tau": 130.6,
+              "t": 104.4,
+              "ratio": 0.466
             },
             "j3": {
               "tau": 47.54,
-              "t": 31.4,
+              "t": 200.7,
               "ratio": 0.34
             },
             "j4": {
               "tau": 3.12,
-              "t": 15.85,
+              "t": 146.9,
               "ratio": 0.078
             },
             "j5": {
@@ -176,9 +176,9 @@
       "failures": []
     },
     {
-      "variant": "B 立式轉台＋升降柱",
+      "variant": "A2 並排雙工位＋雙臂",
       "params": {
-        "plan": "turntable"
+        "plan": "dual"
       },
       "ok": true,
       "applicable": true,
@@ -189,54 +189,54 @@
           "ok": true,
           "warn": false,
           "value": "5.989 kg",
-          "note": "由 3D 模型體積 × 密度估算（金屬當鋁 2700、其他當塑膠 1200 kg/m³；userData.mass／density 可覆寫）；最重時夾著 belt（t=172 s）；質心 [-51.4, 0.9, 108.5] mm（法蘭座標）；1 件算不出體積沒算進去"
+          "note": "由 3D 模型體積 × 密度估算（金屬當鋁 2700、其他當塑膠 1200 kg/m³；userData.mass／density 可覆寫）；最重時夾著 belt（t=229 s）；質心 [-51.4, 0.9, 108.5] mm（法蘭座標）；1 件算不出體積沒算進去"
         },
         {
           "group": "VS-068",
           "name": "J1 峰值扭矩",
           "ok": true,
-          "value": 2.15,
-          "note": "1% of 200 N·m（上限為估計值）@ t=184.40 s；靜止保持最大 0.0 N·m",
+          "value": 3.91,
+          "note": "2% of 200 N·m（上限為估計值）@ t=165.95 s；靜止保持最大 3.1 N·m",
           "warn": false
         },
         {
           "group": "VS-068",
           "name": "J2 峰值扭矩",
           "ok": true,
-          "value": 33.15,
-          "note": "12% of 280 N·m（上限為估計值）@ t=226.60 s；靜止保持最大 34.0 N·m",
+          "value": 130.62,
+          "note": "47% of 280 N·m（上限為估計值）@ t=275.15 s；靜止保持最大 118.1 N·m",
           "warn": false
         },
         {
           "group": "VS-068",
           "name": "J3 峰值扭矩",
           "ok": true,
-          "value": 54.18,
-          "note": "39% of 140 N·m（上限為估計值）@ t=60.10 s；靜止保持最大 46.8 N·m",
+          "value": 47.54,
+          "note": "34% of 140 N·m（上限為估計值）@ t=254.30 s；靜止保持最大 46.9 N·m",
           "warn": false
         },
         {
           "group": "VS-068",
           "name": "J4 峰值扭矩",
           "ok": true,
-          "value": 3.23,
-          "note": "8% of 40 N·m（上限為估計值）@ t=20.50 s；靜止保持最大 3.0 N·m",
+          "value": 3.12,
+          "note": "8% of 40 N·m（上限為估計值）@ t=292.35 s；靜止保持最大 3.0 N·m",
           "warn": false
         },
         {
           "group": "VS-068",
           "name": "J5 峰值扭矩",
           "ok": true,
-          "value": 14.14,
-          "note": "35% of 40 N·m（上限為估計值）@ t=101.05 s；靜止保持最大 11.4 N·m",
+          "value": 11.39,
+          "note": "28% of 40 N·m（上限為估計值）@ t=0.15 s；靜止保持最大 11.4 N·m",
           "warn": false
         },
         {
           "group": "VS-068",
           "name": "J6 峰值扭矩",
           "ok": true,
-          "value": 3.4,
-          "note": "14% of 24 N·m（上限為估計值）@ t=191.30 s；靜止保持最大 3.0 N·m",
+          "value": 3.02,
+          "note": "13% of 24 N·m（上限為估計值）@ t=0.15 s；靜止保持最大 3.0 N·m",
           "warn": false
         },
         {
@@ -300,30 +300,206 @@
           "name": "關節軌跡連續",
           "ok": true,
           "value": 0,
-          "note": "取樣 6450 點",
+          "note": "取樣 6930 點",
           "warn": false
         }
       ],
       "arms": [
         {
           "name": "VS-068",
-          "samples": 6450,
+          "samples": 6930,
+          "gravity": [
+            9.81,
+            0,
+            0
+          ],
+          "hash": "94a56348",
+          "peak": {
+            "j1": {
+              "tau": 3.91,
+              "t": 165.95,
+              "ratio": 0.02
+            },
+            "j2": {
+              "tau": 130.62,
+              "t": 275.15,
+              "ratio": 0.466
+            },
+            "j3": {
+              "tau": 47.54,
+              "t": 254.3,
+              "ratio": 0.34
+            },
+            "j4": {
+              "tau": 3.12,
+              "t": 292.35,
+              "ratio": 0.078
+            },
+            "j5": {
+              "tau": 11.39,
+              "t": 0.15,
+              "ratio": 0.285
+            },
+            "j6": {
+              "tau": 3.02,
+              "t": 0.15,
+              "ratio": 0.126
+            }
+          }
+        }
+      ],
+      "warnings": [],
+      "failures": []
+    },
+    {
+      "variant": "B 立式轉台＋升降柱",
+      "params": {
+        "plan": "turntable"
+      },
+      "ok": true,
+      "applicable": true,
+      "rows": [
+        {
+          "group": "VS-068",
+          "name": "負載來源",
+          "ok": true,
+          "warn": false,
+          "value": "5.989 kg",
+          "note": "由 3D 模型體積 × 密度估算（金屬當鋁 2700、其他當塑膠 1200 kg/m³；userData.mass／density 可覆寫）；最重時夾著 belt（t=204 s）；質心 [-51.4, 0.9, 108.5] mm（法蘭座標）；1 件算不出體積沒算進去"
+        },
+        {
+          "group": "VS-068",
+          "name": "J1 峰值扭矩",
+          "ok": true,
+          "value": 2.15,
+          "note": "1% of 200 N·m（上限為估計值）@ t=174.80 s；靜止保持最大 0.0 N·m",
+          "warn": false
+        },
+        {
+          "group": "VS-068",
+          "name": "J2 峰值扭矩",
+          "ok": true,
+          "value": 33.19,
+          "note": "12% of 280 N·m（上限為估計值）@ t=63.05 s；靜止保持最大 34.0 N·m",
+          "warn": false
+        },
+        {
+          "group": "VS-068",
+          "name": "J3 峰值扭矩",
+          "ok": true,
+          "value": 54.18,
+          "note": "39% of 140 N·m（上限為估計值）@ t=60.10 s；靜止保持最大 46.8 N·m",
+          "warn": false
+        },
+        {
+          "group": "VS-068",
+          "name": "J4 峰值扭矩",
+          "ok": true,
+          "value": 3.23,
+          "note": "8% of 40 N·m（上限為估計值）@ t=20.50 s；靜止保持最大 3.0 N·m",
+          "warn": false
+        },
+        {
+          "group": "VS-068",
+          "name": "J5 峰值扭矩",
+          "ok": true,
+          "value": 14.14,
+          "note": "35% of 40 N·m（上限為估計值）@ t=216.95 s；靜止保持最大 11.4 N·m",
+          "warn": false
+        },
+        {
+          "group": "VS-068",
+          "name": "J6 峰值扭矩",
+          "ok": true,
+          "value": 3.4,
+          "note": "14% of 24 N·m（上限為估計值）@ t=74.20 s；靜止保持最大 3.0 N·m",
+          "warn": false
+        },
+        {
+          "group": "VS-068",
+          "name": "負載質量",
+          "ok": true,
+          "value": 5.989,
+          "note": "型錄最大可搬重量 7 kg",
+          "warn": false
+        },
+        {
+          "group": "VS-068",
+          "name": "J4 負載力矩",
+          "ok": true,
+          "value": 11.48,
+          "note": "容許 16.6 N·m（型錄，需核對）",
+          "warn": false
+        },
+        {
+          "group": "VS-068",
+          "name": "J4 負載慣量",
+          "ok": true,
+          "value": 0.2296,
+          "note": "容許 0.47 kg·m²（型錄，需核對）",
+          "warn": false
+        },
+        {
+          "group": "VS-068",
+          "name": "J5 負載力矩",
+          "ok": true,
+          "value": 11.48,
+          "note": "容許 16.6 N·m（型錄，需核對）",
+          "warn": false
+        },
+        {
+          "group": "VS-068",
+          "name": "J5 負載慣量",
+          "ok": true,
+          "value": 0.2296,
+          "note": "容許 0.47 kg·m²（型錄，需核對）",
+          "warn": false
+        },
+        {
+          "group": "VS-068",
+          "name": "J6 負載力矩",
+          "ok": true,
+          "value": 3.02,
+          "note": "容許 9.4 N·m（型錄，需核對）",
+          "warn": false
+        },
+        {
+          "group": "VS-068",
+          "name": "J6 負載慣量",
+          "ok": true,
+          "value": 0.0168,
+          "note": "容許 0.15 kg·m²（型錄，需核對）",
+          "warn": false
+        },
+        {
+          "group": "VS-068",
+          "name": "關節軌跡連續",
+          "ok": true,
+          "value": 0,
+          "note": "取樣 6557 點",
+          "warn": false
+        }
+      ],
+      "arms": [
+        {
+          "name": "VS-068",
+          "samples": 6557,
           "gravity": [
             0,
             9.81,
             0
           ],
-          "hash": "6fb5de9f",
+          "hash": "f6d268d2",
           "peak": {
             "j1": {
               "tau": 2.15,
-              "t": 184.4,
+              "t": 174.8,
               "ratio": 0.011
             },
             "j2": {
-              "tau": 33.15,
-              "t": 226.6,
-              "ratio": 0.118
+              "tau": 33.19,
+              "t": 63.05,
+              "ratio": 0.119
             },
             "j3": {
               "tau": 54.18,
@@ -337,12 +513,12 @@
             },
             "j5": {
               "tau": 14.14,
-              "t": 101.05,
+              "t": 216.95,
               "ratio": 0.353
             },
             "j6": {
               "tau": 3.4,
-              "t": 191.3,
+              "t": 74.2,
               "ratio": 0.142
             }
           }

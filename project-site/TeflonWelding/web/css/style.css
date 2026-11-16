@@ -101,3 +101,19 @@ select option{background:#172431}
 
 #loading{position:absolute;inset:0;display:grid;place-items:center;background:var(--bg);z-index:10;color:var(--muted);font-size:14px;letter-spacing:1px}
 #loading.hide{display:none}
+/* ---- 2026-11-11 客戶反饋：修訂摘要、雙工位排程、工序 4 監控、NG 與檢測方案表 */
+.seg button small{margin-left:4px;font-size:10px;padding:0 4px;border-radius:4px;background:rgba(255,255,255,.08);color:var(--muted)}
+.seg button small.adopt{background:rgba(61,214,140,.2);color:var(--ok)}.seg button small.eval{background:rgba(255,176,32,.18);color:var(--warn)}
+.feedback{margin:0;padding-left:18px;font-size:11.5px;line-height:1.5;color:#c9d4de}.feedback li{margin-bottom:2px}.feedback b{color:#fff;font-weight:600}
+.gantt{font-size:10.5px;color:var(--muted)}
+.gantt .row{display:flex;align-items:center;gap:6px;margin:3px 0}.gantt .row>span{width:34px;flex:none}
+.gantt .bar{position:relative;flex:1;height:14px;background:#1a2632;border-radius:3px;overflow:hidden}
+.gantt .bar i{position:absolute;top:0;bottom:0;border-right:1px solid #0d1117}
+.gantt .legend{display:flex;flex-wrap:wrap;gap:4px 8px;margin-top:5px}.gantt .legend b{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:3px;vertical-align:-1px}
+.gantt .sum{margin-top:6px;color:#cfe3f2;font-size:11.5px;line-height:1.45}
+.rodmon{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;font-size:11.5px}.rodmon div{display:flex;justify-content:space-between}.rodmon span{color:var(--muted)}
+.rodmon .state{grid-column:1/-1;padding:3px 6px;border-radius:5px;background:#1a2632;color:var(--muted)}.rodmon .state.ok{color:var(--ok)}.rodmon .state.ng{color:#fff;background:rgba(255,77,77,.35)}
+.ngtable table{width:100%;border-collapse:collapse;font-size:10.5px;line-height:1.35}
+.ngtable th{font-weight:600;color:var(--muted);text-align:left;padding:2px 3px}
+.ngtable td{padding:3px;border-top:1px solid #22303c;vertical-align:top;color:#c9d4de}.ngtable td:first-child{color:#fff;white-space:nowrap}
+.ngtable tr.on td{background:rgba(255,77,77,.14)}

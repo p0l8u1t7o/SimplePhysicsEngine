@@ -73,6 +73,22 @@ function chipShroud(t) {
   mergeStatic(g);
 }
 
+// CNC 刀頭的全罩吸屑：罩殼包住刀具與鼻端，下緣毛刷裙邊貼襯裡（不留縫，切屑不落在焊道）；吸口在後側（−X），罩內吹氣把屑吹向吸口。
+function cncShroud(t) {
+  const g = new THREE.Group(); g.name = 'chip-suction-shroud'; t.add(g);
+  mesh(g, new THREE.CylinderGeometry(46, 46, 52, 32, 1, true), M.coupling, [0, 0, 254], [Math.PI / 2, 0, 0]);   // 罩殼
+  mesh(g, new THREE.RingGeometry(26, 46, 32), M.coupling, [0, 0, 228]);                                          // 罩頂（套在主軸鼻端外）
+  const brush = mesh(g, new THREE.CylinderGeometry(47, 47, 15, 32, 1, true), std(0x23262a, .95, 0), [0, 0, 287.5], [Math.PI / 2, 0, 0]);
+  brush.name = 'brush-skirt';                                                                                     // 毛刷裙邊（下緣離襯裡 5 mm 起刷毛接觸）
+  for (let i = 0; i < 2; i++) mesh(g, new THREE.TorusGeometry(26, 3, 6, 28), M.coupling, [0, 0, 232 + i * 4]);   // 靠模滑靴座
+  mesh(g, new THREE.CylinderGeometry(24, 24, 6, 28, 1, true), M.shoe, [0, 0, 296], [Math.PI / 2, 0, 0]).name = 'depth-nose';   // 靠模滑靴（貼面控制切深）
+  cylZ(g, 7, 260, 275, M.coupling, 34, 30, 7, 10);                                                                // 吹氣嘴
+  detailCable(g, 'cnc-air-blow', [[34, 30, 260], [40, 46, 230], [40, 52, 120], [30, 46, 40]], { radius: 4, color: CABLE.air, clips: 0 });
+  mesh(g, new THREE.BoxGeometry(24, 36, 36), M.coupling, [-56, 0, 254]);                                          // 吸口
+  detailCable(g, 'chip-suction-tool', [[-62, 0, 254], [-74, 0, 236], [-74, -50, 200], [-65, -50, 0]], { radius: 12, color: CABLE.sleeve, clips: 0 });
+  mergeStatic(g);
+}
+
 function chipFlow(t, count) {
   const chips = new THREE.Group(); chips.userData.fx = true; t.add(chips);
   for (let i = 0; i < count; i++) mesh(chips, new THREE.BoxGeometry(3, 1, 6), M.pfa, [0, 0, 0], [i, i * .4, 0]);
@@ -100,21 +116,33 @@ const BUILD = {
     beam.userData.fx = true; beam.name = 'scan-light';
     return { set(on) { beam.visible = on; } };
   },
-  // 開 V 槽刀：主軸馬達＋V 形刀＋兩條導靴；前方（+X）裝 3D 線雷射循縫
+  // 開 V 槽：CNC 刀具頭（2026-11-11 客戶反饋：客戶用過、開口面較平整）。高速電主軸＋V 形銑刀，靠模滑靴貼襯裡控制切深；
+  // 刀頭全罩＋毛刷裙邊負壓吸屑、罩內吹氣；前方（+X）線雷射輪廓儀即時循縫。mode 1＝回程吸屑（主軸停、吸屑罩貼面）
   groove(t) {
     couplingPlate(t);
-    chipShroud(t);
-    cylZ(t, 30, 24, 172, M.body); cylZ(t, 18, 172, 206, M.coupling, 0, 0, 12);
-    const cutter = cylZ(t, 8.5, 206, TOOL_LEN - 1, M.blade, 0, 0, .8, 20);                       // V 形刀（尖端在 TCP）
-    for (let i = 0; i < 3; i++) mesh(cutter, new THREE.BoxGeometry(2, 65, 2), M.body, [5 * Math.cos(i * 2 * Math.PI / 3), 0, 5 * Math.sin(i * 2 * Math.PI / 3)]);
-    for (const y of [-15, 15]) mesh(t, new THREE.BoxGeometry(70, 7, 10), M.shoe, [-6, y, TOOL_LEN - 5]);   // 導靴底面貼襯裡
-    mesh(t, new THREE.BoxGeometry(8, 40, 40), M.coupling, [-38, 0, TOOL_LEN - 28]);
+    mesh(t, new THREE.BoxGeometry(80, 80, 30), M.coupling, [0, 0, 39]);                 // 主軸夾座
+    const spindle = cylZ(t, 31, 54, 206, M.body, 0, 0, 31, 32); spindle.name = 'cnc-spindle';   // 電主軸 Ø62
+    for (const z of [80, 104, 128]) cylZ(t, 34, z, z + 8, M.coupling, 0, 0, 34, 32);      // 散熱環
+    mesh(t, new THREE.BoxGeometry(30, 26, 30), M.gunCap, [0, -40, 90]).name = 'spindle-connector';   // 動力／冷卻接頭
+    cylZ(t, 24, 206, 222, M.coupling, 0, 0, 22, 28);                                       // 主軸鼻端
+    cylZ(t, 15, 222, 236, M.gun, 0, 0, 14, 20);                                             // ER 夾頭螺帽
+    const cutter = new THREE.Group(); cutter.name = 'v-cutter'; t.add(cutter);
+    cylZ(cutter, 6, 236, 293, M.blade, 0, 0, 6, 16);
+    cylZ(cutter, 6, 293, TOOL_LEN - .5, M.blade, 0, 0, .3, 16);                             // 90° V 刃
+    for (let i = 0; i < 2; i++) mesh(cutter, new THREE.BoxGeometry(1.2, 12.4, 40), M.gunCap, [0, 0, 270], [0, 0, i * Math.PI / 2]);   // 排屑溝
+    cncShroud(t);
     mesh(t, new THREE.BoxGeometry(14, 22, 150), M.coupling, [44, 0, 104]);        // 雷射支架
     const prof = laserProfiler.create(); prof.root.position.set(78, 0, 150); prof.root.rotation.y = -.35; t.add(prof.root);
     prof.root.traverse(o => { if (o.isMesh && (o.material?.transparent || /plane|fan|beam/i.test(o.name))) o.userData.fx = true; });
-    const line = mesh(t, new THREE.PlaneGeometry(28, 1.6), fxMat(0xff3024, .9), [38, 0, TOOL_LEN - .8]); line.userData.fx = true;
-    const setChips = chipFlow(t, 5);
-    return { set(on, travel = 0) { prof.set({ laser: on ? 1 : 0 }); cutter.rotation.y = travel * 120; line.visible = on; setChips(on, travel); } };
+    const line = mesh(t, new THREE.PlaneGeometry(1.6, 28), fxMat(0xff3024, .9), [64, 0, TOOL_LEN - .8]); line.userData.fx = true;
+    const setChips = chipFlow(t, 6);
+    return {
+      set(on, travel = 0, o = {}) {
+        const clean = on && o.mode === 1;
+        prof.set({ laser: on && !clean ? 1 : 0 }); line.visible = on && !clean;
+        cutter.rotation.z = clean ? 0 : travel * 140; setChips(on, travel * (clean ? .5 : 1));
+      },
+    };
   },
   // 焊條焊槍：LHS 21S 與工具軸平行（側偏 105），彎管把熱風送到拖嘴（約 80 mm）壓在焊道上；焊條從捲盤經送料輪進入拖嘴
   rod(t) {
@@ -130,7 +158,27 @@ const BUILD = {
     mesh(t, new THREE.BoxGeometry(10, 20, 5), M.nozzle, [34, 0, TOOL_LEN - 17]);
     const glow = mesh(t, new THREE.ConeGeometry(16, 46, 20, 1, true), fxMat(0xff7a2a, .55), [-6, 0, TOOL_LEN - 22], [-Math.PI / 2, 0, -Math.PI / 4]);
     glow.userData.fx = true; glow.name = 'hot-air';
-    return { set(on, travel = 0) { glow.visible = on; spool.rotation.y = -travel * 18; } };
+    // 5 kgf 下壓：精密調壓的氣缸壓在拖嘴壓靴上（定力、浮動 ±8 mm 吸收襯板高低差）；缸體掛在槍夾連接板上
+    const press = new THREE.Group(); press.name = 'press-5kgf'; t.add(press);
+    mesh(press, new THREE.BoxGeometry(60, 14, 10), M.coupling, [-20, -20, 195]);
+    cylZ(press, 11, 200, 272, M.green, 10, -24, 11, 20);
+    cylZ(press, 4, 272, 284, M.gun, 10, -24, 4, 10);
+    mesh(press, new THREE.BoxGeometry(14, 22, 4), M.coupling, [10, -14, 286]);
+    // UV 線雷射（405 nm）：在拖嘴後方約 45 mm 量剛熔接的焊道寬度與高度，即時判定熔接狀態
+    mesh(t, new THREE.BoxGeometry(14, 36, 15), M.coupling, [-41, -30, 178.5]);
+    const uv = laserProfiler.create({ w: 30, h: 44, length: 56, fanW: 24, range: 70, window: { size: [18, 30], material: new THREE.MeshStandardMaterial({ color: 0x8a4dff, emissive: 0x7a3cff, emissiveIntensity: 1.5 }) },
+      plane: { material: new THREE.MeshBasicMaterial({ color: 0x8f5cff, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }), opacity: .4 }, name: 'uv-line-laser' });
+    uv.root.position.set(-42, -62, 214); uv.root.rotation.x = -Math.atan2(62, 85); t.add(uv.root);
+    const uvLine = mesh(t, new THREE.PlaneGeometry(1.4, 24), fxMat(0xa070ff, .95), [-45, 0, TOOL_LEN - .7]); uvLine.userData.fx = true; uvLine.name = 'uv-line';
+    // 焊條切刀：在導管出口，NG 或錯誤時切斷焊條
+    const knife = mesh(t, new THREE.BoxGeometry(16, 12, 12), M.gunCap, [40, 6, 258]); knife.name = 'rod-cutter';
+    return {
+      set(on, travel = 0, o = {}) {
+        glow.visible = on; spool.rotation.y = -travel * 18;
+        uv.set({ laser: on ? 1 : 0 }); uvLine.visible = on; uvLine.material.color.setHex(o.ng ? 0xff3040 : 0xa070ff);
+        feed.visible = !o.cut; knife.material = o.cut ? M.nozzle : M.gunCap;
+      },
+    };
   },
   // 削平刀：刀座＋碳化鎢刀片，兩側滑靴控制削平高度
   flat(t) {

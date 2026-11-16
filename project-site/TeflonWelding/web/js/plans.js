@@ -10,7 +10,7 @@ import { floor } from '@core/geom/environment.js';
 import { signalTower, hmi, estop } from '@core/models/indicators.js';
 import { lightCurtain } from '@core/models/sensors.js';
 import { frl } from '@core/models/motion.js';
-import { TANK } from './spec.js';
+import { TANK, DUAL } from './spec.js';
 import { rackSlot } from './tools.js';
 import { addRollDetails, addTurntableDetails, addGantryDetails } from './details.js';
 
@@ -51,13 +51,15 @@ function hook(scene) {
 }
 
 // ================================================================ 方案 A：臥式雙環迴轉架＋懸吊 X 軸伸臂
-function planRoll(scene) {
-  const Hc = 1100, xb = 600;                                   // 桶軸高、下切線的世界 X（人孔朝 −X）
-  const frameW = { pos: new THREE.Vector3(xb, Hc, 0), quat: new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, Math.PI / 2)) };
-  floor(scene, { size: [12000, 7000], center: [-1800, 0], cell: 250 });
+// o.z：整線沿 Z 平移（雙工位每線一個）；o.cellOnly：只建這一線（地面、工具架、周邊由雙工位共用）
+function planRoll(scene, o = {}) {
+  const Hc = 1100, xb = 600, z0 = o.z ?? 0, cellOnly = !!o.cellOnly;   // 桶軸高、下切線的世界 X（人孔朝 −X）
+  const frameW = { pos: new THREE.Vector3(xb, Hc, z0), quat: new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, Math.PI / 2)) };
+  if (!cellOnly) floor(scene, { size: [12000, 7000], center: [-1800, 0], cell: 250 });
 
   // ---- 雙環迴轉架（開合式）：兩環夾住直筒，每環 4 支夾緊螺桿；底座 2 支托輪（一支驅動）
-  const pos = mod(g('positioner', scene), 'positioner'), rings = [];
+  const pos = mod(g('positioner', scene), 'positioner'), rings = []; pos.position.z = z0;
+  if (o.mirror) pos.scale.z = -1;                              // 雙工位第 1 線：鉸鏈換到外側，上半環張開時不碰到第 2 線
   const ringX = [xb - 250, xb - 1100], rIn = 640, rOut = 760, w = 110;
   const lathe = (r0, r1, wd, phi0, len) => new THREE.LatheGeometry([[r0, -wd / 2], [r1, -wd / 2], [r1, wd / 2], [r0, wd / 2], [r0, -wd / 2]].map(([r, y]) => new THREE.Vector2(r, y)), 64, phi0, len);
   for (const x of ringX) {
@@ -86,11 +88,11 @@ function planRoll(scene) {
   }
 
   // ---- 懸吊 X 軸（門型架）＋伸臂
-  const gx = mod(g('x-axis', scene), 'x-axis'), beamY = 2750, xs = [-1500, -6000];
+  const gx = mod(g('x-axis', scene), 'x-axis'), beamY = 2750, xs = [-1500, -6000]; gx.position.z = z0;
   box(gx, [xs[0] - xs[1] + 300, 300, 300], [(xs[0] + xs[1]) / 2, beamY, 0], P.paint, 'x-beam');
   box(gx, [xs[0] - xs[1], 40, 60], [(xs[0] + xs[1]) / 2, beamY - 170, 0], MAT.steel, 'x-rail');
   for (const x of xs) { for (const z of [-850, 850]) box(gx, [200, beamY + 150, 200], [x, (beamY + 150) / 2, z], P.paint, 'post'); box(gx, [200, 260, 1900], [x, beamY, 0], P.paint, 'portal-beam'); }
-  const carriage = mod(g('boom', scene), 'boom'); carriage.userData.cableHost = false;
+  const carriage = mod(g('boom', scene), 'boom'); carriage.userData.cableHost = false; carriage.position.z = z0;
   box(carriage, [420, 180, 380], [0, beamY - 280, 0], MAT.steelDark, 'x-carriage');
   box(carriage, [180, beamY - 370 - Hc + 80, 180], [0, (beamY - 370 + Hc - 80) / 2, 0], P.paint, 'drop-column');
   const boomLen = 900;
@@ -99,10 +101,10 @@ function planRoll(scene) {
   const tipX = boomLen + 110;                                  // 手臂基座面（伸臂前端板外側）相對滑座
 
   // ---- 工具架：X 軸下方地面，手臂在桶外朝下取放
-  const rack = mod(g('tool-rack', scene), 'tool-rack');
+  const rack = cellOnly ? null : mod(g('tool-rack', scene), 'tool-rack');
 
   // ---- 周邊與上料吊鉤
-  const per = periphery(scene, { x: -3600, z: 2200, curtain: [{ pos: [-1300, 0, 1900], rotY: 0 }] });
+  const per = cellOnly ? null : periphery(scene, { x: -3600, z: 2200, curtain: [{ pos: [-1300, 0, 1900], rotY: 0 }] });
   const crane = hook(scene);
   const slingAt = [xb - 1290 + 300, xb - 300];
   const updateDetails = addRollDetails({ pos, rings, carriage, gx, beamY, Hc });
@@ -112,8 +114,8 @@ function planRoll(scene) {
     cut: new THREE.Plane(new THREE.Vector3(-1, 0, 0), 40),                     // 保留世界下半（桶座標 x ≤ 40）
     build(carrier, ctx) {
       carriage.add(carrier); carrier.position.set(tipX, Hc, 0); carrier.quaternion.copy(frameW.quat);
-      // 工具架：每格在 s_out 之後，間距 340（換工具時手腕擺動不碰鄰格工具）（格位世界位置由手臂取放姿態的順向運動學決定，層板在 project.js 建）
-      ctx.slots = ctx.tools.map((_, i) => ({ s: ctx.sOut + 120 + i * 340, lat: 0 }));
+      // 工具架：每格在 s_out 之後，間距 400（夾著工具從伸直轉到取放姿態時，工具掃過的範圍不碰鄰格工具）（格位世界位置由手臂取放姿態的順向運動學決定，層板在 project.js 建）
+      ctx.slots = ctx.tools.map((_, i) => ({ s: ctx.sOut + 120 + i * 400, lat: 0 }));
     },
     rackRoot: rack,
     setCarrier(s) { carriage.position.x = xb - s - tipX; updateDetails(); },
@@ -123,9 +125,9 @@ function planRoll(scene) {
       const lift = k * 1700;
       tank.frame.position.copy(frameW.pos).add(new THREE.Vector3(0, lift, 0));
       for (const r of rings) { r.hinge.rotation.x = open * 1.9; for (const cl of r.clamps) { cl.pad.position.y = TANK.ri + TANK.wall + 6 + (1 - clamp) * 40; } }
-      const top = Hc + TANK.ri + TANK.wall + lift, hp = new THREE.Vector3((slingAt[0] + slingAt[1]) / 2, top + 1300, 0);
+      const top = Hc + TANK.ri + TANK.wall + lift, hp = new THREE.Vector3((slingAt[0] + slingAt[1]) / 2, top + 1300, z0);
       crane.group.visible = open > .02;
-      crane.set(hp, slingAt.map(x => new THREE.Vector3(x, top, 0)));
+      crane.set(hp, slingAt.map(x => new THREE.Vector3(x, top, z0)));
     },
     periphery: per,
     views: {
@@ -273,6 +275,29 @@ function planCobot(scene) {
   };
 }
 
+// ================================================================ 方案 A2：兩套 A 案並排（人孔都朝 −X）＋共用一組工具的穿梭工具架
+// 兩線中心在 z＝∓DUAL.lineZ；工具架在穿梭座上沿 Z 移動（z＝0 對第 1 線、z＝2·lineZ 對第 2 線），哪一線要換工具就移過去（互鎖）。
+function planDual(scene) {
+  const Z = DUAL.lineZ;
+  floor(scene, { size: [12000, 9500], center: [-1800, 0], cell: 250 });
+  const cells = [planRoll(scene, { z: -Z, cellOnly: true, mirror: true }), planRoll(scene, { z: Z, cellOnly: true })];
+  const rack = mod(g('tool-rack', scene), 'tool-rack');
+  const per = periphery(scene, { x: -4300, z: Z + 2400, curtain: [{ pos: [-1300, 0, Z + 2000], rotY: 0 }] });   // 往 −X 讓出第 2 線的局部排氣機
+  return {
+    key: 'dual', cells, frameW: cells[0].frameW, cut: cells[0].cut,
+    rackRoot: rack, rackFloor: 90, shuttle: { z: [0, 2 * Z], travel: 2 * Z },
+    setShuttle(z) { rack.position.z = z; },
+    periphery: per,
+    views: {
+      iso: [[-6200, 5200, 7600], [-1200, 900, 0]],
+      inside: [[-250, 2650, -Z + 1900], [-70, 1000, -Z]],
+      weld: [[180, 1940, -Z + 1100], [-160, 640, -Z]],
+      rack: [[-1500, 4300, 3600], [-2900, 400, -300]],     // 從周邊櫃上方斜看穿梭工具架與兩線的取放位置
+      top: [[-1800, 12500, 10], [-1800, 0, 0]],
+    },
+  };
+}
+
 export function buildPlan(key, scene) {
-  return key === 'turntable' ? planTurntable(scene) : key === 'cobot' ? planCobot(scene) : planRoll(scene);
+  return key === 'turntable' ? planTurntable(scene) : key === 'cobot' ? planCobot(scene) : key === 'dual' ? planDual(scene) : planRoll(scene);
 }

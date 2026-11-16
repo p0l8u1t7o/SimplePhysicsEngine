@@ -3,7 +3,7 @@
   "plans": {
     "roll·極端排版": {
       "ok": true,
-      "total": 291.8,
+      "total": 312.6,
       "follow": 0.05,
       "minGapInside": 16.8,
       "minNeckGap": 37.8,
@@ -13,7 +13,27 @@
         "nl": 2
       },
       "tightest": {
-        "t": 181.9,
+        "t": 217.3,
+        "mesh": "pfa-tape",
+        "y": 1015
+      },
+      "failures": []
+    },
+    "dual·極端排版": {
+      "ok": true,
+      "total": 366.6,
+      "follow": 0.05,
+      "minGapInside": 16.8,
+      "minNeckGap": 37.8,
+      "seamLayout": {
+        "c1": 250,
+        "c2": 1000,
+        "nl": 2
+      },
+      "handoff": "rod",
+      "tightest": {
+        "t": 205.7,
+        "line": 2,
         "mesh": "pfa-tape",
         "y": 1015
       },
@@ -21,7 +41,7 @@
     },
     "turntable·極端排版": {
       "ok": true,
-      "total": 345.9,
+      "total": 354.3,
       "follow": 0.05,
       "minGapInside": 14.4,
       "minNeckGap": 14.4,
@@ -39,7 +59,7 @@
     },
     "cobot·極端排版": {
       "ok": true,
-      "total": 351.9,
+      "total": 363.6,
       "follow": 0.16,
       "minGapInside": 16.8,
       "minNeckGap": 17.8,
@@ -49,7 +69,7 @@
         "nl": 2
       },
       "tightest": {
-        "t": 215.8,
+        "t": 253.6,
         "mesh": "pfa-tape",
         "y": 265
       },
@@ -58,6 +78,7 @@
   },
   "estimate": {
     "metres": 6.68,
-    "hours": 2.6
+    "hours": 2.64,
+    "dualHoursPerTank": 1.38
   }
 }

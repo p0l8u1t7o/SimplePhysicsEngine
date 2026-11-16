@@ -74,7 +74,8 @@ export function detailCable(parent, name, points, options) {
   return route;
 }
 
-export function addPeripheryDetails(scene, per, key) {
+// o.fenceZ：後側護網的 Z（雙工位往外移）
+export function addPeripheryDetails(scene, per, key, o = {}) {
   const p = per.group;
   const blower = hotAirBlower.create({ size: [380, 260, 330], fins: false, material: MAT.steelBlue });
   blower.root.position.set(800, 1315, -40); p.add(blower.root);
@@ -97,17 +98,15 @@ export function addPeripheryDetails(scene, per, key) {
     box(p, [8, h - 80, 8], [x - 215, h / 2, 255], MAT.steelDark);
     box(p, [16, 130, 22], [x + 210, h * .52, 262], MAT.black);
   }
-  fence(scene, key === 'roll' ? -5700 : -4300, key === 'cobot' ? 6400 : 1900, -2100);
+  fence(scene, key === 'roll' || key === 'dual' ? -5700 : -4300, key === 'cobot' ? 6400 : 1900, o.fenceZ ?? -2100);
   mergeStatic(p);
   let last = '';
-  return st => {
-    const status = ['L1', 'C1', 'C2'].map(id => {
-      const s = st['seam-' + id], q = v => Math.floor(v * 10) * 10; return `${id}  V ${q(s.g)}%   PFA ${q(s.b)}%   THz ${q(s.i)}%`;   // 10% 一階：HMI 貼圖不必每格重畫上傳
-    });
-    const text = [st.tool.held || '待命', st.tool.fx, ...status].join('|');
-    if (text === last) return; last = text;
-    per.panel.drawText(['襯裡焊接 / 製程示意', st.tool.fx ? '加工中・抽氣運轉' : '定位／換工具', ...status, st['seam-C2'].i >= .62 ? 'C2 疑似氣孔：模擬標記' : 'THz：示意結果']);
-    per.tower.set(st.tool.fx ? 'green' : 'yellow');
+  // h：{ alarm, busy, text }（project.js 依各線狀態整理）；文字有變才重畫 HMI 貼圖
+  return h => {
+    const key = h.text.join('|') + h.alarm + h.busy;
+    if (key === last) return; last = key;
+    per.panel.drawText(h.text);
+    per.tower.set(h.alarm ? 'red' : h.busy ? 'green' : 'yellow');
   };
 }
 
@@ -133,7 +132,7 @@ export function addRollDetails({ pos, rings, carriage, gx, beamY, Hc }) {
     ring(pos, 70, 12, [r.position.x + 65, 500, -610], 'x');
     for (const z of [-482, 482]) for (const dx of [-65, 65]) box(pos, [18, 130, 170], [r.position.x + dx, 375, z], steel);
   }
-  const chain = carrier(gx, 'X supply chain', { origin: [0, beamY + 210, -300], fixed: -5400, min: -5400, max: -1200, radius: 90, width: 70, pitch: 38 });
+  const chain = carrier(gx, 'X supply chain', { origin: [0, beamY + 210, -300], fixed: -5650, min: -5650, max: -1200, radius: 90, width: 70, pitch: 38 });
   drive(carriage, [0, beamY - 330, -330], .65);
   cable(carriage, 'boom-services', [[0, beamY + 390, -300], [0, beamY - 470, -230], [0, Hc, -140], [950, Hc, -140]], { radius: 12, color: CABLE.sleeve, clips: 4 });
   return () => {
@@ -221,33 +220,36 @@ export function addArmServices(arm, compact = false) {
   cable(arm.root, 'base service', [[-120, 0, 0], [-120, 40, 0], [-108, 70, 0]], { radius: 9, color: CABLE.air, clips: 1 });
 }
 
-export function addExtraction(scene, plan) {
+// side：吸罩與排氣管往哪一側引出（−1＝−Z，原本的配置；雙工位第 2 線用 +1，與第 1 線鏡射）
+export function addExtraction(scene, plan, side = -1) {
+  const zc = plan.frameW.pos.z, Zw = v => zc - side * v, Zl = v => -side * v;   // 世界 Z、桶座標 Z（原本的數值都是 side＝−1）
   // 側吸罩在法蘭外緣，留下原人孔通過範圍；上料時沿後側退開。
   const mount = group(scene); mount.userData.module = 'extraction'; mount.position.copy(plan.frameW.pos); mount.quaternion.copy(plan.frameW.quat);
   const hood = group(mount), y = TANK.manway.top + 85;
-  box(hood, [230, 22, 90], [0, y, -310], steel);
-  box(hood, [230, 70, 8], [0, y + 35, -355], steel);
-  for (const x of [-111, 111]) box(hood, [8, 70, 90], [x, y + 35, -310], steel);
+  box(hood, [230, 22, 90], [0, y, Zl(-310)], steel);
+  box(hood, [230, 70, 8], [0, y + 35, Zl(-355)], steel);
+  for (const x of [-111, 111]) box(hood, [8, 70, 90], [x, y + 35, Zl(-310)], steel);
   // A 案先朝桶側跨過門架立柱的 X 位置，再向後引出；B/C 留在人孔後側。
   const elbowY = plan.key === 'roll' ? 1430 : y + 35;
   const outletX = plan.key === 'roll' ? 1150 : 0;
-  const hoodRoute = [[0, y + 35, -360], [0, elbowY, -520], [0, elbowY, -1600]];
-  if (outletX) hoodRoute.push([outletX, elbowY, -1600]);
+  const hoodRoute = [[0, y + 35, Zl(-360)], [0, elbowY, Zl(-520)], [0, elbowY, Zl(-1600)]];
+  if (outletX) hoodRoute.push([outletX, elbowY, Zl(-1600)]);
   cable(hood, 'fume-duct', hoodRoute, { radius: 45, color: 0x727c82, clips: 0 });
-  const unit = group(scene); unit.userData.module = 'extraction'; unit.position.set(plan.key === 'roll' ? -1600 : 1800, 0, -2900);
+  const unit = group(scene); unit.userData.module = 'extraction'; unit.position.set(plan.key === 'roll' ? -1600 : 1800, 0, Zw(-2900)); if (side > 0) unit.rotation.y = Math.PI;
   box(unit, [650, 900, 600], [0, 450, 0], MAT.cabinet);
   cylinder(unit, 190, 120, [0, 1080, 0], steel, 'z', 32); drive(unit, [0, 930, -180], .8);
   // 接回集氣機，跨越圍籬的管段高於護網；側吸罩退開時伸縮軟管仍連接。
-  const outlet = new THREE.Vector3(outletX, elbowY, -1600).applyQuaternion(plan.frameW.quat).add(plan.frameW.pos);
+  const outlet = new THREE.Vector3(outletX, elbowY, Zl(-1600)).applyQuaternion(plan.frameW.quat).add(plan.frameW.pos);
   const duct = group(scene); duct.userData.module = 'extraction';
   const flex = cylinder(duct, 45, 1, [outlet.x, outlet.y, 0], MAT.steelDark, 'z', 16); flex.name = 'extraction-flex'; flex.userData.keep = true;
-  cable(duct, 'extractor-return', [[outlet.x, outlet.y, -2500], [unit.position.x, outlet.y, -2650], [unit.position.x, 1080, -2700], [unit.position.x, 1080, -2835]], { radius: 45, color: 0x727c82, clips: 0 });
+  cable(duct, 'extractor-return', [[outlet.x, outlet.y, Zw(-2500)], [unit.position.x, outlet.y, Zw(-2650)], [unit.position.x, 1080, Zw(-2700)], [unit.position.x, 1080, Zw(-2835)]], { radius: 45, color: 0x727c82, clips: 0 });
   decal(unit, 500, 160, [0, 610, 301], [0, 0, 0], ['局部排氣', '風量／處理方式待設計'], { center: true, bg: '#d7e4df', color: '#263b37' });
   for (const g of [unit, duct]) mergeStatic(g);   // 吸罩不合併：伸縮軟管套在吸罩出口管上（套筒關係）
+  const zFar = Zw(-2500);
   return k => {
     // 在桶升起到吸罩高度前完成後退；只驅動新增吸罩，不改上料時序。
-    hood.position.z = -Math.min(1, k * 32) * 650;
+    hood.position.z = side * Math.min(1, k * 32) * 650;
     const end = outlet.z + hood.position.z;
-    flex.position.z = (end - 2500) / 2; flex.scale.y = end + 2500;
+    flex.position.z = (end + zFar) / 2; flex.scale.y = Math.abs(end - zFar);
   };
 }

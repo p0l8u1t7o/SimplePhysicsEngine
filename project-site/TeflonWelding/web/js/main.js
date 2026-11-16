@@ -6,12 +6,13 @@ import { createStage, exposeSim } from '@core/ui/stage.js';
 import { createPlayer } from '@core/ui/player.js';
 import { createViewerWorkspace } from '@core/ui/viewer-workspace.js';
 import { createProject, STATIONS, PLANS } from './project.js';
-import { PROCESS, HOT_AIR, TANK, NECK_CLEAR, FIELD, TOOLS, COMPARE, THZ, cycleEstimate, seamLength } from './spec.js';
+import { PROCESS, HOT_AIR, TANK, NECK_CLEAR, FIELD, TOOLS, COMPARE, THZ, CNC, ROD_WELD, NG_HANDLING, INSPECTION, DUAL, cycleEstimate, dualEstimate, seamLength } from './spec.js';
 import { drawThz, seamVerdicts } from './thz-view.js';
 
 const qp = new URLSearchParams(location.search), movie = qp.has('movie');
 const $ = id => document.getElementById(id);
 const planKey = PLANS[qp.get('plan')] ? qp.get('plan') : 'roll';
+const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 
 // ---------------------------------------------------------------- 舞台
 const canvas = $('c');
@@ -21,7 +22,7 @@ const stage = createStage({
 });
 const { renderer, scene, camera, controls } = stage;
 renderer.localClippingEnabled = true;
-const project = createProject({ scene, plan: planKey, c1: qp.get('c1'), c2: qp.get('c2'), nl: qp.get('nl') });
+const project = createProject({ scene, plan: planKey, c1: qp.get('c1'), c2: qp.get('c2'), nl: qp.get('nl'), handoff: qp.get('handoff') });
 const SEAMS = project.seams;
 const { timeline, stationStart, meta, plan } = project;
 const LOOKS = { xray: '透視（完整桶）', cut: '剖切（示意）', solid: '不透明' };
@@ -49,12 +50,18 @@ document.querySelectorAll('.views [data-view]').forEach(b => b.onclick = () => s
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const label = (html, pos, priority = 0) => stage.addLabel(html, pos, '', { anchor: 'above', priority });
 const frameAt = (x, y, z) => () => project.tank.frame.localToWorld(V(x, y, z));
-label('1000L 襯 PTFE 桶', frameAt(0, TANK.manway.top + 80, 0), 3);
+project.cells.forEach((c, i) => {
+  const tag = project.dual ? `第 ${i + 1} 線 ` : '';
+  label(`${tag}1000L 襯 PTFE 桶`, () => c.tank.frame.localToWorld(V(0, TANK.manway.top + 80, 0)), 3);
+  label(project.dual ? `${tag}VS-068` : meta.arm === 'vs068' ? 'DENSO VS-068' : 'DENSO COBOTTA PRO 900', () => c.arm.root.getWorldPosition(V(0, 0, 0)).add(V(0, 260, 0)), 4);
+});
 label(`人孔（襯後內徑 ${Math.round(NECK_CLEAR * 2)}）`, frameAt(TANK.manway.flangeR, TANK.manway.top, 0), 1);
-label(meta.arm === 'vs068' ? 'DENSO VS-068' : 'DENSO COBOTTA PRO 900', () => project.arm.root.getWorldPosition(V(0, 0, 0)).add(V(0, 260, 0)), 4);
-label(`工具架（${TOOLS.length} 支工具）`, () => project.plan.rackRoot.children.find(c => c.name === 'rack-shelf')?.getWorldPosition(V(0, 0, 0)).add(V(0, 420, 0)) ?? V(0, 0, 0), 2);
+const shelf = () => project.plan.rackRoot.children.find(c => c.name === 'rack-shelf');
+label(project.dual ? `穿梭工具架（${TOOLS.length} 支工具，兩線共用）` : `工具架（${TOOLS.length} 支工具）`, () => shelf() ? shelf().getWorldPosition(V(0, 0, 0)).add(V(0, 420, 0)) : V(0, 0, 0), 2);
 label('電控櫃・熱風控制・兆赫波主機', () => plan.periphery.group.localToWorld(V(700, 2050, 0)), 1);
+project.cells.forEach(c => label('人員接手（示意）', () => c.worker.visible ? c.worker.getWorldPosition(V(0, 0, 0)).add(V(0, 1850, 0)) : V(0, -1e5, 0), 5));
 if (meta.key === 'roll') { label('開合式雙環迴轉架', V(150, 2000, 0), 3); label('懸吊 X 軸＋伸臂', V(-3300, 3050, 0), 2); }
+if (meta.key === 'dual') { label('兩線並排（中心距 2 m）', V(150, 2300, 0), 3); }
 if (meta.key === 'turntable') { label('立式轉台', V(0, 420, 900), 3); label('立柱懸臂（上下＋伸縮）', V(-3500, 5550, -650), 2); }
 if (meta.key === 'cobot') { label('移動式門架（X 橫移＋Z 伸縮柱）', () => scene.getObjectByName('gantry').localToWorld(V(-700, 5900, 0)), 3); }
 label('焊點', () => project.focus(), 2);
@@ -69,11 +76,26 @@ STATIONS.forEach((name, i) => {
 
 // ---------------------------------------------------------------- 方案切換（重新載入）與剖切
 const reload = (k, v) => { const q = new URLSearchParams(location.search); const kv = typeof k === 'object' ? k : { [k]: v }; for (const [a, b] of Object.entries(kv)) q.set(a, b); ['t', 'time', 'step', 'st'].forEach(x => q.delete(x)); location.search = q.toString(); };
-$('plans').innerHTML = Object.values(PLANS).map(p => `<button data-plan="${p.key}" class="${p.key === planKey ? 'on' : ''}">${p.name}</button>`).join('');
+const TAGCLS = { 採用: 'adopt', 評估: 'eval' };
+$('plans').innerHTML = Object.values(PLANS).map(p => `<button data-plan="${p.key}" class="${p.key === planKey ? 'on' : ''}">${p.name}<small class="${TAGCLS[p.tag] ?? ''}">${p.tag}</small></button>`).join('');
 $('plans').querySelectorAll('button').forEach(b => b.onclick = () => b.dataset.plan !== planKey && reload('plan', b.dataset.plan));
 $('planDesc').textContent = meta.method;
 $('planPros').innerHTML = meta.pros.map(s => `<li class="pro">＋ ${s}</li>`).join('') + meta.cons.map(s => `<li class="con">－ ${s}</li>`).join('');
-$('specLine').textContent = `焊接位置：${meta.pose}・熱風 ${HOT_AIR.temp} °C（${HOT_AIR.gun}）・拖嘴約 ${HOT_AIR.drag} mm`;
+$('specLine').textContent = `焊接位置：${meta.pose}・熱風 ${HOT_AIR.temp} °C（${HOT_AIR.tempNote}，${HOT_AIR.gun}）・拖嘴約 ${HOT_AIR.drag} mm、下壓 ${ROD_WELD.press} kgf`;
+
+// 客戶反饋修訂摘要（2026-11-11 會議）
+$('feedback').innerHTML = [
+  '<b>採用 A 臥式迴轉</b>；B、C 保留為參考',
+  `<b>工序 3 改 CNC 刀頭</b>：電主軸＋V 形銑刀＋靠模控深；全罩毛刷吸屑＋回程吸屑`,
+  `<b>工序 4 UV 線雷射</b>：拖嘴後方即時量焊道寬度與高度，判熔接狀態`,
+  `<b>工序 4 下壓 ${ROD_WELD.press} kgf</b>：熱風吹軟後定力下壓；NG 時切斷焊條`,
+  '<b>雙工位＋第 2 台手臂</b>：同場地同時 2 桶，共用工具（方案 A2）',
+  '<b>每道工序 NG 排除</b>：停機、三色燈與推播，通知人員接手',
+  '<b>檢測方案</b>：兆赫波保留，比較 2D 視覺與雷射輪廓',
+].map(s => `<li>${s}</li>`).join('');
+$('cncInfo').innerHTML = `<p>${CNC.spindle}，${CNC.cutter}；${CNC.depth}。</p><ul class="pros">${CNC.chips.map(s => `<li class="pro">＋ ${s}</li>`).join('')}</ul>`;
+$('ngTable').innerHTML = `<table><tr><th>工序</th><th>偵測</th><th>自動處置</th><th>人員接手</th></tr>${NG_HANDLING.map(r => `<tr data-step="${r.step}"><td>${r.step}</td><td>${esc(r.detect)}<br><span class="hint">NG：${esc(r.ng)}</span></td><td>${esc(r.auto)}</td><td>${esc(r.human)}</td></tr>`).join('')}</table><div class="note">共同：停止該線 → 安全退出 → 三色燈紅燈＋蜂鳴、HMI 顯示工序／焊道／位置／影像 → 推播通知 → 人員處理後按復歸</div>`;
+$('inspect').innerHTML = `<table><tr><th>方式</th><th>看得到</th><th>看不到</th><th>成本</th><th>建議用途</th></tr>${INSPECTION.map(r => `<tr><td>${r.k}</td><td>${esc(r.sees)}</td><td>${esc(r.misses)}</td><td>${esc(r.cost)}</td><td>${esc(r.use)}</td></tr>`).join('')}</table>`;
 const lookBox = $('looks');
 lookBox.innerHTML = Object.entries(LOOKS).map(([k, n]) => `<button data-look="${k}">${n}</button>`).join('');
 const setLook = k => { look = k; project.setLook(k); project.apply(player.T); stage.invalidate(true); syncLook(); };
@@ -95,7 +117,20 @@ $('applyLayout').onclick = () => reload({ c1: $('c1').value, c2: $('c2').value, 
 // 工時估算
 const est = cycleEstimate(SEAMS);
 $('estimate').innerHTML = `<table><tr><th>製程</th><th>工時</th></tr>${est.rows.map(r => `<tr><td>${r.name}</td><td>${r.min.toFixed(0)} 分</td></tr>`).join('')}<tr class="sum"><td>合計（含上下料 20 分）</td><td>${(est.sum / 60).toFixed(1)} 小時</td></tr></table>
-<div class="note">焊道總長 ${est.metres.toFixed(2)} m（環縫 2 × ${(seamLength(SEAMS.find(s => s.kind === 'circ')) / 1000).toFixed(2)} m＋縱縫 ${L.nl} × ${(seamLength(SEAMS[0]) / 1000).toFixed(2)} m）；速度為假設值，以試焊決定</div>`;
+<div class="note">焊道總長 ${est.metres.toFixed(2)} m（環縫 2 × ${(seamLength(SEAMS.find(s => s.kind === 'circ')) / 1000).toFixed(2)} m＋縱縫 ${L.nl} × ${(seamLength(SEAMS[0]) / 1000).toFixed(2)} m）；速度為假設值，以試焊決定。雙工位（A2）全自動約 ${(dualEstimate(SEAMS, { n: 20 }).perTank / 60).toFixed(1)} h／桶</div>`;
+
+// 雙工位排程（實際工時估算，甘特圖取連續生產的前 4 桶）＋第 2 線接手點
+if (project.dual) {
+  $('dualCard').hidden = false;
+  $('dualHandoff').innerHTML = Object.entries(DUAL.handoffs).map(([k, n]) => `<button data-h="${k}" class="${k === project.handoff ? 'on' : ''}" title="${n}">${k === 'all' ? '全部自動' : `第 2 線從${PROCESS.find(p => p.key === k).name}接手`}</button>`).join('');
+  $('dualHandoff').querySelectorAll('button').forEach(b => b.onclick = () => b.dataset.h !== project.handoff && reload('handoff', b.dataset.h));
+  const COL = { load: '#5d6b78', scan: '#4aa8ff', groove: '#c98a3b', rod: '#ff7a2a', flat: '#b9a46a', belt: '#f2c14e', thz: '#a070ff', unload: '#5d6b78' };
+  const NAME = { load: '上下料', ...Object.fromEntries(PROCESS.map(p => [p.key, p.name])) };
+  const d = dualEstimate(SEAMS, { n: 4, handoff: project.handoff }), d20 = dualEstimate(SEAMS, { n: 20, handoff: project.handoff });
+  const span = d.span, row = line => `<div class="row"><span>第 ${line + 1} 線</span><div class="bar">${d.bars.filter(b => b.line === line).map(b => `<i style="left:${b.start / span * 100}%;width:${(b.end - b.start) / span * 100}%;background:${COL[b.key]}" title="桶 ${b.tank + 1}：${NAME[b.key] ?? '上下料'} ${Math.round(b.end - b.start)} 分"></i>`).join('')}</div></div>`;
+  $('dualGantt').innerHTML = row(0) + row(1) + `<div class="legend">${Object.entries(NAME).map(([k, n]) => `<span><b style="background:${COL[k]}"></b>${n}</span>`).join('')}</div>
+<div class="sum">前 4 桶約 ${(span / 60).toFixed(1)} h；連續生產平均約 <b>${(d20.perTank / 60).toFixed(1)} h／桶</b>（單臂 ${(est.sum / 60).toFixed(1)} h）。${DUAL.handoffs[project.handoff]}。兩線搶同一支工具時互鎖等待（動畫事件列標「等待」）。</div>`;
+}
 
 // ---------------------------------------------------------------- 面板
 const events = timeline.events;
@@ -107,8 +142,10 @@ $('checks').innerHTML = checks.map(r => `<li class="${r.ok ? 'ok' : 'ng'}">${r.o
 $('checkCount').textContent = `${checks.filter(r => r.ok).length} / ${checks.length}`;
 // 焊道狀態：每道焊道 × 每道製程的進度
 const seamBox = $('seams');
-seamBox.innerHTML = `<table><tr><th></th>${PROCESS.map(p => `<th>${p.name.replace(' ', '').slice(0, 2)}</th>`).join('')}</tr>${SEAMS.map(s => `<tr data-seam="${s.id}"><td>${s.name}</td>${PROCESS.map(p => `<td><i data-p="${p.key}"></i></td>`).join('')}</tr>`).join('')}</table>`;
-const bars = SEAMS.flatMap(s => PROCESS.map(p => ({ seam: s.id, field: FIELD[p.key], el: seamBox.querySelector(`tr[data-seam="${s.id}"] i[data-p="${p.key}"]`), v: -1 })));
+seamBox.innerHTML = `<table><tr><th></th>${PROCESS.map(p => `<th>${p.name.replace(' ', '').slice(0, 2)}</th>`).join('')}</tr>${project.cells.map(c => SEAMS.map(s => `<tr data-seam="${c.pf}${s.id}"><td>${project.dual ? `L${c.k + 1} ` : ''}${s.name}</td>${PROCESS.map(p => `<td><i data-p="${p.key}"></i></td>`).join('')}</tr>`).join('')).join('')}</table>`;
+const bars = project.cells.flatMap(c => SEAMS.flatMap(s => PROCESS.map(p => ({ seam: c.pf + 'seam-' + s.id, field: FIELD[p.key], el: seamBox.querySelector(`tr[data-seam="${c.pf}${s.id}"] i[data-p="${p.key}"]`), v: -1 }))));
+const rodMon = $('rodMon');
+let rodHtml = '';
 const defectEl = $('defect'), verdictEl = $('thzVerdict');
 let verdictHtml = '';
 $('thzPrinciple').innerHTML = `<p>探頭打出 0.1～3 THz 的皮秒脈衝。PTFE／PFA 對兆赫波幾乎透明、SUS 全反射，每個介面（折射率改變處）各反射一個回波；回波時間差 Δt 換算厚度 d = c·Δt／2n。</p><p>PFA 焊層與 PTFE 折射率幾乎相同（${THZ.n.pfa}／${THZ.n.ptfe}），熔合良好時交界幾乎沒有回波；氣孔或未熔合是一層空氣（n = 1），會多出一道相位反轉的強回波。</p><ul class="crit">${THZ.criteria.map(c => `<li>${c}</li>`).join('')}</ul>`;
@@ -126,9 +163,14 @@ function updatePanels(T) {
   // 進度條每 1% 才改一次 DOM（每格改樣式會讓側欄重排，手機幀率掉很多）
   const st = timeline.sample(T);
   for (const b of bars) {
-    const v = Math.round(st['seam-' + b.seam][b.field] * 100);
+    const v = Math.round(st[b.seam][b.field] * 100);
     if (v !== b.v) { b.v = v; b.el.style.setProperty('--v', v / 100); b.el.className = v >= 100 ? 'done' : v > 0 ? 'run' : ''; }
   }
+  // 工序 4 即時監控（第 1 線；數值四捨五入到 0.1 才更新 DOM）
+  const rm = project.rodMonitor(T), W = ROD_WELD.window;
+  const rh = rm ? `<div><span>焊道寬度</span>${rm.width.toFixed(1)} mm</div><div><span>允收</span>${W.width.join('～')} mm</div><div><span>凸起高度</span>${rm.height.toFixed(1)} mm</div><div><span>允收</span>${W.height.join('～')} mm</div><div><span>下壓力</span>${rm.press} N（${ROD_WELD.press} kgf）</div><div><span>熱風</span>${rm.temp ? rm.temp + ' °C' : '待機'}</div><div class="state ${rm.ng || rm.cut ? 'ng' : 'ok'}">${rm.ng ? 'NG：熔接寬度不足 → 停止、切斷焊條' : rm.cut ? '焊條已切斷，等待人員處理' : '熔接正常（UV 線雷射 1 kHz）'}</div>`
+    : `<div class="state">焊條熔接時顯示：UV 線雷射（${ROD_WELD.uv.wavelength} nm）在拖嘴後方約 ${ROD_WELD.uv.lag} mm 量焊道寬度與高度；下壓 ${ROD_WELD.press} kgf（${ROD_WELD.pressN} N）、浮動 ±${ROD_WELD.float} mm（示意）</div>`;
+  if (rh !== rodHtml) { rodHtml = rh; rodMon.innerHTML = rh; }
   const def = !(st['seam-' + THZ.defect.seam].i >= THZ.defect.u);
   if (defectEl.hidden !== def) defectEl.hidden = def;
   // 兆赫波判定（文字有變才更新）

@@ -59,6 +59,65 @@
       ]
     },
     {
+      "variant": "A2 並排雙工位＋雙臂",
+      "params": {
+        "plan": "dual"
+      },
+      "ok": true,
+      "count": 8,
+      "failures": [],
+      "rows": [
+        {
+          "group": "手臂姿態",
+          "name": "環縫焊接姿態 IK 收斂",
+          "ok": true,
+          "value": "0 mm／0°"
+        },
+        {
+          "group": "手臂姿態",
+          "name": "縱縫焊接姿態 IK 收斂",
+          "ok": true,
+          "value": "0 mm／0°"
+        },
+        {
+          "group": "手臂姿態",
+          "name": "退刀姿態 IK 收斂",
+          "ok": true,
+          "value": "0 mm／0°"
+        },
+        {
+          "group": "手臂姿態",
+          "name": "工具架取放姿態 IK 收斂",
+          "ok": true,
+          "value": "0 mm／0°"
+        },
+        {
+          "group": "手臂姿態",
+          "name": "取放上升姿態 IK 收斂",
+          "ok": true,
+          "value": "0 mm／0°"
+        },
+        {
+          "group": "人孔通過",
+          "name": "手臂伸直半徑 ≤ 人孔 226.5 − 20",
+          "ok": true,
+          "value": "188.7 mm"
+        },
+        {
+          "group": "人孔通過",
+          "name": "工具最大半徑（伸直時）",
+          "ok": true,
+          "value": "142 mm"
+        },
+        {
+          "group": "行程",
+          "name": "伸直進桶時工具尖端高於下封頭",
+          "ok": true,
+          "value": "151 mm"
+        }
+      ]
+    },
+    {
       "variant": "B 立式轉台＋升降柱",
       "params": {
         "plan": "turntable"

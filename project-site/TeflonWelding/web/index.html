@@ -24,7 +24,7 @@
   <header id="topbar">
     <div class="brand">
       <div class="title">鐵氟龍襯裡桶自動焊接</div>
-      <div class="sub">1000L 襯 PTFE 桶內焊道：DENSO 手臂熱風焊接＋兆赫波檢測（多方案比較）</div>
+      <div class="sub">1000L 襯 PTFE 桶內焊道：DENSO 手臂熱風焊接＋兆赫波檢測（A 臥式迴轉採用，雙工位評估）</div>
     </div>
     <nav id="stations" aria-label="站別"></nav>
     <div class="views">
@@ -47,6 +47,15 @@
       <div class="spec">生產時是完整的桶，手臂只從人孔（襯後內徑約 453）進出；透視與剖切只是觀看方式。</div>
     </section>
     <section class="card">
+      <h3>客戶反饋修訂 <span class="hint">2026-11-11 會議</span></h3>
+      <ol id="feedback" class="feedback"></ol>
+    </section>
+    <section class="card" id="dualCard" hidden>
+      <h3>雙工位排程 <span class="hint">實際工時估算</span></h3>
+      <div id="dualHandoff" class="seg"></div>
+      <div id="dualGantt" class="gantt"></div>
+    </section>
+    <section class="card">
       <h3>方案比較 <span class="hint">投資為相對級距，待報價</span></h3>
       <div id="compare" class="compare"></div>
     </section>
@@ -62,12 +71,28 @@
     <section class="card">
       <h3>焊道狀態 <span class="hint">6 道製程進度</span></h3>
       <div id="seams" class="seams"></div>
-      <div id="defect" class="defect" hidden>兆赫波：上環縫一處氣孔（紅圈）→ 局部補焊（橘）→ 複檢 OK（綠）（模擬）</div>
+      <div id="defect" class="defect" hidden>兆赫波：上環縫一處氣孔（紅圈）→ 通知人員補修（橘）→ 自動複檢 OK（綠）（模擬）</div>
+    </section>
+    <section class="card">
+      <h3>工序 4 即時監控 <span class="hint">UV 線雷射（示意值）</span></h3>
+      <div id="rodMon" class="rodmon"></div>
+    </section>
+    <section class="card">
+      <h3>工序 3 CNC 刀頭與除屑</h3>
+      <div id="cncInfo" class="desc"></div>
+    </section>
+    <section class="card">
+      <h3>NG 排除機制 <span class="hint">每道工序，通知人員接手</span></h3>
+      <div id="ngTable" class="ngtable"></div>
     </section>
     <section class="card">
       <h3>兆赫波檢測 <span class="hint">原理與判定（模擬）</span></h3>
       <div id="thzPrinciple" class="thz"></div>
       <ul id="thzVerdict" class="verdict"></ul>
+    </section>
+    <section class="card">
+      <h3>檢測方案比較 <span class="hint">兆赫波保留，另評估視覺與雷射</span></h3>
+      <div id="inspect" class="ngtable"></div>
     </section>
     <section class="card">
       <h3>工時估算 <span class="hint">每桶</span></h3>
