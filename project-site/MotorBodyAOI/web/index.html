@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="../core/favicon.svg" type="image/svg+xml">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>馬達本體 AOI 檢測機 — 3D 設備模擬</title>
+<link rel="stylesheet" href="css/style.css">
+<!-- 共用版面（精簡版面、相機視窗、工具列）的樣式 core/ui/viewer-workspace.css 由 createViewerWorkspace 自動載入 -->
+<script type="importmap">
+{ "imports": {
+    "three": "../core/vendor/three.module.js",
+    "three/addons/": "../core/vendor/addons/",
+    "@core/": "../core/"
+} }
+</script>
+</head>
+<body>
+<!-- 標準骨架（core/README.md「小螢幕與觸控」）：#topbar（.brand、#stations、.views）、#side、#bottombar（.ctl、.stepRow、#timeline、#clock） -->
+<div id="app">
+  <canvas id="c"></canvas>
+
+  <header id="topbar">
+    <div class="brand">
+      <div class="title">馬達本體 AOI 檢測機</div>
+      <div class="sub">杯形鑄鋁本體 12 面外觀檢測：固定相機＋工件旋轉取像、翻轉 180°、OK／NG 分料（配置與時間為規劃示意）</div>
+    </div>
+    <nav id="stations" aria-label="站別"></nav>
+    <div class="views">
+      <button data-view="iso">全景</button>
+      <button data-view="st1">ST1</button>
+      <button data-view="flip">翻轉</button>
+      <button data-view="st2">ST2</button>
+      <button data-view="cup">杯內</button>
+      <button data-view="top">俯視</button>
+    </div>
+  </header>
+
+  <aside id="side">
+    <section class="card">
+      <h3>目前動作 <span class="hint" id="stationName"></span></h3>
+      <div id="action" class="action">待命</div>
+      <div id="substep" class="substep"></div>
+    </section>
+    <section class="card">
+      <h3>節拍與甘特圖 <span class="hint" id="ctHint"></span></h3>
+      <div id="ctStats" class="stats"></div>
+      <div id="gantt" class="gantt"></div>
+      <details class="fold"><summary>動作時序表（一拍）</summary><table id="seqTable" class="tbl"></table></details>
+    </section>
+    <section class="card">
+      <h3>12 面取像配置 <span class="hint">點一列看該面與相機</span></h3>
+      <table id="faceTable" class="tbl faces"></table>
+      <div id="camDetail" class="camDetail"></div>
+    </section>
+    <section class="card">
+      <h3>顯示</h3>
+      <div class="toggles">
+        <label><input type="checkbox" id="tgViz" checked> 視錐與照射範圍</label>
+        <label><input type="checkbox" id="tgFoot" checked> 取像足跡（每張拍到的區域）</label>
+        <label><input type="checkbox" id="tgFaces"> 檢測面上色 <select id="faceMode" aria-label="上色方式"><option value="group">依面組 A–E</option><option value="zone">依內／外側（05 選項 B）</option></select></label>
+        <label><input type="checkbox" id="tgLaser"> 選配：3D 雷射輪廓</label>
+      </div>
+      <div class="row">相機視窗 <select id="camSel" aria-label="相機視窗"></select></div>
+    </section>
+    <section class="card">
+      <h3>視線遮擋試算 <span class="hint">用 STEP 射線即時重算</span></h3>
+      <div class="row"><select id="occCam" aria-label="試算相機"><option value="C2-3">C2-3 斜視杯內壁（面 7–9）</option><option value="C2-4">C2-4 斜視凸台孔壁（面 11）</option></select></div>
+      <div class="row"><input id="occTilt" type="range" min="25" max="80" step="1" aria-label="傾角"><span id="occVal"></span></div>
+      <div id="occOut" class="occOut"></div>
+    </section>
+    <section class="card">
+      <h3>空間與規格檢核 <span class="hint" id="checkCount"></span></h3>
+      <ul id="checks" class="checks"></ul>
+    </section>
+  </aside>
+
+  <footer id="bottombar">
+    <div class="ctl">
+      <button id="playBtn" class="primary">⏸ 暫停</button>
+      <button id="restartBtn">↺ 重播</button>
+      <label>速度 <input id="speed" type="range" aria-label="播放速度"><span id="speedVal">1×</span></label>
+      <label class="chk"><input id="loop" type="checkbox" checked> 循環播放</label>
+    </div>
+    <div class="stepRow"><button id="previous" aria-label="上一步">‹</button><select id="stepSelect" aria-label="動作步驟"></select><button id="next" aria-label="下一步">›</button><span id="cycleTime"></span></div>
+    <input id="timeline" aria-label="流程時間" type="range">
+    <div id="clock" class="clock">00:00.0</div>
+  </footer>
+
+  <div id="loading">載入 3D 場景中…</div>
+</div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

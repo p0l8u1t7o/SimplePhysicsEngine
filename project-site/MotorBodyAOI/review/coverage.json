@@ -1,0 +1,658 @@
+{
+  "faces": [
+    {
+      "no": 1,
+      "name": "法蘭側凸轂端面",
+      "group": "A",
+      "station": "ST1",
+      "cameras": [
+        "C1-1"
+      ],
+      "area": 703.31,
+      "coverage": 100,
+      "lit": 100
+    },
+    {
+      "no": 2,
+      "name": "Ø22 軸孔內壁",
+      "group": "C",
+      "station": "ST1",
+      "cameras": [
+        "C1-2"
+      ],
+      "area": 345.14,
+      "coverage": 100,
+      "lit": 100
+    },
+    {
+      "no": 3,
+      "name": "Ø80 止口外圓柱",
+      "group": "B",
+      "station": "ST1",
+      "cameras": [
+        "C1-3"
+      ],
+      "area": 1030.1,
+      "coverage": 100,
+      "lit": 100
+    },
+    {
+      "no": 4,
+      "name": "法蘭面（含 3 耳）",
+      "group": "A",
+      "station": "ST1",
+      "cameras": [
+        "C1-1"
+      ],
+      "area": 3208.37,
+      "coverage": 100,
+      "lit": 100
+    },
+    {
+      "no": 5,
+      "name": "杯口凸緣外側（3 段弧）",
+      "group": "B",
+      "station": "ST2",
+      "cameras": [
+        "C2-5"
+      ],
+      "area": 1006.11,
+      "coverage": 100,
+      "lit": 100
+    },
+    {
+      "no": 6,
+      "name": "開口端面（含 3 耳）",
+      "group": "A",
+      "station": "ST2",
+      "cameras": [
+        "C2-2"
+      ],
+      "area": 1328.05,
+      "coverage": 100,
+      "lit": 100
+    },
+    {
+      "no": 7,
+      "name": "Ø93 內壁根部窄台階",
+      "group": "E",
+      "station": "ST2",
+      "cameras": [
+        "C2-3"
+      ],
+      "area": 289.96,
+      "coverage": 100,
+      "lit": 100
+    },
+    {
+      "no": 8,
+      "name": "杯內壁下段 Ø93.0",
+      "group": "D",
+      "station": "ST2",
+      "cameras": [
+        "C2-3"
+      ],
+      "area": 8762.8,
+      "coverage": 100,
+      "lit": 100
+    },
+    {
+      "no": 9,
+      "name": "杯內壁上段 Ø93.6（含凸緣內側）",
+      "group": "D",
+      "station": "ST2",
+      "cameras": [
+        "C2-3"
+      ],
+      "area": 5163.68,
+      "coverage": 100,
+      "lit": 100
+    },
+    {
+      "no": 10,
+      "name": "杯底凸台端面",
+      "group": "E",
+      "station": "ST2",
+      "cameras": [
+        "C2-1"
+      ],
+      "area": 282.03,
+      "coverage": 100,
+      "lit": 100
+    },
+    {
+      "no": 11,
+      "name": "Ø28 凸台孔壁",
+      "group": "C",
+      "station": "ST2",
+      "cameras": [
+        "C2-4"
+      ],
+      "area": 720.67,
+      "coverage": 100,
+      "lit": 100
+    },
+    {
+      "no": 12,
+      "name": "Ø28 孔底台階環",
+      "group": "E",
+      "station": "ST2",
+      "cameras": [
+        "C2-1"
+      ],
+      "area": 171.09,
+      "coverage": 100,
+      "lit": 100
+    }
+  ],
+  "cameras": [
+    {
+      "id": "C1-1",
+      "station": "ST1",
+      "name": "頂視全幅",
+      "faces": [
+        1,
+        4
+      ],
+      "sensor": "5MP",
+      "f": 16,
+      "lens": "16 mm 定焦（大景深）",
+      "frames": 0,
+      "b": 0.2,
+      "wd": 265.09,
+      "fov": [
+        131.48,
+        110
+      ],
+      "mmpx": 0.0537,
+      "pos": [
+        0,
+        0,
+        -330.39
+      ],
+      "light": "分區環形光（光度立體 4 區）",
+      "lightNote": "法蘭面上方 86 mm（讓出移載抬升空間；主方案的 45 mm 會與抬升中的工件干涉）",
+      "span": 3.7,
+      "bNeed": 0.048,
+      "bDesign": 0.107,
+      "Ndesign": 5.1,
+      "dofDesign": 18.19,
+      "perFace": {
+        "1": {
+          "area": 703.31,
+          "coverage": 100,
+          "overlap": 0,
+          "lit": 100,
+          "depth": 0,
+          "mmpx": [
+            0.0534,
+            0.0534
+          ],
+          "view": [
+            3,
+            4
+          ],
+          "inc": [
+            50,
+            58
+          ],
+          "lost": {}
+        },
+        "4": {
+          "area": 3208.37,
+          "coverage": 100,
+          "overlap": 0,
+          "lit": 100,
+          "depth": 0,
+          "mmpx": [
+            0.0548,
+            0.0554
+          ],
+          "view": [
+            9,
+            13
+          ],
+          "inc": [
+            33,
+            64
+          ],
+          "lost": {}
+        }
+      }
+    },
+    {
+      "id": "C1-2",
+      "station": "ST1",
+      "name": "斜視軸孔",
+      "faces": [
+        2
+      ],
+      "sensor": "1.6MP",
+      "f": 35,
+      "lens": "35 mm 定焦＋鏡頭環形光",
+      "frames": 12,
+      "b": 0.2,
+      "wd": 204.08,
+      "fov": [
+        24,
+        18
+      ],
+      "mmpx": 0.0167,
+      "pos": [
+        0,
+        133.31,
+        -208.81
+      ],
+      "light": "鏡頭環形光（同軸方向）",
+      "lightNote": "照在對側孔壁，入射角≈視角 45°",
+      "span": 5.62,
+      "bNeed": 0.06,
+      "bDesign": 0.078,
+      "Ndesign": 10.5,
+      "dofDesign": 9.5,
+      "perFace": {
+        "2": {
+          "area": 345.14,
+          "coverage": 100,
+          "overlap": 100,
+          "lit": 100,
+          "depth": 5.62,
+          "mmpx": [
+            0.0234,
+            0.0461
+          ],
+          "view": [
+            45,
+            69
+          ],
+          "inc": [
+            44,
+            76
+          ],
+          "lost": {}
+        }
+      }
+    },
+    {
+      "id": "C1-3",
+      "station": "ST1",
+      "name": "側視止口",
+      "faces": [
+        3
+      ],
+      "sensor": "1.6MP",
+      "f": 25,
+      "lens": "25 mm 定焦",
+      "frames": 12,
+      "b": 0.2,
+      "wd": 226.29,
+      "fov": [
+        40,
+        30
+      ],
+      "mmpx": 0.0278,
+      "pos": [
+        258.58,
+        0,
+        -124.57
+      ],
+      "light": "條形光（相機上方）",
+      "lightNote": "擴散條光，掃過圓柱母線",
+      "span": 4.97,
+      "bNeed": 0.056,
+      "bDesign": 0.073,
+      "Ndesign": 6.4,
+      "dofDesign": 8.39,
+      "perFace": {
+        "3": {
+          "area": 1030.1,
+          "coverage": 100,
+          "overlap": 100,
+          "lit": 100,
+          "depth": 4.97,
+          "mmpx": [
+            0.0288,
+            0.0348
+          ],
+          "view": [
+            15,
+            35
+          ],
+          "inc": [
+            33,
+            60
+          ],
+          "lost": {}
+        }
+      }
+    },
+    {
+      "id": "C2-1",
+      "station": "ST2",
+      "name": "頂視杯底（同軸）",
+      "faces": [
+        10,
+        12
+      ],
+      "sensor": "1.6MP",
+      "f": 35,
+      "lens": "35 mm 定焦＋同軸光",
+      "frames": 0,
+      "b": 0.1,
+      "wd": 359.07,
+      "fov": [
+        46,
+        34.5
+      ],
+      "mmpx": 0.0319,
+      "pos": [
+        0,
+        0,
+        301.32
+      ],
+      "light": "同軸光（出光口 50 mm）",
+      "lightNote": "面 12 外緣近側最大入射約 5°，只能同軸；入射 ≤ 4°",
+      "span": 8.5,
+      "bNeed": 0.073,
+      "bDesign": 0.095,
+      "Ndesign": 7.3,
+      "dofDesign": 14.37,
+      "perFace": {
+        "10": {
+          "area": 282.03,
+          "coverage": 100,
+          "overlap": 0,
+          "lit": 100,
+          "depth": 0,
+          "mmpx": [
+            0.0316,
+            0.0316
+          ],
+          "view": [
+            2,
+            3
+          ],
+          "inc": [
+            2,
+            3
+          ],
+          "lost": {}
+        },
+        "12": {
+          "area": 171.09,
+          "coverage": 100,
+          "overlap": 0,
+          "lit": 100,
+          "depth": 0,
+          "mmpx": [
+            0.0323,
+            0.0323
+          ],
+          "view": [
+            2,
+            2
+          ],
+          "inc": [
+            2,
+            2
+          ],
+          "lost": {}
+        }
+      }
+    },
+    {
+      "id": "C2-2",
+      "station": "ST2",
+      "name": "偏心頂視開口端面",
+      "faces": [
+        6
+      ],
+      "sensor": "5MP",
+      "f": 35,
+      "lens": "35 mm 定焦",
+      "frames": 12,
+      "b": 0.2,
+      "wd": 282.68,
+      "fov": [
+        59.77,
+        50
+      ],
+      "mmpx": 0.0244,
+      "pos": [
+        -53.5,
+        0,
+        278.68
+      ],
+      "light": "條形光 ×3（光度立體：外、左、右）",
+      "lightNote": "內側方向被凸緣與 C2-1 光路占用，只做 3 方向；高 92 mm 讓出移載抬升空間（入射約 37°）",
+      "span": 0,
+      "bNeed": 0,
+      "bDesign": 0.049,
+      "Ndesign": 4.8,
+      "dofDesign": 3.76,
+      "perFace": {
+        "6": {
+          "area": 1328.05,
+          "coverage": 100,
+          "overlap": 100,
+          "lit": 100,
+          "depth": 0,
+          "mmpx": [
+            0.0244,
+            0.0246
+          ],
+          "view": [
+            0,
+            7
+          ],
+          "inc": [
+            24,
+            47
+          ],
+          "lost": {}
+        }
+      }
+    },
+    {
+      "id": "C2-3",
+      "station": "ST2",
+      "name": "斜視杯內壁",
+      "faces": [
+        9,
+        8,
+        7
+      ],
+      "sensor": "1.6MP",
+      "f": 25,
+      "lens": "25 mm 定焦＋鏡頭環形光",
+      "frames": 12,
+      "b": 0.15,
+      "wd": 347.06,
+      "fov": [
+        64,
+        48
+      ],
+      "mmpx": 0.0444,
+      "pos": [
+        219.36,
+        0,
+        199.49
+      ],
+      "light": "鏡頭環形光",
+      "lightNote": "從對側斜照內壁，面 7 由對側打光（近側只有 ≈2°）",
+      "span": 33.02,
+      "bNeed": 0.145,
+      "bDesign": 0.15,
+      "Ndesign": 8.5,
+      "dofDesign": 35.47,
+      "perFace": {
+        "7": {
+          "area": 289.96,
+          "coverage": 100,
+          "overlap": 100,
+          "lit": 100,
+          "depth": 5.91,
+          "mmpx": [
+            0.0659,
+            0.0679
+          ],
+          "view": [
+            46,
+            47
+          ],
+          "inc": [
+            46,
+            47
+          ],
+          "lost": {}
+        },
+        "8": {
+          "area": 8762.8,
+          "coverage": 100,
+          "overlap": 100,
+          "lit": 100,
+          "depth": 15.79,
+          "mmpx": [
+            0.0591,
+            0.0753
+          ],
+          "view": [
+            41,
+            54
+          ],
+          "inc": [
+            40,
+            59
+          ],
+          "lost": {}
+        },
+        "9": {
+          "area": 5163.68,
+          "coverage": 100,
+          "overlap": 99.6,
+          "lit": 100,
+          "depth": 11.28,
+          "mmpx": [
+            0.0531,
+            0.0661
+          ],
+          "view": [
+            37,
+            50
+          ],
+          "inc": [
+            37,
+            55
+          ],
+          "lost": {}
+        }
+      }
+    },
+    {
+      "id": "C2-4",
+      "station": "ST2",
+      "name": "斜視凸台孔壁",
+      "faces": [
+        11
+      ],
+      "sensor": "1.6MP",
+      "f": 50,
+      "lens": "50 mm 定焦＋鏡頭環形光",
+      "frames": 12,
+      "b": 0.2,
+      "wd": 291.55,
+      "fov": [
+        24,
+        18
+      ],
+      "mmpx": 0.0167,
+      "pos": [
+        0,
+        -173.4,
+        165.44
+      ],
+      "light": "鏡頭環形光",
+      "lightNote": "視線受杯口凸緣限制 ≤ 43.7°，取 40°",
+      "span": 6.12,
+      "bNeed": 0.062,
+      "bDesign": 0.081,
+      "Ndesign": 11,
+      "dofDesign": 10.35,
+      "perFace": {
+        "11": {
+          "area": 720.67,
+          "coverage": 100,
+          "overlap": 100,
+          "lit": 100,
+          "depth": 6.12,
+          "mmpx": [
+            0.0258,
+            0.0463
+          ],
+          "view": [
+            50,
+            69
+          ],
+          "inc": [
+            50,
+            73
+          ],
+          "lost": {}
+        }
+      }
+    },
+    {
+      "id": "C2-5",
+      "station": "ST2",
+      "name": "側視凸緣外側",
+      "faces": [
+        5
+      ],
+      "sensor": "1.6MP",
+      "f": 25,
+      "lens": "25 mm 定焦",
+      "frames": 12,
+      "b": 0.2,
+      "wd": 226.29,
+      "fov": [
+        40,
+        30
+      ],
+      "mmpx": 0.0278,
+      "pos": [
+        -267.58,
+        0,
+        57.07
+      ],
+      "light": "條形光（相機上方）",
+      "lightNote": "凸緣只有 242°（3 段弧）",
+      "span": 4.76,
+      "bNeed": 0.055,
+      "bDesign": 0.071,
+      "Ndesign": 6.2,
+      "dofDesign": 8.04,
+      "perFace": {
+        "5": {
+          "area": 1006.11,
+          "coverage": 100,
+          "overlap": 63.7,
+          "lit": 100,
+          "depth": 4.76,
+          "mmpx": [
+            0.0287,
+            0.034
+          ],
+          "view": [
+            15,
+            34
+          ],
+          "inc": [
+            33,
+            58
+          ],
+          "lost": {}
+        }
+      }
+    }
+  ]
+}

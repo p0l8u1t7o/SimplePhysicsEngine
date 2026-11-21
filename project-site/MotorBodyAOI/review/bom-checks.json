@@ -1,0 +1,14 @@
+{
+  "variant": "預設",
+  "params": {},
+  "ok": true,
+  "applicable": true,
+  "strict": true,
+  "source": "studio（@MotorBodyAOI）",
+  "sceneModels": 21,
+  "bomLines": 42,
+  "matched": 21,
+  "sceneOnly": [],
+  "bomOnly": [],
+  "warnings": []
+}
