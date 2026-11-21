@@ -27,14 +27,17 @@ export const dirAzTilt = (az, tilt) => [Math.sin(rad(tilt)) * Math.cos(rad(az)),
 export const CAMERAS = [
   // ---------------- ST1：法蘭面朝上（看 −Z 側）
   { id: 'C1-1', station: 'ST1', name: '頂視全幅', faces: [1, 4], sensor: '5MP', f: 16, fovH: 110, lens: '16 mm 定焦（大景深）',
-    target: [0, 0, -65.3], toCam: [0, 0, -1], up: [0, 1, 0], frames: 0, b: .2, planes: 1,
-    light: { type: '分區環形光（4 方向低角度暗場／光度立體）', kind: 'ring', r: 115, at: -165, center: [0, 0], segments: 4, note: '法蘭面上方 101 mm（讓出移載抬升 75 mm 的空間；主方案的 45 mm 會與抬升中的工件干涉）' } },
+    target: [0, 0, -65.3], toCam: [0, 0, -1], up: [0, 1, 0], frames: 12, roiAz: 0, b: .2, planes: 1,
+    // 加工刀紋（車削，沿圓周）：主影像用 0° 方位扇區兩側的切向條形光（沿刀紋打，刀紋不亮），工件旋轉 12 停、每停只用 ±20° 扇區；
+    // 分區環形光 4 區保留為第二道影像（橫越刀紋，刀紋會亮，用來抓和刀紋平行的刮傷）
+    light: { type: '扇區切向條形光 ×2（沿刀紋，主影像）＋分區環形光 4 區（橫越刀紋）', kind: 'sectorBars', bars: [[[12, 62, -165], [64, 62, -165]], [[12, -62, -165], [64, -62, -165]]],
+      aux: { kind: 'ring', r: 115, at: -165, center: [0, 0], segments: 4 }, note: '條形光與環形光都在法蘭面上方 101 mm（讓出移載抬升 75 mm 的空間）' } },
   { id: 'C1-2', station: 'ST1', name: '斜視軸孔', faces: [2], sensor: '1.6MP', f: 35, fovH: 18, lens: '35 mm 定焦＋鏡頭環形光',
     target: [0, -11, -64.5], toCam: dirAzTilt(90, 135), up: [0, 0, -1], frames: 12, b: .2, planes: 1,
     light: { type: '鏡頭環形光（同軸方向）', kind: 'lensRing', r: 30, note: '照在對側孔壁，入射角≈視角 45°' } },
   { id: 'C1-3', station: 'ST1', name: '側視止口', faces: [3], sensor: '1.6MP', f: 25, fovH: 30, lens: '25 mm 定焦',
     target: [40, 0, -66], toCam: dirAzTilt(0, 105), up: [0, 0, -1], frames: 12, b: .2, planes: 1,
-    light: { type: '條形光（相機上方）', kind: 'bar', offset: [0, 0, -45], length: 80, note: '擴散條光，掃過圓柱母線' } },
+    light: { type: '條形光（相機上方 90 mm）', kind: 'bar', offset: [0, 0, -90], length: 80, note: '從上方（軸向）打；抬到 90 mm 讓刀紋斜面的散射（±40°）照不到相機' } },
   // 90° 反射鏡正視杯內壁（2026-11-21 採用）：ST1 開口朝下，探頭穿過中空 DD 從下方固定伸入杯內，工件放下時罩住探頭。
   //   這裡的 target／toCam 描述「鏡中的虛像相機」（正對內壁）；mirror 是 45° 表面鍍膜反射鏡，實際相機在杯口下方、沿 −Z 往上看。
   //   45° 鏡讓壁上各點到相機的光程相同，景深只剩弧面矢高。
@@ -133,6 +136,7 @@ export function lightPoints(cam, dv = derive(cam)) {
   else if (L.kind === 'ring') for (let k = 0; k < 16; k++) { const a = k * Math.PI / 8; pts.push([L.center[0] + L.r * Math.cos(a), L.center[1] + L.r * Math.sin(a), L.at]); }
   else if (L.kind === 'bar') for (let k = -2; k <= 2; k++) pts.push(dv.pos.map((p, i) => p + L.offset[i] + k * L.length / 4 * dv.right[i] + .5 * dv.wd * dv.fwd[i]));
   else if (L.kind === 'probeBar') for (let k = 0; k <= 4; k++) pts.push(L.a.map((v, i) => v + (L.b[i] - v) * k / 4));
+  else if (L.kind === 'sectorBars') for (const [a, b] of L.bars) for (let k = 0; k <= 4; k++) pts.push(a.map((v, i) => v + (b[i] - v) * k / 4));
   else if (L.kind === 'psSide') {
     // 光度立體 3 方向：目標左右兩支條形光（切線方向，各取 3 點）＋鏡頭環形光（8 點）
     const t = cam.target, rl = Math.hypot(t[0], t[1]), o = [t[0] / rl, t[1] / rl], tg = [-o[1], o[0]];

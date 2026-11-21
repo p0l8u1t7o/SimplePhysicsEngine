@@ -53,6 +53,15 @@ for (const [id, az, tilt, face] of [['C2-4', 270, 50, 11]]) {
   else notes.push('對照組：C1-4 改用鏡頭環形光時面 8 判為局部反光');
 }
 
+// 3d. 對照組：C1-3 條形光放回相機上方 45 mm 時，刀紋（γ 20°）一定要被判為亮帶
+{
+  const { grooveReport } = await import('../web/js/specular.js');
+  const c13 = CAMERAS.find(c => c.id === 'C1-3'), cam = { ...c13, light: { ...c13.light, offset: [0, 0, -45] } };
+  const k = grooveReport({ cameras: [cam], groove: { gamma: 20, step: 2, narrow: 3 } })['C1-3'][3].kind;
+  if (k !== '刀紋亮帶') failures.push(`對照組失效：C1-3 條光 45 mm 時面 3 應有刀紋亮帶，實際 ${k}`);
+  else notes.push('對照組：C1-3 條光放回 45 mm 時面 3 判為刀紋亮帶');
+}
+
 // 4. 面板檢核
 const scene = new THREE.Scene(), project = createProject({ scene });
 for (const r of project.layoutChecks()) if (!r.ok) failures.push(`${r.group}：${r.name}（${r.value}）`);

@@ -194,11 +194,14 @@ export function createProject({ scene }) {
       const present = !!atStation[cam.station] && tRel >= 0 && tRel < CT;
       const k = present ? shotAt(cam.id, tRel) : -1, O = optics.cams[cam.id];
       footMeshes[cam.id].forEach((m, i) => { m.visible = i === k; });
-      O.vc.set(k >= 0 ? 1 : 0);
+      O.vc.set(k >= 0 || (cam.id === 'C1-1' && present && tRel >= 0 && tRel < SHOTS.ST1.static) ? 1 : 0);
       O.lights.forEach((L, i) => {
         // 光度立體：靜態取像期間依序亮 4 區（C1-1）；C2-2 的左右條形光在取像時亮
         let on = k >= 0;
-        if (cam.id === 'C1-1' && k >= 0) on = Math.floor((tRel / SHOTS.ST1.static) * 5) % 5 === i || Math.floor((tRel / SHOTS.ST1.static) * 5) === 4;
+        if (cam.id === 'C1-1') {
+          const stat = present && tRel >= 0 && tRel < SHOTS.ST1.static, q = Math.floor((tRel / SHOTS.ST1.static) * 5);
+          on = i < 4 ? stat && (q === i || q === 4) : k >= 0;      // 0～3 環形光（靜態依序亮）；4、5 扇區條形光（旋轉每停）
+        }
         if (L.set) L.set({ light: on ? 1 : .08 }); else if (L.material) L.material.emissiveIntensity = on ? 1.4 : .05;
       });
     }
@@ -222,6 +225,7 @@ export function createProject({ scene }) {
     for (const cam of CAMERAS) for (const f of cam.faces) {
       const pf = C[cam.id].perFace[f];
       rows.push({ group: '反光', name: `${cam.id} 面 ${f} 沒有局部反光（散開 4°／8°）`, ok: pf.glare !== '局部反光' && pf.glare8 !== '局部反光', value: `${pf.glare}／${pf.glare8}` });
+      rows.push({ group: '刀紋', name: `${cam.id} 面 ${f} 主影像沒有刀紋亮帶（刀紋斜面 12°／20°）`, ok: pf.groove !== '刀紋亮帶' && pf.groove20 !== '刀紋亮帶', value: `${pf.groove}／${pf.groove20}` });
     }
     // 杯內照明：同軸（C2-1）入射角要小於面 12 外緣的近側上限 atan((14−13.25)/8.2)
     const lim12 = Math.atan((14 - 13.25) / 8.2) * 180 / Math.PI, inc12 = C['C2-1'].perFace[12].inc?.[1] ?? 99;
@@ -241,7 +245,7 @@ export function createProject({ scene }) {
     const sep = (a, b) => a[1] <= b[0] || b[1] <= a[0];
     rows.push({ group: '夾持', name: '交接時兩組夾具分在帶的兩個半段（夾頭↔夾叉、翻轉↔夾叉）', ok: sep(JAWS.z, FINGERS.z) && sep(FLIP_FINGERS.z, FINGERS.z), value: '開口側半段／法蘭側半段' });
     // 抬升路徑淨空：ST1 光度立體環光、ST2 光度立體條光都要高過抬升中的工件
-    const ringAt = CAMERAS.find(c => c.id === 'C1-1').light.at;
+    const ringAt = CAMERAS.find(c => c.id === 'C1-1').light.aux.at;
     const topST1 = LINE.band + worldBand('ST1', [-69, -69])[0] + LIFT, ringY = LINE.band + worldBand('ST1', [ringAt, ringAt])[0] - 9;
     rows.push({ group: '空間', name: 'ST1 環光下緣高過抬升中的工件頂', ok: ringY - topST1 >= 10, value: `${(ringY - topST1).toFixed(1)} mm` });
     const c22 = CAMERAS.find(c => c.id === 'C2-2'), psZ = c22.target[2] + c22.light.h;

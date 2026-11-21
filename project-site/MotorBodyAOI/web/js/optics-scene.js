@@ -103,15 +103,28 @@ export function buildOptics(scene) {
     // 光源本體與照射範圍
     const L = cam.light, target = partToWorld(cam.target, cam.station, center), lights = [];
     const lpts = lightPoints(cam, dv).map(p => partToWorld(p, cam.station, center));
-    if (L.kind === 'ring') {
+    const RL = L.kind === 'ring' ? L : L.aux;
+    if (RL?.kind === 'ring') {
       const ring = new THREE.Group(); ring.name = `ps-ring-${cam.id}`; g.add(ring);
-      const c0 = partToWorld([L.center[0], L.center[1], L.at], cam.station, center); ring.position.copy(c0);
-      for (let k = 0; k < L.segments; k++) {
-        const m = new THREE.Mesh(new THREE.TorusGeometry(L.r, 9, 10, 24, Math.PI * 2 / L.segments - .06), std(0xf4f6f8, .4, 0, { emissive: 0xffffff, emissiveIntensity: .05 }));
-        m.name = `ps-segment-${k}`; m.rotation.x = Math.PI / 2; m.rotation.z = k * Math.PI * 2 / L.segments + .03; ring.add(m); lights.push(m);
+      const c0 = partToWorld([RL.center[0], RL.center[1], RL.at], cam.station, center); ring.position.copy(c0);
+      for (let k = 0; k < RL.segments; k++) {
+        const m = new THREE.Mesh(new THREE.TorusGeometry(RL.r, 9, 10, 24, Math.PI * 2 / RL.segments - .06), std(0xf4f6f8, .4, 0, { emissive: 0xffffff, emissiveIntensity: .05 }));
+        m.name = `ps-segment-${k}`; m.rotation.x = Math.PI / 2; m.rotation.z = k * Math.PI * 2 / RL.segments + .03; ring.add(m); lights.push(m);
       }
-      for (const s of [-1, 1]) block(ring, [16, 70, 16], [s * L.r, 44, 0], MAT.alu);   // 吊架（高度可調）
-      beam(vg, c0, partToWorld([0, 0, -63.5], cam.station, center), L.r, 62, 0xfff3c4, .07);
+      for (const s of [-1, 1]) block(ring, [16, 70, 16], [s * RL.r, 44, 0], MAT.alu);   // 吊架（高度可調）
+      beam(vg, c0, partToWorld([0, 0, -63.5], cam.station, center), RL.r, 62, 0xfff3c4, .07);
+    }
+    if (L.kind === 'sectorBars') {
+      // 扇區切向條形光：0° 方位扇區左右各一支，沿刀紋（圓周）方向打
+      const aim = partToWorld([38, 0, cam.target[2]], cam.station, center);
+      L.bars.forEach(([a, b], k) => {
+        const p = partToWorld(a.map((v, i) => (v + b[i]) / 2), cam.station, center);
+        const bar = barLight.create({ length: 56, w: 30, h: 26, lensW: 24, lensT: 4 });
+        bar.root.name = `bar-${cam.id}-${k}`; bar.root.position.copy(p);
+        bar.root.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), aim.clone().sub(p).normalize());
+        g.add(bar.root); tagPart(bar, PART.bar); lights.push(bar);
+        beam(vg, p, aim, 14, 24, 0xfff3c4, .06);
+      });
     } else if (L.kind === 'coaxial') {
       const box = new THREE.Group(); box.name = `coaxial-${cam.id}`; g.add(box);
       const c0 = realPos.clone().addScaledVector(realFwd, 95); box.position.copy(c0); box.quaternion.copy(q);

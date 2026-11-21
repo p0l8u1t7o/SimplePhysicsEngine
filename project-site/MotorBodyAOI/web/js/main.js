@@ -101,7 +101,7 @@ function selectFace(no) {
   $('camDetail').innerHTML = `<b>面 ${no} ${f.name}</b>（${GROUPS[f.group]}，${f.kind}，Z ${f.z.join('~')}、r ${f.r.join('~')}）<br>`
     + `<b>${camId} ${cam.name}</b>：${cam.sensor}、${cam.lens}；WD ${cs.wd} mm、視野 ${cs.fov.join('×')} mm、${cs.mmpx} mm/px（有效 ${pf.mmpx?.join('–')}）<br>`
     + `景深需求 ${cs.span} mm → b ${cs.bDesign} mm、F${cs.N}、景深 ${cs.dof} mm；視角 ${pf.view?.join('–')}°、入射 ${pf.inc?.join('–')}°<br>`
-    + `光源：${cam.light.type}。${cam.light.note || ''}<br>反光（高反光加工面，散開 4°／8°）：${pf.glare}／${pf.glare8}<br>旋轉取像：${cam.frames ? `${cam.frames} 張／圈（每 30°），相鄰重疊 ${pf.overlap}%` : '不轉，靜態取像'}`;
+    + `光源：${cam.light.type}。${cam.light.note || ''}<br>反光（高反光加工面，散開 4°／8°）：${pf.glare}／${pf.glare8}；刀紋（主影像，斜面 12°／20°）：${pf.groove}／${pf.groove20}<br>旋轉取像：${cam.frames ? `${cam.frames} 張／圈（每 30°），相鄰重疊 ${pf.overlap}%` : '不轉，靜態取像'}`;
   // 面上色只顯示選到的面
   for (const st of ['ST1', 'ST2']) project.faceOverlay[st].children.forEach(m => m.visible = !no || m.name === `face-${no}`);
   if (!$('tgFaces').checked) { $('tgFaces').checked = true; applyToggles(); }

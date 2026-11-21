@@ -157,7 +157,7 @@
       "sensor": "5MP",
       "f": 16,
       "lens": "16 mm 定焦（大景深）",
-      "frames": 0,
+      "frames": 12,
       "b": 0.2,
       "wd": 265.09,
       "fov": [
@@ -170,8 +170,8 @@
         0,
         -330.39
       ],
-      "light": "分區環形光（4 方向低角度暗場／光度立體）",
-      "lightNote": "法蘭面上方 101 mm（讓出移載抬升 75 mm 的空間；主方案的 45 mm 會與抬升中的工件干涉）",
+      "light": "扇區切向條形光 ×2（沿刀紋，主影像）＋分區環形光 4 區（橫越刀紋）",
+      "lightNote": "條形光與環形光都在法蘭面上方 101 mm（讓出移載抬升 75 mm 的空間）",
       "span": 3.7,
       "bNeed": 0.048,
       "bDesign": 0.107,
@@ -181,7 +181,7 @@
         "1": {
           "area": 703.31,
           "coverage": 100,
-          "overlap": 0,
+          "overlap": 100,
           "lit": 100,
           "depth": 0,
           "mmpx": [
@@ -193,18 +193,22 @@
             4
           ],
           "inc": [
-            45,
-            46
+            26,
+            35
           ],
           "lost": {},
           "glare": "暗場",
           "glareMean": 0,
-          "glare8": "暗場"
+          "glare8": "暗場",
+          "groove": "刀紋不亮",
+          "grooveMax": 0,
+          "groove20": "刀紋不亮",
+          "groove20Max": 0
         },
         "4": {
           "area": 3208.37,
           "coverage": 100,
-          "overlap": 0,
+          "overlap": 100,
           "lit": 100,
           "depth": 0,
           "mmpx": [
@@ -216,13 +220,17 @@
             13
           ],
           "inc": [
-            29,
-            36
+            5,
+            43
           ],
           "lost": {},
           "glare": "暗場",
           "glareMean": 0,
-          "glare8": "暗場"
+          "glare8": "暗場",
+          "groove": "刀紋不亮",
+          "grooveMax": 0,
+          "groove20": "刀紋不亮",
+          "groove20Max": 0
         }
       }
     },
@@ -278,7 +286,11 @@
           "lost": {},
           "glare": "暗場",
           "glareMean": 0,
-          "glare8": "暗場"
+          "glare8": "暗場",
+          "groove": "刀紋不亮",
+          "grooveMax": 0,
+          "groove20": "刀紋不亮",
+          "groove20Max": 0
         }
       }
     },
@@ -305,8 +317,8 @@
         0,
         -124.57
       ],
-      "light": "條形光（相機上方）",
-      "lightNote": "擴散條光，掃過圓柱母線",
+      "light": "條形光（相機上方 90 mm）",
+      "lightNote": "從上方（軸向）打；抬到 90 mm 讓刀紋斜面的散射（±40°）照不到相機",
       "span": 4.97,
       "bNeed": 0.056,
       "bDesign": 0.073,
@@ -328,13 +340,17 @@
             35
           ],
           "inc": [
-            33,
-            37
+            46,
+            48
           ],
           "lost": {},
           "glare": "暗場",
           "glareMean": 0,
-          "glare8": "暗場"
+          "glare8": "暗場",
+          "groove": "刀紋不亮",
+          "grooveMax": 0,
+          "groove20": "刀紋不亮",
+          "groove20Max": 0
         }
       }
     },
@@ -391,7 +407,11 @@
           "lost": {},
           "glare": "暗場",
           "glareMean": 0,
-          "glare8": "暗場"
+          "glare8": "暗場",
+          "groove": "刀紋不亮",
+          "grooveMax": 0,
+          "groove20": "刀紋不亮",
+          "groove20Max": 0
         },
         "9": {
           "area": 5163.68,
@@ -414,7 +434,11 @@
           "lost": {},
           "glare": "暗場",
           "glareMean": 0,
-          "glare8": "暗場"
+          "glare8": "暗場",
+          "groove": "刀紋不亮",
+          "grooveMax": 0,
+          "groove20": "刀紋不亮",
+          "groove20Max": 2.2
         }
       }
     },
@@ -472,7 +496,11 @@
           "lost": {},
           "glare": "暗場",
           "glareMean": 0,
-          "glare8": "暗場"
+          "glare8": "暗場",
+          "groove": "刀紋整面亮",
+          "grooveMax": 100,
+          "groove20": "刀紋整面亮",
+          "groove20Max": 100
         },
         "10": {
           "area": 282.03,
@@ -495,7 +523,11 @@
           "lost": {},
           "glare": "均勻亮場",
           "glareMean": 100,
-          "glare8": "均勻亮場"
+          "glare8": "均勻亮場",
+          "groove": "刀紋整面亮",
+          "grooveMax": 100,
+          "groove20": "刀紋整面亮",
+          "groove20Max": 100
         },
         "12": {
           "area": 171.09,
@@ -518,7 +550,11 @@
           "lost": {},
           "glare": "均勻亮場",
           "glareMean": 100,
-          "glare8": "均勻亮場"
+          "glare8": "均勻亮場",
+          "groove": "刀紋整面亮",
+          "grooveMax": 100,
+          "groove20": "刀紋整面亮",
+          "groove20Max": 100
         }
       }
     },
@@ -575,7 +611,11 @@
           "lost": {},
           "glare": "暗場",
           "glareMean": 0,
-          "glare8": "暗場"
+          "glare8": "暗場",
+          "groove": "刀紋不亮",
+          "grooveMax": 0,
+          "groove20": "刀紋不亮",
+          "groove20Max": 0
         },
         "6": {
           "area": 1328.05,
@@ -598,7 +638,11 @@
           "lost": {},
           "glare": "暗場",
           "glareMean": 0,
-          "glare8": "暗場"
+          "glare8": "暗場",
+          "groove": "刀紋不亮",
+          "grooveMax": 0,
+          "groove20": "刀紋不亮",
+          "groove20Max": 3.6
         }
       }
     },
@@ -654,7 +698,11 @@
           "lost": {},
           "glare": "暗場",
           "glareMean": 0,
-          "glare8": "暗場"
+          "glare8": "暗場",
+          "groove": "刀紋不亮",
+          "grooveMax": 0,
+          "groove20": "刀紋不亮",
+          "groove20Max": 0
         }
       }
     }

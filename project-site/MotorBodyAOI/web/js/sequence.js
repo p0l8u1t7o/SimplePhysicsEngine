@@ -21,10 +21,10 @@ export const PITCH = 450, LIFT = 75;   // 抬升 75 mm：讓工件越過夾頭�
 
 // 旋轉取像：12 停（每 30°）；每停 = 轉位 0.08 s＋整定 0.04 s＋取像
 export const STOPS = 12, INDEX = .08, SETTLE = .04;
-// ST1：C1-1 光度立體 4 張＋亮場 1 張（5MP 約 30 ms／張），旋轉中 C1-2、C1-3、C1-4 同一閃光一起拍（30 ms）
+// ST1：C1-1 環形光 4 區＋亮場 5 張（橫越刀紋，5MP 約 30 ms／張）；旋轉中每停 C1-1 扇區切向條光 1 張（沿刀紋，30 ms）＋C1-2、C1-3、C1-4 同一閃光（30 ms）
 // ST2：C2-1 同軸 2 張；每停 C2-2 三方向＋亮場 4 張（5 MP，約 15 ms／張）＋C2-4 同一閃光（15 ms）
 export const SHOTS = {
-  ST1: { static: 5 * .03, perStop: .03, staticCams: ['C1-1'], rotCams: ['C1-2', 'C1-3', 'C1-4'] },
+  ST1: { static: 5 * .03, perStop: .06, staticCams: ['C1-1'], rotCams: ['C1-1', 'C1-2', 'C1-3', 'C1-4'] },
   ST2: { static: 2 * .03, perStop: 4 * .015 + .015, staticCams: ['C2-1'], rotCams: ['C2-2', 'C2-4'] },
 };
 export const stationTime = st => SHOTS[st].static + STOPS * (INDEX + SETTLE + SHOTS[st].perStop);

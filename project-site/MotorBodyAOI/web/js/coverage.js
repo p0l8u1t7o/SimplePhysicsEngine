@@ -4,7 +4,7 @@
 // 純數學，tools/plan.mjs 產生 coverage-data.js、tools/verify.mjs 重算比對。
 import { bodyData, faceTriangles, FACES } from './body.js';
 import { createRaycaster, boxTriangles } from './raycast.js';
-import { specularReport } from './specular.js';
+import { specularReport, grooveReport } from './specular.js';
 import { CAMERAS, MAX_VIEW_ANGLE, TARGET_MMPX, LAMBDA, derive, rotZ, frameAngles, lightPoints, jawBoxes, blurFor, dofOf, deg, mirrorHit } from './optics-plan.js';
 
 const REASONS = ['視野外', '擦過角', '景深外', '解析度不足', '被遮擋'];
@@ -106,6 +106,8 @@ export function coverageReport() {
   const cov = computeCoverage(), ft = faceTriangles();
   // 高反光加工面：反光分類（散開 4° 為設計值、8° 檢查餘裕）
   const spec4 = specularReport({ spread: 4 }), spec8 = specularReport({ spread: 8 });
+  // 加工刀紋：刀紋斜面傾角 γ 12°（設計值）、20°（餘裕）
+  const gr12 = grooveReport({ groove: { gamma: 12, step: 2, narrow: 3 } }), gr20 = grooveReport({ groove: { gamma: 20, step: 2, narrow: 3 } });
   const r2 = v => Math.round(v * 100) / 100, r3 = v => Math.round(v * 1000) / 1000, r4 = v => Math.round(v * 1e4) / 1e4, pct = v => Math.round(v * 1000) / 10;
   const cameras = CAMERAS.map(c => {
     const dv = derive(c), fs = Object.values(cov.cameras[c.id].faces);
@@ -123,6 +125,7 @@ export function coverageReport() {
         inc: s.inc[1] ? [Math.round(s.inc[0]), Math.round(s.inc[1])] : null,
         lost: Object.fromEntries(Object.entries(s.lost).filter(([, a]) => a > .05).map(([k, a]) => [k, r2(a)])),
         glare: spec4[c.id][f].kind, glareMean: pct(spec4[c.id][f].mean), glare8: spec8[c.id][f].kind,
+        groove: gr12[c.id][f].kind, grooveMax: pct(gr12[c.id][f].max), groove20: gr20[c.id][f].kind, groove20Max: pct(gr20[c.id][f].max),
       }])),
     };
   });
@@ -130,7 +133,7 @@ export function coverageReport() {
   const summary = {
     faces: Object.fromEntries(faces.map(f => [f.no, { coverage: f.coverage, lit: f.lit, area: f.area, cameras: f.cameras }])),
     cameras: Object.fromEntries(cameras.map(c => [c.id, { span: c.span, bNeed: c.bNeed, bDesign: c.bDesign, N: c.Ndesign, dof: c.dofDesign, mmpx: c.mmpx, wd: c.wd, fov: c.fov,
-      perFace: Object.fromEntries(Object.entries(c.perFace).map(([f, s]) => [f, { coverage: s.coverage, overlap: s.overlap, mmpx: s.mmpx, view: s.view, inc: s.inc, glare: s.glare, glare8: s.glare8 }])) }])),
+      perFace: Object.fromEntries(Object.entries(c.perFace).map(([f, s]) => [f, { coverage: s.coverage, overlap: s.overlap, mmpx: s.mmpx, view: s.view, inc: s.inc, glare: s.glare, glare8: s.glare8, groove: s.groove, groove20: s.groove20 }])) }])),
   };
   return { cov, faces, cameras, summary };
 }
