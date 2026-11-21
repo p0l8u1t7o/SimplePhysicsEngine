@@ -41,7 +41,7 @@ const VIEWS = {
   st1: [[c1.x - 420, 1420, 560], [c1.x, 1060, 0]],
   flip: [[c2.x + 400, 1330, -600], [c2.x, 1000, 0]],      // 從後方看（翻轉經由後側；前方有移載立柱）
   st2: [[c3.x + 430, 1430, 560], [c3.x, 1080, 0]],
-  cup: [[c3.x + 70, 1330, 130], [c3.x, 990, 0]],
+  cup: [[c3.x + 200, 1260, 260], [c3.x, 990, 0]],     // 從前右上看進杯內（正上方有同軸光盒）
   top: [[0, 4300, 10], [0, 1000, 0]],
 };
 function setView(name, instant = false) {
@@ -55,7 +55,7 @@ document.querySelectorAll('.views [data-view]').forEach(b => b.onclick = () => s
 const label = (html, pos, priority = 0) => stage.addLabel(html, pos, '', { anchor: 'above', priority });
 STATIONS.forEach((n, i) => label(`P${i} ${n}`, new THREE.Vector3(LINE.x[i], LINE.band + (i === 1 || i === 3 ? 380 : 170), 120), i === 1 || i === 3 ? 3 : 1));
 label('步進移載（X＋升降＋夾叉進出）', new THREE.Vector3(-700, LINE.table + 300, 520), 1);
-label('NG 滑道', new THREE.Vector3(LINE.x[4], LINE.table + 200, -460), 0);
+label('NG 輸送帶', new THREE.Vector3(LINE.x[4] + 450, LINE.band - 20, -300), 0);
 
 // ---------------------------------------------------------------- 站別按鈕
 const stationBar = $('stations');
@@ -89,9 +89,9 @@ function updateGantt(T) {
 
 // ---------------------------------------------------------------- 12 面取像配置表
 const groupColor = { A: '#4dabf7', B: '#9775fa', C: '#f06595', D: '#ffa94d', E: '#69db7c' };
-$('faceTable').innerHTML = '<tr><th>面</th><th>組</th><th>名稱</th><th>相機</th><th>覆蓋</th><th>mm/px</th></tr>' + FACES.map(f => {
+$('faceTable').innerHTML = '<tr><th>面</th><th>組</th><th>名稱</th><th>相機</th><th>覆蓋</th><th>mm/px</th><th>光</th></tr>' + FACES.map(f => {
   const s = SUMMARY.faces[f.no], cam = s.cameras[0], pf = SUMMARY.cameras[cam].perFace[f.no];
-  return `<tr data-face="${f.no}"><td>${f.no}</td><td><span class="g" style="background:${groupColor[f.group]}">${f.group}</span></td><td>${f.name}</td><td>${cam}</td><td>${s.coverage}%</td><td>${pf.mmpx ? pf.mmpx[1].toFixed(3) : '—'}</td></tr>`;
+  return `<tr data-face="${f.no}"><td>${f.no}</td><td><span class="g" style="background:${groupColor[f.group]}">${f.group}</span></td><td>${f.name}</td><td>${cam}</td><td>${s.coverage}%</td><td>${pf.mmpx ? pf.mmpx[1].toFixed(3) : '—'}</td><td title="高反光面的反光分類">${pf.glare === '均勻亮場' ? '亮場' : pf.glare === '暗場' ? '暗場' : '⚠反光'}</td></tr>`;
 }).join('');
 let selectedFace = 0;
 function selectFace(no) {
@@ -101,7 +101,7 @@ function selectFace(no) {
   $('camDetail').innerHTML = `<b>面 ${no} ${f.name}</b>（${GROUPS[f.group]}，${f.kind}，Z ${f.z.join('~')}、r ${f.r.join('~')}）<br>`
     + `<b>${camId} ${cam.name}</b>：${cam.sensor}、${cam.lens}；WD ${cs.wd} mm、視野 ${cs.fov.join('×')} mm、${cs.mmpx} mm/px（有效 ${pf.mmpx?.join('–')}）<br>`
     + `景深需求 ${cs.span} mm → b ${cs.bDesign} mm、F${cs.N}、景深 ${cs.dof} mm；視角 ${pf.view?.join('–')}°、入射 ${pf.inc?.join('–')}°<br>`
-    + `光源：${cam.light.type}。${cam.light.note || ''}<br>旋轉取像：${cam.frames ? `${cam.frames} 張／圈（每 30°），相鄰重疊 ${pf.overlap}%` : '不轉，靜態取像'}`;
+    + `光源：${cam.light.type}。${cam.light.note || ''}<br>反光（高反光加工面，散開 4°／8°）：${pf.glare}／${pf.glare8}<br>旋轉取像：${cam.frames ? `${cam.frames} 張／圈（每 30°），相鄰重疊 ${pf.overlap}%` : '不轉，靜態取像'}`;
   // 面上色只顯示選到的面
   for (const st of ['ST1', 'ST2']) project.faceOverlay[st].children.forEach(m => m.visible = !no || m.name === `face-${no}`);
   if (!$('tgFaces').checked) { $('tgFaces').checked = true; applyToggles(); }
@@ -111,7 +111,7 @@ document.querySelectorAll('#faceTable tr[data-face]').forEach(tr => tr.onclick =
 
 // ---------------------------------------------------------------- 顯示開關與相機視窗
 $('camSel').innerHTML = CAMERAS.map(c => `<option value="${c.id}">${c.id} ${c.name}（面 ${c.faces.join('、')}）</option>`).join('');
-$('camSel').value = 'C2-3';
+$('camSel').value = 'C1-4';
 function applyToggles() {
   optics.viz.visible = $('tgViz').checked;
   for (const list of Object.values(project.footMeshes)) for (const m of list) m.material.opacity = $('tgFoot').checked ? .8 : 0;
@@ -135,7 +135,7 @@ $('faceMode').onchange = applyFaceMode;
 $('camSel').onchange = () => stage.invalidate(true);
 
 // ---------------------------------------------------------------- 視線遮擋試算：改傾角，用 STEP 射線重算覆蓋率，看不到的區域在站上工件標紅
-const occBase = { 'C2-3': { az: 0, tilt: 50 }, 'C2-4': { az: 270, tilt: 40 } };
+const occBase = { 'C2-4': { az: 270, tilt: 40 }, 'C2-2': { az: 180, tilt: 45 } };
 let occMesh = null, coverageMod = null;
 async function runOcclusion() {
   const id = $('occCam').value, tilt = +$('occTilt').value; $('occVal').textContent = `${tilt}°`;
@@ -150,8 +150,8 @@ async function runOcclusion() {
     occMesh = new THREE.Mesh(subGeometry(lostTris, .12), new THREE.MeshBasicMaterial({ color: 0xff3b3b, transparent: true, opacity: .85, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -6 }));
     occMesh.userData.fx = true; occMesh.renderOrder = 8; occMesh.position.z = project.overlay.ST2.mesh.position.z; project.overlay.ST2.spin.add(occMesh);
   }
-  const limit = id === 'C2-3' ? '凸緣處 61.8°、缺口處 64.5°（面 8 下緣）' : '43.7°（杯口凸緣擋住 Ø28 孔壁下緣）';
-  $('occOut').innerHTML = `${id} 傾角 ${tilt}°（設計 ${occBase[id].tilt}°；理論上限 ${limit}）<br>` + Object.entries(r.faces).map(([f, s]) => {
+  const limit = id === 'C2-4' ? '43.7°（杯口凸緣擋住 Ø28 孔壁下緣）' : '傾角太小看不到凸緣外側、太大看不到開口端面';
+  $('occOut').innerHTML = `${id} 傾角 ${tilt}°（設計 ${occBase[id].tilt}°；${limit}）<br>` + Object.entries(r.faces).map(([f, s]) => {
     const lost = Object.entries(s.lost).filter(([, a]) => a > .5).map(([k, a]) => `${k} ${a.toFixed(0)} mm²`).join('、');
     return `面 ${f}：<span class="${s.coverage > .99 ? 'good' : 'bad'}">${(s.coverage * 100).toFixed(1)}%</span>${lost ? `（${lost}）` : ''}`;
   }).join('<br>') + (lostTris.length ? '<br>紅色＝看不到的區域（在 ST2 工件上）' : '');
@@ -159,7 +159,7 @@ async function runOcclusion() {
 }
 $('occCam').onchange = () => { $('occTilt').value = occBase[$('occCam').value].tilt; runOcclusion(); };
 $('occTilt').oninput = runOcclusion;
-$('occTilt').value = 50;
+$('occTilt').value = 40;
 
 // ---------------------------------------------------------------- 檢核
 const checks = project.layoutChecks();
@@ -193,7 +193,7 @@ const player = createPlayer({
 function render() {
   const id = $('camSel').value, O = optics.cams[id], vizOn = optics.viz.visible;
   optics.viz.visible = false;
-  workspace.renderCamera({ renderer, scene, camera: O.vc.camera, title: `${id} ${O.cam.name}（面 ${O.cam.faces.join('、')}）`, result: `${SUMMARY.cameras[id].mmpx} mm/px`, marks: { time: player.T }, aspect: O.dv.fovW / O.dv.fovH });
+  workspace.renderCamera({ renderer, scene, camera: O.viewCam, title: `${id} ${O.cam.name}（面 ${O.cam.faces.join('、')}）`, result: `${SUMMARY.cameras[id].mmpx} mm/px`, marks: { time: player.T }, aspect: O.dv.fovW / O.dv.fovH });
   optics.viz.visible = vizOn;
   workspace.renderOverview(renderer, scene);
 }

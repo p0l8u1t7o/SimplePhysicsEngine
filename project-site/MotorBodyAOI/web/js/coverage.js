@@ -4,7 +4,8 @@
 // 純數學，tools/plan.mjs 產生 coverage-data.js、tools/verify.mjs 重算比對。
 import { bodyData, faceTriangles, FACES } from './body.js';
 import { createRaycaster, boxTriangles } from './raycast.js';
-import { CAMERAS, MAX_VIEW_ANGLE, TARGET_MMPX, LAMBDA, derive, rotZ, frameAngles, lightPoints, jawBoxes, blurFor, dofOf, deg } from './optics-plan.js';
+import { specularReport } from './specular.js';
+import { CAMERAS, MAX_VIEW_ANGLE, TARGET_MMPX, LAMBDA, derive, rotZ, frameAngles, lightPoints, jawBoxes, blurFor, dofOf, deg, mirrorHit } from './optics-plan.js';
 
 const REASONS = ['視野外', '擦過角', '景深外', '解析度不足', '被遮擋'];
 
@@ -42,20 +43,29 @@ export function computeCoverage({ cameras = CAMERAS } = {}) {
           if (!fail && Math.abs(z - dv.wd) > dv.dof / 2) fail = 3;
           const eff = dv.mmpx * z / dv.wd / Math.max(ca, 1e-3);
           if (!fail && eff > TARGET_MMPX) fail = 4;
-          if (!fail && ray.blocked(p, dir, dist, s => s === t)) fail = 5;
+          // 反射鏡相機：視線要先打到鏡面範圍內（否則看不到），遮擋只檢查「檢測點 → 鏡面」這一段（鏡面 → 相機經杯口，無遮擋物）
+          let segLen = dist;
+          if (!fail && cam.mirror) { const h = mirrorHit(cam.mirror, p, dir, phi); if (h == null) fail = 1; else segLen = h; }
+          if (!fail && ray.blocked(p, dir, segLen, s => s === t)) fail = 5;
           if (fail) { worst = Math.max(worst, fail); return; }
           mask |= 1 << k;
           stat.zSpan[0] = Math.min(stat.zSpan[0], z); stat.zSpan[1] = Math.max(stat.zSpan[1], z);
           stat.mmpx[0] = Math.min(stat.mmpx[0], eff); stat.mmpx[1] = Math.max(stat.mmpx[1], eff);
           const va = Math.acos(Math.min(1, ca)) * 180 / Math.PI; stat.view[0] = Math.min(stat.view[0], va); stat.view[1] = Math.max(stat.view[1], va);
           // 光源：任一發光點在面的正面、入射角 < 88°、不被擋
-          if (!litAny) for (const L of L0) {
+          // 這一張照得到的發光點中，入射角最小的那個（多個光源時取最有利的）
+          let best = Infinity;
+          for (const L of L0) {
             const Lp = rotZ(L, phi), w = Lp.map((c, i) => c - p[i]), wl = Math.hypot(...w), wd = w.map(q => q / wl);
             const ci = wd[0] * n[0] + wd[1] * n[1] + wd[2] * n[2];
             if (ci < Math.cos(88 * Math.PI / 180)) continue;
-            if (ray.blocked(p, wd, wl, s => s === t)) continue;
-            litAny = true; const inc = deg(Math.acos(Math.min(1, ci))); stat.inc[0] = Math.min(stat.inc[0], inc); stat.inc[1] = Math.max(stat.inc[1], inc); break;
+            const inc = deg(Math.acos(Math.min(1, ci)));
+            let lLen = wl;
+            if (cam.mirror && !cam.light.direct) { const h = mirrorHit(cam.mirror, p, wd, phi); if (h == null) continue; lLen = h; }
+            if (inc >= best || ray.blocked(p, wd, lLen, s => s === t)) continue;
+            best = inc;
           }
+          if (best < Infinity) { litAny = true; stat.inc[0] = Math.min(stat.inc[0], best); stat.inc[1] = Math.max(stat.inc[1], best); }
         });
         if (mask) { stat.seen += d.area[t]; if (mask & (mask - 1)) stat.multi += d.area[t]; if (litAny) stat.lit += d.area[t]; res.tris.push(t); res.masks.push(mask); }
         else stat.lost[REASONS[worst - 1]] += d.area[t];
@@ -94,6 +104,8 @@ export function checkFaceGeometry() {
 // 覆蓋計算＋整理成報告（數字四捨五入）；summary 是網頁與檢查用的精簡版
 export function coverageReport() {
   const cov = computeCoverage(), ft = faceTriangles();
+  // 高反光加工面：反光分類（散開 4° 為設計值、8° 檢查餘裕）
+  const spec4 = specularReport({ spread: 4 }), spec8 = specularReport({ spread: 8 });
   const r2 = v => Math.round(v * 100) / 100, r3 = v => Math.round(v * 1000) / 1000, r4 = v => Math.round(v * 1e4) / 1e4, pct = v => Math.round(v * 1000) / 10;
   const cameras = CAMERAS.map(c => {
     const dv = derive(c), fs = Object.values(cov.cameras[c.id].faces);
@@ -110,6 +122,7 @@ export function coverageReport() {
         mmpx: s.seen ? [r4(s.mmpx[0]), r4(s.mmpx[1])] : null, view: s.seen ? [Math.round(s.view[0]), Math.round(s.view[1])] : null,
         inc: s.inc[1] ? [Math.round(s.inc[0]), Math.round(s.inc[1])] : null,
         lost: Object.fromEntries(Object.entries(s.lost).filter(([, a]) => a > .05).map(([k, a]) => [k, r2(a)])),
+        glare: spec4[c.id][f].kind, glareMean: pct(spec4[c.id][f].mean), glare8: spec8[c.id][f].kind,
       }])),
     };
   });
@@ -117,7 +130,7 @@ export function coverageReport() {
   const summary = {
     faces: Object.fromEntries(faces.map(f => [f.no, { coverage: f.coverage, lit: f.lit, area: f.area, cameras: f.cameras }])),
     cameras: Object.fromEntries(cameras.map(c => [c.id, { span: c.span, bNeed: c.bNeed, bDesign: c.bDesign, N: c.Ndesign, dof: c.dofDesign, mmpx: c.mmpx, wd: c.wd, fov: c.fov,
-      perFace: Object.fromEntries(Object.entries(c.perFace).map(([f, s]) => [f, { coverage: s.coverage, overlap: s.overlap, mmpx: s.mmpx, view: s.view, inc: s.inc }])) }])),
+      perFace: Object.fromEntries(Object.entries(c.perFace).map(([f, s]) => [f, { coverage: s.coverage, overlap: s.overlap, mmpx: s.mmpx, view: s.view, inc: s.inc, glare: s.glare, glare8: s.glare8 }])) }])),
   };
   return { cov, faces, cameras, summary };
 }

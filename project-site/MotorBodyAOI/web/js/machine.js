@@ -16,6 +16,7 @@ export const LINE = {
   table: 850, len: 1600, depth: 1250, frameH: 1950,                // 機台只涵蓋 ST1～ST2；入料、出料輸送帶與分料落地在兩側
   forkIn: 0, forkOut: 140,                     // 夾叉退出行程（Z 方向）
 };
+export const POCKET = { x0: -650, x1: -250, z0: -200, z1: 200, floor: 300 };   // ST1 下方挖空範圍
 export const POS_NAMES = ['入料讀碼', 'ST1 法蘭面朝上', '翻轉 180°', 'ST2 開口朝上', '分料 OK／NG'];
 const rad = d => d * Math.PI / 180;
 
@@ -47,12 +48,23 @@ export function createPartInstance(geometry, material, name) {
   return { holder, orient, spin, mesh, set(pos, q, spinDeg) { holder.position.copy(pos); orient.quaternion.copy(q); spin.rotation.z = rad(spinDeg); } };
 }
 
+// 沿 Y 的中空圓管（內半徑 rIn、外半徑 rOut、高 h、中心 pos）
+export function tubeY(parent, rIn, rOut, h, pos, material) {
+  const pts = [new THREE.Vector2(rIn, -h / 2), new THREE.Vector2(rOut, -h / 2), new THREE.Vector2(rOut, h / 2), new THREE.Vector2(rIn, h / 2), new THREE.Vector2(rIn, -h / 2)];
+  const m = new THREE.Mesh(new THREE.LatheGeometry(pts, 48), material); m.position.set(...pos); m.castShadow = m.receiveShadow = true; parent.add(m); return m;
+}
+
 // ---------------------------------------------------------------- 機架與輸送
 export function buildFrame(scene) {
   const g = new THREE.Group(); g.name = 'frame'; scene.add(g);
   const L = LINE, hx = L.len / 2, hz = L.depth / 2;
-  block(g, [L.len, L.table - 120, L.depth], [0, 60 + (L.table - 120) / 2, -60], MAT.cabinet);
-  block(g, [L.len + 20, 20, L.depth + 20], [0, L.table - 10, -60], MAT.steelDark);
+  // 下方機櫃與台面，ST1 正下方挖空 400 × 400（放反射鏡探頭的相機與支柱，2026-11-21）
+  const P = POCKET, z0 = -hz - 60, z1 = hz - 60, span = (x0, x1, y0, y1, za, zb, m) => block(g, [x1 - x0, y1 - y0, zb - za], [(x0 + x1) / 2, (y0 + y1) / 2, (za + zb) / 2], m);
+  for (const [y0, y1, m, e] of [[60, L.table - 60, MAT.cabinet, 0], [L.table - 20, L.table, MAT.steelDark, 10]]) {
+    span(-hx - e, P.x0, y0, y1, z0 - e, z1 + e, m); span(P.x1, hx + e, y0, y1, z0 - e, z1 + e, m);
+    span(P.x0, P.x1, y0, y1, z0 - e, P.z0, m); span(P.x0, P.x1, y0, y1, P.z1, z1 + e, m);
+  }
+  span(P.x0, P.x1, 60, P.floor, P.z0, P.z1, MAT.cabinet);            // 挖空區的底
   // 上框（鋁擠型）：四柱＋頂框，前側開放給移載
   for (const x of [-hx + 20, hx - 20]) for (const z of [-hz - 40, hz - 80]) block(g, [40, L.frameH - L.table, 40], [x, (L.frameH + L.table) / 2, z], MAT.frame);
   for (const z of [-hz - 40, hz - 80]) block(g, [L.len, 40, 40], [0, L.frameH - 20, z], MAT.frame);
@@ -76,16 +88,25 @@ export function buildConveyors(scene) {
   const outTop = LINE.band + worldBand('ST2', [-69, -69])[0];
   const outC = createConveyor({ length: 600, width: 160, height: outTop, pitch: 70, roller: 20 });
   outC.root.position.set(LINE.x[4] + 240, 0, 0); g.add(outC.root); tagPart(outC, 'P-00260'); Object.assign(outC.root.userData, { contact: true });
-  // NG 滑道與料箱（後側）
-  const ng = new THREE.Group(); ng.name = 'ng-chute'; g.add(ng);
-  const chute = block(ng, [190, 8, 260], [LINE.x[4], outTop - 40, -260], MAT.alu); chute.rotation.x = rad(-14); Object.assign(chute.userData, { contact: true });
-  block(ng, [240, 600, 220], [LINE.x[4] + 60, 300, -460], std(0xc0392b, .6, .1));          // NG 料箱（落地）
-  plate(ng, ['NG'], 120, 50, [LINE.x[4] + 60, 612, -460], 0);
-  return { group: g, inC, outC, inTop, outTop };
+  // 入料置中：兩側導引（漸縮）＋V 形擋停，夾在 Ø100 外圓帶上半段（世界 986～1000，在開口側耳朵上方、移載夾叉下方）
+  const gy0 = 986, gy1 = 1000, gc = new THREE.Group(); gc.name = 'infeed-guides'; g.add(gc);
+  for (const sd of [-1, 1]) {
+    block(gc, [420, gy1 - gy0, 8], [LINE.x[0] - 330, (gy0 + gy1) / 2, sd * 56], MAT.alu);               // 直段：內面在 r 52
+    const fl = block(gc, [180, gy1 - gy0, 8], [LINE.x[0] - 620, (gy0 + gy1) / 2, sd * 70], MAT.alu); fl.rotation.y = sd * rad(9);   // 喇叭口
+    const v = block(gc, [8, gy1 - gy0, 70], [LINE.x[0] + 47, (gy0 + gy1) / 2, sd * 32], MAT.ppDark); v.rotation.y = sd * rad(30);   // V 形擋停
+    Object.assign(v.userData, { contact: true });
+  }
+  for (const m of gc.children) Object.assign(m.userData, { contact: true });
+  // NG 輸送帶（並排在出料帶後側，可存 8～10 顆，滿料感測）
+  const ngC = createConveyor({ length: 600, width: 160, height: outTop, pitch: 70, roller: 20 });
+  ngC.root.position.set(LINE.x[4] + 240, 0, -NG_Z); ngC.root.name = 'ng-conveyor'; g.add(ngC.root); tagPart(ngC, 'P-00260'); Object.assign(ngC.root.userData, { contact: true });
+  plate(g, ['NG'], 120, 46, [LINE.x[4] + 470, outTop + 6, -NG_Z - 110], 0);
+  return { group: g, inC, outC, ngC, inTop, outTop };
 }
 
-// NG 分料：出料位東側、沿 Z 的伺服軸（前方），推臂越過輸送帶前框、推板在滾筒上方 4–19 mm（低於移載夾叉），把 NG 件推進後側滑道
-export const SORTER = { x: 1000, armLen: 380, idleZ: 75, push: 275, rootZ: 440 };
+// NG 分料：出料位東側、沿 Z 的伺服軸（前方），推臂越過輸送帶前框、推板在滾筒上方 4–19 mm（低於移載夾叉），把 NG 件推上後側並排的 NG 輸送帶
+export const NG_Z = 230;   // NG 輸送帶中心在產線後方 230 mm
+export const SORTER = { x: 1000, armLen: 380, idleZ: 75, push: NG_Z, rootZ: 440 };
 export function buildSorter(scene, outTop) {
   const g = new THREE.Group(); g.name = 'sorter'; scene.add(g);
   const axis = linearAxis.create({ axis: 'z', length: 600, width: 70, height: 40, carL: 80, carH: 30 });
@@ -108,9 +129,12 @@ export function buildChuck(scene, idx, pose) {
   const g = new THREE.Group(); g.name = idx === 1 ? 'chuck-st1' : 'chuck-st2'; scene.add(g);
   const c = stationCenter(idx), postEnd = pose === 'ST2' ? -110 : 50;     // 爪柱往底座延伸到工件 Z
   const bodyTop = LINE.band + worldBand(pose, [postEnd, postEnd])[0];
-  cylinder(g, 70, bodyTop - LINE.table - 30, [c.x, LINE.table + (bodyTop - LINE.table - 30) / 2, 0], MAT.steelDark, 'y', 32);
+  const hollow = pose === 'ST1';                                         // ST1：中空 DD（孔徑 Ø100），反射鏡探頭與相機光路從中間穿過
+  const baseH = bodyTop - LINE.table - 30;
+  if (hollow) tubeY(g, 50, 92, baseH, [c.x, LINE.table + baseH / 2, 0], MAT.steelDark);
+  else cylinder(g, 70, baseH, [c.x, LINE.table + baseH / 2, 0], MAT.steelDark, 'y', 32);
   const rotor = new THREE.Group(); rotor.name = 'rotor'; rotor.position.set(c.x, bodyTop, 0); g.add(rotor);
-  cylinder(rotor, 92, 30, [0, -15, 0], MAT.alu, 'y', 40);
+  if (hollow) tubeY(rotor, 50, 92, 30, [0, -15, 0], MAT.alu); else cylinder(rotor, 92, 30, [0, -15, 0], MAT.alu, 'y', 40);
   const jaws = [];
   for (const a of JAWS.angles) {
     const j = new THREE.Group(); j.name = `jaw-${a}`; rotor.add(j);

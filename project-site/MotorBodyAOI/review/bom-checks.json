@@ -5,9 +5,9 @@
   "applicable": true,
   "strict": true,
   "source": "studio（@MotorBodyAOI）",
-  "sceneModels": 21,
-  "bomLines": 42,
-  "matched": 21,
+  "sceneModels": 19,
+  "bomLines": 46,
+  "matched": 19,
   "sceneOnly": [],
   "bomOnly": [],
   "warnings": []

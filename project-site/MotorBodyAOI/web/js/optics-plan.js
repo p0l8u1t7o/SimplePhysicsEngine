@@ -28,30 +28,34 @@ export const CAMERAS = [
   // ---------------- ST1：法蘭面朝上（看 −Z 側）
   { id: 'C1-1', station: 'ST1', name: '頂視全幅', faces: [1, 4], sensor: '5MP', f: 16, fovH: 110, lens: '16 mm 定焦（大景深）',
     target: [0, 0, -65.3], toCam: [0, 0, -1], up: [0, 1, 0], frames: 0, b: .2, planes: 1,
-    light: { type: '分區環形光（光度立體 4 區）', kind: 'ring', r: 115, at: -150, center: [0, 0], segments: 4, note: '法蘭面上方 86 mm（讓出移載抬升空間；主方案的 45 mm 會與抬升中的工件干涉）' } },
+    light: { type: '分區環形光（4 方向低角度暗場／光度立體）', kind: 'ring', r: 115, at: -165, center: [0, 0], segments: 4, note: '法蘭面上方 101 mm（讓出移載抬升 75 mm 的空間；主方案的 45 mm 會與抬升中的工件干涉）' } },
   { id: 'C1-2', station: 'ST1', name: '斜視軸孔', faces: [2], sensor: '1.6MP', f: 35, fovH: 18, lens: '35 mm 定焦＋鏡頭環形光',
     target: [0, -11, -64.5], toCam: dirAzTilt(90, 135), up: [0, 0, -1], frames: 12, b: .2, planes: 1,
     light: { type: '鏡頭環形光（同軸方向）', kind: 'lensRing', r: 30, note: '照在對側孔壁，入射角≈視角 45°' } },
   { id: 'C1-3', station: 'ST1', name: '側視止口', faces: [3], sensor: '1.6MP', f: 25, fovH: 30, lens: '25 mm 定焦',
     target: [40, 0, -66], toCam: dirAzTilt(0, 105), up: [0, 0, -1], frames: 12, b: .2, planes: 1,
     light: { type: '條形光（相機上方）', kind: 'bar', offset: [0, 0, -45], length: 80, note: '擴散條光，掃過圓柱母線' } },
+  // 90° 反射鏡正視杯內壁（2026-11-21 採用）：ST1 開口朝下，探頭穿過中空 DD 從下方固定伸入杯內，工件放下時罩住探頭。
+  //   這裡的 target／toCam 描述「鏡中的虛像相機」（正對內壁）；mirror 是 45° 表面鍍膜反射鏡，實際相機在杯口下方、沿 −Z 往上看。
+  //   45° 鏡讓壁上各點到相機的光程相同，景深只剩弧面矢高。
+  { id: 'C1-4', station: 'ST1', name: '反射鏡正視杯內壁', faces: [8, 9], sensor: '1.6MP', f: 25, fovH: 52, lens: '25 mm 定焦＋45° 反射鏡探頭＋鏡頭環形光',
+    target: [46.5, 0, -23.5], toCam: [-1, 0, 0], up: [0, 0, 1], frames: 12, b: .2, planes: 1,
+    mirror: { point: [10, 0, -23.5], normal: [Math.SQRT1_2, 0, Math.SQRT1_2], halfU: 36, halfV: 23 },
+    light: { type: '探頭條形光（杯口外、近側斜照，暗場）', kind: 'probeBar', direct: true, a: [35, -22, 20], b: [35, 22, 20], note: '高反光內壁：光源放在杯口外、偏離鏡面反射方向 ≥ 19°，整面暗場（鏡頭環形光經反射鏡會在內凹壁上形成 9～23% 的亮帶，已改掉）；鏡面朝下、落屑掉在鏡背；相機鏡頭朝上需保護窗＋吹氣' } },
   // ---------------- ST2：開口朝上（看 +Z 側）
-  { id: 'C2-1', station: 'ST2', name: '頂視杯底（同軸）', faces: [10, 12], sensor: '1.6MP', f: 35, fovH: 34.5, lens: '35 mm 定焦＋同軸光',
-    target: [0, 0, -57.75], toCam: [0, 0, 1], up: [0, 1, 0], frames: 0, b: .1, planes: 1,
-    light: { type: '同軸光（出光口 50 mm）', kind: 'coaxial', note: '面 12 外緣近側最大入射約 5°，只能同軸；入射 ≤ 4°' } },
-  { id: 'C2-2', station: 'ST2', name: '偏心頂視開口端面', faces: [6], sensor: '5MP', f: 35, fovH: 50, lens: '35 mm 定焦',
-    target: [-53.5, 0, -4], toCam: [0, 0, 1], up: [-1, 0, 0], frames: 12, b: .2, planes: 1,
-    light: { type: '條形光 ×3（光度立體：外、左、右）', kind: 'psBars', h: 92, d: 70, note: '內側方向被凸緣與 C2-1 光路占用，只做 3 方向；高 92 mm 讓出移載抬升空間（入射約 37°）' } },
-  { id: 'C2-3', station: 'ST2', name: '斜視杯內壁', faces: [9, 8, 7], sensor: '1.6MP', f: 25, fovH: 48, lens: '25 mm 定焦＋鏡頭環形光',
-    target: [-46.5, 0, -23.6], toCam: dirAzTilt(0, 50), up: [0, 0, 1], frames: 12, b: .15, planes: 1,
-    light: { type: '鏡頭環形光', kind: 'lensRing', r: 40, note: '從對側斜照內壁，面 7 由對側打光（近側只有 ≈2°）' } },
+  { id: 'C2-1', station: 'ST2', name: '頂視杯底（同軸）', faces: [7, 10, 12], sensor: '5MP', f: 25, fovH: 98, lens: '25 mm 定焦＋同軸光',
+    target: [0, 0, -55], toCam: [0, 0, 1], up: [0, 1, 0], frames: 0, b: .1, planes: 1,
+    light: { type: '同軸光（出光口 Ø50）', kind: 'coaxial', aperture: 25, note: '面 10、12 均勻亮場（砂孔是暗點）；面 7 在視野外緣、落在暗場（出光口 Ø100 時面 7 剛好卡在亮暗交界，反光散開 4～8° 就會翻轉，已縮小）；2026-11-21 起兼拍面 7（原由 C2-3 斜視）' } },
+  { id: 'C2-2', station: 'ST2', name: '斜視外側（凸緣外側＋開口端面）', faces: [5, 6], sensor: '5MP', f: 35, fovH: 40, lens: '35 mm 定焦＋鏡頭環形光',
+    target: [-53, 0, -2], toCam: dirAzTilt(180, 45), up: [0, 0, 1], frames: 12, b: .2, planes: 1,
+    light: { type: '光度立體 3 方向：左右條形光＋鏡頭環形光', kind: 'psSide', h: 105, d: 70, r: 50, note: '2026-11-21 由原 C2-2（頂視面 6）與 C2-5（側視面 5）合併；45° 斜視同時看凸緣外側與開口端面，ST2 上方只剩同軸 C2-1' } },
   { id: 'C2-4', station: 'ST2', name: '斜視凸台孔壁', faces: [11], sensor: '1.6MP', f: 50, fovH: 18, lens: '50 mm 定焦＋鏡頭環形光',
     target: [0, 14, -57.9], toCam: dirAzTilt(270, 40), up: [0, 0, 1], frames: 12, b: .2, planes: 1,
     light: { type: '鏡頭環形光', kind: 'lensRing', r: 30, note: '視線受杯口凸緣限制 ≤ 43.7°，取 40°' } },
-  { id: 'C2-5', station: 'ST2', name: '側視凸緣外側', faces: [5], sensor: '1.6MP', f: 25, fovH: 30, lens: '25 mm 定焦',
-    target: [-49, 0, -1.5], toCam: dirAzTilt(180, 75), up: [0, 0, 1], frames: 12, b: .2, planes: 1,
-    light: { type: '條形光（相機上方）', kind: 'bar', offset: [0, 0, 45], length: 80, note: '凸緣只有 242°（3 段弧）' } },
 ];
+
+// P0 定位相機（不屬於 12 面檢測）：法蘭面朝上俯視整顆＋輸送帶下方背光，從開口側 3 耳（15／125／235°，間隔不對稱）的輪廓判角度，同時讀 QR
+export const LOCATOR = { id: 'C0', name: 'P0 定位相機（判角＋讀 QR）', sensor: '5MP', f: 16, fovH: 130, wd: 300, light: '背光（輸送帶滾筒下方）＋環形光（讀 QR）' };
 
 // 選配：3D 雷射輪廓（只評估外側平面 1、4、6；杯內與孔內有遮擋死角）
 export const LASERS = [
@@ -95,6 +99,25 @@ export function derive(cam) {
   return { m, wd, fovW, fovH: cam.fovH, mmpx, dof, N, pos, fwd, right, up, sensor: S };
 }
 
+// 反射鏡相機：虛像相機（derive 的結果）對鏡面反射，得到實際相機的位置與朝向（工件座標、第 0 張）
+const reflectP = (p, m) => { const d = (p[0] - m.point[0]) * m.normal[0] + (p[1] - m.point[1]) * m.normal[1] + (p[2] - m.point[2]) * m.normal[2]; return p.map((v, i) => v - 2 * d * m.normal[i]); };
+const reflectV = (v, m) => { const d = v[0] * m.normal[0] + v[1] * m.normal[1] + v[2] * m.normal[2]; return v.map((x, i) => x - 2 * d * m.normal[i]); };
+export function realCamera(cam, dv = derive(cam)) {
+  if (!cam.mirror) return { pos: dv.pos, fwd: dv.fwd, right: dv.right, up: dv.up };
+  const m = cam.mirror;
+  return { pos: reflectP(dv.pos, m), fwd: reflectV(dv.fwd, m), right: reflectV(dv.right, m), up: reflectV(dv.up, m) };
+}
+// 從 p 沿單位向量 d 前進，打到鏡面的距離；不在鏡面範圍內回傳 null（第 φ 張時鏡面隨相機繞 Z 轉 −φ）
+export function mirrorHit(m, p, d, phi = 0) {
+  const pt = rotZ(m.point, phi), n = rotZ(m.normal, phi);
+  const den = d[0] * n[0] + d[1] * n[1] + d[2] * n[2]; if (Math.abs(den) < 1e-9) return null;
+  const t = ((pt[0] - p[0]) * n[0] + (pt[1] - p[1]) * n[1] + (pt[2] - p[2]) * n[2]) / den; if (t <= 0) return null;
+  const q = p.map((v, i) => v + d[i] * t - pt[i]);
+  const v = rotZ([0, 1, 0], phi), u = cross(n, v);                    // 鏡面上的兩個方向（u：沿 45° 斜邊、v：切向）
+  const qu = q[0] * u[0] + q[1] * u[1] + q[2] * u[2], qv = q[0] * v[0] + q[1] * v[1] + q[2] * v[2];
+  return Math.abs(qu) <= m.halfU && Math.abs(qv) <= m.halfV ? t : null;
+}
+
 // 繞 Z 轉 −φ（第 k 張）
 export function rotZ(v, phiDeg) {
   const c = Math.cos(rad(-phiDeg)), s = Math.sin(rad(-phiDeg));
@@ -109,13 +132,12 @@ export function lightPoints(cam, dv = derive(cam)) {
   else if (L.kind === 'lensRing') for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; pts.push(dv.pos.map((p, i) => p + L.r * (Math.cos(a) * dv.right[i] + Math.sin(a) * dv.up[i]))); }
   else if (L.kind === 'ring') for (let k = 0; k < 16; k++) { const a = k * Math.PI / 8; pts.push([L.center[0] + L.r * Math.cos(a), L.center[1] + L.r * Math.sin(a), L.at]); }
   else if (L.kind === 'bar') for (let k = -2; k <= 2; k++) pts.push(dv.pos.map((p, i) => p + L.offset[i] + k * L.length / 4 * dv.right[i] + .5 * dv.wd * dv.fwd[i]));
-  else if (L.kind === 'psBars') {
-    // 外側（徑向朝外）、左、右三支，各取 3 點
+  else if (L.kind === 'probeBar') for (let k = 0; k <= 4; k++) pts.push(L.a.map((v, i) => v + (L.b[i] - v) * k / 4));
+  else if (L.kind === 'psSide') {
+    // 光度立體 3 方向：目標左右兩支條形光（切線方向，各取 3 點）＋鏡頭環形光（8 點）
     const t = cam.target, rl = Math.hypot(t[0], t[1]), o = [t[0] / rl, t[1] / rl], tg = [-o[1], o[0]];
-    for (const [a, b] of [[1, 0], [0, 1], [0, -1]]) for (let k = -1; k <= 1; k++) {
-      const dx = a * o[0] + b * tg[0], dy = a * o[1] + b * tg[1], ex = b ? o : tg;
-      pts.push([t[0] + dx * L.d + k * 20 * ex[0], t[1] + dy * L.d + k * 20 * ex[1], t[2] + L.h]);
-    }
+    for (const sd of [1, -1]) for (let k = -1; k <= 1; k++) pts.push([t[0] + sd * L.d * tg[0] + k * 20 * o[0], t[1] + sd * L.d * tg[1] + k * 20 * o[1], t[2] + L.h]);
+    for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; pts.push(dv.pos.map((p, i) => p + L.r * (Math.cos(a) * dv.right[i] + Math.sin(a) * dv.up[i]))); }
   }
   return pts;
 }

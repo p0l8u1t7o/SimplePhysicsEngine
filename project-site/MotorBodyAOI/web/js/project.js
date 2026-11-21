@@ -7,8 +7,8 @@ import { floor } from '@core/geom/environment.js';
 import { createTimeline, linear } from '@core/anim/track.js';
 import { FACES, GRIP_BAND, bodyGeometry, subGeometry } from './body.js';
 import { CAMERAS, JAWS, FINGERS, FLIP_FINGERS, TARGET_MMPX } from './optics-plan.js';
-import { XFER, XFER_TIME, CT, PITCH, LIFT, LIFT_TIME, FLIP, INTAKE, SORT, RETURN, STATION_TIMES, SERVO_AXES, BOTTLENECK, stationTime, rotationAt, shotAt, SHOTS } from './sequence.js';
-import { LINE, POS_NAMES, orientQ, worldBand, stationCenter, createPartInstance, buildFrame, buildConveyors, buildSorter, buildChuck, buildFlip, buildTransfer, FORK } from './machine.js';
+import { XFER, XFER_TIME, CT, PITCH, LIFT, LIFT_TIME, FLIP, INTAKE, SORT, RETURN, STATION_TIMES, SERVO_AXES, BOTTLENECK, PRE_ROTATE, ALIGN, stationTime, rotationAt, shotAt, SHOTS } from './sequence.js';
+import { LINE, POS_NAMES, NG_Z, orientQ, worldBand, stationCenter, createPartInstance, buildFrame, buildConveyors, buildSorter, buildChuck, buildFlip, buildTransfer, FORK } from './machine.js';
 import { buildOptics, buildIndicators, CAMERA_COLOR } from './optics-scene.js';
 import { SUMMARY, FOOTPRINT } from './coverage-data.js';
 import { bodyData } from './body.js';
@@ -16,6 +16,8 @@ import { decode } from './codec.js';
 
 export const STATIONS = POS_NAMES;
 export const N_CYCLES = 7, N_PARTS = 8, NG_PARTS = [2];       // 第 3 顆（編號 2）示範 NG 分料
+// 來料角度不固定（示意的固定亂數，動畫每次相同）：P0 定位相機判角，ST1 夾頭預轉到這個角度再夾，拍完轉回 0° 出站
+export const IN_ANGLE = [37, -112, 154, -58, 96, -143, 12, 71];
 export const INTRO = INTAKE.convey + INTAKE.read;               // 第 1 顆入料讀碼
 export const cycleStart = c => INTRO + c * CT;
 const GROUP_COLOR = { A: 0x4dabf7, B: 0x9775fa, C: 0xf06595, D: 0xffa94d, E: 0x69db7c };
@@ -65,9 +67,10 @@ export function createProject({ scene }) {
   const tc = { ST1: tl.track('st1', { rot: 0, open: 0 }), ST2: tl.track('st2', { rot: 0, open: 0 }) };
   const tf = tl.track('flip', { ang: 180, open: 1 });                 // 起始：夾爪在上方（空），與穩態每拍開始時相同
   const ti = tl.track('intake', { s: 0, read: 0 });
-  const ts = tl.track('sort', { push: 0, out: 0 });
+  const ts = tl.track('sort', { push: 0, out: 0, ng: 0 });
+  let st1Rot = 0;                                                     // ST1 夾頭的累計角度（每拍出站後是 360 的倍數）
   ti.add(INTAKE.convey, { s: 500 }, { action: '入料輸送：第 1 顆送到擋停', station: 0, ease: linear });
-  ti.add(INTAKE.read, { read: 1 }, { action: '讀碼綁序號', sub: '序號＋流水號，寫入檢測紀錄', station: 0 });
+  ti.add(INTAKE.read, { read: 1 }, { action: 'P0 定位相機：判角＋讀 QR', sub: '開口側 3 耳輪廓判角度；序號＋流水號寫入檢測紀錄', station: 0 });
   ti.add(0, { read: 0, s: 0 });
   for (let c = 0; c < N_CYCLES; c++) {
     const T0 = cycleStart(c), sub = `第 ${c + 1} 拍`;
@@ -82,7 +85,10 @@ export function createProject({ scene }) {
     tx.add(LIFT_TIME, { lift: LIFT }, { at: at.lift, action: `移載上升 ${LIFT} mm`, station: 1 });
     tf.add(FLIP.turn, { ang: 0 }, { at: at.lift, action: '翻轉夾爪空回（經後側）', sub: '回到 0° 後移載才前進', station: 2 });
     tx.add(.7, { x: PITCH }, { at: at.move, action: `移載前進 ${PITCH} mm（P0→P1→P2→P3→P4）`, station: 2 });
-    tx.add(.35, { lift: 0 }, { at: at.lower, action: '移載下降', station: 2 });
+    // ST1 夾頭空著時預轉：讓 3 爪對到這一顆（第 c 顆）的 0/120/240°
+    let pre = st1Rot;
+    if (c < N_PARTS) { const d = ((IN_ANGLE[c] - st1Rot) % 360 + 540) % 360 - 180; pre = st1Rot + d; tc.ST1.add(PRE_ROTATE, { rot: pre }, { at: at.move, action: `ST1 夾頭預轉 ${IN_ANGLE[c]}°（對準來料角度）`, station: 1 }); }
+    tx.add(XFER.find(x => x.key === 'lower').dur, { lift: 0 }, { at: at.lower, action: '移載下降', station: 2 });
     for (const st of ['ST1', 'ST2']) tc[st].add(.25, { open: 0 }, { at: at.clamp, action: st === 'ST1' ? '夾頭閉合（3 爪夾開口側半段）' : '' });
     tf.add(.25, { open: 0 }, { at: at.clamp });
     tx.add(.2, { open: 1 }, { at: at.forkOpen, action: '夾叉張開', station: 2 });
@@ -93,23 +99,29 @@ export function createProject({ scene }) {
     // ST1：第 c 拍站上是第 c 顆
     if (c < N_PARTS) {
       tc.ST1.add(SHOTS.ST1.static, {}, { at: W, action: 'C1-1 頂視：光度立體 4 張＋亮場', sub: '面 1、4', station: 1 });
-      tc.ST1.add(stationTime('ST1') - SHOTS.ST1.static, { rot: 360 }, { action: 'ST1 旋轉 12 停取像（C1-2 面 2、C1-3 面 3）', sub: `每 30° 一張，${sub}`, station: 1, ease: linear, motion: (e, u) => ({ rot: rotationAt('ST1', SHOTS.ST1.static + u * (stationTime('ST1') - SHOTS.ST1.static)) }) });
-      tc.ST1.add(0, { rot: 0 });
+      tc.ST1.add(stationTime('ST1') - SHOTS.ST1.static, { rot: pre + 360 }, { action: 'ST1 旋轉 12 停取像（C1-2 面 2、C1-3 面 3、C1-4 反射鏡面 8、9）', sub: `每 30° 一張，${sub}`, station: 1, ease: linear, motion: (e, u) => ({ rot: pre + rotationAt('ST1', SHOTS.ST1.static + u * (stationTime('ST1') - SHOTS.ST1.static)) }) });
+      const aligned = Math.round((pre + 360) / 360) * 360;
+      tc.ST1.add(ALIGN, { rot: aligned }, { action: '出站轉正（轉回 0°）', station: 1 });
+      st1Rot = aligned;
     }
     tf.add(FLIP.turn + FLIP.settle, { ang: 180 }, { at: W, action: c >= 1 ? '翻轉 180°（法蘭面朝上 → 開口朝上）' : '', station: 2 });
     if (c >= 2 && c - 2 < N_PARTS) {
-      tc.ST2.add(SHOTS.ST2.static, {}, { at: W, action: 'C2-1 頂視同軸：杯底', sub: '面 10、12', station: 3 });
-      tc.ST2.add(stationTime('ST2') - SHOTS.ST2.static, { rot: 360 }, { action: 'ST2 旋轉 12 停取像（C2-2 面 6、C2-3 面 7–9、C2-4 面 11、C2-5 面 5）', sub: `每 30° 一張，${sub}`, station: 3, ease: linear, motion: (e, u) => ({ rot: rotationAt('ST2', SHOTS.ST2.static + u * (stationTime('ST2') - SHOTS.ST2.static)) }) });
+      tc.ST2.add(SHOTS.ST2.static, {}, { at: W, action: 'C2-1 頂視同軸：杯底', sub: '面 7、10、12', station: 3 });
+      tc.ST2.add(stationTime('ST2') - SHOTS.ST2.static, { rot: 360 }, { action: 'ST2 旋轉 12 停取像（C2-2 面 5、6，C2-4 面 11）', sub: `每 30° 一張，${sub}`, station: 3, ease: linear, motion: (e, u) => ({ rot: rotationAt('ST2', SHOTS.ST2.static + u * (stationTime('ST2') - SHOTS.ST2.static)) }) });
       tc.ST2.add(0, { rot: 0 });
     }
     if (c >= 3 && c - 3 < N_PARTS) {
       const k = c - 3, ng = NG_PARTS.includes(k);
-      if (ng) { ts.add(SORT.ngPush, { push: 275 }, { at: W, action: `第 ${k + 1} 顆判 NG：推入 NG 滑道`, station: 4 }); ts.add(SORT.ngBack, { push: 0 }); }
+      if (ng) {
+        ts.add(SORT.ngPush, { push: NG_Z }, { at: W, action: `第 ${k + 1} 顆判 NG：推上 NG 輸送帶`, station: 4 });
+        ts.add(SORT.ngBack, { push: 0 });
+        ts.add(SORT.ng, { ng: 420 }, { at: W + SORT.ngPush, action: 'NG 輸送帶送到緩衝末端（可存 8～10 顆）', station: 4, ease: linear });
+      }
       else { ts.add(SORT.ok, { out: 600 }, { at: W, action: `第 ${k + 1} 顆判 OK：出料輸送帶帶走`, station: 4, ease: linear }); ts.add(0, { out: 0 }); }
     }
     if (c + 1 < N_PARTS) {
       ti.add(INTAKE.convey, { s: 500 }, { at: W, action: `入料輸送：第 ${c + 2} 顆送到擋停`, station: 0, ease: linear });
-      ti.add(INTAKE.read, { read: 1 }, { action: '讀碼綁序號', station: 0 });
+      ti.add(INTAKE.read, { read: 1 }, { action: 'P0 定位相機：判角＋讀 QR', station: 0 });
       ti.add(0, { read: 0, s: 0 });
     }
     tx.hold(T0 + CT);
@@ -126,27 +138,29 @@ export function createProject({ scene }) {
     if (T < enterStart) return null;
     if (T < enterEnd) {
       const s = (T - enterStart) / INTAKE.convey;
-      return { pos: new THREE.Vector3(LINE.x[0] - 500 * (1 - s), LINE.band, 0), q: orientQ('ST1'), spin: 0, p: -1 };
+      return { pos: new THREE.Vector3(LINE.x[0] - 500 * (1 - s), LINE.band, 0), q: orientQ('ST1'), spin: IN_ANGLE[k], p: -1 };
     }
     const c = cycleAt(T), tau = T - cycleStart(Math.max(c, 0));
-    if (c < k) return { pos: stationCenter(0), q: orientQ('ST1'), spin: 0, p: 0 };
+    if (c < k) return { pos: stationCenter(0), q: orientQ('ST1'), spin: IN_ANGLE[k], p: 0 };
     const pBefore = c - k, inXfer = tau < XFER_TIME;
     const p = inXfer ? pBefore : pBefore + 1;
     if (inXfer && pBefore <= 3) {
       const pos = stationCenter(pBefore).add(tmp.set(S.xfer.x, S.xfer.lift, 0));
-      return { pos, q: pBefore >= 2 ? orientQ('ST2') : orientQ('ST1'), spin: 0, p: pBefore, carried: true };
+      return { pos, q: pBefore >= 2 ? orientQ('ST2') : orientQ('ST1'), spin: pBefore === 0 ? IN_ANGLE[k] : 0, p: pBefore, carried: true };
     }
     if (p === 1) return { pos: stationCenter(1), q: orientQ('ST1'), spin: S.st1.rot % 360, p };
     if (p === 2) return { pos: stationCenter(2), q: orientQ('ST1', S.flip.ang), spin: 0, p };
     if (p === 3) return { pos: stationCenter(3), q: orientQ('ST2'), spin: S.st2.rot % 360, p };
     if (p === 4) {
       // 分料：只在第 c 拍（c = k+3）的作業段；之後離開機台
-      if (c > k + 3 || (c === k + 3 && tau >= XFER_TIME + STATION_TIMES.分料)) return null;
       const ng = NG_PARTS.includes(k), base = stationCenter(4);
-      if (c === k + 3 && !inXfer) {
-        if (ng) { const push = Math.min(S.sort.push, 275), u = Math.max(0, (tau - XFER_TIME) / SORT.ngPush); return { pos: base.add(tmp.set(0, 0, -push)), q: orientQ('ST2'), spin: 0, p, hide: u >= 1 && S.sort.push < 270 }; }
-        return { pos: base.add(tmp.set(S.sort.out, 0, 0)), q: orientQ('ST2'), spin: 0, p };
+      // NG 件推上 NG 輸送帶後留在緩衝末端（動畫只有一顆 NG）；OK 件由出料輸送帶帶走後離開畫面
+      if (ng && (c > k + 3 || (c === k + 3 && !inXfer))) {
+        const pushed = c > k + 3 || tau - XFER_TIME >= SORT.ngPush;
+        return { pos: base.add(tmp.set(pushed ? (c > k + 3 ? 420 : S.sort.ng) : 0, 0, pushed ? -NG_Z : -S.sort.push)), q: orientQ('ST2'), spin: 0, p };
       }
+      if (c > k + 3 || (c === k + 3 && tau >= XFER_TIME + STATION_TIMES.分料)) return null;
+      if (c === k + 3 && !inXfer) return { pos: base.add(tmp.set(S.sort.out, 0, 0)), q: orientQ('ST2'), spin: 0, p };
       return { pos: base, q: orientQ('ST2'), spin: 0, p };
     }
     return null;
@@ -158,8 +172,8 @@ export function createProject({ scene }) {
     chuck1.set(S.st1.rot % 360, S.st1.open); chuck2.set(S.st2.rot % 360, S.st2.open);
     flip.set(S.flip.ang, S.flip.open);
     sorter.set(S.sort.push);
-    conv.inC.set({ s: S.intake.s }); conv.outC.set({ s: S.sort.out });
-    optics.reader.set(S.intake.read > .5);
+    conv.inC.set({ s: S.intake.s }); conv.outC.set({ s: S.sort.out }); conv.ngC.set({ s: S.sort.ng });
+    optics.locator.set(S.intake.read > .5 ? 1 : 0);
     const atStation = { ST1: null, ST2: null };
     for (const part of parts) {
       const st = partState(part.k, T, S);
@@ -182,7 +196,7 @@ export function createProject({ scene }) {
       footMeshes[cam.id].forEach((m, i) => { m.visible = i === k; });
       O.vc.set(k >= 0 ? 1 : 0);
       O.lights.forEach((L, i) => {
-        // 光度立體：靜態取像期間依序亮 4 區（C1-1）；條形光（C2-2 3 支）在取像時依序亮
+        // 光度立體：靜態取像期間依序亮 4 區（C1-1）；C2-2 的左右條形光在取像時亮
         let on = k >= 0;
         if (cam.id === 'C1-1' && k >= 0) on = Math.floor((tRel / SHOTS.ST1.static) * 5) % 5 === i || Math.floor((tRel / SHOTS.ST1.static) * 5) === 4;
         if (L.set) L.set({ light: on ? 1 : .08 }); else if (L.material) L.material.emissiveIntensity = on ? 1.4 : .05;
@@ -204,6 +218,11 @@ export function createProject({ scene }) {
       const c = C[cam.id], worst = Math.max(...Object.values(c.perFace).map(s => s.mmpx?.[1] ?? 9));
       rows.push({ group: '解析度與景深', name: `${cam.id} 有效解析度 ≤ ${TARGET_MMPX} mm/px、景深 ${c.dof} mm ≥ 需求 ${c.span} mm`, ok: worst <= TARGET_MMPX && c.dof >= c.span, value: `${worst} mm/px、b ${c.bDesign} mm、F${c.N}` });
     }
+    // 高反光加工面：每台相機每個面要「整面暗場」或「整面亮場」，不能有局部反光（亮斑、亮線）；反光散開 4° 為設計值、8° 為餘裕
+    for (const cam of CAMERAS) for (const f of cam.faces) {
+      const pf = C[cam.id].perFace[f];
+      rows.push({ group: '反光', name: `${cam.id} 面 ${f} 沒有局部反光（散開 4°／8°）`, ok: pf.glare !== '局部反光' && pf.glare8 !== '局部反光', value: `${pf.glare}／${pf.glare8}` });
+    }
     // 杯內照明：同軸（C2-1）入射角要小於面 12 外緣的近側上限 atan((14−13.25)/8.2)
     const lim12 = Math.atan((14 - 13.25) / 8.2) * 180 / Math.PI, inc12 = C['C2-1'].perFace[12].inc?.[1] ?? 99;
     rows.push({ group: '照明', name: `面 12 入射角 ≤ atan(R/H) = ${lim12.toFixed(1)}°（Ø28 孔底，只能同軸）`, ok: inc12 <= lim12, value: `${inc12}°` });
@@ -222,10 +241,17 @@ export function createProject({ scene }) {
     const sep = (a, b) => a[1] <= b[0] || b[1] <= a[0];
     rows.push({ group: '夾持', name: '交接時兩組夾具分在帶的兩個半段（夾頭↔夾叉、翻轉↔夾叉）', ok: sep(JAWS.z, FINGERS.z) && sep(FLIP_FINGERS.z, FINGERS.z), value: '開口側半段／法蘭側半段' });
     // 抬升路徑淨空：ST1 光度立體環光、ST2 光度立體條光都要高過抬升中的工件
-    const topST1 = LINE.band + worldBand('ST1', [-69, -69])[0] + LIFT, ringY = LINE.band + worldBand('ST1', [-150, -150])[0] - 9;
+    const ringAt = CAMERAS.find(c => c.id === 'C1-1').light.at;
+    const topST1 = LINE.band + worldBand('ST1', [-69, -69])[0] + LIFT, ringY = LINE.band + worldBand('ST1', [ringAt, ringAt])[0] - 9;
     rows.push({ group: '空間', name: 'ST1 環光下緣高過抬升中的工件頂', ok: ringY - topST1 >= 10, value: `${(ringY - topST1).toFixed(1)} mm` });
-    const psH = CAMERAS.find(c => c.id === 'C2-2').light.h, topST2 = LINE.band + worldBand('ST2', [1.5, 1.5])[0] + LIFT, barY = LINE.band + worldBand('ST2', [-4 + psH, -4 + psH])[0] - 15;
+    const c22 = CAMERAS.find(c => c.id === 'C2-2'), psZ = c22.target[2] + c22.light.h;
+    const topST2 = LINE.band + worldBand('ST2', [1.5, 1.5])[0] + LIFT, barY = LINE.band + worldBand('ST2', [psZ, psZ])[0] - 15;
     rows.push({ group: '空間', name: 'ST2 光度立體條光下緣高過抬升中的工件頂', ok: barY - topST2 >= 5, value: `${(barY - topST2).toFixed(1)} mm` });
+    // ST1 反射鏡探頭：抬升後工件最低點（凸緣頂）要高過探頭最深處（鏡底）
+    const m14 = CAMERAS.find(c => c.id === 'C1-4').mirror, mirrorDeep = m14.point[2] - m14.halfU * Math.SQRT1_2;
+    const probeTop = LINE.band + worldBand('ST1', [mirrorDeep, mirrorDeep])[0], partBottom = LINE.band + worldBand('ST1', [1.5, 1.5])[0] + LIFT;
+    rows.push({ group: '空間', name: 'ST1 抬升中的工件越過反射鏡探頭', ok: partBottom - probeTop >= 15, value: `${(partBottom - probeTop).toFixed(1)} mm` });
+    rows.push({ group: '空間', name: 'ST1 反射鏡在杯內的最大半徑小於內壁 46.5 mm', ok: Math.hypot(m14.point[0] + m14.halfU * Math.SQRT1_2, m14.halfV) <= 44, value: `${Math.hypot(m14.point[0] + m14.halfU * Math.SQRT1_2, m14.halfV).toFixed(1)} mm` });
     return rows;
   }
 
@@ -236,7 +262,7 @@ export function createProject({ scene }) {
       dt: .08,
       skip: o => !!o.userData.fx,
       allow: [
-        { why: '工件與夾持、承載件的接觸，只在工件確實在該位置時放行：夾頭爪頭（在 ST1／ST2 且未抬起）、翻轉指墊（在 P2 且未抬起）、移載指墊（搬運中或停在任一位置）、入料輸送（P0）、出料輸送與 NG 推板、滑道（P4）。接觸件以 userData.contact 標記', test: (a, b, ctx) => {
+        { why: '工件與夾持、承載件的接觸，只在工件確實在該位置時放行：夾頭爪頭（在 ST1／ST2 且未抬起）、翻轉指墊（在 P2 且未抬起）、移載指墊（搬運中或停在任一位置）、入料輸送與置中導引（P0）、出料與 NG 輸送、NG 推板（P4）。接觸件以 userData.contact 標記', test: (a, b, ctx) => {
           const part = [a, b].find(m => ctx.moduleOf(m) === 'part'), other = part === a ? b : a;
           if (!part || !other || !hasContact(other)) return false;
           const h = holderOf(part).userData, mod = ctx.moduleOf(other);

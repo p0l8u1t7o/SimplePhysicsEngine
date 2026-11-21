@@ -26,7 +26,7 @@
         "info": {
           "visible": 7,
           "outside": 0,
-          "overlaps": 0
+          "overlaps": 1
         }
       },
       "load": {
@@ -130,7 +130,7 @@
       "labels": {
         "ok": true,
         "info": {
-          "visible": 7,
+          "visible": 6,
           "outside": 0,
           "overlaps": 0
         }

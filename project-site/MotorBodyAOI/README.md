@@ -35,11 +35,12 @@ node ../../core/tools/check.mjs "MotorBodyAOI" --quick  # 部署前快速檢查
 | `web/js/body.js`、`body-mesh.js`、`codec.js` | 本體網格（由 STEP 產生）、12 面對照表 `FACES`、夾持帶 |
 | `web/js/optics-plan.js` | 8 台相機與光源（工件座標）、夾具角度與高度、景深公式 |
 | `web/js/coverage.js`、`raycast.js`、`coverage-data.js` | STEP 射線檢查（覆蓋、景深、解析度、入射角、遮擋）；`coverage-data.js` 由 `tools/plan.mjs` 產生 |
+| `web/js/specular.js` | 高反光加工面的鏡面反光分析（每面要整面暗場或整面亮場，不能有局部反光） |
 | `web/js/sequence.js` | 每拍動作時序、CT、甘特資料 |
 | `web/js/machine.js`、`optics-scene.js` | 機台、夾頭、翻轉、移載、分料；相機、光源、視錐與照射範圍 |
 | `tools/import-step.mjs` | STEP → `web/js/body-mesh.js`（需要 `TEMP/occt` 的 occt-import-js） |
 | `tools/plan.mjs` | 重算覆蓋並寫出 `coverage-data.js`、`review/coverage.json` |
-| `tools/verify.mjs` | 12 面對照、覆蓋重算比對、遮擋對照組、檢核、客戶縮寫整字檢查 |
+| `tools/verify.mjs` | 12 面對照、覆蓋重算比對、對照組（遮擋、反射鏡範圍、局部反光）、檢核、客戶縮寫整字檢查 |
 | `tools/gantt_png.py` | CT 甘特圖 PNG（給 docs） |
 | `AGENTS.md`／`CLAUDE.md` | 本站規則：範圍、規格摘要、已拍板事項（`CLAUDE.md` 以 `@AGENTS.md` 引用） |
 | `.claude/settings.json` | 寫檔關卡：從本資料夾啟動的 Claude Code 只能改本站 |

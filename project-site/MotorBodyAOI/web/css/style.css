@@ -100,3 +100,4 @@ select option{background:#172431}
 .occOut{font-size:11.5px;line-height:1.55;margin-top:6px;color:var(--muted)}
 .occOut .bad{color:var(--bad)}.occOut .good{color:var(--ok)}
 .toggles select{font-size:11px;padding:2px 4px;margin-left:4px}
+.faces td{white-space:nowrap}.faces td:nth-child(3){white-space:normal}

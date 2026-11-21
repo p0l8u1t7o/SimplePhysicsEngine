@@ -1,7 +1,7 @@
 // 本站自有檢查（快速檢查會跑）：
 //   1. 12 面對照：STEP 網格上各面的 Z、半徑範圍與 body.js 的對照表一致
 //   2. 取像覆蓋：用 STEP 射線重算，結果要和 web/js/coverage-data.js 的 SUMMARY 完全相同（不同代表忘了重跑 tools/plan.mjs），且 12 面覆蓋、照明都 ≥ 99%
-//   3. 對照組：把 C2-3 斜到 75°、C2-4 斜到 50°，射線檢查一定要抓到遮擋（抓不到代表遮擋檢查失效）
+//   3. 對照組：C2-4 斜到 50° 一定要被杯口凸緣擋住；C1-4 反射鏡縮小時面 8 一定要掉覆蓋（抓不到代表檢查失效）
 //   4. 面板檢核（解析度、景深、入射角、CT、伺服軸數、夾持、抬升淨空）全部通過
 //   5. 客戶名稱整字檢查：本站進版控的檔案不得出現單獨的那個英文縮寫（名單只放長字串，見根目錄規則）
 //   node core/tools/run.mjs MotorBodyAOI tools/verify.mjs
@@ -28,12 +28,29 @@ if (JSON.stringify(summary) !== JSON.stringify(SUMMARY)) failures.push('coverage
 for (const [no, f] of Object.entries(summary.faces)) if (f.coverage < 99 || f.lit < 99) failures.push(`面 ${no} 覆蓋 ${f.coverage}%、照明 ${f.lit}%（< 99%）`);
 
 // 3. 對照組：斜過頭一定要被凸緣擋住
-for (const [id, az, tilt, face] of [['C2-3', 0, 75, 8], ['C2-4', 270, 50, 11]]) {
+for (const [id, az, tilt, face] of [['C2-4', 270, 50, 11]]) {
   const cam = { ...CAMERAS.find(c => c.id === id), toCam: dirAzTilt(az, tilt), b: .3 };
   const s = computeCoverage({ cameras: [cam] }).cameras[id].faces[face];
   const blocked = s.lost['被遮擋'];
   if (!(blocked > 10)) failures.push(`對照組失效：${id} 斜到 ${tilt}° 時面 ${face} 應被杯口凸緣擋住，實際被擋 ${blocked?.toFixed(1)} mm²`);
   else notes.push(`對照組：${id} 斜到 ${tilt}° 面 ${face} 被擋 ${blocked.toFixed(0)} mm²（覆蓋 ${(s.coverage * 100).toFixed(1)}%）`);
+}
+
+// 3b. 對照組：反射鏡縮小到看不到整個壁高時，面 8 一定要掉覆蓋（否則鏡面範圍檢查失效）
+{
+  const c14 = CAMERAS.find(c => c.id === 'C1-4'), cam = { ...c14, mirror: { ...c14.mirror, halfU: 12 } };
+  const s = computeCoverage({ cameras: [cam] }).cameras['C1-4'].faces[8];
+  if (!(s.coverage < .8)) failures.push(`對照組失效：C1-4 反射鏡縮小時面 8 覆蓋仍有 ${(s.coverage * 100).toFixed(1)}%`);
+  else notes.push(`對照組：C1-4 反射鏡縮成 ±12 mm 時面 8 覆蓋 ${(s.coverage * 100).toFixed(1)}%`);
+}
+
+// 3c. 對照組：反射鏡相機改回鏡頭環形光（經鏡子照內凹壁）時，反光分析一定要抓到局部反光
+{
+  const { specularReport } = await import('../web/js/specular.js');
+  const c14 = CAMERAS.find(c => c.id === 'C1-4'), cam = { ...c14, light: { kind: 'lensRing', r: 30 } };
+  const k = specularReport({ cameras: [cam] })['C1-4'][8].kind;
+  if (k !== '局部反光') failures.push(`對照組失效：C1-4 改用鏡頭環形光時面 8 應為局部反光，實際 ${k}`);
+  else notes.push('對照組：C1-4 改用鏡頭環形光時面 8 判為局部反光');
 }
 
 // 4. 面板檢核
