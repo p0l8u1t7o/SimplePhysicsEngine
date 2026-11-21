@@ -1,0 +1,710 @@
+{
+  "faces": [
+    {
+      "no": 1,
+      "name": "法蘭側凸轂端面",
+      "group": "A",
+      "station": "ST1",
+      "cameras": [
+        "R1-1"
+      ],
+      "area": 703.31,
+      "coverage": 100,
+      "lit": 100
+    },
+    {
+      "no": 2,
+      "name": "Ø22 軸孔內壁",
+      "group": "C",
+      "station": "ST1",
+      "cameras": [
+        "R5-2"
+      ],
+      "area": 345.14,
+      "coverage": 100,
+      "lit": 100
+    },
+    {
+      "no": 3,
+      "name": "Ø80 止口外圓柱",
+      "group": "B",
+      "station": "ST1",
+      "cameras": [
+        "R4-3"
+      ],
+      "area": 1030.1,
+      "coverage": 100,
+      "lit": 100
+    },
+    {
+      "no": 4,
+      "name": "法蘭面（含 3 耳）",
+      "group": "A",
+      "station": "ST1",
+      "cameras": [
+        "R1-1"
+      ],
+      "area": 3208.37,
+      "coverage": 100,
+      "lit": 100
+    },
+    {
+      "no": 5,
+      "name": "杯口凸緣外側（3 段弧）",
+      "group": "B",
+      "station": "ST2",
+      "cameras": [
+        "R4-5"
+      ],
+      "area": 1006.11,
+      "coverage": 100,
+      "lit": 100
+    },
+    {
+      "no": 6,
+      "name": "開口端面（含 3 耳）",
+      "group": "A",
+      "station": "ST2",
+      "cameras": [
+        "R4-5"
+      ],
+      "area": 1328.05,
+      "coverage": 100,
+      "lit": 100
+    },
+    {
+      "no": 7,
+      "name": "Ø93 內壁根部窄台階",
+      "group": "E",
+      "station": "ST2",
+      "cameras": [
+        "R2-7"
+      ],
+      "area": 289.96,
+      "coverage": 100,
+      "lit": 100
+    },
+    {
+      "no": 8,
+      "name": "杯內壁下段 Ø93.0",
+      "group": "D",
+      "station": "ST1",
+      "cameras": [
+        "R3-8"
+      ],
+      "area": 8762.8,
+      "coverage": 100,
+      "lit": 100
+    },
+    {
+      "no": 9,
+      "name": "杯內壁上段 Ø93.6（含凸緣內側）",
+      "group": "D",
+      "station": "ST1",
+      "cameras": [
+        "R3-8"
+      ],
+      "area": 5163.68,
+      "coverage": 100,
+      "lit": 100
+    },
+    {
+      "no": 10,
+      "name": "杯底凸台端面",
+      "group": "E",
+      "station": "ST2",
+      "cameras": [
+        "R2-7"
+      ],
+      "area": 282.03,
+      "coverage": 100,
+      "lit": 100
+    },
+    {
+      "no": 11,
+      "name": "Ø28 凸台孔壁",
+      "group": "C",
+      "station": "ST2",
+      "cameras": [
+        "R5-11"
+      ],
+      "area": 720.67,
+      "coverage": 100,
+      "lit": 100
+    },
+    {
+      "no": 12,
+      "name": "Ø28 孔底台階環",
+      "group": "E",
+      "station": "ST2",
+      "cameras": [
+        "R2-7"
+      ],
+      "area": 171.09,
+      "coverage": 100,
+      "lit": 100
+    }
+  ],
+  "cameras": [
+    {
+      "id": "R3-8",
+      "station": "ST2",
+      "name": "反射鏡正視杯內壁",
+      "faces": [
+        8,
+        9
+      ],
+      "sensor": "1.6MP",
+      "f": 25,
+      "lens": "25 mm 定焦＋45° 反射鏡探頭",
+      "frames": 12,
+      "b": 0.2,
+      "wd": 373.9,
+      "fov": [
+        69.33,
+        52
+      ],
+      "mmpx": 0.0481,
+      "pos": [
+        -327.4,
+        0,
+        -23.5
+      ],
+      "light": "探頭條形光（杯口外、近側斜照，暗場）",
+      "lightNote": "高反光內壁：光源放在杯口外、偏離鏡面反射方向 ≥ 19°，整面暗場（鏡頭環形光經反射鏡會在內凹壁上形成 9～23% 的亮帶，已改掉）；鏡面朝下、落屑掉在鏡背；相機鏡頭朝上需保護窗＋吹氣",
+      "span": 7.84,
+      "bNeed": 0.071,
+      "bDesign": 0.096,
+      "Ndesign": 5.1,
+      "dofDesign": 14.62,
+      "perFace": {
+        "8": {
+          "area": 8762.8,
+          "coverage": 100,
+          "overlap": 100,
+          "lit": 100,
+          "depth": 6.77,
+          "mmpx": [
+            0.0481,
+            0.0532
+          ],
+          "view": [
+            1,
+            27
+          ],
+          "inc": [
+            66,
+            79
+          ],
+          "lost": {},
+          "glare": "暗場",
+          "glareMean": 0,
+          "glare8": "暗場",
+          "groove": "刀紋不亮",
+          "grooveMax": 0,
+          "groove20": "刀紋不亮",
+          "groove20Max": 0
+        },
+        "9": {
+          "area": 5163.68,
+          "coverage": 100,
+          "overlap": 100,
+          "lit": 100,
+          "depth": 7.84,
+          "mmpx": [
+            0.0482,
+            0.0545
+          ],
+          "view": [
+            2,
+            30
+          ],
+          "inc": [
+            56,
+            71
+          ],
+          "lost": {},
+          "glare": "暗場",
+          "glareMean": 0,
+          "glare8": "暗場",
+          "groove": "刀紋不亮",
+          "grooveMax": 0,
+          "groove20": "刀紋不亮",
+          "groove20Max": 2.2
+        }
+      }
+    },
+    {
+      "id": "R2-7",
+      "station": "ST2",
+      "name": "同軸杯底",
+      "faces": [
+        7,
+        10,
+        12
+      ],
+      "sensor": "5MP",
+      "f": 25,
+      "lens": "25 mm 定焦＋同軸光",
+      "frames": 0,
+      "b": 0.1,
+      "wd": 371.75,
+      "fov": [
+        117.14,
+        98
+      ],
+      "mmpx": 0.0479,
+      "pos": [
+        0,
+        0,
+        316.75
+      ],
+      "light": "同軸光（出光口 Ø50）",
+      "lightNote": "面 10、12 均勻亮場（砂孔是暗點）；面 7 在視野外緣、落在暗場（出光口 Ø100 時面 7 剛好卡在亮暗交界，反光散開 4～8° 就會翻轉，已縮小）；2026-11-21 起兼拍面 7（原由 C2-3 斜視）",
+      "span": 13.5,
+      "bNeed": 0.093,
+      "bDesign": 0.1,
+      "Ndesign": 5.3,
+      "dofDesign": 15.76,
+      "perFace": {
+        "7": {
+          "area": 289.96,
+          "coverage": 100,
+          "overlap": 0,
+          "lit": 100,
+          "depth": 0,
+          "mmpx": [
+            0.0474,
+            0.0474
+          ],
+          "view": [
+            7,
+            7
+          ],
+          "inc": [
+            7,
+            7
+          ],
+          "lost": {},
+          "glare": "暗場",
+          "glareMean": 0,
+          "glare8": "暗場",
+          "groove": "刀紋整面亮",
+          "grooveMax": 100,
+          "groove20": "刀紋整面亮",
+          "groove20Max": 100
+        },
+        "10": {
+          "area": 282.03,
+          "coverage": 100,
+          "overlap": 0,
+          "lit": 100,
+          "depth": 0,
+          "mmpx": [
+            0.0477,
+            0.0477
+          ],
+          "view": [
+            2,
+            2
+          ],
+          "inc": [
+            2,
+            2
+          ],
+          "lost": {},
+          "glare": "均勻亮場",
+          "glareMean": 100,
+          "glare8": "均勻亮場",
+          "groove": "刀紋整面亮",
+          "grooveMax": 100,
+          "groove20": "刀紋整面亮",
+          "groove20Max": 100
+        },
+        "12": {
+          "area": 171.09,
+          "coverage": 100,
+          "overlap": 0,
+          "lit": 100,
+          "depth": 0,
+          "mmpx": [
+            0.0488,
+            0.0488
+          ],
+          "view": [
+            2,
+            2
+          ],
+          "inc": [
+            2,
+            2
+          ],
+          "lost": {},
+          "glare": "均勻亮場",
+          "glareMean": 100,
+          "glare8": "均勻亮場",
+          "groove": "刀紋整面亮",
+          "grooveMax": 100,
+          "groove20": "刀紋整面亮",
+          "groove20Max": 100
+        }
+      }
+    },
+    {
+      "id": "R5-11",
+      "station": "ST2",
+      "name": "斜視 Ø28 孔壁",
+      "faces": [
+        11
+      ],
+      "sensor": "1.6MP",
+      "f": 50,
+      "lens": "50 mm 定焦＋鏡頭環形光",
+      "frames": 12,
+      "b": 0.2,
+      "wd": 291.55,
+      "fov": [
+        24,
+        18
+      ],
+      "mmpx": 0.0167,
+      "pos": [
+        0,
+        -173.4,
+        165.44
+      ],
+      "light": "鏡頭環形光",
+      "lightNote": "視線受杯口凸緣限制 ≤ 43.7°，取 40°",
+      "span": 6.12,
+      "bNeed": 0.062,
+      "bDesign": 0.081,
+      "Ndesign": 11,
+      "dofDesign": 10.35,
+      "perFace": {
+        "11": {
+          "area": 720.67,
+          "coverage": 100,
+          "overlap": 100,
+          "lit": 100,
+          "depth": 6.12,
+          "mmpx": [
+            0.0258,
+            0.0463
+          ],
+          "view": [
+            50,
+            69
+          ],
+          "inc": [
+            44,
+            64
+          ],
+          "lost": {},
+          "glare": "暗場",
+          "glareMean": 0,
+          "glare8": "暗場",
+          "groove": "刀紋不亮",
+          "grooveMax": 0,
+          "groove20": "刀紋不亮",
+          "groove20Max": 0
+        }
+      }
+    },
+    {
+      "id": "R4-5",
+      "station": "ST2",
+      "name": "斜視凸緣外側＋開口端面",
+      "faces": [
+        5,
+        6
+      ],
+      "sensor": "5MP",
+      "f": 35,
+      "lens": "35 mm 定焦＋鏡頭環形光＋條形光 3 支",
+      "frames": 12,
+      "b": 0.2,
+      "wd": 233.14,
+      "fov": [
+        47.81,
+        40
+      ],
+      "mmpx": 0.0195,
+      "pos": [
+        -217.86,
+        0,
+        162.86
+      ],
+      "light": "光度立體 3 方向：左右條形光＋鏡頭環形光",
+      "lightNote": "2026-11-21 由原 C2-2（頂視面 6）與 C2-5（側視面 5）合併；45° 斜視同時看凸緣外側與開口端面，ST2 上方只剩同軸 C2-1",
+      "span": 12.51,
+      "bNeed": 0.089,
+      "bDesign": 0.116,
+      "Ndesign": 13.7,
+      "dofDesign": 21.15,
+      "perFace": {
+        "5": {
+          "area": 1006.11,
+          "coverage": 100,
+          "overlap": 100,
+          "lit": 100,
+          "depth": 6,
+          "mmpx": [
+            0.0274,
+            0.0354
+          ],
+          "view": [
+            44,
+            55
+          ],
+          "inc": [
+            32,
+            43
+          ],
+          "lost": {},
+          "glare": "暗場",
+          "glareMean": 0,
+          "glare8": "暗場",
+          "groove": "刀紋不亮",
+          "grooveMax": 0,
+          "groove20": "刀紋不亮",
+          "groove20Max": 0
+        },
+        "6": {
+          "area": 1328.05,
+          "coverage": 100,
+          "overlap": 93.3,
+          "lit": 100,
+          "depth": 12.51,
+          "mmpx": [
+            0.0266,
+            0.0297
+          ],
+          "view": [
+            44,
+            47
+          ],
+          "inc": [
+            23,
+            35
+          ],
+          "lost": {},
+          "glare": "暗場",
+          "glareMean": 0,
+          "glare8": "暗場",
+          "groove": "刀紋不亮",
+          "grooveMax": 0,
+          "groove20": "刀紋不亮",
+          "groove20Max": 3.6
+        }
+      }
+    },
+    {
+      "id": "R1-1",
+      "station": "ST1",
+      "name": "頂視法蘭側",
+      "faces": [
+        1,
+        4
+      ],
+      "sensor": "5MP",
+      "f": 16,
+      "lens": "16 mm 定焦",
+      "frames": 12,
+      "b": 0.2,
+      "wd": 265.09,
+      "fov": [
+        131.48,
+        110
+      ],
+      "mmpx": 0.0537,
+      "pos": [
+        0,
+        0,
+        -330.39
+      ],
+      "light": "扇區切向條形光 ×2（沿刀紋，主影像）＋分區環形光 4 區（橫越刀紋）",
+      "lightNote": "條形光與環形光都在法蘭面上方 101 mm（讓出移載抬升 75 mm 的空間）",
+      "span": 3.7,
+      "bNeed": 0.048,
+      "bDesign": 0.107,
+      "Ndesign": 5.1,
+      "dofDesign": 18.19,
+      "perFace": {
+        "1": {
+          "area": 703.31,
+          "coverage": 100,
+          "overlap": 100,
+          "lit": 100,
+          "depth": 0,
+          "mmpx": [
+            0.0534,
+            0.0534
+          ],
+          "view": [
+            3,
+            4
+          ],
+          "inc": [
+            26,
+            35
+          ],
+          "lost": {},
+          "glare": "暗場",
+          "glareMean": 0,
+          "glare8": "暗場",
+          "groove": "刀紋不亮",
+          "grooveMax": 0,
+          "groove20": "刀紋不亮",
+          "groove20Max": 0
+        },
+        "4": {
+          "area": 3208.37,
+          "coverage": 100,
+          "overlap": 100,
+          "lit": 100,
+          "depth": 0,
+          "mmpx": [
+            0.0548,
+            0.0554
+          ],
+          "view": [
+            9,
+            13
+          ],
+          "inc": [
+            5,
+            43
+          ],
+          "lost": {},
+          "glare": "暗場",
+          "glareMean": 0,
+          "glare8": "暗場",
+          "groove": "刀紋不亮",
+          "grooveMax": 0,
+          "groove20": "刀紋不亮",
+          "groove20Max": 0
+        }
+      }
+    },
+    {
+      "id": "R4-3",
+      "station": "ST1",
+      "name": "側視止口",
+      "faces": [
+        3
+      ],
+      "sensor": "5MP",
+      "f": 35,
+      "lens": "35 mm 定焦＋鏡頭環形光＋條形光 3 支",
+      "frames": 12,
+      "b": 0.2,
+      "wd": 233.14,
+      "fov": [
+        47.81,
+        40
+      ],
+      "mmpx": 0.0195,
+      "pos": [
+        265.2,
+        0,
+        -126.34
+      ],
+      "light": "條形光（相機上方 90 mm）",
+      "lightNote": "從上方（軸向）打；抬到 90 mm 讓刀紋斜面的散射（±40°）照不到相機",
+      "span": 7.98,
+      "bNeed": 0.071,
+      "bDesign": 0.093,
+      "Ndesign": 10.9,
+      "dofDesign": 13.49,
+      "perFace": {
+        "3": {
+          "area": 1030.1,
+          "coverage": 100,
+          "overlap": 100,
+          "lit": 100,
+          "depth": 7.98,
+          "mmpx": [
+            0.0202,
+            0.0287
+          ],
+          "view": [
+            15,
+            45
+          ],
+          "inc": [
+            45,
+            52
+          ],
+          "lost": {},
+          "glare": "暗場",
+          "glareMean": 0,
+          "glare8": "暗場",
+          "groove": "刀紋不亮",
+          "grooveMax": 0,
+          "groove20": "刀紋不亮",
+          "groove20Max": 0
+        }
+      }
+    },
+    {
+      "id": "R5-2",
+      "station": "ST1",
+      "name": "斜視 Ø22 軸孔",
+      "faces": [
+        2
+      ],
+      "sensor": "1.6MP",
+      "f": 50,
+      "lens": "50 mm 定焦＋鏡頭環形光",
+      "frames": 12,
+      "b": 0.2,
+      "wd": 291.55,
+      "fov": [
+        24,
+        18
+      ],
+      "mmpx": 0.0167,
+      "pos": [
+        0,
+        176.4,
+        -287.84
+      ],
+      "light": "鏡頭環形光（同軸方向）",
+      "lightNote": "照在對側孔壁，入射角≈視角 45°",
+      "span": 4.97,
+      "bNeed": 0.056,
+      "bDesign": 0.073,
+      "Ndesign": 9.9,
+      "dofDesign": 8.39,
+      "perFace": {
+        "2": {
+          "area": 345.14,
+          "coverage": 100,
+          "overlap": 100,
+          "lit": 100,
+          "depth": 4.97,
+          "mmpx": [
+            0.0258,
+            0.0481
+          ],
+          "view": [
+            50,
+            70
+          ],
+          "inc": [
+            44,
+            64
+          ],
+          "lost": {},
+          "glare": "暗場",
+          "glareMean": 0,
+          "glare8": "暗場",
+          "groove": "刀紋不亮",
+          "grooveMax": 0,
+          "groove20": "刀紋不亮",
+          "groove20Max": 0
+        }
+      }
+    }
+  ]
+}

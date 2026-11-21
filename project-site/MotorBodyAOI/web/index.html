@@ -25,6 +25,7 @@
       <div class="title">馬達本體 AOI 檢測機</div>
       <div class="sub">杯形鑄鋁本體 12 面外觀檢測：固定相機＋工件旋轉取像、翻轉 180°、OK／NG 分料（配置與時間為規劃示意）</div>
     </div>
+    <div class="plans" role="group" aria-label="方案"><button data-plan="fixed">固定光學</button><button data-plan="arm">手臂持件</button></div>
     <nav id="stations" aria-label="站別"></nav>
     <div class="views">
       <button data-view="iso">全景</button>
@@ -43,10 +44,24 @@
       <div id="substep" class="substep"></div>
     </section>
     <section class="card">
+      <h3>取像畫面（每一張） <span class="hint">模擬畫面＋缺陷框，亮度依配方</span></h3>
+      <div id="shots" class="shots"></div>
+    </section>
+    <section class="card">
+      <h3>影像佇列與判定 <span class="hint" id="queueHint"></span></h3>
+      <div class="qnote">拍完不等演算法：影像進緩存佇列，GPU 依序判定；工件移動（搬運、翻轉、往出料）時判完，提前就緒就不用等。</div>
+      <div id="queue" class="queue"></div>
+    </section>
+    <section class="card">
       <h3>節拍與甘特圖 <span class="hint" id="ctHint"></span></h3>
       <div id="ctStats" class="stats"></div>
       <div id="gantt" class="gantt"></div>
       <details class="fold"><summary>動作時序表（一拍）</summary><table id="seqTable" class="tbl"></table></details>
+    </section>
+    <section class="card" id="recipeCard">
+      <h3>拍攝位置 × 控光配方 <span class="hint">每張各自設亮度（序列式頻閃控制器）</span></h3>
+      <table id="recipe" class="tbl recipe"></table>
+      <div class="qnote">飛拍觸發：RC8A 在 J6 進入等速段時送出「段開始＋段編號」，外部觸發器依時間（30° ÷ 角速度）連續觸發相機與光源；RC8A 有沒有硬體位置比較輸出待原廠確認（06 D10）。</div>
     </section>
     <section class="card">
       <h3>12 面取像配置 <span class="hint">點一列看該面與相機</span></h3>
@@ -63,7 +78,7 @@
       </div>
       <div class="row">相機視窗 <select id="camSel" aria-label="相機視窗"></select></div>
     </section>
-    <section class="card">
+    <section class="card" id="occCard">
       <h3>視線遮擋試算 <span class="hint">用 STEP 射線即時重算</span></h3>
       <div class="row"><select id="occCam" aria-label="試算相機"><option value="C2-4">C2-4 斜視凸台孔壁（面 11）</option><option value="C2-2">C2-2 斜視外側（面 5、6）</option></select></div>
       <div class="row"><input id="occTilt" type="range" min="25" max="80" step="1" aria-label="傾角"><span id="occVal"></span></div>

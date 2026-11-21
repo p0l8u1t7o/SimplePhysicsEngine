@@ -102,14 +102,14 @@ export function checkFaceGeometry() {
 }
 
 // 覆蓋計算＋整理成報告（數字四捨五入）；summary 是網頁與檢查用的精簡版
-export function coverageReport() {
-  const cov = computeCoverage(), ft = faceTriangles();
+export function coverageReport({ cameras: CAMS = CAMERAS } = {}) {
+  const cov = computeCoverage({ cameras: CAMS }), ft = faceTriangles();
   // 高反光加工面：反光分類（散開 4° 為設計值、8° 檢查餘裕）
-  const spec4 = specularReport({ spread: 4 }), spec8 = specularReport({ spread: 8 });
+  const spec4 = specularReport({ cameras: CAMS, spread: 4 }), spec8 = specularReport({ cameras: CAMS, spread: 8 });
   // 加工刀紋：刀紋斜面傾角 γ 12°（設計值）、20°（餘裕）
-  const gr12 = grooveReport({ groove: { gamma: 12, step: 2, narrow: 3 } }), gr20 = grooveReport({ groove: { gamma: 20, step: 2, narrow: 3 } });
+  const gr12 = grooveReport({ cameras: CAMS, groove: { gamma: 12, step: 2, narrow: 3 } }), gr20 = grooveReport({ cameras: CAMS, groove: { gamma: 20, step: 2, narrow: 3 } });
   const r2 = v => Math.round(v * 100) / 100, r3 = v => Math.round(v * 1000) / 1000, r4 = v => Math.round(v * 1e4) / 1e4, pct = v => Math.round(v * 1000) / 10;
-  const cameras = CAMERAS.map(c => {
+  const cameras = CAMS.map(c => {
     const dv = derive(c), fs = Object.values(cov.cameras[c.id].faces);
     // 整台相機要涵蓋的深度（各面合併）→ 需要的模糊 b → 設計 b（不小於 2 px、不大於上限）→ 工作光圈與景深
     const span = Math.max(0, Math.max(...fs.map(s => s.zSpan[1])) - Math.min(...fs.map(s => s.zSpan[0])));

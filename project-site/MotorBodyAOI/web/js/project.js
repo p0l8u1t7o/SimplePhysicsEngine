@@ -13,6 +13,10 @@ import { buildOptics, buildIndicators, CAMERA_COLOR } from './optics-scene.js';
 import { SUMMARY, FOOTPRINT } from './coverage-data.js';
 import { bodyData } from './body.js';
 import { decode } from './codec.js';
+import { createArmProject } from './arm-project.js';
+import { DEMO, isNg, defectMesh, makeSeer } from './defects.js';
+import { simulateQueue, partVerdicts, PROC_MS } from './inspect-queue.js';
+import { stopPeriod } from './sequence.js';
 
 export const STATIONS = POS_NAMES;
 export const N_CYCLES = 7, N_PARTS = 8, NG_PARTS = [2];       // 第 3 顆（編號 2）示範 NG 分料
@@ -22,7 +26,9 @@ export const INTRO = INTAKE.convey + INTAKE.read;               // 第 1 顆入�
 export const cycleStart = c => INTRO + c * CT;
 const GROUP_COLOR = { A: 0x4dabf7, B: 0x9775fa, C: 0xf06595, D: 0xffa94d, E: 0x69db7c };
 
-export function createProject({ scene }) {
+// plan：'fixed'（預設，固定光學＋步進移載）或 'arm'（手臂持件方案 R5，2026-11-22 評估）
+export function createProject({ scene, plan = 'fixed' } = {}) {
+  if (plan === 'arm') return createArmProject({ scene });
   floor(scene, { size: [5200, 3600], cell: 200 });
   buildFrame(scene);
   const conv = buildConveyors(scene), sorter = buildSorter(scene, conv.outTop);
@@ -33,7 +39,9 @@ export function createProject({ scene }) {
   // ---------------------------------------------------------------- 工件（共用一份網格）
   const geo = bodyGeometry(), mat = std(0xc9cfd4, .42, .55);
   const parts = Array.from({ length: N_PARTS }, (_, k) => {
-    const p = createPartInstance(geo, mat, 'part'); scene.add(p.holder); p.k = k; return p;
+    const p = createPartInstance(geo, mat, 'part'); scene.add(p.holder); p.k = k;
+    p.defects = (DEMO.fixed[k] || []).map(d => { const m = defectMesh(d); p.mesh.add(m); return m; });   // 示範缺陷（NG 件）
+    return p;
   });
   // 站上工件的疊加層（效果）：檢測面上色、取像足跡；姿態跟著站上的工件
   const overlay = st => {
@@ -127,6 +135,38 @@ export function createProject({ scene }) {
     tx.hold(T0 + CT);
   }
   const total = cycleStart(N_CYCLES);
+
+  // ---------------------------------------------------------------- 每一張與影像佇列（取像不等演算法：影像進佇列，GPU 依序判定；結果在工件到分料位前就緒）
+  const seer = makeSeer(FOOTPRINT), shots = [];
+  const camCh = cam => cam.light.type;
+  const push = (camId, t, k, part, ch) => {
+    const cam = CAMERAS.find(c => c.id === camId), hit = (DEMO.fixed[part] || []).filter(d => cam.faces.includes(d.face) && seer(camId, d, k));
+    shots.push({ seg: cam.station, cam: camId, rig: camId, k, t, part, ch, bright: 100, pulse: 100, exp: 120, faces: cam.faces, defects: hit, cost: PROC_MS[cam.sensor] / 1000, ng: hit.some(isNg) });
+  };
+  for (let c = 0; c < N_CYCLES; c++) {
+    const W = cycleStart(c) + XFER_TIME;
+    if (c < N_PARTS) {
+      for (let i = 0; i < 5; i++) push('C1-1', W + i * .03, -1, c, i < 4 ? `分區環形光第 ${i + 1} 區` : '亮場');
+      for (let j = 0; j < 12; j++) {
+        const t = W + SHOTS.ST1.static + j * stopPeriod('ST1');
+        push('C1-1', t, j, c, '扇區切向條形光');
+        for (const id of ['C1-2', 'C1-3', 'C1-4']) push(id, t + .03, j, c, camCh(CAMERAS.find(x => x.id === id)));
+      }
+    }
+    const k2 = c - 2;
+    if (k2 >= 0 && k2 < N_PARTS) {
+      for (let i = 0; i < 2; i++) push('C2-1', W + i * .03, -1, k2, i ? '同軸光（暗場、提亮）' : '同軸光（亮場）');
+      for (let j = 0; j < 12; j++) {
+        const t = W + SHOTS.ST2.static + j * stopPeriod('ST2');
+        ['左條形光', '右條形光', '鏡頭環形光', '亮場'].forEach((ch, i) => push('C2-2', t + i * .015, j, k2, ch));
+        push('C2-4', t + .06, j, k2, '鏡頭環形光');
+      }
+    }
+  }
+  shots.sort((a, b) => a.t - b.t);
+  const images = simulateQueue(shots.map(s => ({ ...s, defect: s.defects.length > 0 })));
+  const needAt = k => cycleStart(k + 3) + XFER_TIME;          // 到分料位（兩拍後）才要結果
+  const queue = { images, verdicts: partVerdicts(images, needAt), needAt, decideLabel: '工件到分料位（ST2 之後一拍）' };
 
   // ---------------------------------------------------------------- 工件在時間 T 的位置
   const tmp = new THREE.Vector3();
@@ -260,7 +300,8 @@ export function createProject({ scene }) {
   }
 
   return {
-    total, timeline: tl, apply, stationStart, parts, optics, footMeshes, faceOverlay, overlay: ov, cycleTime: CT,
+    plan: 'fixed', total, timeline: tl, apply, stationStart, parts, optics, footMeshes, faceOverlay, overlay: ov, cycleTime: CT,
+    shots, queue, NG_SET: new Set(NG_PARTS), viewCamOf: id => optics.cams[id].viewCam,
     layoutChecks,
     verify: {
       dt: .08,

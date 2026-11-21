@@ -1,12 +1,13 @@
 {
   "title": "馬達本體 AOI 檢測機",
-  "summary": "杯形鑄鋁本體 12 面外觀檢測：固定相機 8 台＋工件旋轉 12 停取像、翻轉 180°、步進移載、OK／NG 分料；STEP 射線檢查覆蓋、景深、遮擋，CT 5.75 s",
+  "summary": "杯形鑄鋁本體 12 面外觀檢測：固定相機 8 台＋工件旋轉取像、翻轉 180°、步進移載、OK／NG 分料，CT 6.0 s；另有手臂持件方案（DENSO 六軸、飛拍、逐張控光，CT 13.3 s）可切換比較",
   "order": 50,
   "coreVersion": "1.22.0",
   "strict": true,
   "checks": {
     "quick": [
-      "tools/verify.mjs"
+      "tools/verify.mjs",
+      "tools/verify-arm.mjs"
     ],
     "full": []
   }

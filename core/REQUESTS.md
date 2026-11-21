@@ -16,6 +16,12 @@
 
 ## 待處理
 
+### variants 的 bom 檢查：方案比較型情境各自的成本表（或略過）
+- 提出：MotorBodyAOI（2026-11-22）
+- 暫代：手臂持件方案沒有放進 `project.json` 的 `variants`（core 的 bom 檢查會拿站的同一份成本表比對，strict 站必定不通過）；改由站內 `tools/verify-arm.mjs` 直接呼叫 `verifyScene`、`verifyDeterminism`，並把方案寫成 `createProject({ plan: 'arm' })`、網頁 `?plan=arm`
+- 期望介面：`project.json` 的 `variants[].bom` 可給 `false`（不比，寫原因）或另一份成本表的站內路徑；`scene-dump`、`shots` 也能指定 variant 的網址參數
+- 影響：有多方案評估的站（TeflonWelding 的 A2／B／C、ParkingEMS 的三種場型、StatorHeightMeasurement 的四種量測方案）
+
 ### 同軸光源、低角度環形光（暗場）的共用模型
 - 提出：WaferInspection（2026-11-14）
 - 暫代：`project-site/WaferInspection/web/js/machine.js` 的 `coaxial light`（鏡頭側光源盒＋發光面）與 `darkfield ring light`（環形外殼＋內緣發光環＋夾環與吊桿）

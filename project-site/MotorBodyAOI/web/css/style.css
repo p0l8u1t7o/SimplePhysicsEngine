@@ -101,3 +101,32 @@ select option{background:#172431}
 .occOut .bad{color:var(--bad)}.occOut .good{color:var(--ok)}
 .toggles select{font-size:11px;padding:2px 4px;margin-left:4px}
 .faces td{white-space:nowrap}.faces td:nth-child(3){white-space:normal}
+
+/* ---- 方案切換、取像畫面、影像佇列、控光配方 */
+.plans{display:flex;gap:4px;flex:none}
+.plans button{background:transparent;border-color:var(--line);color:var(--muted);font-size:12px}
+.plans button.on{color:#ffe08a;border-color:#8a7a3a;background:#3a3420}
+.shots .shotBig{position:relative}
+.shots .shotBig canvas:first-child{width:100%;display:block;border-radius:6px;background:#0b1016}
+.shots .zoom{position:absolute;right:6px;top:6px;width:110px;height:110px;border-radius:4px;box-shadow:0 0 0 1px #0008}
+.shots .cap{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.35}
+.shots .cap.ng{color:var(--bad)}
+.shotStrip{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:6px}
+.shotStrip .tile canvas{width:100%;display:block;border-radius:4px;border:1px solid transparent}
+.shotStrip .tile.ng canvas{border-color:var(--bad)}
+.shotStrip .tile .cap{font-size:10px;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qnote{font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:6px}
+.queue canvas{width:100%;display:block;border-radius:6px}
+.qparts{display:flex;flex-direction:column;gap:4px;margin-top:6px;font-size:11.5px}
+.qp{background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:6px;padding:4px 7px;line-height:1.45}
+.qp span{float:right;font-weight:600}
+.qp.ok span{color:var(--ok)}.qp.ng span{color:var(--bad)}
+.qp small{color:var(--muted)}
+.recipe tr.on td{background:rgba(242,194,48,.18)}
+.recipe td.bad{color:var(--bad)}
+.recipe td:nth-child(4){white-space:normal}
+.checks .info{color:var(--warn)}
+.gantt .bar.decide{background:#ff6b6b}
+.label3d.verdict{font-size:12px;border-color:#6d7f8c}
+.label3d.verdict.ok{border-color:var(--ok);color:#c8f7dc}
+.label3d.verdict.ng{border-color:var(--bad);color:#ffd0d0;background:#3a1418e8}
