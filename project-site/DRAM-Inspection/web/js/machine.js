@@ -13,7 +13,7 @@ import { signalTower, hmi, estop } from '@core/models/indicators.js';
 import { boxSensor } from '@core/models/sensors.js';
 import { ionizer } from '@core/models/equipment.js';
 import { tagPart } from '@core/models/parts.js';
-import { CARRIER, PCB, TRAY, MOD, SOC, INT, STACK, SCREW, createTray } from './parts.js';
+import { CARRIER, PCB, TRAY, MOD, SOC, INT, STACK, SCREW } from './parts.js';
 import { REF } from './refs.js';
 
 // ---------------------------------------------------------------- 配置
@@ -24,12 +24,12 @@ export const LAY = {
   work: 0,                                     // 組裝位：載台中心 X
   robot: { x: 0, z: 400, y: 840 },             // SCARA 底座底面中心
   lane: { I: -560, S: 560 },                   // Tray 抽屜中心 X（西：interposer、東：SOCAMM）
-  tray: { pick: 420, scan: 645, load: 740 },   // Tray 中心 Z：取料位、上面檢查橋、裝盤位（前門）
+  tray: { pick: 420, scan: 595, load: 740, out: 540 },   // Tray 中心 Z：取料位、上面檢查橋、料倉位（升降料倉）、叉板退出料倉的位置
   trayBottom: 900,
   st: {                                        // SCARA 周邊的上視站（X, Z）
     // SCARA 半徑 ≥ 330 mm（J2 ≤ 120°，避開基座柱干涉區）、Z ≥ 210（輸送前軌在 170）
     prof: [-345, 215], camI: [-350, 300], blow: [370, 215], camS: [350, 300], wipe: [230, 700], dry: [190, 815],
-    ngI: [-230, 690], ngS: [310, 560],
+    ngI: [-330, 455], ngS: [310, 560],
   },
   locker: { z: -300, beamY: 1000, park: -530 },  // 鎖附 X 軸（背側）、待機位
 };
@@ -111,10 +111,10 @@ export function buildIndicators(scene) {
 export function buildConveyor(scene) {
   const g = group(scene, 'conveyor'), C = LAY.conv;
   const conv = edgeBeltConveyor.create({ length: C.len, width: C.width, top: C.top, legs: false, cross: false, drive: { pos: [540, C.top - 95, -C.width / 2 - 70] },
-    pulleys: {}, lip: {}, marks: {}, adjust: { x: [-500, 500] } });
+    pulleys: {}, lip: {}, marks: {}, adjust: { x: [-150, 150] } });
   g.add(conv.root); tagPart(conv, REF.conveyor);
   // 台面上的支撐座（取代落地支腳）
-  for (const x of [-620, -250, 250, 620]) for (const s of [-1, 1]) block(g, [40, C.top - 38 - LAY.table, 40], [x, (C.top - 38 + LAY.table) / 2, s * (C.width / 2 + 10)], MAT.frame);
+  for (const x of [-670, -250, 250, 670]) for (const s of [-1, 1]) block(g, [40, C.top - 38 - LAY.table, 40], [x, (C.top - 38 + LAY.table) / 2, s * (C.width / 2 + 10)], MAT.frame);
   // 止擋（組裝位東端）
   const stop = stopper.create({ stroke: 14 }); stop.root.position.set(LAY.work + CARRIER.w / 2 + 6, C.top, 0); g.add(stop.root); tagPart(stop, REF.stopper);
   // 定位單元：氣缸＋頂升板（隨活塞桿）＋2 支定位銷（對角）＋PEEK 支撐條；載台上推 0.9 mm 靠上壓邊（夾持），不從側邊推
@@ -142,31 +142,55 @@ export function buildConveyor(scene) {
 
 // ---------------------------------------------------------------- Tray 抽屜（伺服滑台沿 Z）＋上面檢查橋
 // 上面檢查：interposer 道＝下視 3D 線雷射（頂面 PIN 尖端與平整度）＋2D 相機（鍍金接點外觀）；SOCAMM 道＝2D 相機＋雙側條形光（正面外觀）
+// Tray 交換：前端是升降料倉（3 層層架隨伺服升降），抽屜的叉板從後方伸入層架之間；
+// 空盤送回空層後料倉上升把盤托離叉板，叉板退出、料倉下降一層讓下一個滿盤對準叉板，再下降把滿盤放在叉板上拉出。
+export const MAG = { pitch: 40, levels: 3, lift: 3 };     // 層距、層數、托離叉板的高度
+export const magRail = (lvl, e) => LAY.trayBottom + lvl * MAG.pitch + e;   // 第 lvl 層層架頂面（e：料倉升降量）
 export function buildTrayLane(scene, key) {
-  const g = group(scene, key === 'I' ? 'tray-interposer' : 'tray-socamm'), x = LAY.lane[key], T = LAY.tray;
-  const axis = linearAxis.create({ axis: 'z', length: 520, width: 110, height: 40, carL: 160, carH: 30 });
-  const ax0 = (T.pick + T.load) / 2 - 20;
+  const g = group(scene, key === 'I' ? 'tray-interposer' : 'tray-socamm'), x = LAY.lane[key], T = LAY.tray, so = Math.sign(x);
+  const back = 160;                                                                          // 叉板支柱在 Tray 中心後方 160 mm（滑座不進入料倉下方）
+  const ax0 = (T.pick + T.load) / 2 - back;
+  const axis = linearAxis.create({ axis: 'z', length: 520, width: 110, height: 40, carL: 120, carH: 30 });
   axis.root.position.set(x, LAY.table + 30, ax0); g.add(axis.root); tagPart(axis, REF.trayAxis);
   block(g, [150, 30, 560], [x, LAY.table + 15, ax0], MAT.steelDark);                                         // 底座
-  // 抽屜台（隨滑座）：載盤板、靠邊塊、真空吸附口
-  const nest = group(axis.carriage, 'tray-nest'); Object.assign(nest.userData, { cableHost: false });
-  const carTop = 40 + 4 + 30, nestH = LAY.trayBottom - (LAY.table + 30) - carTop;
-  block(nest, [60, nestH - 6, 60], [0, carTop + (nestH - 6) / 2, 0], MAT.alu);
-  block(nest, [TRAY.w + 20, 6, TRAY.d + 20], [0, carTop + nestH - 3, 0], MAT.alu);
-  for (const s of [-1, 1]) block(nest, [6, 10, 40], [s * (TRAY.w / 2 + 4), carTop + nestH + 5, -TRAY.d / 2 + 30], MAT.steelBlue);
-  block(nest, [40, 10, 6], [0, carTop + nestH + 5, -TRAY.d / 2 - 4], MAT.steelBlue);
-  const tray = createTray(key === 'I' ? 'tray-I' : 'tray-S', key === 'I' ? 'INTERPOSER TRAY' : 'SOCAMM TRAY');
-  tray.position.set(0, carTop + nestH + .05, 0); nest.add(tray);
-  const chain = dragChain(g, key + ' tray drag chain', { origin: [x + Math.sign(x) * 100, LAY.table + 16, ax0], axis: [0, 0, 1], rise: [0, 1, 0], fixed: -150, min: -160, max: 200, radius: 30, width: 26, pitch: 14 });
+  // 叉板（隨滑座）：支柱＋舌板（從後方伸入料倉層架之間，Tray 坐在舌板上），靠邊塊、真空吸附口
+  const nest = group(axis.carriage, 'tray-fork'); Object.assign(nest.userData, { cableHost: false });
+  const carTop = 40 + 4 + 30, forkTop = LAY.trayBottom - (LAY.table + 30);                  // 滑座本地 Y
+  block(nest, [50, forkTop - 4 - carTop, 50], [0, carTop + (forkTop - 4 - carTop) / 2, 0], MAT.alu);
+  const f0 = -25, f1 = back + TRAY.d / 2 + 4;                                             // 舌板範圍（滑座本地 Z）
+  block(nest, [100, 4, f1 - f0], [0, forkTop - 2, (f0 + f1) / 2], MAT.alu);
+  block(nest, [40, 10, 6], [0, forkTop + 5, back - TRAY.d / 2 - 5], MAT.steelBlue);                 // 後靠塊
+  const chain = dragChain(g, key + ' tray drag chain', { origin: [x + so * 100, LAY.table + 16, ax0], axis: [0, 0, 1], rise: [0, 1, 0], fixed: -150, min: -180, max: 180, radius: 30, width: 26, pitch: 14 });
+  // 升降料倉：固定框（4 柱＋頂框）＋升降層架（伺服直立滑台帶動）
+  const mz = T.load, px = TRAY.w / 2 + 22, pz = TRAY.d / 2 + 12, mTop = LAY.trayBottom + MAG.levels * MAG.pitch + 70;
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) block(g, [16, mTop - LAY.table, 16], [x + sx * px, (mTop + LAY.table) / 2, mz + sz * pz], MAT.frame);
+  for (const sz of [-1, 1]) block(g, [2 * px + 16, 16, 16], [x, mTop + 8, mz + sz * pz], MAT.frame);
+  for (const sx of [-1, 1]) block(g, [16, 16, 2 * pz - 16], [x + sx * px, mTop + 8, mz], MAT.frame);
+  block(g, [2 * px - 16, 3, 2 * pz - 16], [x, mTop + 14.5, mz], glassMat);                                   // 防塵頂蓋
+  const lift = linearAxis.create({ axis: 'y', length: 300, width: 50, height: 24, carL: 60, carH: 20 });
+  lift.root.position.set(x + so * (px + 50), LAY.table + 160, mz); lift.root.rotation.y = -so * Math.PI / 2; g.add(lift.root); tagPart(lift, REF.trayAxis);
+  block(g, [30, 160, 60], [x + so * (px + 50 + 15), LAY.table + 80, mz], MAT.steelDark);                      // 伺服馬達＋減速機（示意）
+  // 層架（隨升降）：直接放在 lane 群組，位置由 set 設定；和滑座的連接板留 1 mm
+  const shelf = group(g, 'tray-magazine'); Object.assign(shelf.userData, { cableHost: false });
+  const rx = TRAY.w / 2 - 7;
+  for (let l = 0; l < MAG.levels; l++) for (const sx of [-1, 1]) {
+    block(shelf, [10, 4, 2 * pz - 30], [sx * rx, l * MAG.pitch - 2, 0], MAT.steel);                         // 層架托條（托 Tray 兩側底緣）
+    block(shelf, [3, 10, 2 * pz - 30], [sx * (rx + 10), l * MAG.pitch + 3, 0], MAT.steel);                  // 側擋
+  }
+  const hY = (MAG.levels - 1) * MAG.pitch / 2;
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) block(shelf, [8, MAG.levels * MAG.pitch + 10, 8], [sx * 80, hY, sz * (pz - 20)], MAT.alu);   // 層架立柱（在 Tray 外側）
+  block(shelf, [6, 10, 2 * (pz - 20) + 8], [so * 81, hY, 0], MAT.alu);                                    // 外側橫桿
+  block(shelf, [9, 30, 40], [so * 88.5, hY, 0], MAT.alu);                                                  // 接到升降滑座的連接板（留 1 mm）
+  plate(g, [key === 'I' ? 'interposer 料倉' : 'SOCAMM 料倉'], 120, 26, [x, mTop - 20, mz + pz + 9], 0);
   // 上面檢查橋
   // 檢查橋做成懸臂：立柱只在外側（靠機台側板），橫樑伸到 Tray 內側邊，讓出 SCARA 在機台中段的移動空間
   // 橫樑頂面 1078：低於 SCARA 第二臂 Z 軸拖鏈固定座的底面（約 1082），手臂從上方掠過
-  const bz = T.scan, beamY = 1042, so = Math.sign(x), bx0 = x + so * 160, bx1 = x - so * 95;
+  const bz = T.scan, beamY = 1042, bx0 = x + so * 160, bx1 = x - so * 45;   // 橫樑內端只到 Tray 中線內 45 mm，讓開 SCARA 第二臂
   block(g, [40, beamY - LAY.table, 60], [x + so * 140, (beamY + LAY.table) / 2, bz], MAT.frame);
   block(g, [Math.abs(bx0 - bx1), 36, 60], [(bx0 + bx1) / 2, beamY + 18, bz], MAT.frame);
   block(g, [12, 120, 50], [x + so * 114, beamY - 60, bz], MAT.alu);                                   // 斜撐板（示意）
   const top = LAY.trayBottom + TRAY.floor + 2 + (key === 'I' ? INT.t + INT.pin : SOC.t + SOC.pkgH);
-  const out = { group: g, axis, nest, tray, chain, x, z0: ax0 };
+  const out = { group: g, axis, nest, chain, x, z0: ax0, shelf, lift };
   if (key === 'I') {
     const prof = laserProfiler.create({ axis: '-y', fanW: 100, range: 50, w: 70, h: 44, length: 90 });
     prof.root.position.set(x, top + 47.5 + 45 + 3, bz - 20); prof.root.rotation.y = 0; g.add(prof.root); tagPart(prof, REF.profilerTop);
@@ -180,21 +204,23 @@ export function buildTrayLane(scene, key) {
     cam.root.position.set(x, top + 170, bz); g.add(cam.root); tagPart(cam, REF.camTop);
     block(g, [50, beamY - (top + 170 + 77), 10], [x, (beamY + top + 170 + 77) / 2, bz - 27], MAT.alu);
     const bars = [];
-    for (const s of [-1, 1]) {
-      const b = barLight.create({ length: 160, w: 24, h: 20, lensW: 18, lensT: 4, axis: 'x' });
-      b.root.position.set(x, top + 50, bz + s * 70); b.root.rotation.x = s * .9; g.add(b.root); tagPart(b, REF.bar); bars.push(b);
-      block(g, [12, beamY - (top + 50) - 10, 12], [x + 90, (beamY + top + 50) / 2 - 5, bz + s * 70], MAT.alu);
-      block(g, [100, 10, 12], [x + 45, top + 50, bz + s * 70], MAT.alu);
+    // 兩支低角度條形光：一支在 Tray 前側（沿 X）、一支在外側（沿 Z），都從外側立桿吊掛，避開料倉與 SCARA 第二臂
+    for (const [ax, px0, pz0, rot] of [['x', x, bz - 60, ['x', -.9]], ['z', x + so * 70, bz, ['z', so * .9]]]) {
+      const b = barLight.create({ length: ax === 'x' ? 140 : 110, w: 24, h: 20, lensW: 18, lensT: 4, axis: ax });
+      b.root.position.set(px0, top + 50, pz0); b.root.rotation[rot[0]] = rot[1]; g.add(b.root); tagPart(b, REF.bar); bars.push(b);
+      block(g, [12, beamY - (top + 50) - 10, 12], [x + so * 100, (beamY + top + 50) / 2 - 5, pz0], MAT.alu);
+      const armL = Math.abs(x + so * 100 - px0) - (ax === 'x' ? 0 : 14);
+      if (armL > 1) block(g, [armL, 10, 12], [x + so * 100 - so * armL / 2, top + 50 + 16, pz0], MAT.alu);
     }
     Object.assign(out, { cam, bars });
   }
-  // z：Tray 中心的世界 Z；laser／flash：檢查橋
-  out.set = ({ z = T.pick, laser = 0, flash = 0 }) => {
-    axis.set({ pos: z - ax0 });
-    chain.set(z - ax0);
+  // z：叉板上 Tray 中心的世界 Z；e：料倉升降量；laser／flash：檢查橋
+  out.set = ({ z = T.pick, e = -MAG.lift, laser = 0, flash = 0 }) => {
+    axis.set({ pos: z - back - ax0 });
+    chain.set(z - back - ax0);
+    lift.set({ pos: e }); shelf.position.set(x, LAY.trayBottom + e, mz);
     out.prof?.set({ laser }); out.cam.set(flash); out.bars?.forEach(b => b.set({ light: flash }));
   };
-  out.trayTop = () => LAY.trayBottom;
   return out;
 }
 

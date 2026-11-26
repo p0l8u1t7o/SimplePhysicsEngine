@@ -36,10 +36,15 @@ const sources = {
   trayI: { cam: lanes.I.cam.camera, title: 'Tray 頂面 PIN：高度、歪斜與平整度' },
   trayS: { cam: lanes.S.cam.camera, title: 'Tray 上面檢查：SOCAMM 正面' },
   down: { cam: robot.cam.camera, title: 'SCARA 下視相機：PCB 基準點' },
-  pin: { title: '底面線雷射：PIN 歪斜與平整度示意' },
+  pin: { cam: st.camUp.I.camera, title: '底面線雷射：PIN 歪斜與平整度示意' },
   lock: { cam: lockCam, title: '鎖附近照（觀察視角，非量測相機）' },
 };
 let source = 'auto';
+// 相機子畫面：結果示意（預設）或 3D 實景；選擇記在瀏覽器（失敗時用預設）
+let camMode = 'result';
+try { camMode = localStorage.getItem('dram-cam-mode') === 'live' ? 'live' : 'result'; } catch { }
+$('camMode').value = camMode;
+$('camMode').onchange = e => { camMode = e.target.value; try { localStorage.setItem('dram-cam-mode', camMode); } catch { } stage.invalidate(true); };
 
 // ---------------------------------------------------------------- 共用版面
 const workspace = createViewerWorkspace({
@@ -59,7 +64,7 @@ workspace.setSources([
 const VIEWS = {
   iso: [[-1750, 2150, 2450], [0, 880, 150]],
   scara: [[-900, 1480, -600], [-30, 990, 240]],
-  tray: [[-1000, 1560, 1150], [LAY.lane.I, 940, 560]],
+  tray: [[-260, 1420, 1250], [LAY.lane.I, 930, 600]],
   inspect: [[-760, 1420, 760], [-330, 915, 270]],
   clean: [[720, 1420, 1250], [250, 905, 640]],
   board: [[-470, 1150, 300], [0, 922, 0]],
@@ -206,7 +211,7 @@ function renderInspection(ctx, w, h, record, id) {
 }
 function render() {
   const T = player.T, id = source === 'auto' ? autoSource(T) : source, src = sources[id];
-  if (id === 'lock') {
+  if (id === 'lock' || camMode === 'live') {
     workspace.renderCamera({ renderer, scene, camera: src.cam, title: src.title, result: ui.action.textContent, marks: { time: T } });
   } else {
     const record = inspectionRecord(project.insp, id, T);

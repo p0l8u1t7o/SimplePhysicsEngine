@@ -5,7 +5,7 @@
       "variant": "預設",
       "params": {},
       "ok": true,
-      "objects": 887,
+      "objects": 1127,
       "samples": 40,
       "failures": []
     },
@@ -15,7 +15,7 @@
         "scenario": "ok"
       },
       "ok": true,
-      "objects": 887,
+      "objects": 1127,
       "samples": 40,
       "failures": []
     },
@@ -25,7 +25,7 @@
         "scenario": "ng-clean"
       },
       "ok": true,
-      "objects": 887,
+      "objects": 1141,
       "samples": 40,
       "failures": []
     },
@@ -35,7 +35,7 @@
         "scenario": "ng-pin"
       },
       "ok": true,
-      "objects": 887,
+      "objects": 1132,
       "samples": 40,
       "failures": []
     }

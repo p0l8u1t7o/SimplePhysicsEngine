@@ -7,8 +7,8 @@ import { createDetails } from './details.js';
 import { createTimeline } from '@core/anim/track.js';
 import { floor } from '@core/geom/environment.js';
 import { MAT } from '@core/geom/materials.js';
-import { createBoard, createCarrier, createInterposer, createSocamm, createScrew, SLOTS, MOD, INT, SOC, SCREW, TRAY, TRAY_SEAT, CARRIER, pocketZ, FIDUCIALS } from './parts.js';
-import { LAY, LIFT, PCB_TOP, INT_Y, SOC_Y, SOC_TOP, CARRIER_D, LOCK, buildFrame, buildIndicators, buildConveyor, buildTrayLane, buildStations, buildLocker } from './machine.js';
+import { createBoard, createCarrier, createInterposer, createSocamm, createScrew, createTray, SLOTS, MOD, INT, SOC, SCREW, TRAY, TRAY_SEAT, CARRIER, pocketZ, FIDUCIALS } from './parts.js';
+import { LAY, LIFT, PCB_TOP, INT_Y, SOC_Y, SOC_TOP, CARRIER_D, LOCK, MAG, magRail, buildFrame, buildIndicators, buildConveyor, buildTrayLane, buildStations, buildLocker } from './machine.js';
 import { createRobot, ikWorld, fkWorld, ptpTime, OFF } from './robot.js';
 import { HSR065 } from '@core/models/robots/denso-hsr065.js';
 
@@ -37,8 +37,17 @@ export function createProject({ scene, scenario = 'clean' } = {}) {
   // ---------------------------------------------------------------- 產品
   const carrier = createCarrier(CARRIER_D); scene.add(carrier);
   const board = createBoard(); scene.add(board);
-  const ints = Array.from({ length: TRAY.pockets }, (_, k) => { const p = createInterposer('interposer-' + (k + 1)); scene.add(p); return p; });
-  const socs = Array.from({ length: TRAY.pockets }, (_, k) => { const p = createSocamm('socamm-' + (k + 1), { dirty: SC.dirty.includes(k) }); scene.add(p.root); return p; });
+  // Tray：每道 3 盤（A 在叉板上使用中、B／C 滿盤在料倉第 1、2 層；第 0 層空著等 A 用完送回）。
+  // A 只剩這片載台要用的數量（4 片＋本情境會用到的備品），取完就自動換盤
+  const need = { I: 4 + SC.badPin.length, S: 4 + SC.stillDirty.length };
+  const trays = {}, spec = { I: [], S: [] };
+  for (const kind of ['I', 'S']) {
+    trays[kind] = ['A', 'B', 'C'].map(n => { const t = createTray(`tray-${kind}-${n}`, kind === 'I' ? 'INTERPOSER TRAY' : 'SOCAMM TRAY'); scene.add(t); return t; });
+    for (let k = 0; k < need[kind]; k++) spec[kind].push({ tray: 0, pocket: k });          // 從靠手臂的格位開始用
+    for (const tr of [1, 2]) for (let k = 0; k < TRAY.pockets; k++) spec[kind].push({ tray: tr, pocket: k });
+  }
+  const ints = spec.I.map((_, n) => { const p = createInterposer('interposer-' + (n + 1)); scene.add(p); return p; });
+  const socs = spec.S.map((_, n) => { const p = createSocamm('socamm-' + (n + 1), { dirty: SC.dirty.includes(n) }); scene.add(p.root); return p; });
   const screws = Array.from({ length: 12 }, (_, n) => { const s = createScrew(`screw-${Math.floor(n / 3) + 1}-${n % 3 + 1}`); scene.add(s); return s; });
 
   const details = createDetails({ scene, ints, st, locker });
@@ -56,8 +65,11 @@ export function createProject({ scene, scenario = 'clean' } = {}) {
   const sta = tl.track('st', { prof: 0, cam: 0, blow: 0, wipeUp: 0, tape: 0, drop: 0, dry: 0 });
   const lk = tl.track('lock', { x: LAY.locker.park, press: 0, nz: LOCK.feedZ, ny: 0, dy: 0, turns: 0, beam: 0 });
   // 零件：loc ＝ tray／A／B／slot／free（自由落下到 NG 盒）／hidden
-  const pI = ints.map((_, k) => tl.track('i' + k, { loc: 'tray', k, slot: -1, x: 0, y: 0, z: 0, yaw: 0 }));
-  const pS = socs.map((_, k) => tl.track('s' + k, { loc: 'tray', k, slot: -1, x: 0, y: 0, z: 0, yaw: 0, press: 0, dirty: SC.dirty.includes(k) ? 'y' : 'n' }));
+  const pI = ints.map((_, n) => tl.track('i' + n, { loc: 'tray', tr: spec.I[n].tray, k: spec.I[n].pocket, slot: -1, x: 0, y: 0, z: 0, yaw: 0 }));
+  const pS = socs.map((_, n) => tl.track('s' + n, { loc: 'tray', tr: spec.S[n].tray, k: spec.S[n].pocket, slot: -1, x: 0, y: 0, z: 0, yaw: 0, press: 0, dirty: SC.dirty.includes(n) ? 'y' : 'n' }));
+  // 升降料倉（e：升降量）與每個 Tray 的位置（fork 叉板上／mag 料倉第 lvl 層）
+  const elev = { I: tl.track('elevI', { e: -MAG.lift }), S: tl.track('elevS', { e: -MAG.lift }) };
+  const trT = {}; for (const kind of ['I', 'S']) trT[kind] = [0, 1, 2].map(j => tl.track(`tr${kind}${j}`, { loc: j ? 'mag' : 'fork', lvl: j }));
   const pW = screws.map((_, n) => tl.track('w' + n, { loc: 'hidden', rem: TORQUE.preTurns, rot: 0, slot: -1, hole: -1 }));
 
   // ---- 1. 載台進站：輸送 → 止擋 → 頂升定位（定位銷插入、載台上推靠壓邊）
@@ -76,11 +88,32 @@ export function createProject({ scene, scenario = 'clean' } = {}) {
   tS.add(3.0, { z: scanB, flash: 1 }, { action: 'SOCAMM 正面檢查', sub: '2D 相機＋雙側低角度條形光，逐格拍正面外觀', station: 1, ease: t => t });
   tS.add(0, { flash: 0 });
   tS.add(.6, { z: LAY.tray.pick }, { action: 'SOCAMM Tray 到取料位', station: 1 });
-  for (let k = 0; k < TRAY.pockets; k++) {
-    const tt = .5 + (scanA - (LAY.tray.scan - pocketZ(k))) / (scanA - scanB) * 3.0;
-    insp.push({ t: +tt.toFixed(2), cam: 'TOP-3D', part: `INT-${k + 1}`, item: '頂面 PIN 高度／歪斜、平整度', result: 'OK', value: `共面度 ${(18 + (k * 7) % 11)} µm` });
-    insp.push({ t: +(tt + .02).toFixed(2), cam: 'TOP-2D', part: `SOC-${k + 1}`, item: '正面外觀', result: 'OK', value: '刮傷 0、異物 0' });
+  // 掃描時每格通過檢查橋的時間 → 檢查紀錄
+  const scanLog = (kind, trayIdx, t0) => spec[kind].forEach((sp, n) => {
+    if (sp.tray !== trayIdx) return;
+    const tt = t0 + (scanA - (LAY.tray.scan - pocketZ(sp.pocket))) / (scanA - scanB) * 3.0;
+    if (kind === 'I') insp.push({ t: +tt.toFixed(2), cam: 'TOP-3D', part: `INT-${n + 1}`, item: '頂面 PIN 高度／歪斜、平整度', result: 'OK', value: `共面度 ${(18 + (n * 7) % 11)} µm` });
+    else insp.push({ t: +(tt + .02).toFixed(2), cam: 'TOP-2D', part: `SOC-${n + 1}`, item: '正面外觀', result: 'OK', value: '刮傷 0、異物 0' });
+  });
+  scanLog('I', 0, .5); scanLog('S', 0, .5);
+  // 換盤：空盤送回料倉第 0 層 → 料倉上升托離叉板 → 叉板退出 → 料倉下降一層（滿盤對準叉板）→ 叉板伸入 → 料倉下降、滿盤落在叉板 → 掃描 → 取料位
+  function exchange(kind, at) {
+    const tt = kind === 'I' ? tI : tS, el = elev[kind], [A, B] = trT[kind], nm = kind === 'I' ? 'interposer' : 'SOCAMM', so = { station: kind === 'I' ? 2 : 3 };
+    const s1 = tt.add(1.0, { z: LAY.tray.load }, { at, action: `${nm} 空 Tray 回料倉`, sub: '本盤已取完，抽屜把空盤送回升降料倉第 0 層', ...so });
+    const s2 = el.add(.5, { e: MAG.lift }, { at: s1.start + s1.dur, action: '料倉上升，空盤上架', sub: '層架托條把空盤托離叉板 3 mm', ...so });
+    A.add(0, { loc: 'mag', lvl: 0 }, { at: s2.start + s2.dur / 2 });
+    const s3 = tt.add(.6, { z: LAY.tray.out }, { at: s2.start + s2.dur, action: '叉板退出料倉', ...so });
+    const s4 = el.add(.9, { e: -MAG.pitch + MAG.lift }, { at: s3.start + s3.dur, action: '料倉下降一層', sub: '第 1 層滿盤對準叉板高度（空盤移到下方，等人員取出）', ...so });
+    const s5 = tt.add(.6, { z: LAY.tray.load }, { at: s4.start + s4.dur, action: '叉板伸入滿盤下方', ...so });
+    const s6 = el.add(.5, { e: -MAG.pitch - MAG.lift }, { at: s5.start + s5.dur, action: '滿盤落在叉板', sub: '料倉再下降 6 mm，叉板真空吸附', ...so });
+    B.add(0, { loc: 'fork', lvl: 1 }, { at: s6.start + s6.dur / 2 });
+    const k = kind === 'I' ? 'laser' : 'flash';
+    const s7 = tt.add(.3, { [k]: 1 }, { at: s6.start + s6.dur, action: `新 ${nm} Tray 上面檢查`, sub: kind === 'I' ? '頂面 PIN 3D＋鍍金接點 2D' : '正面 2D', ...so, ease: STEP });
+    tt.add(3.0, { z: scanB }, { ease: t => t }); tt.add(0, { [k]: 0 });
+    tt.add(.6, { z: LAY.tray.pick }, { action: `新 ${nm} Tray 到取料位`, ...so });
+    scanLog(kind, 1, s7.start + s7.dur - .5);
   }
+  const lastPick = { I: 0, S: 0 };
 
   // ---- 3. SCARA
   const home = V(LAY.st.camI[0], 0, LAY.st.camI[1]);
@@ -132,17 +165,18 @@ export function createProject({ scene, scenario = 'clean' } = {}) {
   const head = { I: 'A', S: 'B' };
   const top = { I: INT.t, S: SOC.t };                  // 夾持時零件頂面到零件原點
   const tray = { I: lanes.I, S: lanes.S };
-  const trayPick = (kind, k) => V(LAY.lane[kind], LAY.trayBottom + .05 + TRAY_SEAT + (kind === 'I' ? INT.bossH : 0) + .02 + top[kind], LAY.tray.pick + pocketZ(k));
+  const trayPick = (kind, n) => V(LAY.lane[kind], LAY.trayBottom + .05 + TRAY_SEAT + (kind === 'I' ? INT.bossH : 0) + .02 + top[kind], LAY.tray.pick + pocketZ(spec[kind][n].pocket));
   const slotPt = (k, y) => V(LAY.work + SLOTS[k], y, 0);
   const holeW = (k, i) => V(LAY.work + SLOTS[k], 0, -MOD.holes[i]);
 
   // 取料（三孔頭下降、漲緊銷插入、夾持）
   function pick(kind, k, partTrack, station) {
     const h = head[kind], p = trayPick(kind, k);
-    goTo(h, p, 0, `${kind} Tray 第 ${k + 1} 格`, { action: `取 ${kind === 'I' ? 'interposer' : 'SOCAMM'} #${k + 1}`, sub: `${kind === 'I' ? 'A' : 'B'} 頭伸出，三孔頭下到 Tray`, station }, { ext: h });
+    goTo(h, p, 0, `${kind} Tray 第 ${spec[kind][k].pocket + 1} 格`, { action: `取 ${kind === 'I' ? 'interposer' : 'SOCAMM'} #${k + 1}`, sub: `${kind === 'I' ? 'A' : 'B'} 頭伸出，三孔頭下到 Tray`, station }, { ext: h });
     const g = hold(.3, { ['g' + h]: 1 }, { action: '三孔漲緊夾持', sub: '漲緊銷插入三個孔、肩部壓在孔周（不碰 PIN 區）', station });
     partTrack.add(0, { loc: h }, { at: g.start + g.dur });
     up({ action: '取起', station });
+    lastPick[kind] = rb.t;
   }
   function release(h, partTrack, loc, extra = {}, o = {}) {
     const g = hold(.25, { ['g' + h]: 0 }, o);
@@ -229,6 +263,7 @@ export function createProject({ scene, scenario = 'clean' } = {}) {
   // ---- 3b. SOCAMM × 4（雙頭：B 頭伸出、A 頭縮回）
   const socPlaced = [];
   let nextS = 0;
+  exchange('I', lastPick.I);
   flip(-1, { action: '手臂換肘向', sub: '經過輸送線東側上方的伸直姿態，改用東側作業的肘向', station: 3 });
   for (let slot = 0; slot < 4; slot++) {
     let k, okPart = false;
@@ -280,6 +315,7 @@ export function createProject({ scene, scenario = 'clean' } = {}) {
     up({}, { B: 0 }); cur.B = 0;
     socPlaced.push({ slot, k, tPlaced: r.start, tLeft: rb.t });
   }
+  exchange('S', lastPick.S);
   // ---- 3c. 手臂回東側待命（鎖附模組在槽位上方作業時，手臂不跨越它的 X 位置；下一片的 interposer 在載台交換後再取）
   {
     const [x, z] = LAY.st.camS;
@@ -362,7 +398,8 @@ export function createProject({ scene, scenario = 'clean' } = {}) {
   function partWorld(kind, s, obj, R) {
     const yawSlot = Math.PI / 2;
     if (s.loc === 'tray') {
-      obj.position.set(LAY.lane[kind], LAY.trayBottom + .05 + TRAY_SEAT + (kind === 'I' ? INT.bossH : 0) + .02, R.trayZ[kind] + pocketZ(s.k));
+      const w = R.tray[kind][s.tr];
+      obj.position.set(w.x, w.y + TRAY_SEAT + (kind === 'I' ? INT.bossH : 0) + .02, w.z + pocketZ(s.k));
       obj.rotation.set(0, 0, 0);
     } else if (s.loc === 'A' || s.loc === 'B') {
       const f = fkWorld(R.q, s.loc);
@@ -381,12 +418,19 @@ export function createProject({ scene, scenario = 'clean' } = {}) {
     conv.set({ s: C.s, stopUp: C.stopUp, up: C.up });
     carrier.position.set(C.cx, LAY.conv.top + lift, 0);
     board.position.set(C.cx, LAY.conv.top + lift + CARRIER.t + CARRIER.standoff, 0);
-    lanes.I.set({ z: S.trayI.z, laser: S.trayI.laser, flash: S.trayI.laser });
-    lanes.S.set({ z: S.trayS.z, flash: S.trayS.flash });
+    lanes.I.set({ z: S.trayI.z, e: S.elevI.e, laser: S.trayI.laser, flash: S.trayI.laser });
+    lanes.S.set({ z: S.trayS.z, e: S.elevS.e, flash: S.trayS.flash });
+    // Tray 世界位置：叉板上（底面 = 叉板頂 + 0.05）或料倉第 lvl 層（底面 = 層架頂 + 0.05）
+    const trayAt = {};
+    for (const kind of ['I', 'S']) trayAt[kind] = [0, 1, 2].map(j => {
+      const ts = S[`tr${kind}${j}`], z = kind === 'I' ? S.trayI.z : S.trayS.z, e = kind === 'I' ? S.elevI.e : S.elevS.e;
+      const w = ts.loc === 'fork' ? { x: LAY.lane[kind], y: LAY.trayBottom + .05, z } : { x: LAY.lane[kind], y: magRail(ts.lvl, e) + .05, z: LAY.tray.load };
+      trays[kind][j].position.set(w.x, w.y, w.z); return w;
+    });
     st.set(S.st);
     const r = S.robot; robot.set(r);
     locker.set(S.lock);
-    const RR = { q: r, cx: C.cx, lift, trayZ: { I: S.trayI.z, S: S.trayS.z } };
+    const RR = { q: r, cx: C.cx, lift, tray: trayAt };
     ints.forEach((o, k) => partWorld('I', S['i' + k], o, RR));
     socs.forEach((o, k) => { const s = S['s' + k]; partWorld('S', s, o.root, RR); o.dirt.visible = s.dirty === 'y'; });
     details.set(S);
@@ -406,10 +450,10 @@ export function createProject({ scene, scenario = 'clean' } = {}) {
 
   // ---------------------------------------------------------------- 節拍
   // 穩態每片載台（示意估算）：定位完成 → 鎖附結束，加上載台交換（出站 3.8 s＋進站定位 3.3 s）；手臂在進站時先取第一片 interposer
-  const exchange = inDur + .7 + 3.8;
+  const swap = inDur + .7 + 3.8;
   const cycle = {
     total, robot: tRobotDone - tStartRobot, lockEnd: tLock,
-    steady: +(tLock - Math.max(tLocated, rb.steps.find(s => /基準點/.test(s.action))?.start ?? tLocated) + exchange).toFixed(1),
+    steady: +(tLock - Math.max(tLocated, rb.steps.find(s => /基準點/.test(s.action))?.start ?? tLocated) + swap).toFixed(1),
     lockPerSlot: +((tLock - lk.steps.find(s => s.action === '鎖附模組 → 槽位 1').start) / 4).toFixed(1),
   };
   cycle.perModule = +(cycle.steady / 4).toFixed(1);
@@ -437,19 +481,21 @@ export function createProject({ scene, scenario = 'clean' } = {}) {
   const either = (a, b, fa, fb) => (fa(a) && fb(b)) || (fa(b) && fb(a));
   const isBoard = m => under(m, 'board') || under(m, 'carrier');
   const isHead = m => under(m, 'head-A') || under(m, 'head-B');
+  const isTray = m => { for (let p = m; p; p = p.parent) if (p.userData.trayObj) return true; return false; };
   return {
     total, timeline: tl, apply, stationStart, cycle, insp: insp.sort((a, b) => a.t - b.t), heights, screwLog, scenario: SC,
-    robot, locker, lanes, st, conv, board, ints, socs, screws, reach,
+    robot, locker, lanes, st, conv, board, ints, socs, screws, reach, trays, spec,
     layoutChecks,
     verify: {
       dt: .1,
       // 花鍵軸頂端的限位環（共用模型內部）：手臂下降量約 106 mm 時頂面和 J3／J4 馬達蓋頂面同高，取樣剛好落在那一刻會被當成重合面；
-      // 它在手臂最上方、不會碰到任何設備，從檢查排除（已登記 core/REQUESTS.md）
-      skip: o => o === robot.arm.shaft.children[1],
+      // 花鍵軸頂面在下降量約 105.5 mm 時也和馬達蓋頂面同高；兩者都在手臂最上方、不會碰到任何設備，從檢查排除（已登記 core/REQUESTS.md）
+      skip: o => o === robot.arm.shaft.children[1] || o === robot.arm.shaft.children[0],
       moduleOf: m => product(m) ? 'product' : isScrew(m) ? 'screws' : undefined,
       thresholds: { product: { tol: .05, dist: .01, area: 2 }, screws: { tol: .05, dist: .01, area: 2 } },
       allow: [
-        { why: '零件放在 Tray 格內（凸點與底面落在支撐環上、漲緊銷伸入支撐環中心）', test: (a, b) => either(a, b, m => !!product(m), m => under(m, 'tray-I') || under(m, 'tray-S')) },
+        { why: '零件放在 Tray 格內（凸點與底面落在支撐環上、漲緊銷伸入支撐環中心）', test: (a, b) => either(a, b, m => !!product(m), isTray) },
+        { why: 'Tray 坐在抽屜叉板上，或被料倉層架托條托住（交換時兩者交接）', test: (a, b) => either(a, b, isTray, m => under(m, 'tray-fork') || under(m, 'tray-magazine')) },
         { why: '三孔頭夾持零件：漲緊銷插入零件孔、肩部壓在孔周', test: (a, b) => either(a, b, m => !!product(m), isHead) },
         { why: '組裝疊層：interposer 凸點入 PCB 孔、PIN 壓在焊墊上；SOCAMM 壓在 interposer PIN 上（PIN 尖端插入 0.05～0.3 mm 代表接觸與壓縮）', test: (a, b) => either(a, b, m => !!product(m), m => !!product(m) || isBoard(m)) },
         { why: 'SOCAMM 底面壓在 IPA 擦拭墊上；NG 件落在 NG 盒底', test: (a, b) => either(a, b, m => !!product(m), m => under(m, 'wipe-pad') || under(m, 'stations')) },

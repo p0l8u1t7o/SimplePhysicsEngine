@@ -196,11 +196,11 @@ export function createCarrier(width) {
   return root;
 }
 
-// ---------------------------------------------------------------- Tray 盤（防靜電黑色，8 格，零件長邊沿 X）
-export const TRAY = { w: 140, d: 236, t: 12, pocketPitch: 26, pockets: 8, floor: 3 };
+// ---------------------------------------------------------------- Tray 盤（防靜電黑色，6 格，零件長邊沿 X）
+export const TRAY = { w: 140, d: 184, t: 12, pocketPitch: 26, pockets: 6, floor: 3 };   // 6 格：每片載台 4 組＋備品
 export const pocketZ = i => (i - (TRAY.pockets - 1) / 2) * TRAY.pocketPitch;
 export function createTray(name, label) {
-  const root = new THREE.Group(); root.name = name;
+  const root = new THREE.Group(); root.name = name; root.userData.trayObj = true;
   const T = TRAY;
   mesh(boxes([[T.w, T.floor, T.d, 0, T.floor / 2, 0]]), trayMat, 'tray floor', root);
   // 格肋與外框
