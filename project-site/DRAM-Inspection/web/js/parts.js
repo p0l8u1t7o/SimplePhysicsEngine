@@ -20,6 +20,7 @@ export const CARRIER = { w: 340, t: 8, standoff: 6 };
 export const STACK = { intGap: .35, socFree: .4, socPressed: .15 };
 
 const gold = std(0xd8b25a, .28, .9);
+const springGold = std(0xd8b25a, .28, .9, { side: THREE.DoubleSide });
 const copper = std(0xc88a55, .32, .85);
 const pcbGreen = std(0x14432c, .55, .05);
 const pcbBlack = std(0x15181b, .5, .1);
@@ -29,6 +30,7 @@ const silver = std(0xb9c0c7, .3, .8);
 const passive = std(0x7a6a52, .5, .1);
 const trayMat = std(0x1d232b, .7, .02);
 const carrierMat = std(0x2a2f36, .45, .5);
+const dirtMat = std(0x8b7d66, .95, 0);
 
 // 板狀外形（圓角矩形＋孔），擠出方向轉成 +Y（底面 y=0、頂面 y=t）
 function plateGeometry(w, d, t, r, holes = [], holeR = 1) {
@@ -45,14 +47,14 @@ function plateGeometry(w, d, t, r, holes = [], holeR = 1) {
 function boxes(list) {
   if (!list.length) return null;
   const parts = list.map(([w, h, d, x, y, z]) => { const b = new THREE.BoxGeometry(w, h, d); b.translate(x, y, z); b.deleteAttribute('uv'); return b; });
-  return mergeGeometries(parts);
+  const merged = mergeGeometries(parts); parts.forEach(g => g.dispose()); return merged;
 }
 function rings(list, rIn, rOut, h, segments = 20) {
   const parts = list.map(([x, y, z]) => {
     const pts = [new THREE.Vector2(rIn, 0), new THREE.Vector2(rOut, 0), new THREE.Vector2(rOut, h), new THREE.Vector2(rIn, h), new THREE.Vector2(rIn, 0)];
     const g = new THREE.LatheGeometry(pts, segments); g.translate(x, y, z); g.deleteAttribute('uv'); return g;
   });
-  return mergeGeometries(parts);
+  const merged = mergeGeometries(parts); parts.forEach(g => g.dispose()); return merged;
 }
 const mesh = (g, m, name, parent) => { const o = new THREE.Mesh(g, m); o.name = name; o.castShadow = true; o.receiveShadow = true; parent.add(o); return o; };
 
@@ -74,10 +76,21 @@ function geometries() {
   if (G.ready) return G;
   const holes = MOD.holes.map(x => [x, 0]);
   G.intBody = plateGeometry(MOD.L, MOD.W, INT.t, 1.2, holes, MOD.holeR);
-  // 上下兩面的 PIN（彎曲彈片簡化成斜置小塊；尖端露出 0.45 mm，根部埋入本體 0.1 mm）
-  const pw = .55, pd = .7;
-  G.pinTop = boxes(PIN_XZ.map(([x, z]) => [pw, INT.pin + .1, pd, x + .25, INT.t + (INT.pin + .1) / 2 - .1, z]));
-  G.pinBot = boxes(PIN_XZ.map(([x, z]) => [pw, INT.pin + .1, pd, x - .25, -(INT.pin + .1) / 2 + .1, z]));
+  // 彈片以三段折彎薄片表示（厚度省略）；保留原格距、0.45 mm 最高點與折返尖端。
+  // 每 PIN 六個三角面，避免把微小接點擠成實心體造成全景負擔；雙面材質可看底面。
+  const path = [[-.38, .02], [-.20, .10], [.28, .32], [.12, INT.pin]], vertices = [], indices = [];
+  for (const [x, y] of path) vertices.push(x, y, -.19, x, y, .19);
+  for (let i = 0; i < path.length - 1; i++) { const a = i * 2; indices.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+  const pin = new THREE.BufferGeometry();
+  pin.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3)); pin.setIndex(indices); pin.computeVertexNormals();
+  const contacts = side => PIN_XZ.map(([x, z]) => {
+    const g = pin.clone();
+    if (side < 0) g.rotateZ(Math.PI);
+    g.translate(x, side > 0 ? INT.t : 0, z); return g;
+  });
+  const upper = contacts(1), lower = contacts(-1);
+  G.pinTop = mergeGeometries(upper); G.pinBot = mergeGeometries(lower);
+  [...upper, ...lower, pin].forEach(g => g.dispose());
   // 三處凸點（定位凸台，插入 PCB 孔）：中空環，螺絲從中間穿過
   G.boss = rings(MOD.holes.map(x => [x, -INT.bossH, 0]), MOD.holeR, INT.bossR, INT.bossH + .1, 24);
   // SOCAMM：黑色 PCB、4 顆 DRAM、PMIC、被動元件、孔周銅環（上）、LGA 金手指焊墊（下）
@@ -90,6 +103,7 @@ function geometries() {
   pas.push([3.2, .7, 3.2, 9.5, SOC.t + .33, .2]);   // PMIC
   G.socPas = boxes(pas);
   G.socRingTop = rings(MOD.holes.map(x => [x, SOC.t - .02, 0]), MOD.holeR + .05, SOC.ringR, .06, 28);
+  G.socSilk = boxes([[-34.8, -5.7], [-20.5, -5.7], [12.0, -5.7], [25.0, -5.7]].map(([x, z]) => [.7, .04, .7, x, SOC.t + .08, z]));
   G.socPads = boxes(PIN_XZ.map(([x, z]) => [1.3, .06, 1.1, x, .02, z]));
   // PCB（主機板）：板子、4 個槽位的金焊墊與孔周銅環、CPU、VRM、電容、基準點（Fiducial）
   return Object.assign(G, { ready: true });
@@ -100,8 +114,8 @@ export function createInterposer(name) {
   const g = geometries(), root = new THREE.Group(); root.name = name;
   Object.assign(root.userData, { product: 'interposer' });
   mesh(g.intBody, intBody, 'interposer body', root);
-  mesh(g.pinTop, gold, 'interposer pins top', root);
-  mesh(g.pinBot, gold, 'interposer pins bottom', root);
+  mesh(g.pinTop, springGold, 'interposer pins top', root).castShadow = false;
+  mesh(g.pinBot, springGold, 'interposer pins bottom', root).castShadow = false;
   mesh(g.boss, intBody, 'interposer bosses', root);
   return root;
 }
@@ -113,11 +127,11 @@ export function createSocamm(name, { dirty = false } = {}) {
   mesh(g.socPkg, pkgMat, 'socamm dram', root);
   mesh(g.socPas, passive, 'socamm passives', root);
   mesh(g.socRingTop, copper, 'socamm rings', root);
-  mesh(g.socPads, gold, 'socamm pads', root);
-  decal(root, 24, 8, [-21.5, SOC.t + SOC.pkgH + .03, .4], [-Math.PI / 2, 0, 0], ['SOCAMM 示意'], { color: '#c9d2da', bg: null, center: true });
+  mesh(g.socSilk, MAT.cabinet, 'socamm orientation marks', root).castShadow = false;
+  mesh(g.socPads, gold, 'socamm pads', root).castShadow = false;
+  decal(root, 10.5, 5, [-28.5, SOC.t + SOC.pkgH + .08, .4], [-Math.PI / 2, 0, 0], ['記憶體', '模組示意'], { color: '#c9d2da', bg: null, center: true });
   // 髒污（示意）：底面焊墊上的微粒與指紋，清潔後隱藏
   const spots = new THREE.Group(); spots.name = 'dirt'; root.add(spots); spots.visible = dirty;
-  const dirtMat = std(0x8b7d66, .95, 0);
   for (const [x, z, r] of [[-20, 2, .9], [-17.5, -2.5, .6], [12, 3.4, 1.1], [24, -1.5, .7], [-33, -3, .5]]) {
     const d = new THREE.Mesh(new THREE.CylinderGeometry(r, r, .05, 12), dirtMat); d.position.set(x, -.03, z); d.name = 'dirt'; d.userData.fx = true; spots.add(d);
   }
@@ -143,7 +157,7 @@ export function createBoard() {
     MOD.holes.forEach((_, i) => { const [x, z] = slotHole(k, i); ringsAt.push([x, top - .02, z]); });
     for (const s of [-1, 1]) { silk.push([.4, .03, MOD.L + 4, sx + s * (MOD.W / 2 + 1.5), top + .01, SLOT_Z]); silk.push([MOD.W + 3.4, .03, .4, sx, top + .01, SLOT_Z + s * (MOD.L / 2 + 2)]); }
   });
-  mesh(boxes(pads), gold, 'pcb slot pads', root);
+  mesh(boxes(pads), gold, 'pcb slot pads', root).castShadow = false;
   mesh(rings(ringsAt, PCB.holeR + .05, PCB.holeR + 1.3, .06, 28), copper, 'pcb slot rings', root);
   mesh(boxes(silk), std(0xe9eef0, .8, 0), 'pcb silk', root);
   // 基準點（銅圓點＋防焊開窗）
@@ -162,7 +176,7 @@ export function createBoard() {
   // 背面的 PEM 鎖附螺帽（每孔一顆，PCB 下方，在載台支撐柱之間）
   const nuts = []; SLOTS.forEach((_, k) => MOD.holes.forEach((__, i) => { const [x, z] = slotHole(k, i); nuts.push([x, -3, z]); }));
   mesh(rings(nuts, .9, 2.6, 3, 6), silver, 'pcb pem nuts', root);
-  decal(root, 70, 12, [-95, top + .7, 108], [-Math.PI / 2, 0, 0], ['MAIN BOARD 示意'], { color: '#dfe7ea', bg: null });
+  decal(root, 70, 12, [-95, top + .7, 108], [-Math.PI / 2, 0, 0], ['主機板示意'], { color: '#dfe7ea', bg: null });
   return root;
 }
 
@@ -178,7 +192,7 @@ export function createCarrier(width) {
   // 板邊壓爪（固定 PCB 四角，示意）
   mesh(boxes([[10, 4, 10, -150 - 4, t + CARRIER.standoff + 2, -116], [10, 4, 10, 150 + 4, t + CARRIER.standoff + 2, 116],
     [10, 4, 10, -150 - 4, t + CARRIER.standoff + 2, 116], [10, 4, 10, 150 + 4, t + CARRIER.standoff + 2, -116]]), MAT.steelDark, 'carrier clamps', root);
-  decal(root, 60, 14, [-130, t + .7, -d / 2 + 12], [-Math.PI / 2, 0, 0], ['CARRIER 07'], { color: '#cfd8df', bg: null });
+  decal(root, 60, 14, [-130, t + .7, -d / 2 + 12], [-Math.PI / 2, 0, 0], ['載台 07'], { color: '#cfd8df', bg: null });
   return root;
 }
 

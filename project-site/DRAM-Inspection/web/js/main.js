@@ -6,6 +6,7 @@ import { createPlayer } from '@core/ui/player.js';
 import { createViewerWorkspace } from '@core/ui/viewer-workspace.js';
 import { createProject, LAY, STATIONS, SCENARIOS, TORQUE } from './project.js';
 import { SLOTS } from './parts.js';
+import { inspectionRecord, drawInspection } from './inspection-view.js';
 
 const qp = new URLSearchParams(location.search);
 const $ = id => document.getElementById(id);
@@ -32,9 +33,10 @@ lockCam.lookAt(LAY.locker.park, 935, -15);
 const sources = {
   upI: { cam: st.camUp.I.camera, title: '上視相機 I：interposer 底面＋覆拍修正' },
   upS: { cam: st.camUp.S.camera, title: '上視相機 S：SOCAMM 底面焊墊＋覆拍修正' },
-  trayI: { cam: lanes.I.cam.camera, title: 'Tray 上面檢查：interposer 鍍金接點（2D）' },
+  trayI: { cam: lanes.I.cam.camera, title: 'Tray 頂面 PIN：高度、歪斜與平整度' },
   trayS: { cam: lanes.S.cam.camera, title: 'Tray 上面檢查：SOCAMM 正面' },
   down: { cam: robot.cam.camera, title: 'SCARA 下視相機：PCB 基準點' },
+  pin: { title: '底面線雷射：PIN 歪斜與平整度示意' },
   lock: { cam: lockCam, title: '鎖附近照（觀察視角，非量測相機）' },
 };
 let source = 'auto';
@@ -49,19 +51,21 @@ const workspace = createViewerWorkspace({
 workspace.setSources([
   { id: 'upI', label: '上視相機 I（interposer）' }, { id: 'upS', label: '上視相機 S（SOCAMM）' },
   { id: 'trayI', label: 'Tray 上面 2D（interposer）' }, { id: 'trayS', label: 'Tray 上面 2D（SOCAMM）' },
+  { id: 'pin', label: '底面 3D 結果示意' },
   { id: 'down', label: 'SCARA 下視相機' }, { id: 'lock', label: '鎖附近照' },
 ], { onChange: v => { source = v; stage.invalidate(true); } });
 
 // ---------------------------------------------------------------- 視角
 const VIEWS = {
   iso: [[-1750, 2150, 2450], [0, 880, 150]],
-  scara: [[-620, 1680, 1250], [0, 960, 230]],
+  scara: [[-900, 1480, -600], [-30, 990, 240]],
   tray: [[-1000, 1560, 1150], [LAY.lane.I, 940, 560]],
   inspect: [[-760, 1420, 760], [-330, 915, 270]],
   clean: [[720, 1420, 1250], [250, 905, 640]],
   board: [[-470, 1150, 300], [0, 922, 0]],
   lock: () => { const x = locker.head.getWorldPosition(V()).x; return [[x + 260, 1330, -500], [x, 945, -30]]; },
   top: [[0, 3400, 160], [0, 900, 150]],
+  product: () => { const p = project.ints[0].position; return [[p.x + 75, p.y + 110, p.z + 85], [p.x, p.y, p.z]]; },
 };
 function setView(name, instant = false) {
   const v = typeof VIEWS[name] === 'function' ? VIEWS[name]() : VIEWS[name]; if (!v) return;
@@ -73,7 +77,7 @@ document.querySelectorAll('.views [data-view]').forEach(b => b.onclick = () => s
 
 // ---------------------------------------------------------------- 3D 標籤
 const label = (html, getPos, priority = 0) => stage.addLabel(html, getPos, '', { anchor: 'above', priority });
-label('SCARA HSR065（雙三孔頭）', () => robot.tool.getWorldPosition(V()).add(V(0, 80, 0)), 3);
+label('SCARA HSR065（雙三孔頭）', V(LAY.robot.x, 1250, LAY.robot.z), 3);
 label('interposer Tray', V(LAY.lane.I, 960, LAY.tray.pick), 1);
 label('SOCAMM Tray', V(LAY.lane.S, 960, LAY.tray.pick), 1);
 label('上面檢查橋（3D＋2D）', V(LAY.lane.I, 1100, LAY.tray.scan), 1);
@@ -141,7 +145,7 @@ function drawTorque(T) {
     ctx.stroke(); ctx.lineWidth = 1;
   }
   ctx.fillStyle = '#8b98a8'; ctx.fillText('N·m', 4, 30); ctx.fillText(ymax.toFixed(2), 4, 44);
-  $('screwName').textContent = cur ? `槽 ${cur.slot + 1} 孔 ${cur.hole + 1}（中間孔先鎖）` : '尚未開始';
+  $('screwName').textContent = cur ? `槽 ${cur.slot + 1} 孔 ${cur.hole + 1}${cur.hole === 1 ? '（中間孔，先鎖）' : ''}` : '尚未開始';
   for (const c of cells) {
     const s = project.screwLog.find(x => x.n === +c.dataset.n);
     c.className = !s || T < s.pre[0] ? '' : T < s.pre[1] ? 'run' : !s.fin || T < s.fin[0] ? 'pre' : T < s.fin[1] ? 'run' : 'ok';
@@ -181,6 +185,7 @@ const player = createPlayer({
 // 每格繪製：相機視窗 → 主畫面
 // 自動切換：停在最近一次取像事件的相機（取像之間不會跳回黑畫面）
 const camEvents = events.map(e => {
+  if (e.track === 'robot' && /底面 PIN 掃描/.test(e.action)) return { t: e.start, src: 'pin' };
   if (e.track === 'robot' && /基準點/.test(e.action)) return { t: e.start, src: 'down' };
   if (e.track === 'robot' && /^(覆拍|複檢)/.test(e.action)) return { t: e.start, src: /SOCAMM/.test(e.action) ? 'upS' : 'upI' };
   if (e.track === 'trayI' && /掃描/.test(e.action)) return { t: e.start, src: 'trayI' };
@@ -189,9 +194,25 @@ const camEvents = events.map(e => {
   return null;
 }).filter(Boolean).sort((a, b) => a.t - b.t);
 function autoSource(T) { return camEvents.findLast(e => e.t <= T + 1e-6)?.src ?? 'trayI'; }
+// 結果圖只在來源、紀錄或尺寸改變時重畫；拖曳時間軸仍由當下時間選取紀錄。
+const inspectionCanvas = document.createElement('canvas'), inspectionContext = inspectionCanvas.getContext('2d');
+let imageRecord, imageSource;
+function renderInspection(ctx, w, h, record, id) {
+  if (imageRecord !== record || imageSource !== id || inspectionCanvas.width !== w || inspectionCanvas.height !== h) {
+    inspectionCanvas.width = w; inspectionCanvas.height = h;
+    drawInspection(inspectionContext, w, h, { record, source: id }); imageRecord = record; imageSource = id;
+  }
+  ctx.drawImage(inspectionCanvas, 0, 0);
+}
 function render() {
   const T = player.T, id = source === 'auto' ? autoSource(T) : source, src = sources[id];
-  workspace.renderCamera({ renderer, scene, camera: src.cam, title: src.title, result: ui.action.textContent, marks: { time: T } });
+  if (id === 'lock') {
+    workspace.renderCamera({ renderer, scene, camera: src.cam, title: src.title, result: ui.action.textContent, marks: { time: T } });
+  } else {
+    const record = inspectionRecord(project.insp, id, T);
+    workspace.renderImage({ draw: (ctx, w, h) => renderInspection(ctx, w, h, record, id),
+      title: src.title + '（結果示意）', result: record ? `${record.part} · ${record.result} · 取像 ${record.t.toFixed(2)} s` : '等待取像，尚無判定', aspect: 1.6, time: T });
+  }
   workspace.renderOverview(renderer, scene);
 }
 

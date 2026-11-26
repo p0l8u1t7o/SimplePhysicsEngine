@@ -1,11 +1,12 @@
-// 本站製程檢查（三種情境各跑一次）：組裝順序、入位與孔位對齊、清潔流程、鎖附順序與完成、手臂與鎖附模組不同時進入相鄰槽位。
+// 本站製程檢查（四種情境各跑一次）：組裝順序、入位與孔位對齊、清潔流程、鎖附順序與完成、手臂與鎖附模組不同時進入相鄰槽位。
 // 通用的干涉、閃爍、倒序一致由 core 統一檢查負責。
 //   node --import ../../core/tools/register.mjs tools/verify.mjs
 import '@core/verify/dom-stub.mjs';
 import * as THREE from 'three';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { createProject, SCENARIOS, TORQUE } from '../web/js/project.js';
-import { SLOTS, MOD, SCREW } from '../web/js/parts.js';
+import { SLOTS, MOD, SCREW, INT } from '../web/js/parts.js';
+import { inspectionRecord } from '../web/js/inspection-view.js';
 import { LAY, SOC_TOP } from '../web/js/machine.js';
 
 const results = {};
@@ -74,6 +75,45 @@ for (const scenario of Object.keys(SCENARIOS)) {
   const placedNames = [...p.ints.map((_, n) => sample('i' + n, tEnd - .01).loc === 'slot' ? `INT-${n + 1}` : null), ...p.socs.map((_, n) => sample('s' + n, tEnd - .01).loc === 'slot' ? `SOC-${n + 1}` : null)].filter(Boolean);
   for (const nm of placedNames) if (!p.insp.some(e => e.part === nm && e.cam === 'UP-2D' && e.result === 'OK')) failures.push(`${nm} 沒有上視檢查 OK 紀錄`);
   if (TORQUE.finNm <= TORQUE.preNm) failures.push('終鎖扭力必須大於預鎖');
+  // 6. 新增產品細節不得越過既有外形、孔徑或 PIN 高度；夾套漲緊後仍留孔壁間隙。
+  for (const side of ['top', 'bottom']) {
+    const geometry = p.ints[0].getObjectByName('interposer pins ' + side).geometry;
+    const vertices = geometry.attributes.position;
+    for (let i = 0; i < vertices.count; i++) {
+      const x = vertices.getX(i), y = vertices.getY(i), z = vertices.getZ(i);
+      const height = side === 'top' ? y - INT.t : -y;
+      if (height < -.00001 || height > INT.pin + .00001 || Math.abs(x) > MOD.L / 2 || Math.abs(z) > MOD.W / 2 || MOD.holes.some(h => Math.hypot(x - h, z) < MOD.holeR)) {
+        failures.push('彈片超出外形、孔壁或高度界線'); break;
+      }
+    }
+  }
+  for (const head of Object.values(p.robot.heads)) for (const m of head.mandrels) {
+    if (1.05 * m.scale.x > 1.22 + 1e-6 || 1.22 >= MOD.holeR) failures.push('漲緊夾套超過孔壁界線');
+  }
+  // 捲輪的轉軸必須始終沿世界 Z，印記在端面之外；一般場景檢查不比較同父件內部。
+  for (const value of [0, .25, .5, 1]) {
+    p.st.set({ tape: value });
+    for (const reel of p.st.wipe.reels) {
+      const axis = new THREE.Vector3(0, 1, 0).applyEuler(reel.rotation);
+      if (Math.abs(axis.x) > 1e-9 || Math.abs(axis.y) > 1e-9 || axis.z < .999999) failures.push('擦拭帶捲輪歪擺');
+      for (const m of reel.children.filter(o => o.name === 'wipe reel mark')) {
+        if (m.position.y - .06 <= 18 || Math.hypot(m.position.x, m.position.z) + 3.6 >= 16) failures.push('捲輪印記超出端面或與端面重合');
+      }
+    }
+  }
+  // 7. 示意視窗只顯示該時間以前、本來源最近一筆紀錄；初始不能顯示未來的合格結果。
+  for (const source of ['upI', 'upS', 'pin', 'trayI', 'trayS', 'down']) {
+    if (inspectionRecord(p.insp, source, 0) !== null) failures.push('取像前出現判定：' + source);
+    for (const e of p.insp) {
+      const record = inspectionRecord(p.insp, source, e.t - .001);
+      if (record && record.t > e.t - .001) failures.push('示意影像提前顯示結果：' + source);
+    }
+  }
+  const dirtEvent = p.insp.find(e => e.result === '髒污');
+  if (dirtEvent && inspectionRecord(p.insp, 'upS', dirtEvent.t)?.result !== '髒污') failures.push('髒污影像沒有保留待處理狀態');
+  const recheck = p.insp.find(e => e.item === '清潔後複檢');
+  if (recheck && inspectionRecord(p.insp, 'upS', recheck.t)?.result !== recheck.result) failures.push('複檢影像判定不符');
+  notes.push('彈片外形／孔壁／高度、夾套界線、示意影像取樣檢查完成');
   void SCREW;
   results[scenario] = { ok: !failures.length, total: +p.total.toFixed(2), steady: p.cycle.steady, inspections: p.insp.length, failures, notes };
   if (failures.length) ok = false;

@@ -2,6 +2,7 @@
 // 手臂本體與解析逆解在共用模型（core/models/robots/denso-hsr065.js）；這裡只裝本站的工具、TCP，以及底座轉 180° 的座標換算。
 // 法蘭本地：原點在法蘭端面、工具往 −y；零件長邊沿法蘭本地 X，兩個頭沿法蘭本地 Z 排列（A 在 −Z、B 在 +Z）。
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { block, cylinder, decal } from '@core/geom/shapes.js';
 import { MAT, std } from '@core/geom/materials.js';
 import { createHSR065, HSR065, JOINTS, withinLimits, wrapPi, fk as armFk } from '@core/models/robots/denso-hsr065.js';
@@ -71,18 +72,22 @@ export function createRobot(scene) {
   block(tool, [150, 6, 100], [0, PB + 3, 0], MAT.alu);
   // 三孔頭：氣動滑台（行程 12）→ 頭板 → 3 支肩部＋漲緊銷（插入零件孔）＋狀態燈
   const heads = {};
-  for (const [key, z, color, label] of [['A', -TOOL.headZ, MAT.steelBlue, 'INT'], ['B', TOOL.headZ, MAT.steelOrange, 'SOC']]) {
+  for (const [key, z, color, label] of [['A', -TOOL.headZ, MAT.steelBlue, '連接件'], ['B', TOOL.headZ, MAT.steelOrange, '記憶體']]) {
     const g = new THREE.Group(); g.name = 'head-' + key; g.position.set(0, PB, z); tool.add(g);
     const st = slideTable.create({ w: 30, h: 40, d: 18, stroke: TOOL.stroke, table: false, bodyMaterial: color }); g.add(st.root); tagPart(st, REF.slide);
     const t = st.table;
     block(t, [104, 6, 16], [0, -40 - 3, 0], MAT.alu);
+    const mandrels = [];
     for (const hx of MOD.holes) {
       cylinder(t, 2.2, 3.5, [hx, -46 - 1.75, 0], MAT.steelDark, 'y', 16);                    // 肩部（壓在孔周）
-      cylinder(t, 1.05, 2.5, [hx, -49.5 - 1.25, 0], MAT.chrome, 'y', 12);                    // 漲緊銷（伸入孔內）
+      // 三瓣夾套保留開縫；最大半徑 1.22 mm，小於產品孔半徑 1.25 mm。
+      const sectors = [0, 1, 2].map(i => new THREE.CylinderGeometry(1.05, 1.05, 2.5, 4, 1, false, i * Math.PI * 2 / 3 + .045, Math.PI * 2 / 3 - .09));
+      const sleeve = new THREE.Mesh(mergeGeometries(sectors), MAT.chrome);
+      sectors.forEach(g => g.dispose()); sleeve.position.set(hx, -50.75, 0); t.add(sleeve); mandrels.push(sleeve);
     }
     const led = block(t, [6, 3, 3], [44, -41, 8.6], std(0x203a20, .4, 0, { emissive: 0x3dd68c, emissiveIntensity: .05 }));
     decal(t, 26, 5, [-30, -43, 8.7], [0, 0, 0], [label], { color: '#e8eef3', bg: null, center: true });
-    heads[key] = { group: g, slide: st, led };
+    heads[key] = { group: g, slide: st, led, mandrels };
   }
   // 下視相機（PCB 基準點）＋雷射位移計（三點入位高度）
   const cam = visionCamera.create({ axis: '-y', bodyW: 29, bodyD: 29, bodyL: 30, lensR: 9, lensL: 20, ringR: 13, fov: 30, view: { fov: 30, aspect: 1.5, near: 2, far: 400 } });
@@ -99,6 +104,9 @@ export function createRobot(scene) {
     heads.A.slide.set({ ext: s.A }); heads.B.slide.set({ ext: s.B });
     heads.A.led.material.emissiveIntensity = s.gA > .5 ? 1.6 : .05;
     heads.B.led.material.emissiveIntensity = s.gB > .5 ? 1.6 : .05;
+    for (const key of ['A', 'B']) for (const m of heads[key].mandrels) {
+      const radius = 1 + (1.22 / 1.05 - 1) * s['g' + key]; m.scale.set(radius, 1, radius);
+    }
     cam.set(s.flash || 0);
     const L = s.beamLen || 0; beam.visible = L > 1;
     if (beam.visible) { beam.scale.y = L; beam.position.set(TOOL.laser[0], PB - 32 - L / 2, 0); }

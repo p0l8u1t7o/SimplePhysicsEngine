@@ -1,0 +1,84 @@
+{
+  "ok": true,
+  "tolerance": 0,
+  "comparisons": [
+    {
+      "variant": "預設",
+      "ok": true,
+      "diffs": []
+    },
+    {
+      "variant": "全部良品",
+      "ok": true,
+      "diffs": []
+    },
+    {
+      "variant": "清潔後仍髒污 → NG",
+      "ok": true,
+      "diffs": []
+    },
+    {
+      "variant": "interposer PIN 歪斜 → NG",
+      "ok": true,
+      "diffs": []
+    }
+  ],
+  "contracts": [
+    {
+      "scenario": "ok",
+      "exact": true,
+      "geometryBefore": {
+        "triangles": 138788,
+        "meshes": 706,
+        "shadowTriangles": 115384
+      },
+      "geometryAfter": {
+        "triangles": 120900,
+        "meshes": 729,
+        "shadowTriangles": 50584
+      }
+    },
+    {
+      "scenario": "clean",
+      "exact": true,
+      "geometryBefore": {
+        "triangles": 138788,
+        "meshes": 706,
+        "shadowTriangles": 115384
+      },
+      "geometryAfter": {
+        "triangles": 120900,
+        "meshes": 729,
+        "shadowTriangles": 50584
+      }
+    },
+    {
+      "scenario": "ng-clean",
+      "exact": true,
+      "geometryBefore": {
+        "triangles": 138788,
+        "meshes": 706,
+        "shadowTriangles": 115384
+      },
+      "geometryAfter": {
+        "triangles": 120900,
+        "meshes": 729,
+        "shadowTriangles": 50584
+      }
+    },
+    {
+      "scenario": "ng-pin",
+      "exact": true,
+      "geometryBefore": {
+        "triangles": 138788,
+        "meshes": 706,
+        "shadowTriangles": 115384
+      },
+      "geometryAfter": {
+        "triangles": 120900,
+        "meshes": 729,
+        "shadowTriangles": 50584
+      }
+    }
+  ]
+}

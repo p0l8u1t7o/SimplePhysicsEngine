@@ -13,9 +13,7 @@
       "matched": 19,
       "sceneOnly": [],
       "bomOnly": [],
-      "warnings": [
-        "還沒有評估簡報：3D 完成、截圖拍好後執行 node studio/vs3d.mjs assess \"<站>\" --repo deck（輸出到 docs/assessment/）"
-      ]
+      "warnings": []
     },
     {
       "variant": "全部良品",
@@ -31,9 +29,7 @@
       "matched": 19,
       "sceneOnly": [],
       "bomOnly": [],
-      "warnings": [
-        "還沒有評估簡報：3D 完成、截圖拍好後執行 node studio/vs3d.mjs assess \"<站>\" --repo deck（輸出到 docs/assessment/）"
-      ]
+      "warnings": []
     },
     {
       "variant": "清潔後仍髒污 → NG",
@@ -49,9 +45,7 @@
       "matched": 19,
       "sceneOnly": [],
       "bomOnly": [],
-      "warnings": [
-        "還沒有評估簡報：3D 完成、截圖拍好後執行 node studio/vs3d.mjs assess \"<站>\" --repo deck（輸出到 docs/assessment/）"
-      ]
+      "warnings": []
     },
     {
       "variant": "interposer PIN 歪斜 → NG",
@@ -67,9 +61,7 @@
       "matched": 19,
       "sceneOnly": [],
       "bomOnly": [],
-      "warnings": [
-        "還沒有評估簡報：3D 完成、截圖拍好後執行 node studio/vs3d.mjs assess \"<站>\" --repo deck（輸出到 docs/assessment/）"
-      ]
+      "warnings": []
     }
   ]
 }

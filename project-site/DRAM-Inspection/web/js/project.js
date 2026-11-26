@@ -3,6 +3,7 @@
 // 三點入位高度）→ 4 片 SOCAMM（離子風刀、底面檢查、髒污件 IPA 擦拭＋吹乾 10 s＋複檢）→ 鎖附模組逐槽壓持、三螺絲預鎖＋終鎖 → 出站。
 // 所有時間由 core 的時間軸（createTimeline）決定：倒播、跳播結果相同。數字都是示意值。
 import * as THREE from 'three';
+import { createDetails } from './details.js';
 import { createTimeline } from '@core/anim/track.js';
 import { floor } from '@core/geom/environment.js';
 import { MAT } from '@core/geom/materials.js';
@@ -39,6 +40,8 @@ export function createProject({ scene, scenario = 'clean' } = {}) {
   const ints = Array.from({ length: TRAY.pockets }, (_, k) => { const p = createInterposer('interposer-' + (k + 1)); scene.add(p); return p; });
   const socs = Array.from({ length: TRAY.pockets }, (_, k) => { const p = createSocamm('socamm-' + (k + 1), { dirty: SC.dirty.includes(k) }); scene.add(p.root); return p; });
   const screws = Array.from({ length: 12 }, (_, n) => { const s = createScrew(`screw-${Math.floor(n / 3) + 1}-${n % 3 + 1}`); scene.add(s); return s; });
+
+  const details = createDetails({ scene, ints, st, locker });
 
   // ---------------------------------------------------------------- 時間軸
   const tl = createTimeline();
@@ -386,6 +389,7 @@ export function createProject({ scene, scenario = 'clean' } = {}) {
     const RR = { q: r, cx: C.cx, lift, trayZ: { I: S.trayI.z, S: S.trayS.z } };
     ints.forEach((o, k) => partWorld('I', S['i' + k], o, RR));
     socs.forEach((o, k) => { const s = S['s' + k]; partWorld('S', s, o.root, RR); o.dirt.visible = s.dirty === 'y'; });
+    details.set(S);
     locker.group.updateMatrixWorld(true);
     const tip = locker.bitTip();
     screws.forEach((w, n) => {

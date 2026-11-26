@@ -274,7 +274,8 @@ export function buildStations(scene) {
   out.set = ({ prof = 0, cam = 0, blow = 0, wipeUp = 0, tape = 0, drop = 0, dry = 0 }) => {
     out.prof.set({ laser: prof }); out.camUp.I.set(cam === 1 ? 1 : 0); out.camUp.S.set(cam === 2 ? 1 : 0); out.blowJet.visible = blow > .5;
     out.wipe.pad.position.y = wipeUp * 1.5;
-    for (const r of out.wipe.reels) r.rotation.z = tape * 6;
+    // cylinder 的軸為本地 Y；先繞本地軸轉，再由 X 轉到世界 Z，避免捲輪歪擺。
+    for (const r of out.wipe.reels) r.rotation.set(Math.PI / 2, tape * 6, 0);
     out.wipe.drop.visible = drop > .5; out.dry.jets.forEach(j => j.visible = dry > .5);
   };
   out.set({});
