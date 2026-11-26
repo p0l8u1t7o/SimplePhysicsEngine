@@ -69,9 +69,9 @@ const VIEWS = {
   scara: [[-900, 1480, -600], [-30, 990, 240]],
   tray: [[-260, 1420, 1250], [LAY.lane.I, 930, 600]],
   inspect: [[-760, 1420, 760], [-330, 915, 270]],
-  clean: [[720, 1420, 1250], [250, 905, 640]],
+  clean: [[-80, 1400, 1050], [260, 900, 640]],
   board: [[-470, 1150, 300], [0, 922, 0]],
-  lock: () => { const x = locker.head.getWorldPosition(V()).x; return [[x + 260, 1330, -500], [x, 945, -30]]; },
+  lock: () => { const x = locker.head.getWorldPosition(V()).x; return [[x + 120, 1500, -430], [x, 932, -15]]; },   // 後上方往下看，越過供料器、避開手臂
   top: [[0, 3400, 160], [0, 900, 150]],
   electrical: [[-260, 820, 1500], [-380, 420, 560]],
   product: () => { const p = project.ints[0].position; return [[p.x + 75, p.y + 110, p.z + 85], [p.x, p.y, p.z]]; },

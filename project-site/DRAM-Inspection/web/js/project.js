@@ -83,7 +83,7 @@ export function createProject({ scene, scenario = 'clean' } = {}) {
   // 抽屜從裝盤位（前門）往後送，所有格位依序通過檢查橋（橋在 Z 645）
   const scanA = LAY.tray.load, scanB = LAY.tray.scan - TRAY.d / 2 - 8;
   tI.add(.5, { laser: 1 }, { action: 'interposer Tray 送入', sub: '抽屜伺服滑台；檢查橋 3D 雷射開啟', station: 1, ease: STEP });
-  tI.add(3.0, { z: scanB }, { action: 'interposer 頂面掃描', sub: '大視野 3D 線雷射：8 格頂面 PIN 尖端高度、歪斜與平整度；2D 同軸光拍鍍金接點', station: 1, ease: t => t });
+  tI.add(3.0, { z: scanB }, { action: 'interposer 頂面掃描', sub: '大視野 3D 線雷射：逐格量頂面 PIN 尖端高度、歪斜與平整度；2D 同軸光拍鍍金接點', station: 1, ease: t => t });
   tI.add(0, { laser: 0 });
   tI.add(.6, { z: LAY.tray.pick }, { action: 'interposer Tray 到取料位', station: 1 });
   tS.add(.5, {}, { action: 'SOCAMM Tray 送入', sub: '抽屜伺服滑台', station: 1 });
@@ -263,7 +263,7 @@ export function createProject({ scene, scenario = 'clean' } = {}) {
   }
 
   // ---- 3b. SOCAMM × 4（雙頭：B 頭伸出、A 頭縮回）
-  const socPlaced = [];
+  const socPlaced = [], armWin = [];
   let nextS = 0;
   exchange('I', lastPick.I);
   flip(-1, { action: '手臂換肘向', sub: '經過輸送線東側上方的伸直姿態，改用東側作業的肘向', station: 3 });
@@ -284,7 +284,7 @@ export function createProject({ scene, scenario = 'clean' } = {}) {
       if (dirty) {
         // IPA 擦拭：擦拭帶滴 IPA，零件底面壓在擦拭墊上來回兩次，擦拭帶前進一格
         const [wx, wz] = LAY.st.wipe, yw = st.wipe.padTop + 1.5 - .1 + SOC.t;
-        goTo('B', V(wx, yw, wz), 0, 'IPA 擦拭', { action: `${name} IPA 擦拭`, sub: '無塵擦拭帶滴 IPA，擦拭墊上升貼合', station: 3 }, { slow: 6, slowDur: .35 });
+        goTo('B', V(wx, yw, wz), 0, 'IPA 擦拭', { action: `${name} IPA 擦拭`, sub: '擦拭帶含浸 IPA，擦拭墊上升貼合', station: 3 }, { slow: 6, slowDur: .35 });
         const pre = sta.add(.4, { drop: 1, wipeUp: 1 }, { at: rb.t - .35 });
         sta.add(0, { drop: 0 }, { at: pre.start + pre.dur });
         const w = line('B', e => V(wx + 20 * Math.sin(e * Math.PI * 4), yw, wz), 0, 2.4, { action: `${name} 擦拭 2 往返`, sub: '±20 mm、擦拭帶每次前進 1 格（不重複使用）', station: 3 });
@@ -311,11 +311,12 @@ export function createProject({ scene, scenario = 'clean' } = {}) {
       insp.push({ t: +rb.t.toFixed(2), cam: 'UP-2D', part: `SOC-${k + 1}`, item: '位置修正', result: 'OK', value: `ΔX ${(-.02 + k * .009).toFixed(3)} ΔY ${(.015 + k * .006).toFixed(3)}` });
       okPart = true;
     }
-    const P = pS[k];
+    const P = pS[k], tA = rb.t;
     goTo('B', slotPt(slot, SOC_Y(0) + SOC.t), Math.PI / 2, `槽位 ${slot + 1}`, { action: `SOCAMM → 槽位 ${slot + 1}`, sub: '三孔對準 interposer 孔，輕放在 PIN 上（尚未壓縮）', station: 3 }, { slow: 8, slowDur: .45 });
     const r = release('B', P, 'slot', { slot }, { action: '鬆開', sub: '輕放，等鎖附模組壓持', station: 3 });
     up({}, { B: 0 }); cur.B = 0;
     socPlaced.push({ slot, k, tPlaced: r.start, tLeft: rb.t });
+    armWin.push({ slot, t0: tA, t1: rb.t });                          // 手臂在這個槽位上方作業的時段（含進出）
   }
   exchange('S', lastPick.S);
   // ---- 3c. 手臂回東側待命（鎖附模組在槽位上方作業時，手臂不跨越它的 X 位置；下一片的 interposer 在載台交換後再取）
@@ -323,19 +324,40 @@ export function createProject({ scene, scenario = 'clean' } = {}) {
     const [x, z] = LAY.st.camS;
     up();
     const qa = solve('B', V(x, yAt('B', SAFE_D3), z), 0, '東側待命');
-    moveJ(qa, null, {}, { action: '手臂待命（東側）', sub: '鎖附模組作業中，手臂不跨越槽位', station: 3 });
+    const sb = moveJ(qa, null, {}, { action: '手臂待命（東側）', sub: '鎖附模組作業中，手臂不跨越槽位', station: 3 });
+    armWin.push({ slot: 3, t0: sb.start, t1: sb.start + sb.dur });   // 從槽位 4 離開的那段也算
   }
   const tRobotDone = rb.t;
 
-  // ---- 4. 鎖附：槽位 k 在 SCARA 放好 SOCAMM k+1 並離開之後開始（相鄰槽位不同時作業）
-  let tLock = 0, lx = LAY.locker.park, wn = 0, turnsAcc = 0;
+  // ---- 4. 鎖附：槽位 k 的 SOCAMM 放好、手臂離開後就可以開始；但整段作業時間內，手臂不能在相鄰槽位（±1）作業
+  //        （槽距 70 mm，手臂工具與鎖附頭會互碰）。依手臂的實際作業時段 armWin 找最早不衝突的開始時間。
+  let tLock = 0, lx = LAY.locker.park, ls = -1, wn = 0, turnsAcc = 0;
   const lkAdd = (dur, v, o = {}) => { const s = lk.add(dur, v, o); return s; };
+  const preDrive = TORQUE.preTurns / (TORQUE.preRpm / 60), finDur = TORQUE.finTurn / (TORQUE.finRpm / 60) + .25;
+  const SLOT_BODY = .5 + .35 + 3 * (.25 + .18 + .1 + .15 + .25 + .18 + preDrive + .18) + 3 * (.22 + .18 + finDur + .18) + .4 + .35;   // 壓持到複檢
+  const lockWin = [];
+  const findStart = (slot, from, fromSlot, t) => {
+    const x = LAY.work + SLOTS[slot], mv = Math.max(.4, Math.abs(x - from) / 400), dur = mv + SLOT_BODY;
+    const lo = Math.min(fromSlot < 0 ? 0 : fromSlot, slot) - 1, hi = Math.max(fromSlot < 0 ? slot : fromSlot, slot) + 1;   // 從待機位出發會經過西側各槽
+    let startAt = Math.max(socPlaced[slot].tLeft, t);
+    for (let guard = 0; guard < 20; guard++) {
+      const c = armWin.find(w => w.slot >= lo && w.slot <= hi && w.slot !== slot && w.t0 < startAt + dur + .3 && w.t1 > startAt - .3);
+      if (!c) break; startAt = c.t1 + .3;
+    }
+    return { startAt, mv, dur };
+  };
   for (let slot = 0; slot < 4; slot++) {
-    const gate = (socPlaced[Math.min(slot + 1, 3)] || {}).tLeft ?? 0;
-    const startAt = Math.max(gate, lk.t);
     const x = LAY.work + SLOTS[slot], P = pS[socPlaced[slot].k];
-    lkAdd(Math.max(.4, Math.abs(x - lx) / 400), { x, nz: LOCK.feedZ, ny: 0 }, { at: startAt, action: `鎖附模組 → 槽位 ${slot + 1}`, sub: 'X 軸伺服；起子停在取釘座上方', station: 4 });
-    lx = x;
+    let { startAt, mv, dur } = findStart(slot, lx, ls, lk.t);
+    // 等待期間手臂要到目前所在槽的隔壁作業 → 先退回待機位（停在原地會和手臂工具相撞）
+    if (ls >= 0 && armWin.some(w => Math.abs(w.slot - ls) <= 1 && w.t0 < startAt && w.t1 > lk.t - .3)) {
+      lkAdd(Math.max(.4, Math.abs(LAY.locker.park - lx) / 400), { x: LAY.locker.park, nz: LOCK.feedZ }, { action: '鎖附模組退回待機位', sub: '讓手臂到相鄰槽位放 SOCAMM', station: 4 });
+      lx = LAY.locker.park; ls = -1;
+      ({ startAt, mv, dur } = findStart(slot, lx, ls, lk.t));
+    }
+    const slotStart = startAt;
+    lkAdd(mv, { x, nz: LOCK.feedZ, ny: 0 }, { at: startAt, action: `鎖附模組 → 槽位 ${slot + 1}`, sub: 'X 軸伺服；起子停在取釘座上方', station: 4 });
+    lx = x; ls = slot;
     const pr = lkAdd(.5, { press: 1 }, { action: `槽位 ${slot + 1} 壓持`, sub: '4 爪壓在 DRAM 上，SOCAMM 壓縮 interposer PIN（防回彈脫孔）', station: 4 });
     P.add(pr.dur, { press: 1 }, { at: pr.start });
     const gb = lkAdd(.35, { beam: 1 }, { action: '入位確認', sub: '3 支雷射量三孔附近板間距離（SOCAMM 頂面到 PCB）', station: 4, ease: STEP });
@@ -385,6 +407,8 @@ export function createProject({ scene, scenario = 'clean' } = {}) {
     heights.push({ t: +(gc.start + gc.dur).toFixed(2), slot, kind: '鎖附後板間距離', values: [0, 1, 2].map(i => +(2.701 + ((slot * 2 + i) * 3 % 4) * .002).toFixed(3)), limit: '2.70 ± 0.03 mm' });
     insp.push({ t: +(gc.start + gc.dur).toFixed(2), cam: 'NUTRUNNER', part: `槽位 ${slot + 1}`, item: '三螺絲終鎖', result: 'OK', value: `${TORQUE.finNm.toFixed(2)} N·m ×3、轉數 ${(TORQUE.preTurns + TORQUE.finTurn).toFixed(2)}` });
     tLock = lk.t;
+    if (Math.abs(lk.t - slotStart - dur) > 1e-6) throw new Error(`鎖附時間估算不符：${(lk.t - slotStart).toFixed(3)} ≠ ${dur.toFixed(3)}`);
+    lockWin.push({ slot, t0: slotStart, t1: lk.t });
   }
   lkAdd(Math.abs(LAY.locker.park - lx) / 400 + .3, { x: LAY.locker.park, nz: LOCK.feedZ }, { action: '鎖附模組回待機位', station: 4 });
   // ---- 5. 出站：頂升下降、止擋下降、輸送到下游（維持原軌道交接）
@@ -470,8 +494,11 @@ export function createProject({ scene, scenario = 'clean' } = {}) {
     const W = LAY.x1 - LAY.x0, D = LAY.z1 - LAY.z0;
     rows.push({ group: '配置', name: '機台占地（不含輸送伸出段）', ok: W <= 1600 && D <= 1500, value: `${W} × ${D} mm` });
     rows.push({ group: '配置', name: '輸送面高度 900 mm（SMT 標準）', ok: LAY.conv.top === 900, value: `${LAY.conv.top} mm` });
-    const gap = Math.min(...socPlaced.slice(1).map((p, i) => { const s = lk.steps.find(x => x.action === `鎖附模組 → 槽位 ${i + 1}`); return s ? s.start - p.tLeft : 99; }));
-    rows.push({ group: '時序', name: '鎖附只在相鄰槽位的 SOCAMM 放好、手臂離開後開始', ok: gap >= -1e-6, value: `${gap.toFixed(2)} s` });
+    // 鎖附模組在槽位 k 作業時，手臂不在 k±1 作業（時段不重疊）；鎖附開始前該槽 SOCAMM 已放好
+    let gap = Infinity;
+    for (const L of lockWin) for (const A of armWin) if (Math.abs(A.slot - L.slot) === 1) gap = Math.min(gap, Math.max(A.t0 - L.t1, L.t0 - A.t1));
+    const ready = lockWin.every(L => L.t0 >= socPlaced[L.slot].tLeft - 1e-6);
+    rows.push({ group: '時序', name: '鎖附與手臂不同時在相鄰槽位；SOCAMM 放好後才鎖', ok: gap >= 0 && ready, value: `間隔 ≥ ${gap.toFixed(2)} s` });
     rows.push({ group: '時序', name: '吹乾時間 ≥ 10 s', ok: rb.steps.filter(s => s.action?.includes('吹乾 10 s')).every(s => s.dur >= 10), value: '10 s' });
     rows.push({ group: '節拍', name: '每片載台（4 組）穩態節拍（示意）', ok: true, value: `${cycle.steady} s／片（${cycle.perModule} s／組）` });
     return rows;

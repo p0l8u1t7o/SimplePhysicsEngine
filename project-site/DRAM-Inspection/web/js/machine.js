@@ -352,9 +352,9 @@ export function buildLocker(scene) {
   block(head, [40, 30, armLen], [-60, toLocal(y0 + 15), armLen / 2 - 50], MAT.alu);             // 懸臂（偏西，讓出起子上方空間）
   block(head, [70, 40, 60], [-45, toLocal(y0 - 20), -20], MAT.steelDark);                       // 滑座連接塊
   // 隨行螺絲供料器（料斗＋直進軌，吹送到取釘座）：懸臂上、靠滑座側
-  block(head, [70, 70, 90], [-60, toLocal(y0 + 30 + 35), 60], std(0x3b6e8f, .5, .3));
-  block(head, [40, 30, 40], [-60, toLocal(y0 + 30 + 70 + 15), 60], std(0x8fa3b0, .5, .3));
-  decal(head, 60, 20, [-60, toLocal(y0 + 65), 60 + 46.2], [0, 0, 0], ['SCREW', 'FEEDER'], { color: '#e9eef2', bg: null, center: true });
+  block(head, [50, 46, 64], [-60, toLocal(y0 + 30 + 23), 10], std(0x3b6e8f, .5, .3));                  // 螺絲供料器本體（直進軌＋分料）
+  block(head, [30, 20, 30], [-60, toLocal(y0 + 30 + 46 + 10), 4], std(0x8fa3b0, .5, .3));                // 料斗
+  decal(head, 44, 14, [-60, toLocal(y0 + 30 + 23), 10 + 32.7], [0, 0, 0], ['螺絲供料'], { color: '#e9eef2', bg: null, center: true });
   // 頭部垂直板（在槽位背側、Z = −90）
   const hz = -Lz;                                                                             // 世界 Z = 0 在 head 本地的 z
   const plateTop = y0, plateBot = PCB_TOP + 26;
@@ -365,7 +365,7 @@ export function buildLocker(scene) {
   block(head, [10, 20, 18], [0, toLocal(feedTop + 4), hz + LOCK.feedZ - 18], MAT.steelDark);
   block(head, [10, 14, 6], [0, toLocal(feedTop - 2), hz - 90 + 1], MAT.steelDark);
   const tube = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
-    new THREE.Vector3(0, toLocal(feedTop + 8), hz + LOCK.feedZ - 24), new THREE.Vector3(0, toLocal(feedTop + 40), hz - 110), new THREE.Vector3(0, toLocal(y0 + 30), hz - 160), new THREE.Vector3(-60, toLocal(y0 + 30 + 20), 60 - 45)]), 24, 2.2, 8),
+    new THREE.Vector3(0, toLocal(feedTop + 8), hz + LOCK.feedZ - 24), new THREE.Vector3(0, toLocal(feedTop + 40), hz - 110), new THREE.Vector3(0, toLocal(y0 + 30), hz - 160), new THREE.Vector3(-60, toLocal(y0 + 30 + 12), 10 + 34)]), 24, 2.2, 8),
     std(0xd8eef8, .2, 0, { transparent: true, opacity: .7 }));
   tube.name = 'screw feed tube'; tube.userData.routingHardware = 'route'; head.add(tube);
   // 沿 Z 的小滑台（頭板上方，起子在三孔與取釘座之間移動）

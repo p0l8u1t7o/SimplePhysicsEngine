@@ -340,7 +340,7 @@
         "report": [
           {
             "scenario": "預設",
-            "samples": 533,
+            "samples": 528,
             "routes": 23,
             "supports": 18,
             "carriers": 4,
@@ -698,7 +698,7 @@
         "report": [
           {
             "scenario": "全部良品",
-            "samples": 487,
+            "samples": 489,
             "routes": 23,
             "supports": 18,
             "carriers": 4,
@@ -1056,7 +1056,7 @@
         "report": [
           {
             "scenario": "清潔後仍髒污 → NG",
-            "samples": 559,
+            "samples": 554,
             "routes": 23,
             "supports": 18,
             "carriers": 4,
@@ -1414,7 +1414,7 @@
         "report": [
           {
             "scenario": "interposer PIN 歪斜 → NG",
-            "samples": 507,
+            "samples": 509,
             "routes": 23,
             "supports": 18,
             "carriers": 4,

@@ -7,20 +7,20 @@
       "ok": true,
       "meshes": 1680,
       "moving": 490,
-      "joints": 93,
-      "samples": 1252,
+      "joints": 92,
+      "samples": 1217,
       "dt": 0.1,
-      "total": 125.100554647273,
+      "total": 121.60239849377092,
       "dynamic": [],
       "static": [],
       "zfight": [],
       "envelope": {
         "robot": {
-          "minX": -640,
+          "minX": -641,
           "maxX": 656,
           "minY": 840,
           "maxY": 1538,
-          "minZ": -247,
+          "minZ": -240,
           "maxZ": 870
         }
       },
@@ -64,9 +64,9 @@
       "meshes": 1680,
       "moving": 475,
       "joints": 85,
-      "samples": 1084,
+      "samples": 1087,
       "dt": 0.1,
-      "total": 108.30929376152054,
+      "total": 108.60929376152053,
       "dynamic": [],
       "static": [],
       "zfight": [],
@@ -76,7 +76,7 @@
           "maxX": 656,
           "minY": 840,
           "maxY": 1538,
-          "minZ": -242,
+          "minZ": -245,
           "maxZ": 682
         }
       },
@@ -119,10 +119,10 @@
       "ok": true,
       "meshes": 1687,
       "moving": 497,
-      "joints": 92,
-      "samples": 1313,
+      "joints": 94,
+      "samples": 1279,
       "dt": 0.1,
-      "total": 131.28778463504722,
+      "total": 127.84092180867682,
       "dynamic": [],
       "static": [],
       "zfight": [],
@@ -132,7 +132,7 @@
           "maxX": 661,
           "minY": 840,
           "maxY": 1538,
-          "minZ": -241,
+          "minZ": -243,
           "maxZ": 870
         }
       },
@@ -176,19 +176,19 @@
       "meshes": 1684,
       "moving": 479,
       "joints": 86,
-      "samples": 1135,
+      "samples": 1138,
       "dt": 0.1,
-      "total": 113.42205336268317,
+      "total": 113.72205336268317,
       "dynamic": [],
       "static": [],
       "zfight": [],
       "envelope": {
         "robot": {
-          "minX": -643,
+          "minX": -642,
           "maxX": 656,
           "minY": 840,
           "maxY": 1538,
-          "minZ": -242,
+          "minZ": -246,
           "maxZ": 682
         }
       },

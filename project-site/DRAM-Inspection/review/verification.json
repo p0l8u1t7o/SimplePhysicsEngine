@@ -3,8 +3,8 @@
   "results": {
     "ok": {
       "ok": true,
-      "total": 108.31,
-      "steady": 100.6,
+      "total": 108.61,
+      "steady": 100.9,
       "inspections": 42,
       "failures": [],
       "notes": [
@@ -14,8 +14,8 @@
     },
     "clean": {
       "ok": true,
-      "total": 125.1,
-      "steady": 117.4,
+      "total": 121.6,
+      "steady": 113.9,
       "inspections": 43,
       "failures": [],
       "notes": [
@@ -25,8 +25,8 @@
     },
     "ng-clean": {
       "ok": true,
-      "total": 131.29,
-      "steady": 123.6,
+      "total": 127.84,
+      "steady": 120.2,
       "inspections": 45,
       "failures": [],
       "notes": [
@@ -36,8 +36,8 @@
     },
     "ng-pin": {
       "ok": true,
-      "total": 113.42,
-      "steady": 105.7,
+      "total": 113.72,
+      "steady": 106,
       "inspections": 44,
       "failures": [],
       "notes": [
