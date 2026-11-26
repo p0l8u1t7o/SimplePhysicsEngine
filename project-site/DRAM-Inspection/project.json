@@ -1,0 +1,16 @@
+{
+  "title": "SOCAMM 記憶體檢測組裝機",
+  "summary": "載台主機板 4 槽：Tray 上面 3D／2D 檢查、SCARA 雙三孔頭取放、interposer 底面 PIN 3D 與覆拍修正、SOCAMM 離子風刀＋IPA 擦拭吹乾複檢、壓持後三螺絲預鎖＋終鎖，一萬級潔淨單機（評估展示，數值為示意）",
+  "order": 50,
+  "coreVersion": "1.22.0",
+  "strict": true,
+  "checks": {
+    "quick": ["tools/verify.mjs"],
+    "full": []
+  },
+  "variants": [
+    { "name": "全部良品", "params": { "scenario": "ok" } },
+    { "name": "清潔後仍髒污 → NG", "params": { "scenario": "ng-clean" } },
+    { "name": "interposer PIN 歪斜 → NG", "params": { "scenario": "ng-pin" } }
+  ]
+}

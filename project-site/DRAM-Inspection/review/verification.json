@@ -1,0 +1,45 @@
+{
+  "ok": true,
+  "results": {
+    "ok": {
+      "ok": true,
+      "total": 108.05,
+      "steady": 100.4,
+      "inspections": 38,
+      "failures": [],
+      "notes": [
+        "手臂與鎖附模組最小 X 距離 110 mm"
+      ]
+    },
+    "clean": {
+      "ok": true,
+      "total": 124.85,
+      "steady": 117.2,
+      "inspections": 39,
+      "failures": [],
+      "notes": [
+        "手臂與鎖附模組最小 X 距離 110 mm"
+      ]
+    },
+    "ng-clean": {
+      "ok": true,
+      "total": 131.01,
+      "steady": 123.4,
+      "inspections": 40,
+      "failures": [],
+      "notes": [
+        "手臂與鎖附模組最小 X 距離 110 mm"
+      ]
+    },
+    "ng-pin": {
+      "ok": true,
+      "total": 113.57,
+      "steady": 105.9,
+      "inspections": 39,
+      "failures": [],
+      "notes": [
+        "手臂與鎖附模組最小 X 距離 110 mm"
+      ]
+    }
+  }
+}

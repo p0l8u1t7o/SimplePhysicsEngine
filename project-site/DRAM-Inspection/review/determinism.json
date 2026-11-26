@@ -1,0 +1,43 @@
+{
+  "ok": true,
+  "variants": [
+    {
+      "variant": "預設",
+      "params": {},
+      "ok": true,
+      "objects": 864,
+      "samples": 40,
+      "failures": []
+    },
+    {
+      "variant": "全部良品",
+      "params": {
+        "scenario": "ok"
+      },
+      "ok": true,
+      "objects": 864,
+      "samples": 40,
+      "failures": []
+    },
+    {
+      "variant": "清潔後仍髒污 → NG",
+      "params": {
+        "scenario": "ng-clean"
+      },
+      "ok": true,
+      "objects": 864,
+      "samples": 40,
+      "failures": []
+    },
+    {
+      "variant": "interposer PIN 歪斜 → NG",
+      "params": {
+        "scenario": "ng-pin"
+      },
+      "ok": true,
+      "objects": 864,
+      "samples": 40,
+      "failures": []
+    }
+  ]
+}

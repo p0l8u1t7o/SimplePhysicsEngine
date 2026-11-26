@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="../core/favicon.svg" type="image/svg+xml">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SOCAMM 記憶體檢測組裝機 — 3D 設備模擬</title>
+<link rel="stylesheet" href="css/style.css">
+<!-- 共用版面（精簡版面、相機視窗、工具列）的樣式 core/ui/viewer-workspace.css 由 createViewerWorkspace 自動載入 -->
+<script type="importmap">
+{ "imports": {
+    "three": "../core/vendor/three.module.js",
+    "three/addons/": "../core/vendor/addons/",
+    "@core/": "../core/"
+} }
+</script>
+</head>
+<body>
+<!-- 標準骨架（core/README.md「小螢幕與觸控」）：#topbar（.brand、#stations、.views）、#side、#bottombar（.ctl、.stepRow、#timeline、#clock）；
+     窄螢幕與觸控裝置的精簡版面由 createViewerWorkspace 處理，style.css 只寫桌面版面 -->
+<div id="app">
+  <canvas id="c"></canvas>
+
+  <header id="topbar">
+    <div class="brand">
+      <div class="title">SOCAMM 記憶體檢測組裝機</div>
+      <div class="sub">載台 PCB × 4 組：Tray 供料、三孔取放、PIN 與外觀 AOI、IPA 清潔複檢、視覺對位、三螺絲分段鎖附（評估展示，數值為示意）</div>
+    </div>
+    <nav id="stations" aria-label="站別"></nav>
+    <div class="views">
+      <button data-view="iso">全景</button>
+      <button data-view="scara">SCARA</button>
+      <button data-view="tray">Tray 檢查</button>
+      <button data-view="inspect">上視站</button>
+      <button data-view="clean">清潔</button>
+      <button data-view="board">槽位</button>
+      <button data-view="lock">鎖附</button>
+      <button data-view="top">俯視</button>
+    </div>
+  </header>
+
+  <aside id="side">
+    <section class="card">
+      <h3>目前動作 <span class="hint" id="stationName"></span></h3>
+      <div id="action" class="action">待命</div>
+      <div id="substep" class="substep"></div>
+    </section>
+    <section class="card">
+      <h3>情境 <span class="hint">示範用</span></h3>
+      <select id="scenario" aria-label="示範情境" class="wide"></select>
+      <div class="kv" id="cycleBox"></div>
+    </section>
+    <section class="card">
+      <h3>檢查紀錄（影像追溯） <span class="hint" id="inspCount"></span></h3>
+      <ul id="insp" class="log"></ul>
+    </section>
+    <section class="card">
+      <h3>鎖附曲線 <span class="hint" id="screwName"></span></h3>
+      <canvas id="torque" width="560" height="200" aria-label="扭力-角度曲線"></canvas>
+      <div id="screwGrid" class="screws"></div>
+    </section>
+    <section class="card">
+      <h3>入位與板間距離 <span class="hint">雷射位移</span></h3>
+      <table id="heights" class="tbl"></table>
+    </section>
+    <section class="card">
+      <h3>空間檢核 <span class="hint" id="checkCount"></span></h3>
+      <ul id="checks" class="checks"></ul>
+    </section>
+  </aside>
+
+  <footer id="bottombar">
+    <div class="ctl">
+      <button id="playBtn" class="primary">⏸ 暫停</button>
+      <button id="restartBtn">↺ 重播</button>
+      <label>速度 <input id="speed" type="range" aria-label="播放速度"><span id="speedVal">1×</span></label>
+      <label class="chk"><input id="loop" type="checkbox" checked> 循環播放</label>
+    </div>
+    <div class="stepRow"><button id="previous" aria-label="上一步">‹</button><select id="stepSelect" aria-label="動作步驟"></select><button id="next" aria-label="下一步">›</button><span id="cycleTime"></span></div>
+    <input id="timeline" aria-label="流程時間" type="range">
+    <div id="clock" class="clock">00:00.0</div>
+  </footer>
+
+  <div id="loading">載入 3D 場景中…</div>
+</div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,75 @@
+{
+  "ok": true,
+  "variants": [
+    {
+      "variant": "預設",
+      "params": {},
+      "ok": true,
+      "applicable": true,
+      "strict": true,
+      "source": "studio（@DRAM-Inspection）",
+      "sceneModels": 19,
+      "bomLines": 44,
+      "matched": 19,
+      "sceneOnly": [],
+      "bomOnly": [],
+      "warnings": [
+        "還沒有評估簡報：3D 完成、截圖拍好後執行 node studio/vs3d.mjs assess \"<站>\" --repo deck（輸出到 docs/assessment/）"
+      ]
+    },
+    {
+      "variant": "全部良品",
+      "params": {
+        "scenario": "ok"
+      },
+      "ok": true,
+      "applicable": true,
+      "strict": true,
+      "source": "studio（@DRAM-Inspection）",
+      "sceneModels": 19,
+      "bomLines": 44,
+      "matched": 19,
+      "sceneOnly": [],
+      "bomOnly": [],
+      "warnings": [
+        "還沒有評估簡報：3D 完成、截圖拍好後執行 node studio/vs3d.mjs assess \"<站>\" --repo deck（輸出到 docs/assessment/）"
+      ]
+    },
+    {
+      "variant": "清潔後仍髒污 → NG",
+      "params": {
+        "scenario": "ng-clean"
+      },
+      "ok": true,
+      "applicable": true,
+      "strict": true,
+      "source": "studio（@DRAM-Inspection）",
+      "sceneModels": 19,
+      "bomLines": 44,
+      "matched": 19,
+      "sceneOnly": [],
+      "bomOnly": [],
+      "warnings": [
+        "還沒有評估簡報：3D 完成、截圖拍好後執行 node studio/vs3d.mjs assess \"<站>\" --repo deck（輸出到 docs/assessment/）"
+      ]
+    },
+    {
+      "variant": "interposer PIN 歪斜 → NG",
+      "params": {
+        "scenario": "ng-pin"
+      },
+      "ok": true,
+      "applicable": true,
+      "strict": true,
+      "source": "studio（@DRAM-Inspection）",
+      "sceneModels": 19,
+      "bomLines": 44,
+      "matched": 19,
+      "sceneOnly": [],
+      "bomOnly": [],
+      "warnings": [
+        "還沒有評估簡報：3D 完成、截圖拍好後執行 node studio/vs3d.mjs assess \"<站>\" --repo deck（輸出到 docs/assessment/）"
+      ]
+    }
+  ]
+}

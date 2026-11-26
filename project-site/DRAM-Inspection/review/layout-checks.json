@@ -1,0 +1,215 @@
+{
+  "ok": true,
+  "variants": [
+    {
+      "variant": "預設",
+      "params": {},
+      "ok": true,
+      "count": 7,
+      "failures": [],
+      "rows": [
+        {
+          "group": "SCARA",
+          "name": "作業點都在 HSR065 可達範圍（132 點）",
+          "ok": true,
+          "value": "全部可達"
+        },
+        {
+          "group": "SCARA",
+          "name": "J2 摺角 ≤ 120°（避開基座柱干涉區）",
+          "ok": true,
+          "value": "115.2°"
+        },
+        {
+          "group": "配置",
+          "name": "機台占地（不含輸送伸出段）",
+          "ok": true,
+          "value": "1520 × 1460 mm"
+        },
+        {
+          "group": "配置",
+          "name": "輸送面高度 900 mm（SMT 標準）",
+          "ok": true,
+          "value": "900 mm"
+        },
+        {
+          "group": "時序",
+          "name": "鎖附只在相鄰槽位的 SOCAMM 放好、手臂離開後開始",
+          "ok": true,
+          "value": "0.00 s"
+        },
+        {
+          "group": "時序",
+          "name": "吹乾時間 ≥ 10 s",
+          "ok": true,
+          "value": "10 s"
+        },
+        {
+          "group": "節拍",
+          "name": "每片載台（4 組）穩態節拍（示意）",
+          "ok": true,
+          "value": "117.2 s／片（29.3 s／組）"
+        }
+      ]
+    },
+    {
+      "variant": "全部良品",
+      "params": {
+        "scenario": "ok"
+      },
+      "ok": true,
+      "count": 7,
+      "failures": [],
+      "rows": [
+        {
+          "group": "SCARA",
+          "name": "作業點都在 HSR065 可達範圍（122 點）",
+          "ok": true,
+          "value": "全部可達"
+        },
+        {
+          "group": "SCARA",
+          "name": "J2 摺角 ≤ 120°（避開基座柱干涉區）",
+          "ok": true,
+          "value": "115.2°"
+        },
+        {
+          "group": "配置",
+          "name": "機台占地（不含輸送伸出段）",
+          "ok": true,
+          "value": "1520 × 1460 mm"
+        },
+        {
+          "group": "配置",
+          "name": "輸送面高度 900 mm（SMT 標準）",
+          "ok": true,
+          "value": "900 mm"
+        },
+        {
+          "group": "時序",
+          "name": "鎖附只在相鄰槽位的 SOCAMM 放好、手臂離開後開始",
+          "ok": true,
+          "value": "0.00 s"
+        },
+        {
+          "group": "時序",
+          "name": "吹乾時間 ≥ 10 s",
+          "ok": true,
+          "value": "10 s"
+        },
+        {
+          "group": "節拍",
+          "name": "每片載台（4 組）穩態節拍（示意）",
+          "ok": true,
+          "value": "100.4 s／片（25.1 s／組）"
+        }
+      ]
+    },
+    {
+      "variant": "清潔後仍髒污 → NG",
+      "params": {
+        "scenario": "ng-clean"
+      },
+      "ok": true,
+      "count": 7,
+      "failures": [],
+      "rows": [
+        {
+          "group": "SCARA",
+          "name": "作業點都在 HSR065 可達範圍（145 點）",
+          "ok": true,
+          "value": "全部可達"
+        },
+        {
+          "group": "SCARA",
+          "name": "J2 摺角 ≤ 120°（避開基座柱干涉區）",
+          "ok": true,
+          "value": "118.3°"
+        },
+        {
+          "group": "配置",
+          "name": "機台占地（不含輸送伸出段）",
+          "ok": true,
+          "value": "1520 × 1460 mm"
+        },
+        {
+          "group": "配置",
+          "name": "輸送面高度 900 mm（SMT 標準）",
+          "ok": true,
+          "value": "900 mm"
+        },
+        {
+          "group": "時序",
+          "name": "鎖附只在相鄰槽位的 SOCAMM 放好、手臂離開後開始",
+          "ok": true,
+          "value": "0.00 s"
+        },
+        {
+          "group": "時序",
+          "name": "吹乾時間 ≥ 10 s",
+          "ok": true,
+          "value": "10 s"
+        },
+        {
+          "group": "節拍",
+          "name": "每片載台（4 組）穩態節拍（示意）",
+          "ok": true,
+          "value": "123.4 s／片（30.9 s／組）"
+        }
+      ]
+    },
+    {
+      "variant": "interposer PIN 歪斜 → NG",
+      "params": {
+        "scenario": "ng-pin"
+      },
+      "ok": true,
+      "count": 7,
+      "failures": [],
+      "rows": [
+        {
+          "group": "SCARA",
+          "name": "作業點都在 HSR065 可達範圍（132 點）",
+          "ok": true,
+          "value": "全部可達"
+        },
+        {
+          "group": "SCARA",
+          "name": "J2 摺角 ≤ 120°（避開基座柱干涉區）",
+          "ok": true,
+          "value": "115.2°"
+        },
+        {
+          "group": "配置",
+          "name": "機台占地（不含輸送伸出段）",
+          "ok": true,
+          "value": "1520 × 1460 mm"
+        },
+        {
+          "group": "配置",
+          "name": "輸送面高度 900 mm（SMT 標準）",
+          "ok": true,
+          "value": "900 mm"
+        },
+        {
+          "group": "時序",
+          "name": "鎖附只在相鄰槽位的 SOCAMM 放好、手臂離開後開始",
+          "ok": true,
+          "value": "0.00 s"
+        },
+        {
+          "group": "時序",
+          "name": "吹乾時間 ≥ 10 s",
+          "ok": true,
+          "value": "10 s"
+        },
+        {
+          "group": "節拍",
+          "name": "每片載台（4 組）穩態節拍（示意）",
+          "ok": true,
+          "value": "105.9 s／片（26.5 s／組）"
+        }
+      ]
+    }
+  ]
+}

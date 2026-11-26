@@ -16,6 +16,26 @@
 
 ## 待處理
 
+### HSR065 花鍵軸限位環與馬達蓋頂面在下降量約 106 mm 時同高
+- 提出：DRAM-Inspection（2026-11-26）
+- 現象：`core/models/robots/denso-hsr065.js` 的限位環頂面在 `270.8 − d3`、J3／J4 馬達蓋頂面在 164.5（相對 J2 群組），d3 ≈ 106.3 mm 時兩個面重合；重合面檢查剛好取樣到下降中的那一刻就會報閃爍
+- 暫代：`project-site/DRAM-Inspection/web/js/project.js` 的 `verify.skip` 排除限位環（`robot.arm.shaft.children[1]`）
+- 期望介面：模型把限位環改高或改小（例如頂面再高 1 mm，或半徑小於馬達蓋開孔），各站移除 skip
+- 影響：所有用 HSR065 的站（shutter assembly、WorkpieceMeasurement）
+
+### bom 盤點：裝在別的共用模型裡的共用模型不列入（例如手臂工具上的氣動滑台）
+- 提出：DRAM-Inspection（2026-11-26）
+- 現象：`core/verify/bom.mjs` 的 `sceneInventory` 遇到祖先有 `coreModel` 就跳過；SCARA 工具上的氣動滑台（雙頭切換）與鎖附 X 軸滑座上的壓持滑台都沒算到，成本表列 P-00210 時 strict 站會報「場景裡沒有」
+- 暫代：成本表不單列 P-00210，併進自製件（取放頭、鎖附模組本體）的規格說明
+- 期望介面：站掛到別的模型可動子群組（`coreModelPart`）或站自己群組底下的模型照常盤點；或 `userData.bomCount = true` 強制列入
+- 影響：手臂工具上裝共用模型的站（shutter assembly 的滑台、MotorBodyAOI 的推料軸）
+
+### Tray 盤、吹送式螺絲供料機、FFU 的共用模型
+- 提出：DRAM-Inspection（2026-11-26）
+- 暫代：`project-site/DRAM-Inspection/web/js/parts.js` 的 `createTray`（8 格、支撐環）；`machine.js` 鎖附頭上的螺絲供料箱與取釘座、`buildFrame` 的 FFU 箱體
+- 期望介面：`jedecTray.create({ rows, cols, pitch })`、`screwFeeder.create({ type: 'blow'|'present' })`、`ffu.create({ w, d })`
+- 影響：電子組裝、潔淨室類的站
+
 ### variants 的 bom 檢查：方案比較型情境各自的成本表（或略過）
 - 提出：MotorBodyAOI（2026-11-22）
 - 暫代：手臂持件方案沒有放進 `project.json` 的 `variants`（core 的 bom 檢查會拿站的同一份成本表比對，strict 站必定不通過）；改由站內 `tools/verify-arm.mjs` 直接呼叫 `verifyScene`、`verifyDeterminism`，並把方案寫成 `createProject({ plan: 'arm' })`、網頁 `?plan=arm`

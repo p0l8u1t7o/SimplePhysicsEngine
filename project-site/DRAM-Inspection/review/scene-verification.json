@@ -1,0 +1,223 @@
+{
+  "ok": true,
+  "variants": [
+    {
+      "variant": "預設",
+      "params": {},
+      "ok": true,
+      "meshes": 639,
+      "moving": 334,
+      "joints": 54,
+      "samples": 1249,
+      "dt": 0.1,
+      "total": 124.84579941986516,
+      "dynamic": [],
+      "static": [],
+      "zfight": [],
+      "envelope": {
+        "robot": {
+          "minX": -640,
+          "maxX": 651,
+          "minY": 840,
+          "maxY": 1538,
+          "minZ": -242,
+          "maxZ": 870
+        }
+      },
+      "allowances": [
+        "同一剛體或直接相連的關節（導軌、滑座、轉軸裝在上游零件上）",
+        "伸縮連桿（鏈條、活塞桿等長度會變的零件）與同一載體上的零件相接",
+        "線材（core/electrical cable）端點接入接頭、端子或格蘭頭（只放行端點附近「半徑＋30 mm」的穿插，沿線其他地方照常檢查）；線材沿線間隙由各專案的配線檢查負責",
+        "線夾、格蘭頭、護套、支撐柱等小型配線五金（userData.routingHardware）夾在安裝面上",
+        "套筒式伸縮軸：外管與內管標記為 nested",
+        "移動件在指定導軌上滑行（導軌 userData.guide，移動件 userData.on）",
+        "零件放在 Tray 格內（凸點與底面落在支撐環上、漲緊銷伸入支撐環中心）",
+        "三孔頭夾持零件：漲緊銷插入零件孔、肩部壓在孔周",
+        "組裝疊層：interposer 凸點入 PCB 孔、PIN 壓在焊墊上；SOCAMM 壓在 interposer PIN 上（PIN 尖端插入 0.05～0.3 mm 代表接觸與壓縮）",
+        "SOCAMM 底面壓在 IPA 擦拭墊上；NG 件落在 NG 盒底",
+        "壓持爪 PU 墊壓在 DRAM 頂面（userData.contact）",
+        "螺絲：在取釘座、吸在起子尖端、穿過 SOCAMM／interposer 孔鎖入 PCB 背面螺帽",
+        "載台跨在邊皮帶上、被定位銷與支撐條頂起靠上壓邊、東端靠止擋",
+        "PCB 放在載台支撐柱上、板邊壓爪"
+      ],
+      "thresholds": {
+        "product": {
+          "tol": 0.05,
+          "dist": 0.01,
+          "area": 2
+        },
+        "screws": {
+          "tol": 0.05,
+          "dist": 0.01,
+          "area": 2
+        }
+      },
+      "scope": "OBB 分離軸（穿插門檻 2 mm，可依模組調整，圓柱為保守外框、曲面以頂點複核）；動態每 0.1 s 取樣；重合面檢查盒、倒角外殼、圓柱端面與平面，距離 < 0.6 mm、重疊 > 25 mm²、外觀不同者，取 11 個時刻。不是連續碰撞證明。"
+    },
+    {
+      "variant": "全部良品",
+      "params": {
+        "scenario": "ok"
+      },
+      "ok": true,
+      "meshes": 639,
+      "moving": 329,
+      "joints": 51,
+      "samples": 1081,
+      "dt": 0.1,
+      "total": 108.0545385341127,
+      "dynamic": [],
+      "static": [],
+      "zfight": [],
+      "envelope": {
+        "robot": {
+          "minX": -640,
+          "maxX": 651,
+          "minY": 840,
+          "maxY": 1538,
+          "minZ": -241,
+          "maxZ": 682
+        }
+      },
+      "allowances": [
+        "同一剛體或直接相連的關節（導軌、滑座、轉軸裝在上游零件上）",
+        "伸縮連桿（鏈條、活塞桿等長度會變的零件）與同一載體上的零件相接",
+        "線材（core/electrical cable）端點接入接頭、端子或格蘭頭（只放行端點附近「半徑＋30 mm」的穿插，沿線其他地方照常檢查）；線材沿線間隙由各專案的配線檢查負責",
+        "線夾、格蘭頭、護套、支撐柱等小型配線五金（userData.routingHardware）夾在安裝面上",
+        "套筒式伸縮軸：外管與內管標記為 nested",
+        "移動件在指定導軌上滑行（導軌 userData.guide，移動件 userData.on）",
+        "零件放在 Tray 格內（凸點與底面落在支撐環上、漲緊銷伸入支撐環中心）",
+        "三孔頭夾持零件：漲緊銷插入零件孔、肩部壓在孔周",
+        "組裝疊層：interposer 凸點入 PCB 孔、PIN 壓在焊墊上；SOCAMM 壓在 interposer PIN 上（PIN 尖端插入 0.05～0.3 mm 代表接觸與壓縮）",
+        "SOCAMM 底面壓在 IPA 擦拭墊上；NG 件落在 NG 盒底",
+        "壓持爪 PU 墊壓在 DRAM 頂面（userData.contact）",
+        "螺絲：在取釘座、吸在起子尖端、穿過 SOCAMM／interposer 孔鎖入 PCB 背面螺帽",
+        "載台跨在邊皮帶上、被定位銷與支撐條頂起靠上壓邊、東端靠止擋",
+        "PCB 放在載台支撐柱上、板邊壓爪"
+      ],
+      "thresholds": {
+        "product": {
+          "tol": 0.05,
+          "dist": 0.01,
+          "area": 2
+        },
+        "screws": {
+          "tol": 0.05,
+          "dist": 0.01,
+          "area": 2
+        }
+      },
+      "scope": "OBB 分離軸（穿插門檻 2 mm，可依模組調整，圓柱為保守外框、曲面以頂點複核）；動態每 0.1 s 取樣；重合面檢查盒、倒角外殼、圓柱端面與平面，距離 < 0.6 mm、重疊 > 25 mm²、外觀不同者，取 11 個時刻。不是連續碰撞證明。"
+    },
+    {
+      "variant": "清潔後仍髒污 → NG",
+      "params": {
+        "scenario": "ng-clean"
+      },
+      "ok": true,
+      "meshes": 639,
+      "moving": 334,
+      "joints": 53,
+      "samples": 1311,
+      "dt": 0.1,
+      "total": 131.01250559524647,
+      "dynamic": [],
+      "static": [],
+      "zfight": [],
+      "envelope": {
+        "robot": {
+          "minX": -640,
+          "maxX": 656,
+          "minY": 840,
+          "maxY": 1538,
+          "minZ": -237,
+          "maxZ": 870
+        }
+      },
+      "allowances": [
+        "同一剛體或直接相連的關節（導軌、滑座、轉軸裝在上游零件上）",
+        "伸縮連桿（鏈條、活塞桿等長度會變的零件）與同一載體上的零件相接",
+        "線材（core/electrical cable）端點接入接頭、端子或格蘭頭（只放行端點附近「半徑＋30 mm」的穿插，沿線其他地方照常檢查）；線材沿線間隙由各專案的配線檢查負責",
+        "線夾、格蘭頭、護套、支撐柱等小型配線五金（userData.routingHardware）夾在安裝面上",
+        "套筒式伸縮軸：外管與內管標記為 nested",
+        "移動件在指定導軌上滑行（導軌 userData.guide，移動件 userData.on）",
+        "零件放在 Tray 格內（凸點與底面落在支撐環上、漲緊銷伸入支撐環中心）",
+        "三孔頭夾持零件：漲緊銷插入零件孔、肩部壓在孔周",
+        "組裝疊層：interposer 凸點入 PCB 孔、PIN 壓在焊墊上；SOCAMM 壓在 interposer PIN 上（PIN 尖端插入 0.05～0.3 mm 代表接觸與壓縮）",
+        "SOCAMM 底面壓在 IPA 擦拭墊上；NG 件落在 NG 盒底",
+        "壓持爪 PU 墊壓在 DRAM 頂面（userData.contact）",
+        "螺絲：在取釘座、吸在起子尖端、穿過 SOCAMM／interposer 孔鎖入 PCB 背面螺帽",
+        "載台跨在邊皮帶上、被定位銷與支撐條頂起靠上壓邊、東端靠止擋",
+        "PCB 放在載台支撐柱上、板邊壓爪"
+      ],
+      "thresholds": {
+        "product": {
+          "tol": 0.05,
+          "dist": 0.01,
+          "area": 2
+        },
+        "screws": {
+          "tol": 0.05,
+          "dist": 0.01,
+          "area": 2
+        }
+      },
+      "scope": "OBB 分離軸（穿插門檻 2 mm，可依模組調整，圓柱為保守外框、曲面以頂點複核）；動態每 0.1 s 取樣；重合面檢查盒、倒角外殼、圓柱端面與平面，距離 < 0.6 mm、重疊 > 25 mm²、外觀不同者，取 11 個時刻。不是連續碰撞證明。"
+    },
+    {
+      "variant": "interposer PIN 歪斜 → NG",
+      "params": {
+        "scenario": "ng-pin"
+      },
+      "ok": true,
+      "meshes": 639,
+      "moving": 329,
+      "joints": 51,
+      "samples": 1136,
+      "dt": 0.1,
+      "total": 113.57469383146767,
+      "dynamic": [],
+      "static": [],
+      "zfight": [],
+      "envelope": {
+        "robot": {
+          "minX": -641,
+          "maxX": 651,
+          "minY": 840,
+          "maxY": 1538,
+          "minZ": -237,
+          "maxZ": 794
+        }
+      },
+      "allowances": [
+        "同一剛體或直接相連的關節（導軌、滑座、轉軸裝在上游零件上）",
+        "伸縮連桿（鏈條、活塞桿等長度會變的零件）與同一載體上的零件相接",
+        "線材（core/electrical cable）端點接入接頭、端子或格蘭頭（只放行端點附近「半徑＋30 mm」的穿插，沿線其他地方照常檢查）；線材沿線間隙由各專案的配線檢查負責",
+        "線夾、格蘭頭、護套、支撐柱等小型配線五金（userData.routingHardware）夾在安裝面上",
+        "套筒式伸縮軸：外管與內管標記為 nested",
+        "移動件在指定導軌上滑行（導軌 userData.guide，移動件 userData.on）",
+        "零件放在 Tray 格內（凸點與底面落在支撐環上、漲緊銷伸入支撐環中心）",
+        "三孔頭夾持零件：漲緊銷插入零件孔、肩部壓在孔周",
+        "組裝疊層：interposer 凸點入 PCB 孔、PIN 壓在焊墊上；SOCAMM 壓在 interposer PIN 上（PIN 尖端插入 0.05～0.3 mm 代表接觸與壓縮）",
+        "SOCAMM 底面壓在 IPA 擦拭墊上；NG 件落在 NG 盒底",
+        "壓持爪 PU 墊壓在 DRAM 頂面（userData.contact）",
+        "螺絲：在取釘座、吸在起子尖端、穿過 SOCAMM／interposer 孔鎖入 PCB 背面螺帽",
+        "載台跨在邊皮帶上、被定位銷與支撐條頂起靠上壓邊、東端靠止擋",
+        "PCB 放在載台支撐柱上、板邊壓爪"
+      ],
+      "thresholds": {
+        "product": {
+          "tol": 0.05,
+          "dist": 0.01,
+          "area": 2
+        },
+        "screws": {
+          "tol": 0.05,
+          "dist": 0.01,
+          "area": 2
+        }
+      },
+      "scope": "OBB 分離軸（穿插門檻 2 mm，可依模組調整，圓柱為保守外框、曲面以頂點複核）；動態每 0.1 s 取樣；重合面檢查盒、倒角外殼、圓柱端面與平面，距離 < 0.6 mm、重疊 > 25 mm²、外觀不同者，取 11 個時刻。不是連續碰撞證明。"
+    }
+  ]
+}
