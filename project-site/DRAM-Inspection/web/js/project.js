@@ -4,6 +4,7 @@
 // 所有時間由 core 的時間軸（createTimeline）決定：倒播、跳播結果相同。數字都是示意值。
 import * as THREE from 'three';
 import { createDetails } from './details.js';
+import { createElectrical } from './electrical.js';
 import { createTimeline } from '@core/anim/track.js';
 import { floor } from '@core/geom/environment.js';
 import { MAT } from '@core/geom/materials.js';
@@ -33,6 +34,7 @@ export function createProject({ scene, scenario = 'clean' } = {}) {
   const frame = buildFrame(scene), ind = buildIndicators(scene), conv = buildConveyor(scene);
   const lanes = { I: buildTrayLane(scene, 'I'), S: buildTrayLane(scene, 'S') };
   const st = buildStations(scene), locker = buildLocker(scene), robot = createRobot(scene);
+  const elec = createElectrical(scene, { robot });
 
   // ---------------------------------------------------------------- 產品
   const carrier = createCarrier(CARRIER_D); scene.add(carrier);
@@ -484,7 +486,7 @@ export function createProject({ scene, scenario = 'clean' } = {}) {
   const isTray = m => { for (let p = m; p; p = p.parent) if (p.userData.trayObj) return true; return false; };
   return {
     total, timeline: tl, apply, stationStart, cycle, insp: insp.sort((a, b) => a.t - b.t), heights, screwLog, scenario: SC,
-    robot, locker, lanes, st, conv, board, ints, socs, screws, reach, trays, spec,
+    robot, locker, lanes, st, conv, board, ints, socs, screws, reach, trays, spec, elec,
     layoutChecks,
     verify: {
       dt: .1,
@@ -505,6 +507,16 @@ export function createProject({ scene, scenario = 'clean' } = {}) {
         { why: 'PCB 放在載台支撐柱上、板邊壓爪', test: (a, b) => (under(a, 'board') && under(b, 'carrier')) || (under(b, 'board') && under(a, 'carrier')) },
       ],
       envelope: ['robot'],
+      // 配線動態取樣：外露線路與拖鏈對會動的機構（手臂、鎖附頭、Tray 叉板與料倉、頂升板）
+      cables: {
+        interval: .5,
+        obstacles: () => {
+          const out = [], add = o => o?.traverse(m => { if (m.isMesh && !m.userData.routingHardware && !m.userData.fx) out.push(m); });
+          add(robot.root); add(locker.head); add(conv.group.getObjectByName('locate-lift'));
+          for (const ln of Object.values(lanes)) { add(ln.nest); add(ln.shelf); }
+          return out;
+        },
+      },
     },
   };
 }

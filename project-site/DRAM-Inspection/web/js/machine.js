@@ -33,6 +33,10 @@ export const LAY = {
   },
   locker: { z: -300, beamY: 1000, park: -530 },  // 鎖附 X 軸（背側）、待機位
 };
+// 台面走線孔 [x, z, 寬, 深]（mm）：台面上設備的線從這裡穿到下方機櫃
+export const GROMMETS = {
+  lock: [-580, -350, 60, 36], robot: [0, 700, 60, 40], trayI: [-705, 240, 30, 30], camI: [-300, 300, 30, 30], camS: [300, 300, 30, 30], conv: [60, 0, 30, 30],
+};
 export const CARRIER_D = LAY.conv.width - 14;                    // 載台寬（跨在兩條邊皮帶上，避開上方壓邊）
 export const LIFT = .9;                                          // 定位頂升：載台上推 0.9 mm 靠上壓邊
 export const pcbTopAt = lift => LAY.conv.top + lift + CARRIER.t + CARRIER.standoff + PCB.t;
@@ -52,16 +56,37 @@ const fx = o => { o.userData.fx = true; return o; };
 // ---------------------------------------------------------------- 機架、下方電控櫃、潔淨外罩（FFU、透明門、側邊載台通道）
 export function buildFrame(scene) {
   const g = group(scene, 'frame'), L = LAY, T = L.table, W = L.x1 - L.x0, D = L.z1 - L.z0, cz = (L.z0 + L.z1) / 2;
-  // 下方電控櫃（腳座＋櫃體＋前門＋散熱孔）與台面
+  // 下方機櫃（中空：電控盤、手臂控制器、氣源都在裡面）：腳座、底板、背板、側板、前框；前門可拆（電盤配線視角隱藏）
   for (const x of [L.x0 + 60, L.x1 - 60]) for (const z of [L.z0 + 60, L.z1 - 60]) { cylinder(g, 28, 40, [x, 20, z], MAT.black, 'y', 16); cylinder(g, 10, 30, [x, 55, z], MAT.chrome, 'y', 12); }
-  block(g, [W - 20, T - 100, D - 20], [0, 70 + (T - 100) / 2, cz], MAT.cabinet);
-  block(g, [W, 20, D], [0, T - 10, cz], MAT.steelDark);
+  const skin = std(0xd9dde0, .5, .2), fz = L.z1 - 9;
+  block(g, [W - 20, 10, D - 20], [0, 67, cz], MAT.steelDark);                                            // 底板（62～72）
+  block(g, [W - 20, T - 20 - 72, 3], [0, (T - 20 + 72) / 2, L.z0 + 11.5], skin);                         // 背板
+  for (const sx of [-1, 1]) block(g, [3, T - 20 - 72, D - 26], [sx * (W / 2 - 11.5), (T - 20 + 72) / 2, cz], skin);   // 側板
+  block(g, [W - 20, 38, 3], [0, 91, fz], skin); block(g, [W - 20, 50, 3], [0, T - 20 - 25, fz], skin);    // 前框上下
+  for (const x of [0, L.x0 + 20, L.x1 - 20]) block(g, [20, T - 20 - 50 - 110, 3], [x, (T - 70 + 110) / 2, fz], skin);   // 前框立條
+  const doors = group(g, 'base doors'); doors.userData.electricalCover = true;
   for (const [x0, x1] of [[L.x0 + 30, -10], [10, L.x1 - 30]]) {
-    block(g, [x1 - x0 - 10, T - 180, 3], [(x0 + x1) / 2, 110 + (T - 180) / 2, L.z1 - 9], std(0xcfd4d8, .45, .25));
-    block(g, [14, 120, 12], [x1 - 40, 420, L.z1 - 2], MAT.black);                                          // 門把
-    for (let i = 0; i < 6; i++) block(g, [120, 4, 2], [(x0 + x1) / 2 - 60, 200 + i * 14, L.z1 - 7], MAT.steelDark);   // 散熱孔
+    block(doors, [x1 - x0 - 10, T - 70 - 110 - 6, 3], [(x0 + x1) / 2, (T - 70 + 110) / 2, fz], std(0xcfd4d8, .45, .25));
+    block(doors, [14, 120, 12], [x1 - 40, 420, L.z1 - 2], MAT.black);                                          // 門把
+    for (let i = 0; i < 6; i++) block(doors, [120, 4, 2], [(x0 + x1) / 2 - 60, 200 + i * 14, L.z1 - 7], MAT.steelDark);   // 散熱孔
   }
-  plate(g, ['電控櫃（PLC、伺服驅動、視覺工控機）'], 360, 50, [L.x0 + 260, 300, L.z1 - 6], 0);
+  plate(doors, ['電控櫃（PLC、伺服驅動、視覺工控機）'], 360, 50, [L.x0 + 260, 300, L.z1 - 6], 0);
+  // 台面（20 mm 鋼板）：走線孔（GROMMETS）讓線材從台面上的設備穿到下方機櫃。
+  // 以孔邊切成矩形塊（每個 z 帶裡相鄰的實心格合併），檢查才看得到真的開孔
+  const holes = Object.values(GROMMETS).map(([hx, hz, hw, hd]) => [hx - hw / 2, hx + hw / 2, hz - hd / 2, hz + hd / 2]);
+  const xs = [...new Set([-W / 2, W / 2, ...holes.flatMap(h => [h[0], h[1]])])].sort((a, b) => a - b);
+  const zs = [...new Set([L.z0, L.z1, ...holes.flatMap(h => [h[2], h[3]])])].sort((a, b) => a - b);
+  for (let j = 0; j < zs.length - 1; j++) {
+    const za = zs[j], zb = zs[j + 1], zm = (za + zb) / 2;
+    let run = null;
+    for (let i = 0; i < xs.length - 1; i++) {
+      const xa = xs[i], xb = xs[i + 1], xm = (xa + xb) / 2, open = holes.some(h => xm > h[0] && xm < h[1] && zm > h[2] && zm < h[3]);
+      if (!open) run = run ? [run[0], xb] : [xa, xb];
+      if ((open || i === xs.length - 2) && run) { block(g, [run[1] - run[0], 20, zb - za], [(run[0] + run[1]) / 2, T - 10, zm], MAT.steelDark).name = 'table top'; run = null; }
+    }
+  }
+  for (const [hx, hz, hw, hd] of Object.values(GROMMETS)) for (const [w, d, ox, oz] of [[hw + 8, 4, 0, -hd / 2 - 2], [hw + 8, 4, 0, hd / 2 + 2], [4, hd, -hw / 2 - 2, 0], [4, hd, hw / 2 + 2, 0]])
+    block(g, [w, 3, d], [hx + ox, T + 1.5, hz + oz], MAT.black);                                          // 走線孔橡膠護圈
   // 上框（鋁擠型 40 × 40）：四柱、頂框、中間橫樑
   const H = L.top - 250;                                                                                   // FFU 下緣
   for (const x of [L.x0 + 20, L.x1 - 20]) for (const z of [L.z0 + 20, L.z1 - 20]) block(g, [40, H - T, 40], [x, (H + T) / 2, z], MAT.frame);
@@ -160,7 +185,7 @@ export function buildTrayLane(scene, key) {
   const f0 = -25, f1 = back + TRAY.d / 2 + 4;                                             // 舌板範圍（滑座本地 Z）
   block(nest, [100, 4, f1 - f0], [0, forkTop - 2, (f0 + f1) / 2], MAT.alu);
   block(nest, [40, 10, 6], [0, forkTop + 5, back - TRAY.d / 2 - 5], MAT.steelBlue);                 // 後靠塊
-  const chain = dragChain(g, key + ' tray drag chain', { origin: [x + so * 100, LAY.table + 16, ax0], axis: [0, 0, 1], rise: [0, 1, 0], fixed: -150, min: -180, max: 180, radius: 30, width: 26, pitch: 14 });
+  const chain = dragChain(g, key + ' tray drag chain', { origin: [x + so * 110, LAY.table + 16, ax0], axis: [0, 0, 1], rise: [0, 1, 0], fixed: -150, min: -180, max: 180, radius: 30, width: 26, pitch: 14 });
   // 升降料倉：固定框（4 柱＋頂框）＋升降層架（伺服直立滑台帶動）
   const mz = T.load, px = TRAY.w / 2 + 22, pz = TRAY.d / 2 + 12, mTop = LAY.trayBottom + MAG.levels * MAG.pitch + 70;
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) block(g, [16, mTop - LAY.table, 16], [x + sx * px, (mTop + LAY.table) / 2, mz + sz * pz], MAT.frame);
@@ -185,8 +210,8 @@ export function buildTrayLane(scene, key) {
   // 上面檢查橋
   // 檢查橋做成懸臂：立柱只在外側（靠機台側板），橫樑伸到 Tray 內側邊，讓出 SCARA 在機台中段的移動空間
   // 橫樑頂面 1078：低於 SCARA 第二臂 Z 軸拖鏈固定座的底面（約 1082），手臂從上方掠過
-  const bz = T.scan, beamY = 1042, bx0 = x + so * 160, bx1 = x - so * 45;   // 橫樑內端只到 Tray 中線內 45 mm，讓開 SCARA 第二臂
-  block(g, [40, beamY - LAY.table, 60], [x + so * 140, (beamY + LAY.table) / 2, bz], MAT.frame);
+  const bz = T.scan, beamY = 1042, bx0 = x + so * 175, bx1 = x - so * 45;   // 橫樑內端只到 Tray 中線內 45 mm，讓開 SCARA 第二臂
+  block(g, [40, beamY - LAY.table, 60], [x + so * 155, (beamY + LAY.table) / 2, bz], MAT.frame);
   block(g, [Math.abs(bx0 - bx1), 36, 60], [(bx0 + bx1) / 2, beamY + 18, bz], MAT.frame);
   block(g, [12, 120, 50], [x + so * 114, beamY - 60, bz], MAT.alu);                                   // 斜撐板（示意）
   const top = LAY.trayBottom + TRAY.floor + 2 + (key === 'I' ? INT.t + INT.pin : SOC.t + SOC.pkgH);

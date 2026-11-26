@@ -4,6 +4,9 @@ import * as THREE from 'three';
 import { createStage, exposeSim } from '@core/ui/stage.js';
 import { createPlayer } from '@core/ui/player.js';
 import { createViewerWorkspace } from '@core/ui/viewer-workspace.js';
+import { createElectricalInspector } from '@core/electrical/electrical-inspector.js';
+import { setElectricalCutaway } from '@core/electrical/electrical-cabinet.js';
+import { routingLegend } from '@core/electrical/cable-routing.js';
 import { createProject, LAY, STATIONS, SCENARIOS, TORQUE } from './project.js';
 import { SLOTS } from './parts.js';
 import { inspectionRecord, drawInspection } from './inspection-view.js';
@@ -70,11 +73,12 @@ const VIEWS = {
   board: [[-470, 1150, 300], [0, 922, 0]],
   lock: () => { const x = locker.head.getWorldPosition(V()).x; return [[x + 260, 1330, -500], [x, 945, -30]]; },
   top: [[0, 3400, 160], [0, 900, 150]],
+  electrical: [[-260, 820, 1500], [-380, 420, 560]],
   product: () => { const p = project.ints[0].position; return [[p.x + 75, p.y + 110, p.z + 85], [p.x, p.y, p.z]]; },
 };
 function setView(name, instant = false) {
   const v = typeof VIEWS[name] === 'function' ? VIEWS[name]() : VIEWS[name]; if (!v) return;
-  workspace.stopFollowing();
+  workspace.stopFollowing(); setElectricalCutaway(scene, name === 'electrical');
   stage.goTo(v[0], v[1], instant);
   document.querySelectorAll('.views [data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === name));
 }
@@ -209,6 +213,8 @@ function renderInspection(ctx, w, h, record, id) {
   }
   ctx.drawImage(inspectionCanvas, 0, 0);
 }
+routingLegend();
+const electrical = createElectricalInspector({ scene, camera, controls, canvas, onEnter: () => setView('electrical', true), onExit: () => setView('iso', true), title: 'SOCAMM 記憶體檢測組裝機' });
 function render() {
   const T = player.T, id = source === 'auto' ? autoSource(T) : source, src = sources[id];
   if (id === 'lock' || camMode === 'live') {
@@ -218,6 +224,8 @@ function render() {
     workspace.renderImage({ draw: (ctx, w, h) => renderInspection(ctx, w, h, record, id),
       title: src.title + '（結果示意）', result: record ? `${record.part} · ${record.result} · 取像 ${record.t.toFixed(2)} s` : '等待取像，尚無判定', aspect: 1.6, time: T });
   }
+  const act = timeline.activity(T);
+  electrical.update({ time: T, playing: player.playing, action: ui.action.textContent, motion: act.some(s => /robot|lock|tray|elev|conv/.test(s.track)), vision: timeline.tracks.robot.sample(T).flash > .5 || act.some(s => /掃描|檢查/.test(s.action)) });
   workspace.renderOverview(renderer, scene);
 }
 

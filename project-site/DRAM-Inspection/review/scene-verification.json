@@ -5,7 +5,7 @@
       "variant": "預設",
       "params": {},
       "ok": true,
-      "meshes": 825,
+      "meshes": 1680,
       "moving": 490,
       "joints": 93,
       "samples": 1252,
@@ -61,7 +61,7 @@
         "scenario": "ok"
       },
       "ok": true,
-      "meshes": 825,
+      "meshes": 1680,
       "moving": 475,
       "joints": 85,
       "samples": 1084,
@@ -117,7 +117,7 @@
         "scenario": "ng-clean"
       },
       "ok": true,
-      "meshes": 832,
+      "meshes": 1687,
       "moving": 497,
       "joints": 92,
       "samples": 1313,
@@ -173,7 +173,7 @@
         "scenario": "ng-pin"
       },
       "ok": true,
-      "meshes": 829,
+      "meshes": 1684,
       "moving": 479,
       "joints": 86,
       "samples": 1135,

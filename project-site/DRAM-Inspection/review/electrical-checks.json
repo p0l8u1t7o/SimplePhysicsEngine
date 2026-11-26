@@ -1,0 +1,1435 @@
+{
+  "ok": true,
+  "variants": [
+    {
+      "variant": "預設",
+      "params": {},
+      "ok": true,
+      "applicable": true,
+      "devices": 21,
+      "connections": 20,
+      "enclosures": 1,
+      "feedthroughs": {
+        "plates": 1,
+        "glands": 5,
+        "holeRays": 30,
+        "wireCrossings": 15,
+        "mountChecks": 4,
+        "failures": []
+      },
+      "failures": [],
+      "components": [
+        {
+          "id": "QS1",
+          "kind": "isolator",
+          "title": "總電源隔離開關",
+          "size": [
+            36,
+            75,
+            65
+          ],
+          "role": "power",
+          "description": "檢修時隔離設備電源；額定電流與現場電源待確認。",
+          "source": null,
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "QF1",
+          "kind": "breaker",
+          "title": "控制支路保護",
+          "size": [
+            36,
+            75,
+            65
+          ],
+          "role": "power",
+          "description": "",
+          "source": "QS1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "QF2",
+          "kind": "breaker",
+          "title": "伺服動力支路保護",
+          "size": [
+            36,
+            75,
+            65
+          ],
+          "role": "power",
+          "description": "",
+          "source": "QS1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "PS1",
+          "kind": "psu",
+          "title": "24 VDC 電源",
+          "size": [
+            50,
+            95,
+            100
+          ],
+          "role": "power",
+          "description": "供應 PLC、I/O、光源控制、雷射位移計與感測器（示意）。",
+          "source": "QF1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "GC1",
+          "kind": "safety",
+          "title": "安全控制器",
+          "size": [
+            45,
+            90,
+            95
+          ],
+          "role": "safety",
+          "description": "前門互鎖、急停；停止伺服與手臂、IPA 供給。",
+          "source": "PS1",
+          "category": "dc",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "PLC1",
+          "kind": "plc",
+          "title": "設備 PLC",
+          "size": [
+            80,
+            90,
+            85
+          ],
+          "role": "control",
+          "description": "站序、手臂與鎖附模組的槽位互鎖、料倉換盤、IPA 與吹乾計時。",
+          "source": "PS1",
+          "category": "dc",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "IO1",
+          "kind": "io",
+          "title": "分散式 I/O（台面）",
+          "size": [
+            50,
+            80,
+            65
+          ],
+          "role": "io",
+          "description": "載台到位、止擋、頂升、料倉層位、真空與壓力開關。",
+          "source": "PLC1",
+          "category": "signal",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "IO2",
+          "kind": "io",
+          "title": "分散式 I/O（閥島）",
+          "size": [
+            50,
+            80,
+            65
+          ],
+          "role": "io",
+          "description": "雙頭切換、漲緊、壓持、吹氣、擦拭墊、吹乾閥。",
+          "source": "PLC1",
+          "category": "signal",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "SW1",
+          "kind": "switch",
+          "title": "PoE 交換器",
+          "size": [
+            40,
+            80,
+            70
+          ],
+          "role": "network",
+          "description": "20 MP 相機 × 5、3D 線雷射 × 2、PLC、手臂控制器、視覺工控機（示意）。",
+          "source": "PS1",
+          "category": "dc",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "IPC1",
+          "kind": "ipc",
+          "title": "視覺工控機",
+          "size": [
+            160,
+            95,
+            100
+          ],
+          "role": "vision",
+          "description": "2D／3D 判讀、覆拍修正量、影像歸檔與追溯（IMG 編號）。",
+          "source": "SW1",
+          "category": "network",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "LC1",
+          "kind": "light",
+          "title": "頻閃光源控制器",
+          "size": [
+            60,
+            70,
+            70
+          ],
+          "role": "vision",
+          "description": "相機觸發同步：同軸、環形、條形光。",
+          "source": "IO1",
+          "category": "signal",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "NR1",
+          "kind": "drive",
+          "title": "伺服起子控制器",
+          "size": [
+            60,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "分段轉速與扭力控制，輸出扭力-角度曲線與轉數（示意）。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "GW1",
+          "kind": "gateway",
+          "title": "MES／資料閘道",
+          "size": [
+            45,
+            70,
+            60
+          ],
+          "role": "network",
+          "description": "上傳檢查、高度與鎖附紀錄；介面待確認。",
+          "source": "SW1",
+          "category": "network",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D1",
+          "kind": "drive",
+          "title": "Tray I 抽屜驅動",
+          "size": [
+            45,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "伺服功率級與回授；軸功率、編碼器與煞車選型待確認（示意）。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D2",
+          "kind": "drive",
+          "title": "Tray S 抽屜驅動",
+          "size": [
+            45,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "伺服功率級與回授；軸功率、編碼器與煞車選型待確認（示意）。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D3",
+          "kind": "drive",
+          "title": "料倉 I 升降驅動",
+          "size": [
+            45,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "伺服功率級與回授；軸功率、編碼器與煞車選型待確認（示意）。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D4",
+          "kind": "drive",
+          "title": "料倉 S 升降驅動",
+          "size": [
+            45,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "伺服功率級與回授；軸功率、編碼器與煞車選型待確認（示意）。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D5",
+          "kind": "drive",
+          "title": "鎖附 X 軸驅動",
+          "size": [
+            45,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "伺服功率級與回授；軸功率、編碼器與煞車選型待確認（示意）。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D6",
+          "kind": "drive",
+          "title": "起子 Z 軸驅動",
+          "size": [
+            45,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "伺服功率級與回授；軸功率、編碼器與煞車選型待確認（示意）。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D7",
+          "kind": "drive",
+          "title": "起子沿槽軸驅動",
+          "size": [
+            45,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "伺服功率級與回授；軸功率、編碼器與煞車選型待確認（示意）。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "RC1",
+          "kind": "robot",
+          "title": "手臂控制器",
+          "size": [
+            357,
+            94,
+            320
+          ],
+          "role": "motion",
+          "description": "RC8A 負責手臂軸控制，PLC 交握任務、完成與異常。",
+          "source": null,
+          "category": "ac",
+          "model": "RC8A 標準型包絡；357×94×320 mm",
+          "free": true
+        }
+      ],
+      "cables": {
+        "report": [
+          {
+            "scenario": "預設",
+            "samples": 533,
+            "routes": 23,
+            "supports": 18,
+            "carriers": 4,
+            "feedthroughs": {
+              "plates": 1,
+              "glands": 5,
+              "holeRays": 30,
+              "wireCrossings": 15,
+              "mountChecks": 4,
+              "failures": []
+            }
+          }
+        ],
+        "failures": []
+      }
+    },
+    {
+      "variant": "全部良品",
+      "params": {
+        "scenario": "ok"
+      },
+      "ok": true,
+      "applicable": true,
+      "devices": 21,
+      "connections": 20,
+      "enclosures": 1,
+      "feedthroughs": {
+        "plates": 1,
+        "glands": 5,
+        "holeRays": 30,
+        "wireCrossings": 15,
+        "mountChecks": 4,
+        "failures": []
+      },
+      "failures": [],
+      "components": [
+        {
+          "id": "QS1",
+          "kind": "isolator",
+          "title": "總電源隔離開關",
+          "size": [
+            36,
+            75,
+            65
+          ],
+          "role": "power",
+          "description": "檢修時隔離設備電源；額定電流與現場電源待確認。",
+          "source": null,
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "QF1",
+          "kind": "breaker",
+          "title": "控制支路保護",
+          "size": [
+            36,
+            75,
+            65
+          ],
+          "role": "power",
+          "description": "",
+          "source": "QS1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "QF2",
+          "kind": "breaker",
+          "title": "伺服動力支路保護",
+          "size": [
+            36,
+            75,
+            65
+          ],
+          "role": "power",
+          "description": "",
+          "source": "QS1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "PS1",
+          "kind": "psu",
+          "title": "24 VDC 電源",
+          "size": [
+            50,
+            95,
+            100
+          ],
+          "role": "power",
+          "description": "供應 PLC、I/O、光源控制、雷射位移計與感測器（示意）。",
+          "source": "QF1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "GC1",
+          "kind": "safety",
+          "title": "安全控制器",
+          "size": [
+            45,
+            90,
+            95
+          ],
+          "role": "safety",
+          "description": "前門互鎖、急停；停止伺服與手臂、IPA 供給。",
+          "source": "PS1",
+          "category": "dc",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "PLC1",
+          "kind": "plc",
+          "title": "設備 PLC",
+          "size": [
+            80,
+            90,
+            85
+          ],
+          "role": "control",
+          "description": "站序、手臂與鎖附模組的槽位互鎖、料倉換盤、IPA 與吹乾計時。",
+          "source": "PS1",
+          "category": "dc",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "IO1",
+          "kind": "io",
+          "title": "分散式 I/O（台面）",
+          "size": [
+            50,
+            80,
+            65
+          ],
+          "role": "io",
+          "description": "載台到位、止擋、頂升、料倉層位、真空與壓力開關。",
+          "source": "PLC1",
+          "category": "signal",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "IO2",
+          "kind": "io",
+          "title": "分散式 I/O（閥島）",
+          "size": [
+            50,
+            80,
+            65
+          ],
+          "role": "io",
+          "description": "雙頭切換、漲緊、壓持、吹氣、擦拭墊、吹乾閥。",
+          "source": "PLC1",
+          "category": "signal",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "SW1",
+          "kind": "switch",
+          "title": "PoE 交換器",
+          "size": [
+            40,
+            80,
+            70
+          ],
+          "role": "network",
+          "description": "20 MP 相機 × 5、3D 線雷射 × 2、PLC、手臂控制器、視覺工控機（示意）。",
+          "source": "PS1",
+          "category": "dc",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "IPC1",
+          "kind": "ipc",
+          "title": "視覺工控機",
+          "size": [
+            160,
+            95,
+            100
+          ],
+          "role": "vision",
+          "description": "2D／3D 判讀、覆拍修正量、影像歸檔與追溯（IMG 編號）。",
+          "source": "SW1",
+          "category": "network",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "LC1",
+          "kind": "light",
+          "title": "頻閃光源控制器",
+          "size": [
+            60,
+            70,
+            70
+          ],
+          "role": "vision",
+          "description": "相機觸發同步：同軸、環形、條形光。",
+          "source": "IO1",
+          "category": "signal",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "NR1",
+          "kind": "drive",
+          "title": "伺服起子控制器",
+          "size": [
+            60,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "分段轉速與扭力控制，輸出扭力-角度曲線與轉數（示意）。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "GW1",
+          "kind": "gateway",
+          "title": "MES／資料閘道",
+          "size": [
+            45,
+            70,
+            60
+          ],
+          "role": "network",
+          "description": "上傳檢查、高度與鎖附紀錄；介面待確認。",
+          "source": "SW1",
+          "category": "network",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D1",
+          "kind": "drive",
+          "title": "Tray I 抽屜驅動",
+          "size": [
+            45,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "伺服功率級與回授；軸功率、編碼器與煞車選型待確認（示意）。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D2",
+          "kind": "drive",
+          "title": "Tray S 抽屜驅動",
+          "size": [
+            45,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "伺服功率級與回授；軸功率、編碼器與煞車選型待確認（示意）。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D3",
+          "kind": "drive",
+          "title": "料倉 I 升降驅動",
+          "size": [
+            45,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "伺服功率級與回授；軸功率、編碼器與煞車選型待確認（示意）。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D4",
+          "kind": "drive",
+          "title": "料倉 S 升降驅動",
+          "size": [
+            45,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "伺服功率級與回授；軸功率、編碼器與煞車選型待確認（示意）。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D5",
+          "kind": "drive",
+          "title": "鎖附 X 軸驅動",
+          "size": [
+            45,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "伺服功率級與回授；軸功率、編碼器與煞車選型待確認（示意）。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D6",
+          "kind": "drive",
+          "title": "起子 Z 軸驅動",
+          "size": [
+            45,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "伺服功率級與回授；軸功率、編碼器與煞車選型待確認（示意）。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D7",
+          "kind": "drive",
+          "title": "起子沿槽軸驅動",
+          "size": [
+            45,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "伺服功率級與回授；軸功率、編碼器與煞車選型待確認（示意）。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "RC1",
+          "kind": "robot",
+          "title": "手臂控制器",
+          "size": [
+            357,
+            94,
+            320
+          ],
+          "role": "motion",
+          "description": "RC8A 負責手臂軸控制，PLC 交握任務、完成與異常。",
+          "source": null,
+          "category": "ac",
+          "model": "RC8A 標準型包絡；357×94×320 mm",
+          "free": true
+        }
+      ],
+      "cables": {
+        "report": [
+          {
+            "scenario": "全部良品",
+            "samples": 487,
+            "routes": 23,
+            "supports": 18,
+            "carriers": 4,
+            "feedthroughs": {
+              "plates": 1,
+              "glands": 5,
+              "holeRays": 30,
+              "wireCrossings": 15,
+              "mountChecks": 4,
+              "failures": []
+            }
+          }
+        ],
+        "failures": []
+      }
+    },
+    {
+      "variant": "清潔後仍髒污 → NG",
+      "params": {
+        "scenario": "ng-clean"
+      },
+      "ok": true,
+      "applicable": true,
+      "devices": 21,
+      "connections": 20,
+      "enclosures": 1,
+      "feedthroughs": {
+        "plates": 1,
+        "glands": 5,
+        "holeRays": 30,
+        "wireCrossings": 15,
+        "mountChecks": 4,
+        "failures": []
+      },
+      "failures": [],
+      "components": [
+        {
+          "id": "QS1",
+          "kind": "isolator",
+          "title": "總電源隔離開關",
+          "size": [
+            36,
+            75,
+            65
+          ],
+          "role": "power",
+          "description": "檢修時隔離設備電源；額定電流與現場電源待確認。",
+          "source": null,
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "QF1",
+          "kind": "breaker",
+          "title": "控制支路保護",
+          "size": [
+            36,
+            75,
+            65
+          ],
+          "role": "power",
+          "description": "",
+          "source": "QS1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "QF2",
+          "kind": "breaker",
+          "title": "伺服動力支路保護",
+          "size": [
+            36,
+            75,
+            65
+          ],
+          "role": "power",
+          "description": "",
+          "source": "QS1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "PS1",
+          "kind": "psu",
+          "title": "24 VDC 電源",
+          "size": [
+            50,
+            95,
+            100
+          ],
+          "role": "power",
+          "description": "供應 PLC、I/O、光源控制、雷射位移計與感測器（示意）。",
+          "source": "QF1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "GC1",
+          "kind": "safety",
+          "title": "安全控制器",
+          "size": [
+            45,
+            90,
+            95
+          ],
+          "role": "safety",
+          "description": "前門互鎖、急停；停止伺服與手臂、IPA 供給。",
+          "source": "PS1",
+          "category": "dc",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "PLC1",
+          "kind": "plc",
+          "title": "設備 PLC",
+          "size": [
+            80,
+            90,
+            85
+          ],
+          "role": "control",
+          "description": "站序、手臂與鎖附模組的槽位互鎖、料倉換盤、IPA 與吹乾計時。",
+          "source": "PS1",
+          "category": "dc",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "IO1",
+          "kind": "io",
+          "title": "分散式 I/O（台面）",
+          "size": [
+            50,
+            80,
+            65
+          ],
+          "role": "io",
+          "description": "載台到位、止擋、頂升、料倉層位、真空與壓力開關。",
+          "source": "PLC1",
+          "category": "signal",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "IO2",
+          "kind": "io",
+          "title": "分散式 I/O（閥島）",
+          "size": [
+            50,
+            80,
+            65
+          ],
+          "role": "io",
+          "description": "雙頭切換、漲緊、壓持、吹氣、擦拭墊、吹乾閥。",
+          "source": "PLC1",
+          "category": "signal",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "SW1",
+          "kind": "switch",
+          "title": "PoE 交換器",
+          "size": [
+            40,
+            80,
+            70
+          ],
+          "role": "network",
+          "description": "20 MP 相機 × 5、3D 線雷射 × 2、PLC、手臂控制器、視覺工控機（示意）。",
+          "source": "PS1",
+          "category": "dc",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "IPC1",
+          "kind": "ipc",
+          "title": "視覺工控機",
+          "size": [
+            160,
+            95,
+            100
+          ],
+          "role": "vision",
+          "description": "2D／3D 判讀、覆拍修正量、影像歸檔與追溯（IMG 編號）。",
+          "source": "SW1",
+          "category": "network",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "LC1",
+          "kind": "light",
+          "title": "頻閃光源控制器",
+          "size": [
+            60,
+            70,
+            70
+          ],
+          "role": "vision",
+          "description": "相機觸發同步：同軸、環形、條形光。",
+          "source": "IO1",
+          "category": "signal",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "NR1",
+          "kind": "drive",
+          "title": "伺服起子控制器",
+          "size": [
+            60,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "分段轉速與扭力控制，輸出扭力-角度曲線與轉數（示意）。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "GW1",
+          "kind": "gateway",
+          "title": "MES／資料閘道",
+          "size": [
+            45,
+            70,
+            60
+          ],
+          "role": "network",
+          "description": "上傳檢查、高度與鎖附紀錄；介面待確認。",
+          "source": "SW1",
+          "category": "network",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D1",
+          "kind": "drive",
+          "title": "Tray I 抽屜驅動",
+          "size": [
+            45,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "伺服功率級與回授；軸功率、編碼器與煞車選型待確認（示意）。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D2",
+          "kind": "drive",
+          "title": "Tray S 抽屜驅動",
+          "size": [
+            45,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "伺服功率級與回授；軸功率、編碼器與煞車選型待確認（示意）。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D3",
+          "kind": "drive",
+          "title": "料倉 I 升降驅動",
+          "size": [
+            45,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "伺服功率級與回授；軸功率、編碼器與煞車選型待確認（示意）。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D4",
+          "kind": "drive",
+          "title": "料倉 S 升降驅動",
+          "size": [
+            45,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "伺服功率級與回授；軸功率、編碼器與煞車選型待確認（示意）。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D5",
+          "kind": "drive",
+          "title": "鎖附 X 軸驅動",
+          "size": [
+            45,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "伺服功率級與回授；軸功率、編碼器與煞車選型待確認（示意）。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D6",
+          "kind": "drive",
+          "title": "起子 Z 軸驅動",
+          "size": [
+            45,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "伺服功率級與回授；軸功率、編碼器與煞車選型待確認（示意）。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D7",
+          "kind": "drive",
+          "title": "起子沿槽軸驅動",
+          "size": [
+            45,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "伺服功率級與回授；軸功率、編碼器與煞車選型待確認（示意）。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "RC1",
+          "kind": "robot",
+          "title": "手臂控制器",
+          "size": [
+            357,
+            94,
+            320
+          ],
+          "role": "motion",
+          "description": "RC8A 負責手臂軸控制，PLC 交握任務、完成與異常。",
+          "source": null,
+          "category": "ac",
+          "model": "RC8A 標準型包絡；357×94×320 mm",
+          "free": true
+        }
+      ],
+      "cables": {
+        "report": [
+          {
+            "scenario": "清潔後仍髒污 → NG",
+            "samples": 559,
+            "routes": 23,
+            "supports": 18,
+            "carriers": 4,
+            "feedthroughs": {
+              "plates": 1,
+              "glands": 5,
+              "holeRays": 30,
+              "wireCrossings": 15,
+              "mountChecks": 4,
+              "failures": []
+            }
+          }
+        ],
+        "failures": []
+      }
+    },
+    {
+      "variant": "interposer PIN 歪斜 → NG",
+      "params": {
+        "scenario": "ng-pin"
+      },
+      "ok": true,
+      "applicable": true,
+      "devices": 21,
+      "connections": 20,
+      "enclosures": 1,
+      "feedthroughs": {
+        "plates": 1,
+        "glands": 5,
+        "holeRays": 30,
+        "wireCrossings": 15,
+        "mountChecks": 4,
+        "failures": []
+      },
+      "failures": [],
+      "components": [
+        {
+          "id": "QS1",
+          "kind": "isolator",
+          "title": "總電源隔離開關",
+          "size": [
+            36,
+            75,
+            65
+          ],
+          "role": "power",
+          "description": "檢修時隔離設備電源；額定電流與現場電源待確認。",
+          "source": null,
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "QF1",
+          "kind": "breaker",
+          "title": "控制支路保護",
+          "size": [
+            36,
+            75,
+            65
+          ],
+          "role": "power",
+          "description": "",
+          "source": "QS1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "QF2",
+          "kind": "breaker",
+          "title": "伺服動力支路保護",
+          "size": [
+            36,
+            75,
+            65
+          ],
+          "role": "power",
+          "description": "",
+          "source": "QS1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "PS1",
+          "kind": "psu",
+          "title": "24 VDC 電源",
+          "size": [
+            50,
+            95,
+            100
+          ],
+          "role": "power",
+          "description": "供應 PLC、I/O、光源控制、雷射位移計與感測器（示意）。",
+          "source": "QF1",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "GC1",
+          "kind": "safety",
+          "title": "安全控制器",
+          "size": [
+            45,
+            90,
+            95
+          ],
+          "role": "safety",
+          "description": "前門互鎖、急停；停止伺服與手臂、IPA 供給。",
+          "source": "PS1",
+          "category": "dc",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "PLC1",
+          "kind": "plc",
+          "title": "設備 PLC",
+          "size": [
+            80,
+            90,
+            85
+          ],
+          "role": "control",
+          "description": "站序、手臂與鎖附模組的槽位互鎖、料倉換盤、IPA 與吹乾計時。",
+          "source": "PS1",
+          "category": "dc",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "IO1",
+          "kind": "io",
+          "title": "分散式 I/O（台面）",
+          "size": [
+            50,
+            80,
+            65
+          ],
+          "role": "io",
+          "description": "載台到位、止擋、頂升、料倉層位、真空與壓力開關。",
+          "source": "PLC1",
+          "category": "signal",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "IO2",
+          "kind": "io",
+          "title": "分散式 I/O（閥島）",
+          "size": [
+            50,
+            80,
+            65
+          ],
+          "role": "io",
+          "description": "雙頭切換、漲緊、壓持、吹氣、擦拭墊、吹乾閥。",
+          "source": "PLC1",
+          "category": "signal",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "SW1",
+          "kind": "switch",
+          "title": "PoE 交換器",
+          "size": [
+            40,
+            80,
+            70
+          ],
+          "role": "network",
+          "description": "20 MP 相機 × 5、3D 線雷射 × 2、PLC、手臂控制器、視覺工控機（示意）。",
+          "source": "PS1",
+          "category": "dc",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "IPC1",
+          "kind": "ipc",
+          "title": "視覺工控機",
+          "size": [
+            160,
+            95,
+            100
+          ],
+          "role": "vision",
+          "description": "2D／3D 判讀、覆拍修正量、影像歸檔與追溯（IMG 編號）。",
+          "source": "SW1",
+          "category": "network",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "LC1",
+          "kind": "light",
+          "title": "頻閃光源控制器",
+          "size": [
+            60,
+            70,
+            70
+          ],
+          "role": "vision",
+          "description": "相機觸發同步：同軸、環形、條形光。",
+          "source": "IO1",
+          "category": "signal",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "NR1",
+          "kind": "drive",
+          "title": "伺服起子控制器",
+          "size": [
+            60,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "分段轉速與扭力控制，輸出扭力-角度曲線與轉數（示意）。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "GW1",
+          "kind": "gateway",
+          "title": "MES／資料閘道",
+          "size": [
+            45,
+            70,
+            60
+          ],
+          "role": "network",
+          "description": "上傳檢查、高度與鎖附紀錄；介面待確認。",
+          "source": "SW1",
+          "category": "network",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D1",
+          "kind": "drive",
+          "title": "Tray I 抽屜驅動",
+          "size": [
+            45,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "伺服功率級與回授；軸功率、編碼器與煞車選型待確認（示意）。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D2",
+          "kind": "drive",
+          "title": "Tray S 抽屜驅動",
+          "size": [
+            45,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "伺服功率級與回授；軸功率、編碼器與煞車選型待確認（示意）。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D3",
+          "kind": "drive",
+          "title": "料倉 I 升降驅動",
+          "size": [
+            45,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "伺服功率級與回授；軸功率、編碼器與煞車選型待確認（示意）。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D4",
+          "kind": "drive",
+          "title": "料倉 S 升降驅動",
+          "size": [
+            45,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "伺服功率級與回授；軸功率、編碼器與煞車選型待確認（示意）。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D5",
+          "kind": "drive",
+          "title": "鎖附 X 軸驅動",
+          "size": [
+            45,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "伺服功率級與回授；軸功率、編碼器與煞車選型待確認（示意）。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D6",
+          "kind": "drive",
+          "title": "起子 Z 軸驅動",
+          "size": [
+            45,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "伺服功率級與回授；軸功率、編碼器與煞車選型待確認（示意）。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "D7",
+          "kind": "drive",
+          "title": "起子沿槽軸驅動",
+          "size": [
+            45,
+            100,
+            110
+          ],
+          "role": "motion",
+          "description": "伺服功率級與回授；軸功率、編碼器與煞車選型待確認（示意）。",
+          "source": "QF2",
+          "category": "ac",
+          "model": "配置估算，型號待選"
+        },
+        {
+          "id": "RC1",
+          "kind": "robot",
+          "title": "手臂控制器",
+          "size": [
+            357,
+            94,
+            320
+          ],
+          "role": "motion",
+          "description": "RC8A 負責手臂軸控制，PLC 交握任務、完成與異常。",
+          "source": null,
+          "category": "ac",
+          "model": "RC8A 標準型包絡；357×94×320 mm",
+          "free": true
+        }
+      ],
+      "cables": {
+        "report": [
+          {
+            "scenario": "interposer PIN 歪斜 → NG",
+            "samples": 507,
+            "routes": 23,
+            "supports": 18,
+            "carriers": 4,
+            "feedthroughs": {
+              "plates": 1,
+              "glands": 5,
+              "holeRays": 30,
+              "wireCrossings": 15,
+              "mountChecks": 4,
+              "failures": []
+            }
+          }
+        ],
+        "failures": []
+      }
+    }
+  ]
+}

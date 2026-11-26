@@ -19,7 +19,7 @@
 ### HSR065 花鍵軸限位環與馬達蓋頂面在下降量約 106 mm 時同高
 - 提出：DRAM-Inspection（2026-11-26）
 - 現象：`core/models/robots/denso-hsr065.js` 的限位環頂面在 `270.8 − d3`、J3／J4 馬達蓋頂面在 164.5（相對 J2 群組），d3 ≈ 106.3 mm 時兩個面重合；重合面檢查剛好取樣到下降中的那一刻就會報閃爍
-- 暫代：`project-site/DRAM-Inspection/web/js/project.js` 的 `verify.skip` 排除限位環（`robot.arm.shaft.children[1]`）
+- 暫代：`project-site/DRAM-Inspection/web/js/project.js` 的 `verify.skip` 排除限位環與花鍵軸（`robot.arm.shaft.children[0..1]`；花鍵軸頂面在 d3 ≈ 105.5 mm 時也和馬達蓋頂面同高）
 - 期望介面：模型把限位環改高或改小（例如頂面再高 1 mm，或半徑小於馬達蓋開孔），各站移除 skip
 - 影響：所有用 HSR065 的站（shutter assembly、WorkpieceMeasurement）
 
